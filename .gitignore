@@ -1,0 +1,9 @@
+.vagrant/
+Vagrantfile.local
+
+*.pyc
+
+kafka/
+rest-utils/
+kafka-rest/
+schema-registry/
