@@ -43,3 +43,12 @@ if [ ! -e /opt/kafka ]; then
     ln -s /vagrant/rest-utils /opt/rest-utils
     ln -s /vagrant/kafka-rest /opt/kafka-rest
 fi
+
+# For EC2 nodes, we want to use /mnt, which should have the local disk. On local
+# VMs, we can just create it if it doesn't exist and use it like we'd use
+# /tmp. Eventually, we'd like to also support more directories, e.g. when EC2
+# instances have multiple local disks.
+if [ ! -e /mnt ]; then
+    mkdir /mnt
+fi
+chmod a+rwx /mnt

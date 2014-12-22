@@ -22,7 +22,7 @@ class ZookeeperService(Service):
     def start(self):
         super(ZookeeperService, self).start()
         config = """
-dataDir=/tmp/zookeeper
+dataDir=/mnt/zookeeper
 clientPort=2181
 maxClientCnxns=0
 initLimit=5
@@ -36,10 +36,10 @@ quorumListenOnAllIPs=true
         for idx,node in enumerate(self.nodes,1):
             self.logger.info("Starting ZK node %d on %s", idx, node.account.hostname)
             self._stop_and_clean(node, allow_fail=True)
-            node.account.ssh("mkdir -p /tmp/zookeeper")
-            node.account.ssh("echo %d > /tmp/zookeeper/myid" % idx)
-            node.account.create_file("/tmp/zookeeper.properties", config)
-            node.account.ssh("/opt/kafka/bin/zookeeper-server-start.sh /tmp/zookeeper.properties 1>> /tmp/zk.log 2>> /tmp/zk.log &")
+            node.account.ssh("mkdir -p /mnt/zookeeper")
+            node.account.ssh("echo %d > /mnt/zookeeper/myid" % idx)
+            node.account.create_file("/mnt/zookeeper.properties", config)
+            node.account.ssh("/opt/kafka/bin/zookeeper-server-start.sh /mnt/zookeeper.properties 1>> /mnt/zk.log 2>> /mnt/zk.log &")
             time.sleep(5) # give it some time to start
 
 
@@ -55,7 +55,7 @@ quorumListenOnAllIPs=true
         # zookeeper-stop-server.sh's SIGINT. We don't actually care about clean
         # shutdown here, so it's ok to use the bigger hammer
         node.account.ssh("/opt/kafka-rest/bin/kafka-rest-stop-service zookeeper", allow_fail=allow_fail)
-        node.account.ssh("rm -rf /tmp/zookeeper /tmp/zookeeper.properties /tmp/zk.log")
+        node.account.ssh("rm -rf /mnt/zookeeper /mnt/zookeeper.properties /mnt/zk.log")
 
 
     def connect_setting(self):
@@ -81,8 +81,8 @@ class KafkaService(Service):
                 'zk_connect': zk_connect
             }
             config = template % template_params
-            node.account.create_file("/tmp/kafka.properties", config)
-            node.account.ssh("/opt/kafka/bin/kafka-server-start.sh /tmp/kafka.properties 1>> /tmp/kafka.log 2>> /tmp/kafka.log &")
+            node.account.create_file("/mnt/kafka.properties", config)
+            node.account.ssh("/opt/kafka/bin/kafka-server-start.sh /mnt/kafka.properties 1>> /mnt/kafka.log 2>> /mnt/kafka.log &")
             time.sleep(5) # wait for start up
 
         if self.topics is not None:
@@ -109,7 +109,7 @@ class KafkaService(Service):
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka/bin/kafka-server-stop.sh", allow_fail=allow_fail)
         time.sleep(5) # the stop script doesn't wait
-        node.account.ssh("rm -rf /tmp/kafka-logs /tmp/kafka.properties /tmp/kafka.log")
+        node.account.ssh("rm -rf /mnt/kafka-logs /mnt/kafka.properties /mnt/kafka.log")
 
     def bootstrap_servers(self):
         return ','.join([node.account.hostname + ":9092" for node in self.nodes])
@@ -135,8 +135,8 @@ class KafkaRestService(Service):
                 'bootstrap_servers': bootstrapServers
             }
             config = template % template_params
-            node.account.create_file("/tmp/rest.properties", config)
-            node.account.ssh("/opt/kafka-rest/bin/kafka-rest-start /tmp/rest.properties 1>> /tmp/rest.log 2>> /tmp/rest.log &")
+            node.account.create_file("/mnt/rest.properties", config)
+            node.account.ssh("/opt/kafka-rest/bin/kafka-rest-start /mnt/rest.properties 1>> /mnt/rest.log 2>> /mnt/rest.log &")
 
     def stop(self):
         for idx,node in enumerate(self.nodes,1):
@@ -146,7 +146,7 @@ class KafkaRestService(Service):
 
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka-rest/bin/kafka-rest-stop", allow_fail=allow_fail)
-        node.account.ssh("rm -rf /tmp/rest.properties /tmp/rest.log")
+        node.account.ssh("rm -rf /mnt/rest.properties /mnt/rest.log")
 
     def url(self, idx=0):
         return "http://" + self.nodes[idx].account.hostname + ":8080"
