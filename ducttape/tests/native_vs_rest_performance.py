@@ -63,7 +63,7 @@ class NativeVsRestConsumerPerformance(RestProxyTest):
     def run(self):
         self.setUp()
 
-        msgs = 50000000
+        msgs = 5000000
         msg_size = 100
         batch_size = 8196
         acks = 1 # default for REST proxy, which isn't yet configurable
