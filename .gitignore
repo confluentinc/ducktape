@@ -4,6 +4,7 @@ Vagrantfile.local
 *.pyc
 
 kafka/
+common/
 rest-utils/
 kafka-rest/
 schema-registry/

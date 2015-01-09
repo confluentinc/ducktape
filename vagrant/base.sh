@@ -40,6 +40,7 @@ fi
 chmod a+rw /opt
 if [ ! -e /opt/kafka ]; then
     ln -s /vagrant/kafka /opt/kafka
+    ln -s /vagrant/common /opt/common
     ln -s /vagrant/rest-utils /opt/rest-utils
     ln -s /vagrant/kafka-rest /opt/kafka-rest
 fi
