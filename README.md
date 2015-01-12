@@ -11,18 +11,18 @@ results, etc.).
 
 1. Use the `build.sh` script to make sure you have all the projects checked out
    and built against the specified versions.
-2. Bring up the cluster with Vagrant for testing, making sure you have enough
+2. Configure your Vagrant setup by creating the file `Vagrantfile.local`. At a
+   minimum, you *MUST* set the value of num_workers high enough for the tests
+   you're trying to run.
+3. Bring up the cluster with Vagrant for testing, making sure you have enough
    workers, with `vagrant up`. If you want to run on AWS, use `vagrant up
-   --provider=aws --no-parallel`. Additional configs are pulled from
-   `Vagrantfile.local`, which is evaluated as Ruby code inside the
-   `Vagrantfile`. Use this to, e.g., setup enough workers for the tests you are
-   running via the `num_workers` variable.
-3. Run one or more tests. Individual tests can be run directly:
+   --provider=aws --no-parallel`.
+4. Run one or more tests. Individual tests can be run directly:
 
     $ python -m ducttape.tests.native_vs_rest_performance
 
    There isn't yet a test runner to run all scripts in sequence.
-4. To iterate/run again if you already initialized the repositories:
+5. To iterate/run again if you already initialized the repositories:
 
     $ build.sh --update
     $ vagrant rsync # Re-syncs build output to cluster
