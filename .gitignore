@@ -1,6 +1,8 @@
 .vagrant/
 Vagrantfile.local
 
+.idea/
+
 *.pyc
 
 kafka/
