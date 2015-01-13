@@ -1,5 +1,14 @@
 #!/bin/bash -e
 
+# Detect jdk version
+jdk=`javac -version 2>&1 | cut -d ' ' -f 2`
+ver=`echo $jdk | cut -d '.' -f 2`
+if (( $ver > 6 )); then
+    echo "Found jdk version $jdk"
+    echo "You should only build with jdk 1.6 or below."
+    exit 1
+fi
+
 while [ $# -gt 0 ]; do
   OPTION=$1
   case $OPTION in
@@ -13,6 +22,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+KAFKA_VERSION=0.8.2-beta
 
 if [ ! -e kafka ]; then
     echo "Cloning Kafka"
@@ -21,12 +31,12 @@ fi
 
 pushd kafka
 
-if [ "x$UPDATE" == "xyes" ]; then
-    echo "Updating Kafka"
-    git pull origin
+if [ "x$UPDATE" == "xyes" ]; then      
+    echo "Updating Kafka"      
+    git fetch origin        
 fi
 
-git checkout 0.8.2-beta
+git checkout tags/$KAFKA_VERSION
 
 # FIXME we should be installing the version of Kafka we built into the local
 # Maven repository and making sure we specify the right Kafka version when
