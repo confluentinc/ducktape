@@ -1,10 +1,8 @@
 #!/bin/bash -e
 
 # Detect jdk version
-javac -version 2> tmp.version
-jdk=`cut -d ' ' -f 2 tmp.version`
+jdk=`javac -version 2>&1 | cut -d ' ' -f 2`
 ver=`echo $jdk | cut -d '.' -f 2`
-rm tmp.version
 if (( $ver > 6 )); then
     echo "Found jdk version $jdk"
     echo "You should only build with jdk 1.6 or below."
@@ -32,6 +30,12 @@ if [ ! -e kafka ]; then
 fi
 
 pushd kafka
+
+if [ "x$UPDATE" == "xyes" ]; then      
+    echo "Updating Kafka"      
+    git fetch origin        
+fi
+
 git checkout tags/$KAFKA_VERSION
 
 # FIXME we should be installing the version of Kafka we built into the local
