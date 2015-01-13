@@ -19,13 +19,13 @@ results, etc.).
    --provider=aws --no-parallel`.
 4. Run one or more tests. Individual tests can be run directly:
 
-    $ python -m ducttape.tests.native_vs_rest_performance
+        $ python -m ducttape.tests.native_vs_rest_performance
 
    There isn't yet a test runner to run all scripts in sequence.
 5. To iterate/run again if you already initialized the repositories:
 
-    $ build.sh --update
-    $ vagrant rsync # Re-syncs build output to cluster
+        $ build.sh --update
+        $ vagrant rsync # Re-syncs build output to cluster
 
 Writing New Tests
 -----------------
