@@ -26,6 +26,8 @@ if [ "x$UPDATE" == "xyes" ]; then
     git pull origin
 fi
 
+git checkout 0.8.2-beta
+
 # FIXME we should be installing the version of Kafka we built into the local
 # Maven repository and making sure we specify the right Kafka version when
 # building our own projects. Currently ours link to whatever version of Kafka
