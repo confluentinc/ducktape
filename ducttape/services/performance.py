@@ -64,6 +64,7 @@ class ProducerPerformanceService(PerformanceService):
         args.update({'bootstrap_servers': self.kafka.bootstrap_servers()})
         cmd = "/opt/kafka/bin/kafka-run-class.sh org.apache.kafka.clients.tools.ProducerPerformance "\
               "%(topic)s %(num_records)d %(record_size)d %(throughput)d bootstrap.servers=%(bootstrap_servers)s" % args
+
         for key,value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
         self.logger.debug("Producer performance %d command: %s", idx, cmd)
@@ -215,6 +216,53 @@ class RestConsumerPerformanceService(PerformanceService):
         results['rate_mbps'] = results['mbps']
         results['rate_mps'] = results['records_per_sec']
         self.results[idx-1] = results
+
+
+class SchemaRegistryPerformanceService(PerformanceService):
+    def __init__(self, cluster, num_nodes, rest, topic, num_records, throughput, settings={}):
+        super(SchemaRegistryPerformanceService, self).__init__(cluster, num_nodes)
+        self.rest = rest
+        self.args = {
+            'topic': topic,
+            'num_records': num_records,
+            # See note in producer version. For consumer, must be as large as
+            # the default # of messages returned per request, currently 100
+            'throughput': throughput if throughput > 0 else -100
+        }
+        self.settings = settings
+
+    def _worker(self, idx, node):
+        args = self.args.copy()
+        args.update({'rest_url': self.rest.url()})
+        cmd = "/opt/kafka-rest/bin/kafka-rest-run-class io.confluent.kafkarest.tools.ConsumerPerformance "\
+              "'%(rest_url)s' %(topic)s %(num_records)d %(throughput)d" % args
+        for key,value in self.settings.items():
+            cmd += " %s=%s" % (str(key), str(value))
+        self.logger.debug("REST Consumer performance %d command: %s", idx, cmd)
+        last = None
+        for line in node.account.ssh_capture(cmd):
+            self.logger.debug("REST Consumer performance %d: %s", idx, line.strip())
+            last = line
+        # Parse and save the last line's information
+        parts = last.split(',')
+        results = {
+            'records': int(parts[0].split()[0]),
+            'records_per_sec': float(parts[1].split()[0]),
+            'mbps': float(parts[1].split('(')[1].split()[0]),
+            'latency_avg_ms': float(parts[2].split()[0]),
+            'latency_max_ms': float(parts[3].split()[0]),
+            'latency_50th_ms': float(parts[4].split()[0]),
+            'latency_95th_ms': float(parts[5].split()[0]),
+            'latency_99th_ms': float(parts[6].split()[0]),
+            'latency_999th_ms': float(parts[7].split()[0]),
+        }
+        # To provide compatibility with ConsumerPerformanceService
+        results['total_mb'] = results['mbps'] * (results['records'] / results['records_per_sec'])
+        results['rate_mbps'] = results['mbps']
+        results['rate_mps'] = results['records_per_sec']
+        self.results[idx-1] = results
+
+
 
 class EndToEndLatencyService(PerformanceService):
     def __init__(self, cluster, num_nodes, kafka, topic, num_records, consumer_fetch_max_wait=100, acks=1):

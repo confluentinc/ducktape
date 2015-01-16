@@ -43,6 +43,7 @@ if [ ! -e /opt/kafka ]; then
     ln -s /vagrant/common /opt/common
     ln -s /vagrant/rest-utils /opt/rest-utils
     ln -s /vagrant/kafka-rest /opt/kafka-rest
+    ln -s /vagrant/schema-registry /opt/schema-registry
 fi
 
 # For EC2 nodes, we want to use /mnt, which should have the local disk. On local
