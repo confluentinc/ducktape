@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .service import Service
-import time, threading
+import time
 
 class ZookeeperService(Service):
     def __init__(self, cluster, num_nodes):
@@ -161,25 +161,31 @@ class SchemaRegistryService(Service):
     def start(self):
         super(SchemaRegistryService, self).start()
         template = open('templates/schema-registry.properties').read()
-        # zk_connect = self.zk.connect_setting()
-        bootstrap_servers = self.kafka.bootstrap_servers()
+
         for idx, node in enumerate(self.nodes, 1):
             self.logger.info("Starting Schema Registry node %d on %s", idx, node.account.hostname)
             self._stop_and_clean(node, allow_fail=True)
 
             template_params = {
                 'kafkastore_topic': '_schemas',
-                'kafkastore_url': 'localhost:2181',
+                'kafkastore_url': self.zk.connect_setting(),
                 'rest_port': 8080
             }
             config = template % template_params
+
             node.account.create_file("/mnt/schema-registry.properties", config)
-            node.account.ssh("/opt/schema-registry/bin/schema-registry-start /mnt/schema-registry.properties 1>> /mnt/schema-registry.log 2>> /mnt/schema-registry.log &")
+            cmd = "/opt/schema-registry/bin/schema-registry-start /mnt/schema-registry.properties " \
+                + "1>> /mnt/schema-registry.log 2>> /mnt/schema-registry.log &"
+
+            node.account.ssh(cmd)
+
+            # Give the server a little time to become live
+            time.sleep(4)
 
     def stop(self):
         for idx, node in enumerate(self.nodes, 1):
             self.logger.info("Stopping Schema Registry node %d on %s", idx, node.account.hostname)
-            self._stop_and_clean(node)
+            self._stop_and_clean(node, True)
             node.free()
 
     def _stop_and_clean(self, node, allow_fail=False):

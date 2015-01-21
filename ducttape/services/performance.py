@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .service import Service
-import time, threading
+import threading
 
 class PerformanceService(Service):
     def start(self):
@@ -219,29 +219,31 @@ class RestConsumerPerformanceService(PerformanceService):
 
 
 class SchemaRegistryPerformanceService(PerformanceService):
-    def __init__(self, cluster, num_nodes, rest, topic, num_records, throughput, settings={}):
+    def __init__(self, cluster, num_nodes, schema_registry, subject, num_schemas, schemas_per_sec, settings={}):
         super(SchemaRegistryPerformanceService, self).__init__(cluster, num_nodes)
-        self.rest = rest
+        self.schema_registry = schema_registry
+
         self.args = {
-            'topic': topic,
-            'num_records': num_records,
-            # See note in producer version. For consumer, must be as large as
-            # the default # of messages returned per request, currently 100
-            'throughput': throughput if throughput > 0 else -100
+            'subject' : subject,
+            'num_schemas' : num_schemas,
+            'schemas_per_sec' : schemas_per_sec
         }
         self.settings = settings
 
     def _worker(self, idx, node):
         args = self.args.copy()
-        args.update({'rest_url': self.rest.url()})
-        cmd = "/opt/kafka-rest/bin/kafka-rest-run-class io.confluent.kafkarest.tools.ConsumerPerformance "\
-              "'%(rest_url)s' %(topic)s %(num_records)d %(throughput)d" % args
+
+        args.update({'schema_registry_url': self.schema_registry.url()})
+
+        cmd = "/opt/schema-registry/bin/schema-registry-run-class io.confluent.kafka.schemaregistry.tools.SchemaRegistryPerformance "\
+              "'%(schema_registry_url)s' %(subject)s %(num_schemas)d %(schemas_per_sec)d" % args
         for key,value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
-        self.logger.debug("REST Consumer performance %d command: %s", idx, cmd)
+
+        self.logger.debug("Schema Registry performance %d command: %s", idx, cmd)
         last = None
         for line in node.account.ssh_capture(cmd):
-            self.logger.debug("REST Consumer performance %d: %s", idx, line.strip())
+            self.logger.debug("Schema Registry performance %d: %s", idx, line.strip())
             last = line
         # Parse and save the last line's information
         parts = last.split(',')
