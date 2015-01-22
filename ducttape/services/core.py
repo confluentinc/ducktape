@@ -180,7 +180,7 @@ class SchemaRegistryService(Service):
             node.account.ssh(cmd)
 
             # Give the server a little time to become live
-            time.sleep(4)
+            time.sleep(8)
 
     def stop(self):
         for idx, node in enumerate(self.nodes, 1):

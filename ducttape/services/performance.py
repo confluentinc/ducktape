@@ -199,23 +199,7 @@ class RestConsumerPerformanceService(PerformanceService):
             self.logger.debug("REST Consumer performance %d: %s", idx, line.strip())
             last = line
         # Parse and save the last line's information
-        parts = last.split(',')
-        results = {
-            'records': int(parts[0].split()[0]),
-            'records_per_sec': float(parts[1].split()[0]),
-            'mbps': float(parts[1].split('(')[1].split()[0]),
-            'latency_avg_ms': float(parts[2].split()[0]),
-            'latency_max_ms': float(parts[3].split()[0]),
-            'latency_50th_ms': float(parts[4].split()[0]),
-            'latency_95th_ms': float(parts[5].split()[0]),
-            'latency_99th_ms': float(parts[6].split()[0]),
-            'latency_999th_ms': float(parts[7].split()[0]),
-        }
-        # To provide compatibility with ConsumerPerformanceService
-        results['total_mb'] = results['mbps'] * (results['records'] / results['records_per_sec'])
-        results['rate_mbps'] = results['mbps']
-        results['rate_mps'] = results['records_per_sec']
-        self.results[idx-1] = results
+        self.results[idx-1] = parse_performance_output(last)
 
 
 class SchemaRegistryPerformanceService(PerformanceService):
@@ -243,27 +227,10 @@ class SchemaRegistryPerformanceService(PerformanceService):
         self.logger.debug("Schema Registry performance %d command: %s", idx, cmd)
         last = None
         for line in node.account.ssh_capture(cmd):
-            self.logger.debug("Schema Registry performance %d: %s", idx, line.strip())
+            self.logger.info("Schema Registry performance %d: %s", idx, line.strip())
             last = line
         # Parse and save the last line's information
-        parts = last.split(',')
-        results = {
-            'records': int(parts[0].split()[0]),
-            'records_per_sec': float(parts[1].split()[0]),
-            'mbps': float(parts[1].split('(')[1].split()[0]),
-            'latency_avg_ms': float(parts[2].split()[0]),
-            'latency_max_ms': float(parts[3].split()[0]),
-            'latency_50th_ms': float(parts[4].split()[0]),
-            'latency_95th_ms': float(parts[5].split()[0]),
-            'latency_99th_ms': float(parts[6].split()[0]),
-            'latency_999th_ms': float(parts[7].split()[0]),
-        }
-        # To provide compatibility with ConsumerPerformanceService
-        results['total_mb'] = results['mbps'] * (results['records'] / results['records_per_sec'])
-        results['rate_mbps'] = results['mbps']
-        results['rate_mps'] = results['records_per_sec']
-        self.results[idx-1] = results
-
+        self.results[idx-1] = parse_performance_output(last)
 
 
 class EndToEndLatencyService(PerformanceService):
@@ -297,3 +264,25 @@ class EndToEndLatencyService(PerformanceService):
                 results['latency_99th_ms'] = float(line.split()[6][:-1])
                 results['latency_999th_ms'] = float(line.split()[9])
         self.results[idx-1] = results
+
+
+def parse_performance_output(summary):
+        parts = summary.split(',')
+        results = {
+            'records': int(parts[0].split()[0]),
+            'records_per_sec': float(parts[1].split()[0]),
+            'mbps': float(parts[1].split('(')[1].split()[0]),
+            'latency_avg_ms': float(parts[2].split()[0]),
+            'latency_max_ms': float(parts[3].split()[0]),
+            'latency_50th_ms': float(parts[4].split()[0]),
+            'latency_95th_ms': float(parts[5].split()[0]),
+            'latency_99th_ms': float(parts[6].split()[0]),
+            'latency_999th_ms': float(parts[7].split()[0]),
+        }
+        # To provide compatibility with ConsumerPerformanceService
+        results['total_mb'] = results['mbps'] * (results['records'] / results['records_per_sec'])
+        results['rate_mbps'] = results['mbps']
+        results['rate_mps'] = results['records_per_sec']
+
+        return results
+

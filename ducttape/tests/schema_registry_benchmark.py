@@ -1,4 +1,4 @@
-# Copyright 2014 Confluent Inc.
+# Copyright 2015 Confluent Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,10 @@
 
 from .test import SchemaRegistryTest
 from ducttape.services.performance import SchemaRegistryPerformanceService
-import logging
-
-
-logging.basicConfig(level=logging.DEBUG)
 
 class SchemaRegistryBenchmark(SchemaRegistryTest):
     def __init__(self, cluster):
-        super(SchemaRegistryBenchmark, self).__init__(cluster, num_zk=1, num_brokers=1, num_schema_reg=1)
+        super(SchemaRegistryBenchmark, self).__init__(cluster, num_zk=1, num_brokers=3, num_schema_reg=1)
 
     def run(self):
         self.setUp()
@@ -40,10 +36,9 @@ class SchemaRegistryBenchmark(SchemaRegistryTest):
         schema_registry_perf.run()
         self.tearDown()
 
-        # self.logger.info("Schema Registry performance: %f per sec, %f ms",
-        #                  schema_registry_perf.results[0]['records_per_sec'],
-        #                  schema_registry_perf.results[0]['latency_99th_ms'])
-        self.logger.info(schema_registry_perf.results)
+        self.logger.info("Schema Registry performance: %f per sec, %f ms",
+                         schema_registry_perf.results[0]['records_per_sec'],
+                         schema_registry_perf.results[0]['latency_99th_ms'])
 
 
 if __name__ == "__main__":
