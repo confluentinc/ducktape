@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .service import Service
-import time, threading
+import time
 
 class ZookeeperService(Service):
     def __init__(self, cluster, num_nodes):
@@ -147,6 +147,50 @@ class KafkaRestService(Service):
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka-rest/bin/kafka-rest-stop", allow_fail=allow_fail)
         node.account.ssh("rm -rf /mnt/rest.properties /mnt/rest.log")
+
+    def url(self, idx=0):
+        return "http://" + self.nodes[idx].account.hostname + ":8080"
+
+
+class SchemaRegistryService(Service):
+    def __init__(self, cluster, num_nodes, zk, kafka):
+        super(SchemaRegistryService, self).__init__(cluster, num_nodes)
+        self.zk = zk
+        self.kafka = kafka
+
+    def start(self):
+        super(SchemaRegistryService, self).start()
+        template = open('templates/schema-registry.properties').read()
+
+        for idx, node in enumerate(self.nodes, 1):
+            self.logger.info("Starting Schema Registry node %d on %s", idx, node.account.hostname)
+            self._stop_and_clean(node, allow_fail=True)
+
+            template_params = {
+                'kafkastore_topic': '_schemas',
+                'kafkastore_url': self.zk.connect_setting(),
+                'rest_port': 8080
+            }
+            config = template % template_params
+
+            node.account.create_file("/mnt/schema-registry.properties", config)
+            cmd = "/opt/schema-registry/bin/schema-registry-start /mnt/schema-registry.properties " \
+                + "1>> /mnt/schema-registry.log 2>> /mnt/schema-registry.log &"
+
+            node.account.ssh(cmd)
+
+            # Give the server a little time to become live
+            time.sleep(8)
+
+    def stop(self):
+        for idx, node in enumerate(self.nodes, 1):
+            self.logger.info("Stopping Schema Registry node %d on %s", idx, node.account.hostname)
+            self._stop_and_clean(node, True)
+            node.free()
+
+    def _stop_and_clean(self, node, allow_fail=False):
+        node.account.ssh("/opt/schema-registry/bin/schema-registry-stop", allow_fail=allow_fail)
+        node.account.ssh("rm -rf /mnt/schema-registry.properties /mnt/schema-registry.log")
 
     def url(self, idx=0):
         return "http://" + self.nodes[idx].account.hostname + ":8080"

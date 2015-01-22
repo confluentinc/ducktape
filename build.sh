@@ -88,4 +88,6 @@ function build_maven_project() {
 
 build_maven_project "common" "git@github.com:confluentinc/common.git" "install"
 build_maven_project "rest-utils" "git@github.com:confluentinc/rest-utils.git" "install"
+build_maven_project "schema-registry" "git@github.com:confluentinc/schema-registry.git" "install"
 build_maven_project "kafka-rest" "git@github.com:confluentinc/kafka-rest.git" "package"
+

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .service import Service
-import time, threading
+import threading
 
 class PerformanceService(Service):
     def start(self):
@@ -64,6 +64,7 @@ class ProducerPerformanceService(PerformanceService):
         args.update({'bootstrap_servers': self.kafka.bootstrap_servers()})
         cmd = "/opt/kafka/bin/kafka-run-class.sh org.apache.kafka.clients.tools.ProducerPerformance "\
               "%(topic)s %(num_records)d %(record_size)d %(throughput)d bootstrap.servers=%(bootstrap_servers)s" % args
+
         for key,value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
         self.logger.debug("Producer performance %d command: %s", idx, cmd)
@@ -198,23 +199,39 @@ class RestConsumerPerformanceService(PerformanceService):
             self.logger.debug("REST Consumer performance %d: %s", idx, line.strip())
             last = line
         # Parse and save the last line's information
-        parts = last.split(',')
-        results = {
-            'records': int(parts[0].split()[0]),
-            'records_per_sec': float(parts[1].split()[0]),
-            'mbps': float(parts[1].split('(')[1].split()[0]),
-            'latency_avg_ms': float(parts[2].split()[0]),
-            'latency_max_ms': float(parts[3].split()[0]),
-            'latency_50th_ms': float(parts[4].split()[0]),
-            'latency_95th_ms': float(parts[5].split()[0]),
-            'latency_99th_ms': float(parts[6].split()[0]),
-            'latency_999th_ms': float(parts[7].split()[0]),
+        self.results[idx-1] = parse_performance_output(last)
+
+
+class SchemaRegistryPerformanceService(PerformanceService):
+    def __init__(self, cluster, num_nodes, schema_registry, subject, num_schemas, schemas_per_sec, settings={}):
+        super(SchemaRegistryPerformanceService, self).__init__(cluster, num_nodes)
+        self.schema_registry = schema_registry
+
+        self.args = {
+            'subject' : subject,
+            'num_schemas' : num_schemas,
+            'schemas_per_sec' : schemas_per_sec
         }
-        # To provide compatibility with ConsumerPerformanceService
-        results['total_mb'] = results['mbps'] * (results['records'] / results['records_per_sec'])
-        results['rate_mbps'] = results['mbps']
-        results['rate_mps'] = results['records_per_sec']
-        self.results[idx-1] = results
+        self.settings = settings
+
+    def _worker(self, idx, node):
+        args = self.args.copy()
+
+        args.update({'schema_registry_url': self.schema_registry.url()})
+
+        cmd = "/opt/schema-registry/bin/schema-registry-run-class io.confluent.kafka.schemaregistry.tools.SchemaRegistryPerformance "\
+              "'%(schema_registry_url)s' %(subject)s %(num_schemas)d %(schemas_per_sec)d" % args
+        for key,value in self.settings.items():
+            cmd += " %s=%s" % (str(key), str(value))
+
+        self.logger.debug("Schema Registry performance %d command: %s", idx, cmd)
+        last = None
+        for line in node.account.ssh_capture(cmd):
+            self.logger.info("Schema Registry performance %d: %s", idx, line.strip())
+            last = line
+        # Parse and save the last line's information
+        self.results[idx-1] = parse_performance_output(last)
+
 
 class EndToEndLatencyService(PerformanceService):
     def __init__(self, cluster, num_nodes, kafka, topic, num_records, consumer_fetch_max_wait=100, acks=1):
@@ -247,3 +264,25 @@ class EndToEndLatencyService(PerformanceService):
                 results['latency_99th_ms'] = float(line.split()[6][:-1])
                 results['latency_999th_ms'] = float(line.split()[9])
         self.results[idx-1] = results
+
+
+def parse_performance_output(summary):
+        parts = summary.split(',')
+        results = {
+            'records': int(parts[0].split()[0]),
+            'records_per_sec': float(parts[1].split()[0]),
+            'mbps': float(parts[1].split('(')[1].split()[0]),
+            'latency_avg_ms': float(parts[2].split()[0]),
+            'latency_max_ms': float(parts[3].split()[0]),
+            'latency_50th_ms': float(parts[4].split()[0]),
+            'latency_95th_ms': float(parts[5].split()[0]),
+            'latency_99th_ms': float(parts[6].split()[0]),
+            'latency_999th_ms': float(parts[7].split()[0]),
+        }
+        # To provide compatibility with ConsumerPerformanceService
+        results['total_mb'] = results['mbps'] * (results['records'] / results['records_per_sec'])
+        results['rate_mbps'] = results['mbps']
+        results['rate_mps'] = results['records_per_sec']
+
+        return results
+

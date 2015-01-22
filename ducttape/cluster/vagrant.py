@@ -26,6 +26,8 @@ class VagrantCluster(JsonCluster):
     def __init__(self):
         hostname, username, flags = None, None, ""
         nodes = []
+
+        # Parse ssh-config info on each vagrant virtual machine into json
         for line in (subprocess.check_output("vagrant ssh-config", shell=True)).split("\n"):
             line = line.strip()
             if len(line.strip()) == 0:
@@ -55,9 +57,11 @@ class VagrantCluster(JsonCluster):
                 username = val
             else:
                 flags += "-o '" + line + "' "
+
         cluster_json = {
             "nodes": nodes
         }
+
         super(VagrantCluster, self).__init__(cluster_json)
 
 Cluster._FACTORY["vagrant"]   = VagrantCluster

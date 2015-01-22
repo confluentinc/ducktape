@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ducttape.cluster import VagrantCluster
-from ducttape.services.core import ZookeeperService, KafkaService, KafkaRestService
+from ducttape.services.core import ZookeeperService, KafkaService, KafkaRestService, SchemaRegistryService
 from ducttape.logger import Logger
 import logging
 
@@ -75,3 +75,21 @@ class RestProxyTest(KafkaTest):
     def tearDown(self):
         self.rest.stop()
         super(RestProxyTest, self).tearDown()
+
+class SchemaRegistryTest(KafkaTest):
+    '''Helper class that manages setting up Kafka and the Schema Registry proxy. The Schema Registry
+    service is available as the field SchemaRegistryTest.schema_registry.
+    '''
+    def __init__(self, cluster, num_zk=1, num_brokers=1, num_schema_reg=1):
+        super(SchemaRegistryTest, self).__init__(cluster, num_zk, num_brokers, topics=None)
+        self.num_schema_reg = num_schema_reg
+
+    def setUp(self):
+        super(SchemaRegistryTest, self).setUp()
+        self.schema_registry = SchemaRegistryService(self.cluster, self.num_schema_reg, self.zk, self.kafka)
+        self.schema_registry.start()
+
+    def tearDown(self):
+        self.schema_registry.stop()
+        super(SchemaRegistryTest, self).tearDown()
+
