@@ -41,8 +41,6 @@ class RegisterSchemasService(Service):
     def start(self):
         super(RegisterSchemasService, self).start()
 
-        # self.results = [None] * len(self.nodes)
-        # self.stats = [[] for x in range(len(self.nodes))]
         for idx, node in enumerate(self.nodes, 1):
             self.logger.info("Running %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
             worker = threading.Thread(
@@ -69,19 +67,21 @@ class RegisterSchemasService(Service):
             node.free()
 
     def _worker(self, idx, node):
-
         # Set global schema compatibility requirement to NONE
         self.logger.debug("Changing compatibility requirement on %s" % self.schema_registry.url(1))
         self.logger.debug(self.schema_registry.url(1))
         update_config(self.schema_registry.url(1), ConfigUpdateRequest(Compatibility.NONE))
 
         for i in range(self.num_schemas):
-            self.try_register(i)
+            self.try_register(i, idx, node)
 
-    def try_register(self, num):
+    def try_register(self, num, idx, node):
         """
         Try to register schema with the schema registry, rotating through the servers if
          necessary.
+
+        Currently idx and node are not used because the registration requests happen locally. But it's conceivable
+        that we might want a setup where requests come in concurrently from different nodes.
         """
 
         self.logger.debug("Attempting to register schema number %d." % num)

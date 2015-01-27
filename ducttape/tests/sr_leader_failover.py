@@ -102,13 +102,12 @@ class FailoverTest(SchemaRegistryTest):
         # set up
         self.setUp()
 
-        # start registering
+        # start schema registration in the background
         self.register_driver.start()
 
         # do the kill or bounce logic
         self.drive_failures()
 
-        # Wait for the driver to finish
         self.register_driver.wait()
         self.register_driver.stop()
 
@@ -197,7 +196,7 @@ class HardBounce(FailoverTest):
 
 
 if __name__ == "__main__":
-    # LeaderCleanFailover.run_standalone()
-    # LeaderHardFailover.run_standalone()
+    LeaderCleanFailover.run_standalone()
+    LeaderHardFailover.run_standalone()
     CleanBounce.run_standalone()
     HardBounce.run_standalone()
