@@ -32,23 +32,17 @@ class EverythingRunsTest(Test):
 
         self.kafka = KafkaService(self.cluster, 1, self.zk)
         self.kafka.start()
-        #
-        # self.rest_proxy = KafkaRestService(self.cluster, 1, self.zk, self.kafka)
-        # self.rest_proxy.start()
+
+        self.rest_proxy = KafkaRestService(self.cluster, 1, self.zk, self.kafka)
+        self.rest_proxy.start()
 
         self.schema_registry = SchemaRegistryService(self.cluster, 1, self.zk, self.kafka)
         self.schema_registry.start()
 
-        # self.register_schemas = RegisterSchemasService(self.cluster, 1, self.schema_registry, 10000, .02, 10)
-
-        # master_node = self.schema_registry.get_master_node()
-        # print master_node
-        # master_id = self.schema_registry.idx(master_node)
-        # print "Master node is " + self.schema_registry.url(master_id) + " and has id " + str(master_id)
-
-        # self.schema_registry.stop()
-        # self.zk.stop()
-        # self.kafka.stop()
+        self.schema_registry.stop()
+        self.rest_proxy.stop()
+        self.zk.stop()
+        self.kafka.stop()
 
         self.logger.info("All proceeded smoothly.")
 
