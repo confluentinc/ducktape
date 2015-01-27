@@ -1,196 +1,125 @@
-# from .service import Service
-import json
-import urllib2
-
-SCHEMA_REGISTRY_V1_JSON = "application/vnd.schemaregistry.v1+json"
-SCHEMA_REGISTRY_V1_JSON_WEIGHTED = SCHEMA_REGISTRY_V1_JSON
-
-# These are defaults that track the most recent API version. These should always be specified
-# anywhere the latest version is produced/consumed.
-SCHEMA_REGISTRY_MOST_SPECIFIC_DEFAULT = SCHEMA_REGISTRY_V1_JSON
-SCHEMA_REGISTRY_DEFAULT_JSON = "application/vnd.schemaregistry+json"
-SCHEMA_REGISTRY_DEFAULT_JSON_WEIGHTED = SCHEMA_REGISTRY_DEFAULT_JSON + "; qs=0.9"
-JSON = "application/json"
-JSON_WEIGHTED = JSON + "; qs=0.5"
-
-PREFERRED_RESPONSE_TYPES = [SCHEMA_REGISTRY_V1_JSON, SCHEMA_REGISTRY_DEFAULT_JSON, JSON]
-
-# This type is completely generic and carries no actual information about the type of data, but
-# it is the default for request entities if no content type is specified. Well behaving users
-# of the API will always specify the content type, but ad hoc use may omit it. We treat this as
-# JSON since that's all we currently support.
-GENERIC_REQUEST = "application/octet-stream"
-
-
-# Minimum header data necessary for using the Schema Registry REST api.
-DEFAULT_REQUEST_PROPERTIES = {"Content-Type": SCHEMA_REGISTRY_V1_JSON_WEIGHTED, "Accept": "*/*"}
-
-
-class RequestData(object):
-    """
-    Interface for classes wrapping data that goes in the body of an http request.
-    """
-    def to_json(self):
-        raise NotImplementedError("Subclasses should implement to_json")
-
-
-class RegisterSchemaRequest(RequestData):
-    def __init__(self, schema_string):
-        self.schema = schema_string
-
-    def to_json(self):
-        return json.dumps({"schema": self.schema})
-
-
-class ConfigUpdateRequest(RequestData):
-    def __init__(self, compatibility):
-        # "none", "backward", "forward", or "full"
-        self.compatibility = compatibility.upper()
-
-    def to_json(self):
-        return json.dumps({"compatibility": self.compatibility.upper()})
-
-
-def http_request(url, method, data, headers):
-    if url[0:7].lower() != "http://":
-        url = "http://%s" % url
-
-    req = urllib2.Request(url, data, headers)
-    req.get_method = lambda: method
-    resp = urllib2.urlopen(req)
-
-    if resp.getcode() >= 400:
-        raise Exception("There was an error with the http request. HTTP code " + resp.getcode())
-
-    return resp
-
-
-def make_schema_string(num=None):
-    if num is not None and num >=0:
-        field_name = "f%d" % num
-    else:
-        field_name = "f"
-
-    schema_str = json.dumps({
-        'type': 'record',
-        'name': 'myrecord',
-        'fields': [
-            {
-                'type': 'string',
-                'name': field_name
-            }
-        ]
-    })
-
-    return schema_str
-
-
-def register_schema(base_url, register_schema_request, subject):
-    """
-    return id of registered schema, or return -1 to indicate that the request was not successful.
-    """
-
-    url = base_url + "/subjects/%s/versions" % subject
-    resp = http_request(url, "POST", register_schema_request.to_json(), DEFAULT_REQUEST_PROPERTIES)
-
-    return int(resp.read()["id"])
-
-
-def update_config(base_url, config_update_request, subject=None):
-    if subject is None:
-        url = "%s/config" % base_url
-    else:
-        url = "%s/config/%s" % (base_url, subject)
-
-    http_request(url, "PUT", config_update_request.to_json(), DEFAULT_REQUEST_PROPERTIES)
-
-
-def get_config(base_url, subject=None):
-    if subject is None:
-        url = "%s/config" % base_url
-    else:
-        url = "%s/config/%s" % (base_url, subject)
-
-    resp = http_request(url, "GET", None, DEFAULT_REQUEST_PROPERTIES)
-    return resp.read()
-
-
-# public static Schema getId(String baseUrl, Map<String, String> requestProperties,
-#                            int id) throws IOException {
-#   String url = String.format("%s/subjects/%d", baseUrl, id);
+# Copyright 2015 Confluent Inc.
 #
-#   Schema response = RestUtils.httpRequest(url, "GET", null, requestProperties,
-#                                           GET_SCHEMA_RESPONSE_TYPE);
-#   return response;
-# }
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# public static Schema getVersion(String baseUrl, Map<String, String> requestProperties,
-#                                 String subject, int version) throws IOException {
-#   String url = String.format("%s/subjects/%s/versions/%d", baseUrl, subject, version);
+# http://www.apache.org/licenses/LICENSE-2.0
 #
-#   Schema response = RestUtils.httpRequest(url, "GET", null, requestProperties,
-#                                           GET_SCHEMA_RESPONSE_TYPE);
-#   return response;
-# }
-#
-# public static List<Integer> getAllVersions(String baseUrl, Map<String, String> requestProperties,
-#                                            String subject) throws IOException {
-#   String url = String.format("%s/subjects/%s/versions", baseUrl, subject);
-#
-#   List<Integer> response = RestUtils.httpRequest(url, "GET", null, requestProperties,
-#                                                  ALL_VERSIONS_RESPONSE_TYPE);
-#   return response;
-# }
-#
-# public static List<String> getAllSubjects(String baseUrl, Map<String, String> requestProperties)
-#     throws IOException {
-#   String url = String.format("%s/subjects", baseUrl);
-#
-#   List<String> response = RestUtils.httpRequest(url, "GET", null, requestProperties,
-#                                                 ALL_TOPICS_RESPONSE_TYPE);
-#   return response;
-# }
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from .service import Service
+from .schema_registry_utils import *
+import time, threading
 
 
+class RegisterSchemasService(Service):
 
+    def __init__(self, cluster, num_nodes, schema_registry, num_schemas, retry_wait_sec, num_tries):
+        super(RegisterSchemasService, self).__init__(cluster, num_nodes)
 
+        self.subject = "test_subject"
+        self.schema_registry = schema_registry
+        self.num_schemas = num_schemas
+        self.retry_wait_sec = retry_wait_sec
+        self.num_tries = num_tries
 
+        # Used to control round-robin approach to rest requests
+        self.request_target_idx = 1
 
+        self.successfully_registered = {}
+        self.registered_ids = []
+        # Indices of the schemas that failed to register
+        self.failed = []
 
+        self.worker_threads = []
 
-#
-#
-#
-# class RegisterSchemasService(Service):
-#     """ This service issues a bunch of register requests to a schema registry service.
-#     """
-#     def __init__(self, cluster, num_nodes, zk, kafka, schema_registry):
-#         super(RegisterSchemasService, self).__init__(cluster, num_nodes)
-#         self.zk = zk
-#         self.kafka = kafka
-#         self.schema_registry = schema_registry
-#
-#     def start(self):
-#         super(RegisterSchemasService, self).start()
-#         template = open('templates/schema-registry.properties').read()
-#
-#         for idx, node in enumerate(self.nodes, 1):
-#             pass
-#
-#     def stop(self):
-#         # for idx, node in enumerate(self.nodes, 1):
-#         #     self.logger.info("Stopping Schema Registry node %d on %s", idx, node.account.hostname)
-#         #     self._stop_and_clean(node, True)
-#         #     node.free()
-#         pass
-#
-#     def _stop_and_clean(self, node, allow_fail=False):
-#         # node.account.ssh("/opt/schema-registry/bin/schema-registry-stop", allow_fail=allow_fail)
-#         # node.account.ssh("rm -rf /mnt/schema-registry.properties /mnt/schema-registry.log")
-#         pass
+    def start(self):
+        super(RegisterSchemasService, self).start()
 
+        # self.results = [None] * len(self.nodes)
+        # self.stats = [[] for x in range(len(self.nodes))]
+        for idx, node in enumerate(self.nodes, 1):
+            self.logger.info("Running %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
+            worker = threading.Thread(
+                name=self.__class__.__name__ + "-worker-" + str(idx),
+                target=self._worker,
+                args=(idx, node)
+            )
+            worker.daemon = True
+            worker.start()
+            self.worker_threads.append(worker)
 
+    def wait(self):
+        super(RegisterSchemasService, self).wait()
+        for idx, worker in enumerate(self.worker_threads, 1):
+            self.logger.debug("Waiting for %s worker %d to finish", self.__class__.__name__, idx)
+            worker.join()
+        self.worker_threads = None
 
+    def stop(self):
+        super(RegisterSchemasService, self).stop()
+        assert self.worker_threads is None, "%s.stop should only be called after wait" % self.__class__.__name__
+        for idx, node in enumerate(self.nodes,1):
+            self.logger.debug("Stopping %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
+            node.free()
+
+    def _worker(self, idx, node):
+
+        # Set global schema compatibility requirement to NONE
+        self.logger.debug("Changing compatibility requirement on %s" % self.schema_registry.url(1))
+        self.logger.debug(self.schema_registry.url(1))
+        update_config(self.schema_registry.url(1), ConfigUpdateRequest(Compatibility.NONE))
+
+        for i in range(self.num_schemas):
+            self.try_register(i)
+
+    def try_register(self, num):
+        """
+        Try to register schema with the schema registry, rotating through the servers if
+         necessary.
+        """
+
+        self.logger.debug("Attempting to register schema number %d." % num)
+        schema_string = make_schema_string(num)
+        start = time.time()
+        n_tries = 0
+        for i in range(self.num_tries):
+            n_tries += 1
+
+            # Rotate to next server in the schema registry
+            self.request_target_idx %= self.schema_registry.num_nodes
+            self.request_target_idx += 1
+
+            target_url = self.schema_registry.url(self.request_target_idx)
+
+            try:
+                schema_id = register_schema(target_url, RegisterSchemaRequest(schema_string), self.subject)
+                elapsed = time.time() - start
+                self.successfully_registered[num] = {
+                    "elapsed": elapsed,
+                    "n_tries": n_tries,
+                    "schema": schema_string,
+                    "schema_id": schema_id
+                }
+                self.registered_ids.append(schema_id)
+                self.logger.debug("Successfully registered " + str(self.successfully_registered[num]))
+                return
+
+            except Exception as e:
+                # TODO - use more specific exception
+                # Ignore and try again
+                pass
+
+            # sleep a little and try again
+            time.sleep(self.retry_wait_sec)
+
+        # Failed to register this schema
+        self.failed.append(num)
 
 
 

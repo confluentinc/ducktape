@@ -13,7 +13,8 @@
 # limitations under the License.
 
 from .service import Service
-import time
+from .schema_registry_utils import ping_registry
+import time, re
 
 class ZookeeperService(Service):
     def __init__(self, cluster, num_nodes):
@@ -148,8 +149,8 @@ class KafkaRestService(Service):
         node.account.ssh("/opt/kafka-rest/bin/kafka-rest-stop", allow_fail=allow_fail)
         node.account.ssh("rm -rf /mnt/rest.properties /mnt/rest.log")
 
-    def url(self, idx=0):
-        return "http://" + self.nodes[idx].account.hostname + ":8080"
+    def url(self, idx=1):
+        return "http://" + self.get_node(idx).account.hostname + ":8080"
 
 
 class SchemaRegistryService(Service):
@@ -160,27 +161,28 @@ class SchemaRegistryService(Service):
 
     def start(self):
         super(SchemaRegistryService, self).start()
+
         template = open('templates/schema-registry.properties').read()
+        template_params = {
+            'kafkastore_topic': '_schemas',
+            'kafkastore_url': self.zk.connect_setting(),
+            'rest_port': 8080
+        }
+        config = template % template_params
 
         for idx, node in enumerate(self.nodes, 1):
             self.logger.info("Starting Schema Registry node %d on %s", idx, node.account.hostname)
             self._stop_and_clean(node, allow_fail=True)
-
-            template_params = {
-                'kafkastore_topic': '_schemas',
-                'kafkastore_url': self.zk.connect_setting(),
-                'rest_port': 8080
-            }
-            config = template % template_params
-
-            node.account.create_file("/mnt/schema-registry.properties", config)
-            cmd = "/opt/schema-registry/bin/schema-registry-start /mnt/schema-registry.properties " \
-                + "1>> /mnt/schema-registry.log 2>> /mnt/schema-registry.log &"
-
-            node.account.ssh(cmd)
+            self.start_node(node, config)
 
             # Give the server a little time to become live
-            time.sleep(8)
+            while True:
+                try:
+                    ping_registry(self.url(idx))
+                    break
+                except:
+                    time.sleep(.25)
+                    pass
 
     def stop(self):
         for idx, node in enumerate(self.nodes, 1):
@@ -192,5 +194,63 @@ class SchemaRegistryService(Service):
         node.account.ssh("/opt/schema-registry/bin/schema-registry-stop", allow_fail=allow_fail)
         node.account.ssh("rm -rf /mnt/schema-registry.properties /mnt/schema-registry.log")
 
-    def url(self, idx=0):
-        return "http://" + self.nodes[idx].account.hostname + ":8080"
+    def kill_node(self, node, clean_shutdown=True):
+
+        if clean_shutdown:
+            node.account.ssh("/opt/schema-registry/bin/schema-registry-stop", allow_fail=True)
+        else:
+            cmd = """TARGET=`ps ax | grep -i schema-registry | grep java | grep -v grep | awk '{print $1}'`;"""
+            cmd += """kill -9 $TARGET"""
+            node.account.ssh(cmd, allow_fail=True)
+
+    def start_node(self, node, config=None):
+        if config is None:
+            template = open('templates/schema-registry.properties').read()
+            template_params = {
+                'kafkastore_topic': '_schemas',
+                'kafkastore_url': self.zk.connect_setting(),
+                'rest_port': 8080
+            }
+            config = template % template_params
+
+        node.account.create_file("/mnt/schema-registry.properties", config)
+        cmd = "/opt/schema-registry/bin/schema-registry-start /mnt/schema-registry.properties " \
+            + "1>> /mnt/schema-registry.log 2>> /mnt/schema-registry.log &"
+
+        node.account.ssh(cmd)
+
+    def restart_node(self, node, wait_sec=0, clean_shutdown=True):
+        self.kill_node(node, clean_shutdown)
+        time.sleep(wait_sec)
+        self.start_node(node)
+
+    def get_master_node(self):
+        node = self.nodes[0]
+
+        cmd = "/opt/kafka/bin/kafka-run-class.sh kafka.tools.ZooKeeperMainWrapper -server %s get /schema-registry-master" \
+              % self.zk.connect_setting()
+
+        host = None
+        port_str = None
+        self.logger.debug("Querying zookeeper to find current schema registry master: \n%s" % cmd)
+        for line in node.account.ssh_capture(cmd):
+            match = re.match("^{\"host\":\"(.*)\",\"port\":(\d+),", line)
+            if match is not None:
+                groups = match.groups()
+                host = groups[0]
+                port_str = groups[1]
+                break
+
+        if host is None:
+            raise Exception("Could not find schema registry master.")
+
+        base_url = "%s:%s" % (host, port_str)
+        self.logger.debug("schema registry master is %s" % base_url)
+
+        # Return the node with this base_url
+        for idx, node in enumerate(self.nodes, 1):
+            if self.url(idx).find(base_url) >= 0:
+                return self.get_node(idx)
+
+    def url(self, idx=1):
+        return "http://" + self.get_node(idx).account.hostname + ":8080"

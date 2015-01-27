@@ -57,11 +57,24 @@ class Service(Logger):
         self.wait()
         self.stop()
 
+    def get_node(self, idx):
+        """ ids presented externally are indexed from 1, so we provide a helper method to avoid confusion.
+        """
+        return self.nodes[idx - 1]
+
+    def idx(self, node):
+        """ Return id of the given node. Return -1 if node does not belong to this service.
+        """
+        for idx, n in enumerate(self.nodes, 1):
+            if self.get_node(idx) == node:
+                return idx
+        return -1
+
     def _clean_node(self, node):
-        '''
+        """
         Helper that tries to kill off all running Java processes to make sure a node
         is in a clean state.
-        '''
+        """
         pids = list(node.account.ssh_capture("ps ax | grep java | grep -v grep | awk '{print $1}'"))
         for pid in pids:
             node.account.ssh("kill -9 " + pid)
