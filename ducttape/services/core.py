@@ -115,6 +115,7 @@ class KafkaService(Service):
     def bootstrap_servers(self):
         return ','.join([node.account.hostname + ":9092" for node in self.nodes])
 
+
 class KafkaRestService(Service):
     def __init__(self, cluster, num_nodes, zk, kafka):
         super(KafkaRestService, self).__init__(cluster, num_nodes)
@@ -176,13 +177,20 @@ class SchemaRegistryService(Service):
             self.start_node(node, config)
 
             # Give the server a little time to become live
-            while True:
+            stop = time.time() + 10
+            awake = False
+            while time.time() < stop:
                 try:
                     ping_registry(self.url(idx))
+                    awake = True
                     break
                 except:
                     time.sleep(.25)
                     pass
+            if not awake:
+                raise Exception("Timed out trying to contact service on %s. " % self.url(idx) +
+                                "Either the service failed to start, or there is a problem with the url. "
+                                "You may need to open Vagrantfile.local and add the line 'enable_dns = true'.")
 
     def stop(self):
         for idx, node in enumerate(self.nodes, 1):

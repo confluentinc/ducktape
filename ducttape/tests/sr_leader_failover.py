@@ -171,7 +171,7 @@ class CleanBounce(FailoverTest):
         # Bounce leader several times with some wait in-between
         for i in range(10):
             prev_master_node = self.schema_registry.get_master_node()
-            self.schema_registry.restart_node(prev_master_node, 3)
+            self.schema_registry.restart_node(prev_master_node, wait_sec=5)
             time.sleep(4)
 
 
@@ -191,7 +191,7 @@ class HardBounce(FailoverTest):
         # Bounce leader several times with some wait in-between
         for i in range(10):
             prev_master_node = self.schema_registry.get_master_node()
-            self.schema_registry.restart_node(prev_master_node, wait_sec=3, clean_shutdown=False)
+            self.schema_registry.restart_node(prev_master_node, wait_sec=5, clean_shutdown=False)
             time.sleep(4)
 
 
