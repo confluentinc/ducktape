@@ -76,13 +76,7 @@ def http_request(url, method, data="", headers=None):
 
     req = urllib2.Request(url, data, headers)
     req.get_method = lambda: method
-    resp = urllib2.urlopen(req)
-
-    # urllib underlying code will raise error if response code is not in the 200 range
-    # if resp.getcode() >= 400:
-    #     raise Exception("There was an error with the http request. HTTP code " + resp.getcode())
-
-    return resp
+    return urllib2.urlopen(req)
 
 
 def make_schema_string(num=None):
@@ -165,7 +159,7 @@ def get_schema_by_version(base_url, subject, version):
 
 def get_schema_by_id(base_url, id):
 
-    # TODO - note this is currently a bug with the implementation of the API
+    # TODO - note this is currently a bug with the implementation of the API (see schema-registry issue 48)
     # TODO - should be GET /base_url/schemas/id
     url = "%s/subjects/%d" % (base_url, id)
 
