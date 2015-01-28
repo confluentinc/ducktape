@@ -44,6 +44,7 @@ if [ ! -e /opt/kafka ]; then
     ln -s /vagrant/rest-utils /opt/rest-utils
     ln -s /vagrant/kafka-rest /opt/kafka-rest
     ln -s /vagrant/schema-registry /opt/schema-registry
+    ln -s /vagrant/camus /opt/camus
 fi
 
 # For EC2 nodes, we want to use /mnt, which should have the local disk. On local
@@ -54,3 +55,16 @@ if [ ! -e /mnt ]; then
     mkdir /mnt
 fi
 chmod a+rwx /mnt
+
+
+# Hadoop Configurations
+if [ ! -e /opt/hadoop ]; then
+    ln -s /vagrant/hadoop /opt/hadoop
+fi
+
+if [ ! -e /opt/hadoop-cdh ]; then
+    ln -s /vagrant/hadoop-cdh /opt/hadoop-cdh
+fi
+
+# Delete uncessary host binding so that datanode can connect to namenode
+sed -i '/127.0.1.1/d' /etc/hosts

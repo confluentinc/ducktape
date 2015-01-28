@@ -15,6 +15,7 @@
 from .service import Service
 import threading
 
+
 class PerformanceService(Service):
     def start(self):
         super(PerformanceService, self).start()
@@ -45,6 +46,7 @@ class PerformanceService(Service):
         for idx,node in enumerate(self.nodes,1):
             self.logger.debug("Stopping %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
             node.free()
+
 
 class ProducerPerformanceService(PerformanceService):
     def __init__(self, cluster, num_nodes, kafka, topic, num_records, record_size, throughput, settings={}, intermediate_stats=False):
@@ -191,7 +193,7 @@ class RestConsumerPerformanceService(PerformanceService):
         args.update({'rest_url': self.rest.url()})
         cmd = "/opt/kafka-rest/bin/kafka-rest-run-class io.confluent.kafkarest.tools.ConsumerPerformance "\
               "'%(rest_url)s' %(topic)s %(num_records)d %(throughput)d" % args
-        for key,value in self.settings.items():
+        for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
         self.logger.debug("REST Consumer performance %d command: %s", idx, cmd)
         last = None
@@ -221,7 +223,7 @@ class SchemaRegistryPerformanceService(PerformanceService):
 
         cmd = "/opt/schema-registry/bin/schema-registry-run-class io.confluent.kafka.schemaregistry.tools.SchemaRegistryPerformance "\
               "'%(schema_registry_url)s' %(subject)s %(num_schemas)d %(schemas_per_sec)d" % args
-        for key,value in self.settings.items():
+        for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
 
         self.logger.debug("Schema Registry performance %d command: %s", idx, cmd)
@@ -231,6 +233,53 @@ class SchemaRegistryPerformanceService(PerformanceService):
             last = line
         # Parse and save the last line's information
         self.results[idx-1] = parse_performance_output(last)
+
+
+class CamusPerformanceService(PerformanceService):
+    def __init__(self, cluster, num_nodes, kafka, hadoop, settings={}):
+        super(CamusPerformanceService, self).__init__(cluster, num_nodes)
+        self.kafka = kafka
+        self.hadoop = hadoop
+        self.settings = settings
+        self.args = {
+            'hadoop_path': '/opt/hadoop-cdh',
+            'camus_path': '/opt/camus',
+            'camus_jar': 'camus-example-0.1.0-SNAPSHOT-shaded.jar',
+            'camus_property': '/mnt/camus.properties',
+            'camus_main': 'com.linkedin.camus.etl.kafka.CamusJob'
+
+        }
+
+    def _worker(self, idx, node):
+        args = self.args.copy()
+
+        # master_node = self.hadoop.master_host
+        # xmls = master_node + ":/mnt/*.xml"
+        # node.account.scp_to(xmls, '/mnt/')
+        # props = master_node + ":/mnt/*.props"
+        # node.account.scp_to(props, '/mnt')
+
+        brokerlist = self.kafka.bootstrap_servers()
+
+        camus_props_template = open('templates/camus.properties').read()
+        camus_props_params = {'kafka_brokers': brokerlist}
+        camus_props = camus_props_template % camus_props_params
+        node.account.create_file(args['camus_property'], camus_props)
+
+        cmd = "HADOOP_CONF_DIR=/mnt " \
+              "%(hadoop_path)s/bin/hadoop jar %(camus_path)s/%(camus_jar)s %(camus_main)s -P %(camus_property)s" % args
+
+        for key, value in self.settings.items():
+            cmd += " %s=%s" % (str(key), str(value))
+
+        self.logger.debug("Camus performance %d command: %s", idx, cmd)
+        last = None
+        for line in node.account.ssh_capture(cmd):
+            self.logger.info("Camus performance %d: %s", idx, line.strip())
+            last = line
+        # Parse and save the last line's information
+        self.results[idx-1] = parse_performance_output(last)
+        node.account.ssh("rm -rf /mnt/camus.properties")
 
 
 class EndToEndLatencyService(PerformanceService):
