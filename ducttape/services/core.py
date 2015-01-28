@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from .service import Service
-from .schema_registry_utils import ping_registry
 import time, re
+
 
 class ZookeeperService(Service):
     def __init__(self, cluster, num_nodes):
@@ -43,13 +43,6 @@ quorumListenOnAllIPs=true
             node.account.ssh("/opt/kafka/bin/zookeeper-server-start.sh /mnt/zookeeper.properties 1>> /mnt/zk.log 2>> /mnt/zk.log &")
             time.sleep(5) # give it some time to start
 
-
-    def stop(self):
-        for idx,node in enumerate(self.nodes,1):
-            self.logger.info("Stopping ZK node %d on %s", idx, node.account.hostname)
-            self._stop_and_clean(node)
-            node.free()
-
     def _stop_and_clean(self, node, allow_fail=False):
         # This uses Kafka-REST's stop service script because it's better behaved
         # (knows how to wait) and sends SIGTERM instead of
@@ -57,7 +50,6 @@ quorumListenOnAllIPs=true
         # shutdown here, so it's ok to use the bigger hammer
         node.account.ssh("/opt/kafka-rest/bin/kafka-rest-stop-service zookeeper", allow_fail=allow_fail)
         node.account.ssh("rm -rf /mnt/zookeeper /mnt/zookeeper.properties /mnt/zk.log")
-
 
     def connect_setting(self):
         return ','.join([node.account.hostname + ':2181' for node in self.nodes])
@@ -101,12 +93,6 @@ class KafkaService(Service):
                         'replication': settings.get('replication-factor', 1)
                     })
 
-    def stop(self):
-        for idx,node in enumerate(self.nodes,1):
-            self.logger.info("Stopping Kafka node %d on %s", idx, node.account.hostname)
-            self._stop_and_clean(node)
-            node.free()
-
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka/bin/kafka-server-stop.sh", allow_fail=allow_fail)
         time.sleep(5) # the stop script doesn't wait
@@ -121,6 +107,7 @@ class KafkaRestService(Service):
         super(KafkaRestService, self).__init__(cluster, num_nodes)
         self.zk = zk
         self.kafka = kafka
+        self.port = 8080
 
     def start(self):
         super(KafkaRestService, self).start()
@@ -132,26 +119,21 @@ class KafkaRestService(Service):
             self._stop_and_clean(node, allow_fail=True)
             template_params = {
                 'id': idx,
-                'port': 8080,
+                'port': self.port,
                 'zk_connect': zk_connect,
                 'bootstrap_servers': bootstrapServers
             }
             config = template % template_params
             node.account.create_file("/mnt/rest.properties", config)
             node.account.ssh("/opt/kafka-rest/bin/kafka-rest-start /mnt/rest.properties 1>> /mnt/rest.log 2>> /mnt/rest.log &")
-
-    def stop(self):
-        for idx,node in enumerate(self.nodes,1):
-            self.logger.info("Stopping REST node %d on %s", idx, node.account.hostname)
-            self._stop_and_clean(node)
-            node.free()
+            node.account.wait_for_http_service(self.port, timeout=10)
 
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka-rest/bin/kafka-rest-stop", allow_fail=allow_fail)
         node.account.ssh("rm -rf /mnt/rest.properties /mnt/rest.log")
 
     def url(self, idx=1):
-        return "http://" + self.get_node(idx).account.hostname + ":8080"
+        return "http://" + self.get_node(idx).account.hostname + ":" + str(self.port)
 
 
 class SchemaRegistryService(Service):
@@ -159,6 +141,7 @@ class SchemaRegistryService(Service):
         super(SchemaRegistryService, self).__init__(cluster, num_nodes)
         self.zk = zk
         self.kafka = kafka
+        self.port = 8080
 
     def start(self):
         super(SchemaRegistryService, self).start()
@@ -167,7 +150,7 @@ class SchemaRegistryService(Service):
         template_params = {
             'kafkastore_topic': '_schemas',
             'kafkastore_url': self.zk.connect_setting(),
-            'rest_port': 8080
+            'rest_port': self.port
         }
         config = template % template_params
 
@@ -176,40 +159,15 @@ class SchemaRegistryService(Service):
             self._stop_and_clean(node, allow_fail=True)
             self.start_node(node, config)
 
-            # Give the server a little time to become live
-            stop = time.time() + 10
-            awake = False
-            while time.time() < stop:
-                try:
-                    ping_registry(self.url(idx))
-                    awake = True
-                    break
-                except:
-                    time.sleep(.25)
-                    pass
-            if not awake:
-                raise Exception("Timed out trying to contact service on %s. " % self.url(idx) +
-                                "Either the service failed to start, or there is a problem with the url. "
-                                "You may need to open Vagrantfile.local and add the line 'enable_dns = true'.")
-
-    def stop(self):
-        for idx, node in enumerate(self.nodes, 1):
-            self.logger.info("Stopping Schema Registry node %d on %s", idx, node.account.hostname)
-            self._stop_and_clean(node, True)
-            node.free()
+            # Wait for the server to become live
+            node.account.wait_for_http_service(self.port, timeout=10)
 
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/schema-registry/bin/schema-registry-stop", allow_fail=allow_fail)
         node.account.ssh("rm -rf /mnt/schema-registry.properties /mnt/schema-registry.log")
 
-    def kill_node(self, node, clean_shutdown=True):
-
-        if clean_shutdown:
-            node.account.ssh("/opt/schema-registry/bin/schema-registry-stop", allow_fail=True)
-        else:
-            cmd = """TARGET=`ps ax | grep -i schema-registry | grep java | grep -v grep | awk '{print $1}'`;"""
-            cmd += """kill -9 $TARGET"""
-            node.account.ssh(cmd, allow_fail=True)
+    def stop_node(self, node, clean_shutdown, allow_fail=True):
+        node.account.kill_process("schema-registry", clean_shutdown, allow_fail)
 
     def start_node(self, node, config=None):
         if config is None:
@@ -228,7 +186,7 @@ class SchemaRegistryService(Service):
         node.account.ssh(cmd)
 
     def restart_node(self, node, wait_sec=0, clean_shutdown=True):
-        self.kill_node(node, clean_shutdown)
+        self.stop_node(node, clean_shutdown, allow_fail=True)
         time.sleep(wait_sec)
         self.start_node(node)
 
@@ -261,4 +219,4 @@ class SchemaRegistryService(Service):
                 return self.get_node(idx)
 
     def url(self, idx=1):
-        return "http://" + self.get_node(idx).account.hostname + ":8080"
+        return "http://" + self.get_node(idx).account.hostname + ":" + str(self.port)

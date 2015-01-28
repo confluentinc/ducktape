@@ -25,8 +25,8 @@
 # that there won't be resource conflicts: the cluster tests are being run on
 # should be large enough to use one instance per service instance.
 
-import time, logging, threading
 from ducttape.logger import Logger
+
 
 class Service(Logger):
     def __init__(self, cluster, num_nodes):
@@ -48,8 +48,14 @@ class Service(Logger):
         pass
 
     def stop(self):
-        '''If the service left any running processes or data, clean them up.'''
-        pass
+        """If the service left any running processes or data, clean them up."""
+        for idx, node in enumerate(self.nodes, 1):
+            self.logger.info("Stopping %s node %d on %s" % (type(self).__name__, idx, node.account.hostname))
+            self._stop_and_clean(node)
+            node.free()
+
+    def _stop_and_clean(self, node, allow_fail=False):
+        raise NotImplementedError("Implement _stop_and_clean")
 
     def run(self):
         '''Helper that executes run(), wait(), and stop() in sequence. Useful for '''
@@ -75,9 +81,7 @@ class Service(Logger):
         Helper that tries to kill off all running Java processes to make sure a node
         is in a clean state.
         """
-        pids = list(node.account.ssh_capture("ps ax | grep java | grep -v grep | awk '{print $1}'"))
-        for pid in pids:
-            node.account.ssh("kill -9 " + pid)
+        node.account.kill_process("java", clean_shutdown=False)
 
     @staticmethod
     def run_parallel(*args):
