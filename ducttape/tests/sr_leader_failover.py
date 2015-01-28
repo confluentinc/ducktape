@@ -172,7 +172,9 @@ class CleanBounce(FailoverTest):
         for i in range(10):
             prev_master_node = self.schema_registry.get_master_node()
             self.schema_registry.restart_node(prev_master_node, wait_sec=5)
-            time.sleep(4)
+
+            # Don't restart the new master until the previous master is running again
+            prev_master_node.account.wait_for_http_service(self.register_driver.port, timeout=10)
 
 
 class HardBounce(FailoverTest):
@@ -192,7 +194,9 @@ class HardBounce(FailoverTest):
         for i in range(10):
             prev_master_node = self.schema_registry.get_master_node()
             self.schema_registry.restart_node(prev_master_node, wait_sec=5, clean_shutdown=False)
-            time.sleep(4)
+
+            # Don't restart the new master until the previous master is running again
+            prev_master_node.account.wait_for_http_service(self.register_driver.port, timeout=10)
 
 
 if __name__ == "__main__":
