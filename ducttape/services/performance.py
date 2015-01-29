@@ -236,18 +236,23 @@ class SchemaRegistryPerformanceService(PerformanceService):
 
 
 class CamusPerformanceService(PerformanceService):
-    def __init__(self, cluster, num_nodes, kafka, hadoop, settings={}):
+    def __init__(self, cluster, num_nodes, kafka, hadoop, schema_registry, settings={}):
         super(CamusPerformanceService, self).__init__(cluster, num_nodes)
         self.kafka = kafka
         self.hadoop = hadoop
+        self.schema_registry = schema_registry
         self.settings = settings
         self.args = {
             'hadoop_path': '/opt/hadoop-cdh',
             'camus_path': '/opt/camus',
             'camus_jar': 'camus-example-0.1.0-SNAPSHOT-shaded.jar',
             'camus_property': '/mnt/camus.properties',
-            'camus_main': 'com.linkedin.camus.etl.kafka.CamusJob'
-
+            'camus_main': 'com.linkedin.camus.etl.kafka.CamusJob',
+            'broker_list': self.kafka.bootstrap_servers(),
+            'schema_registry_url': self.schema_registry.url(),
+            'avro_producer': 'avro-producer-1.0-SNAPSHOT-jar-with-dependencies.jar',
+            'topic': 'testAvro',
+            'num_messages': 10
         }
 
     def _worker(self, idx, node):
@@ -259,15 +264,23 @@ class CamusPerformanceService(PerformanceService):
         # props = master_node + ":/mnt/*.props"
         # node.account.scp_to(props, '/mnt')
 
-        brokerlist = self.kafka.bootstrap_servers()
+        produce_cmd = "java -jar %(camus_path)s/%(avro_producer)s " \
+                      "%(topic)s %(broker_list)s %(schema_registry_url)s %(num_messages)d" % args
+        self.logger.debug("Avro producer %d command: %s", idx, produce_cmd)
+        for line in node.account.ssh_capture(produce_cmd):
+            self.logger.info("Avro producer %d: %s", idx, line.strip())
 
         camus_props_template = open('templates/camus.properties').read()
-        camus_props_params = {'kafka_brokers': brokerlist}
+        camus_props_params = {
+            'kafka_brokers': args['broker_list'],
+            'kafka_whitelist_topic': args['topic']
+        }
         camus_props = camus_props_template % camus_props_params
         node.account.create_file(args['camus_property'], camus_props)
 
-        cmd = "HADOOP_CONF_DIR=/mnt " \
-              "%(hadoop_path)s/bin/hadoop jar %(camus_path)s/%(camus_jar)s %(camus_main)s -P %(camus_property)s" % args
+        cmd = "HADOOP_CONF_DIR=/mnt %(hadoop_path)s/bin/hadoop jar %(camus_path)s/%(camus_jar)s %(camus_main)s " \
+              "-D schema.registry.url=%(schema_registry_url)s -P %(camus_property)s " \
+              "-Dlog4j.configuration=file:/opt/camus/log4j.xml" % args
 
         for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
@@ -278,8 +291,8 @@ class CamusPerformanceService(PerformanceService):
             self.logger.info("Camus performance %d: %s", idx, line.strip())
             last = line
         # Parse and save the last line's information
-        self.results[idx-1] = parse_performance_output(last)
-        node.account.ssh("rm -rf /mnt/camus.properties")
+        # self.results[idx-1] = parse_performance_output(last)
+        # node.account.ssh("rm -rf /mnt/camus.properties")
 
 
 class EndToEndLatencyService(PerformanceService):

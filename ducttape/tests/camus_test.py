@@ -23,7 +23,8 @@ class CamusSetupTest(CamusTest):
     def run(self):
         self.setUp()
         self.logger.info("Running Camus example")
-        camus_perf = CamusPerformanceService(self.cluster, 1, self.kafka, self.hadoop, settings={})
+        camus_perf = CamusPerformanceService(
+            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, settings={})
         camus_perf.run()
         # self.tearDown()
 
