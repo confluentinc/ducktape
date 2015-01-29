@@ -273,7 +273,7 @@ class CamusPerformanceService(PerformanceService):
         camus_props_template = open('templates/camus.properties').read()
         camus_props_params = {
             'kafka_brokers': args['broker_list'],
-            'kafka_whitelist_topic': args['topic']
+            'kafka_whitelist_topics': args['topic']
         }
         camus_props = camus_props_template % camus_props_params
         node.account.create_file(args['camus_property'], camus_props)
