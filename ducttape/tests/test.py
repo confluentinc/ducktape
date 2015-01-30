@@ -13,7 +13,8 @@
 # limitations under the License.
 
 from ducttape.cluster import VagrantCluster
-from ducttape.services.core import ZookeeperService, KafkaService, KafkaRestService, SchemaRegistryService, HadoopV2Service
+from ducttape.services.core import ZookeeperService, KafkaService, KafkaRestService, SchemaRegistryService, \
+    HadoopV1Service, HadoopV2Service
 from ducttape.logger import Logger
 import logging
 
@@ -99,16 +100,20 @@ class SchemaRegistryTest(KafkaTest):
 
 
 class HadoopTest(Test):
-    '''Helper class that managest setting up a Hadoop cluster. Your run() method should 
+    '''Helper class that managest setting up a Hadoop V1 cluster. Your run() method should
     call tearDown and setUp.
     '''
-    def __init__(self, cluster, num_nodes):
+    def __init__(self, cluster, num_nodes, hadoop_version=2):
         super(HadoopTest, self).__init__(cluster)
         self.num_nodes = num_nodes
         self.hadoop = None
+        self.hadoop_version = hadoop_version
 
     def setUp(self):
-        self.hadoop = HadoopV2Service(self.cluster, self.num_nodes)
+        if self.hadoop_version == 1:
+            self.hadoop = HadoopV1Service(self.cluster, self.num_nodes)
+        else:
+            self.hadoop = HadoopV2Service(self.cluster, self.num_nodes)
         self.hadoop.start()
 
     def tearDown(self):
@@ -116,19 +121,22 @@ class HadoopTest(Test):
 
 
 class CamusTest(Test):
-    def __init__(self, cluster, num_zk, num_brokers, num_hadoop_nodes, num_registry_nodes, topics=None):
+    def __init__(self, cluster, num_zk, num_brokers, num_hadoop_nodes, num_registry_nodes, hadoop_version=2, topics=None):
         super(CamusTest, self).__init__(cluster)
         self.num_zk = num_zk
         self.num_brokers = num_brokers
         self.num_nodes = num_hadoop_nodes
         self.num_registry_nodes = num_registry_nodes
         self.topics = topics
-
+        self.hadoop_version = hadoop_version
 
     def setUp(self):
         self.zk = ZookeeperService(self.cluster, self.num_zk)
         self.kafka = KafkaService(self.cluster, self.num_brokers, self.zk, topics=self.topics)
-        self.hadoop = HadoopV2Service(self.cluster, self.num_nodes)
+        if self.hadoop_version == 1:
+            self.hadoop = HadoopV1Service(self.cluster, self.num_nodes)
+        else:
+            self.hadoop = HadoopV2Service(self.cluster, self.num_nodes)
         self.schema_registry = SchemaRegistryService(self.cluster, self.num_registry_nodes, self.zk, self.kafka)
         self.zk.start()
         self.kafka.start()

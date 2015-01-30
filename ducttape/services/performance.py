@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .service import Service
+from .core import HadoopV1Service
 import threading
 
 
@@ -235,6 +236,37 @@ class SchemaRegistryPerformanceService(PerformanceService):
         self.results[idx-1] = parse_performance_output(last)
 
 
+class HadoopPerformanceService(PerformanceService):
+    def __init__(self, cluster, num_nodes, hadoop, settinss={}):
+        super(HadoopPerformanceService, self).__init__(cluster, num_nodes)
+        self.hadoop = hadoop
+        self.settings = settinss
+        self.args = {
+            'hadoop_path': '/opt/hadoop-cdh',
+            'hadoop_example_jar': 'share/hadoop/mapreduce/hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar',
+            'hadoop_conf_dir': '/mnt'
+        }
+
+    def _worker(self, idx, node):
+        args = self.args.copy()
+        self.hadoop.distribute_hdfs_confs(node)
+
+        if isinstance(self.hadoop, HadoopV1Service):
+            args.update({'hadoop_example_jar': 'share/hadoop/mapreduce1/hadoop-examples-2.5.0-mr1-cdh5.3.0.jar'})
+            self.hadoop.distribute_mr1_confs(node)
+        else:
+            self.hadoop.distribute_yarn_confs(node)
+
+        cmd = "HADOOP_CONF_DIR=%(hadoop_conf_dir)s %(hadoop_path)s/bin/hadoop jar " \
+              "%(hadoop_path)s/%(hadoop_example_jar)s pi 2 10" % args
+        for key, value in self.settings.items():
+            cmd += " %s=%s" % (str(key), str(value))
+
+        self.logger.debug("Hadoop performance %d command: %s", idx, cmd)
+        for line in node.account.ssh_capture(cmd):
+            self.logger.info("Camus performance %d: %s", idx, line.strip())
+
+
 class CamusPerformanceService(PerformanceService):
     def __init__(self, cluster, num_nodes, kafka, hadoop, schema_registry, settings={}):
         super(CamusPerformanceService, self).__init__(cluster, num_nodes)
@@ -266,7 +298,10 @@ class CamusPerformanceService(PerformanceService):
             self.logger.info("Avro producer %d: %s", idx, line.strip())
 
         self.hadoop.distribute_hdfs_confs(node)
-        self.hadoop.distribute_yarn_confs(node)
+        if isinstance(self.hadoop, HadoopV1Service):
+            self.hadoop.distribute_mr1_confs(node)
+        else:
+            self.hadoop.distribute_yarn_confs(node)
         self.create_camus_props(node)
 
         cmd = "HADOOP_CONF_DIR=/mnt %(hadoop_path)s/bin/hadoop jar %(camus_path)s/target/%(camus_jar)s %(camus_main)s " \

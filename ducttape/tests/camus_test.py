@@ -15,18 +15,35 @@ from .test import CamusTest
 from ducttape.services.performance import CamusPerformanceService
 
 
-class CamusSetupTest(CamusTest):
+class CamusHadoopV1Test(CamusTest):
 
     def __init__(self, cluster):
-        super(CamusSetupTest, self).__init__(cluster, 1, 1, 2, 1, topics=None)
+        super(CamusHadoopV1Test, self).__init__(cluster, 1, 1, 2, 1, hadoop_version=1, topics=None)
 
     def run(self):
         self.setUp()
-        self.logger.info("Running Camus example")
+        self.logger.info("Running Camus example on Hadoop %d", self.hadoop_version)
         camus_perf = CamusPerformanceService(
             self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, settings={})
         camus_perf.run()
         self.tearDown()
 
 if __name__ == "__main__":
-    CamusSetupTest.run_standalone()
+    CamusHadoopV1Test.run_standalone()
+
+
+class CamusHadoopV2Test(CamusTest):
+
+    def __init__(self, cluster):
+        super(CamusHadoopV2Test, self).__init__(cluster, 1, 1, 2, 1, hadoop_version=2, topics=None)
+
+    def run(self):
+        self.setUp()
+        self.logger.info("Running Camus example on Hadoop %d", self.hadoop_version)
+        camus_perf = CamusPerformanceService(
+            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, settings={})
+        camus_perf.run()
+        self.tearDown()
+
+if __name__ == "__main__":
+    CamusHadoopV2Test.run_standalone()

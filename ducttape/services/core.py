@@ -286,12 +286,20 @@ class HDFSService(Service):
         self.logger.info("Creating hdfs directories on %s", node.account.hostname)
         node.account.ssh("mkdir -p /mnt/data")
         node.account.ssh("mkdir -p /mnt/name")
+        node.account.ssh("mkdir -p /mnt/logs")
 
     def distribute_hdfs_confs(self, node):
         self.logger.info("Distributing hdfs confs to %s", node.account.hostname)
-        hadoop_env_template = open('templates/hadoop-env.sh').read()
 
-        hadoop_env_params = {'java_home': ''}
+        hadoop_env_template = open('templates/hadoop-env.sh').read()
+        hadoop_env_params = {'java_home': '/usr/lib/jvm/java-6-oracle'}
+        hadoop_env = hadoop_env_template % hadoop_env_params
+
+        core_site_template = open('templates/core-site.xml').read()
+        core_site_params = {
+            'fs_default_name': "hdfs://" + self.master_host + ":9000"
+        }
+        core_site = core_site_template % core_site_params
 
         hdfs_site_template = open('templates/hdfs-site.xml').read()
         hdfs_site_params = {
@@ -299,18 +307,7 @@ class HDFSService(Service):
             'dfs_name_dir': '/mnt/name',
             'dfs_data_dir': '/mnt/data'
         }
-
         hdfs_site = hdfs_site_template % hdfs_site_params
-
-        core_site_template = open('templates/core-site.xml').read()
-
-        core_site_params = {'fs_default_name': ''}
-
-        hadoop_env_params['java_home'] = '/usr/lib/jvm/java-6-oracle'
-        hadoop_env = hadoop_env_template % hadoop_env_params
-
-        core_site_params['fs_default_name'] = "hdfs://" + self.master_host + ":9000"
-        core_site = core_site_template % core_site_params
 
         node.account.create_file("/mnt/hadoop-env.sh", hadoop_env)
         node.account.create_file("/mnt/core-site.xml", core_site)
@@ -322,11 +319,11 @@ class HDFSService(Service):
 
     def start_namenode(self, node):
         self.logger.info("Starting namenode on %s", node.account.hostname)
-        node.account.ssh("/opt/hadoop-cdh/sbin/hadoop-daemon.sh --config /mnt start namenode")
+        node.account.ssh("HADOOP_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/hadoop-daemon.sh --config /mnt start namenode")
 
     def start_datanode(self, node):
         self.logger.info("Starting datanode on %s", node.account.hostname)
-        node.account.ssh("/opt/hadoop-cdh/sbin/hadoop-daemon.sh --config /mnt start datanode")
+        node.account.ssh("HADOOP_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/hadoop-daemon.sh --config /mnt start datanode")
 
     def stop(self):
         for idx, node in enumerate(self.nodes, 1):
@@ -340,7 +337,7 @@ class HDFSService(Service):
             node.account.ssh("kill -9 " + pid)
         time.sleep(5)  # the stop script doesn't wait
         self.logger.info("Removing HDFS directories on %s", node.account.hostname)
-        node.account.ssh("rm -rf /mnt/data/ /mnt/name/")
+        node.account.ssh("rm -rf /mnt/data/ /mnt/name/ /mnt/logs")
 
 
 class HadoopV1Service(HDFSService):
@@ -349,41 +346,58 @@ class HadoopV1Service(HDFSService):
 
     def start(self):
         super(HadoopV1Service, self).start()
-
-        mapred_site_template = open('templates/mapred-site.xml').read()
-
-        mapred_site_params = {'mapred_job_tracker': ''}
-
-        master_host = None
-        
         for idx, node in enumerate(self.nodes, 1):
-            self.logger.info("clean up finished on node %d", idx)
+            self.logger.info("Stopping MRv1 on %s", node.account.hostname)
             self._stop_and_clean(node, allow_fail=True)
 
-            if idx == 1:
-                master_host = node.account.hostname
-
-            node.account.ssh("cp /opt/hadoop-cdh/etc/hadoop-mapreduce1/hadoop-metrics.properties /mnt")
-
-            mapred_site_params['mapred_job_tracker'] = master_host + ":54311"
-            mapred_site = mapred_site_template % mapred_site_params
-            node.account.create_file("/mnt/mapred-site.xml", mapred_site)
+            self.distribute_mr1_confs(node)
 
             if idx == 1:
                 self.start_jobtracker(node)
+                self.start_jobhistoryserver(node)
             else:
                 self.start_tasktracker(node)
             time.sleep(5)
 
+    def distribute_mr1_confs(self, node):
+        self.logger.info("Distributing MR1 confs to %s", node.account.hostname)
+
+        mapred_site_template = open('templates/mapred-site.xml').read()
+
+        mapred_site_params = {
+            'mapred_job_tracker': self.master_host + ":54311",
+            'mapreduce_jobhistory_address': self.master_host + ":10020"
+        }
+
+        mapred_site = mapred_site_template % mapred_site_params
+        node.account.create_file("/mnt/mapred-site.xml", mapred_site)
+
+        node.account.ssh("cp /opt/hadoop-cdh/etc/hadoop-mapreduce1/hadoop-metrics.properties /mnt")
+
     def start_jobtracker(self, node):
-        node.account.ssh("/opt/hadoop-cdh/bin-mapreduce1/hadoop-daemon.sh --config /mnt start jobtracker &")
+        self.logger.info("Starting jobtracker on %s", node.account.hostname)
+        node.account.ssh("HADOOP_LOG_DIR=/mnt/logs /opt/hadoop-cdh/bin-mapreduce1/hadoop-daemon.sh --config /mnt "
+                         "start jobtracker &")
 
     def start_tasktracker(self, node):
-        node.account.ssh("/opt/hadoop-cdh/bin-mapreduce1/hadoop-daemon.sh --config /mnt start tasktracker &")
+        self.logger.info("Starting tasktracker on %s", node.account.hostname)
+        node.account.ssh("HADOOP_LOG_DIR=/mnt/logs /opt/hadoop-cdh/bin-mapreduce1/hadoop-daemon.sh --config /mnt "
+                         "start tasktracker &")
+
+    def start_jobhistoryserver(self, node):
+        self.logger.info("Starting job history server on %s", node.account.hostname)
+        node.account.ssh("HADOOP_MAPRED_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/mr-jobhistory-daemon.sh --config /mnt "
+                         "start historyserver &")
 
     def _stop_and_clean(self, node, allow_fail=False):
-        node.account.ssh("/opt/hadoop-cdh/bin-mapreduce1/stop-mapred.sh &", allow_fail=allow_fail)
+        node.account.ssh("HADOOP_LOG_DIR=/mnt/logs /opt/hadoop-cdh/bin-mapreduce1/hadoop-daemon.sh --config /mnt "
+                         "stop tasktracker", allow_fail=allow_fail)
+        node.account.ssh("HADOOP_LOG_DIR=/mnt/logs /opt/hadoop-cdh/bin-mapreduce1/hadoop-daemon.sh --config /mnt "
+                         "stop jobtracker", allow_fail=allow_fail)
+        node.account.ssh("HADOOP_MAPRED_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/mr-jobhistory-daemon.sh --config /mnt "
+                         "stop historyserver", allow_fail=allow_fail)
         time.sleep(5)  # the stop script doesn't wait
+        node.account.ssh("rm -rf /mnt/mapred-site.xml")
 
 
 class HadoopV2Service(HDFSService):
@@ -408,51 +422,52 @@ class HadoopV2Service(HDFSService):
     
     def distribute_yarn_confs(self, node):
         self.logger.info("Distributing YARN confs to %s", node.account.hostname)
+
         mapred_site_template = open('templates/mapred2-site.xml').read()
-
         mapred_site_params = {
-            'mapreduce_jobhistory_address': ''
+            'mapreduce_jobhistory_address': self.master_host + ":10020"
         }
-
-        yarn_env_template = open('templates/hadoop-env.sh').read()
-
-        yarn_env_params = {'java_home': ''}
-
-        yarn_site_template = open('templates/yarn-site.xml').read()
-        yarn_site_params = {'yarn_resource_manager_address': ''}
-
-        node.account.ssh("cp /opt/hadoop-cdh/etc/hadoop-mapreduce1/hadoop-metrics.properties /mnt")
-
-        yarn_env_params['java_home'] = '/usr/lib/jvm/java-6-oracle'
-        yarn_env = yarn_env_template % yarn_env_params
-
-        yarn_site_params['yarn_resourcemanager_hostname'] = self.master_host
-        yarn_site = yarn_site_template % yarn_site_params
-
-        mapred_site_params['mapreduce_jobhistory_address'] = self.master_host + ":10020"
         mapred_site = mapred_site_template % mapred_site_params
 
-        node.account.create_file("/mnt/yarn-env.sh", yarn_env)
+        yarn_env_template = open('templates/hadoop-env.sh').read()
+        yarn_env_params = {
+            'java_home': '/usr/lib/jvm/java-6-oracle'
+        }
+        yarn_env = yarn_env_template % yarn_env_params
+
+        yarn_site_template = open('templates/yarn-site.xml').read()
+        yarn_site_params = {
+            'yarn_resourcemanager_hostname': self.master_host
+        }
+        yarn_site = yarn_site_template % yarn_site_params
+
         node.account.create_file("/mnt/mapred-site.xml", mapred_site)
+        node.account.create_file("/mnt/yarn-env.sh", yarn_env)
         node.account.create_file("/mnt/yarn-site.xml", yarn_site)
+        node.account.ssh("cp /opt/hadoop-cdh/etc/hadoop-mapreduce1/hadoop-metrics.properties /mnt")
 
     def start_resourcemanager(self, node):
-        self.logger.info("Starting resource manager on %s", node.account.hostname)
-        node.account.ssh("/opt/hadoop-cdh/sbin/yarn-daemon.sh --config /mnt start resourcemanager &")
+        self.logger.info("Starting ResourceManager on %s", node.account.hostname)
+        node.account.ssh("YARN_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/yarn-daemon.sh --config /mnt "
+                         "start resourcemanager &")
 
     def start_nodemanager(self, node):
-        self.logger.info("Starting node manager on %s", node.account.hostname)
-        node.account.ssh("/opt/hadoop-cdh/sbin/yarn-daemon.sh --config /mnt start nodemanager &")
+        self.logger.info("Starting NodeManager on %s", node.account.hostname)
+        node.account.ssh("YARN_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/yarn-daemon.sh --config /mnt "
+                         "start nodemanager &")
 
     def start_jobhistoryserver(self, node):
         self.logger.info("Start job history server on %s", node.account.hostname)
-        node.account.ssh("/opt/hadoop-cdh/sbin/mr-jobhistory-daemon.sh --config /mnt start historyserver &")
+        node.account.ssh("HADOOP_MAPRED_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/mr-jobhistory-daemon.sh --config /mnt "
+                         "start historyserver &")
 
     def _stop_and_clean(self, node, allow_fail=False):
-        node.account.ssh(
-            "/opt/hadoop-cdh/sbin/yarn-daemon.sh --config /mnt stop nodemanager &", allow_fail=allow_fail)
-        node.account.ssh(
-            "/opt/hadoop-cdh/sbin/yarn-daemon.sh --config /mnt stop resourcemanager &", allow_fail=allow_fail)
+        node.account.ssh("YARN_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/yarn-daemon.sh --config /mnt "
+            "stop nodemanager &", allow_fail=allow_fail)
+        node.account.ssh("YARN_LOG_DIR=/mnt/logs/opt/hadoop-cdh/sbin/yarn-daemon.sh --config /mnt "
+            "stop resourcemanager &", allow_fail=allow_fail)
+        node.account.ssh("HADOOP_MAPRED_LOG_DIR=/mnt/logs /opt/hadoop-cdh/sbin/mr-jobhistory-daemon.sh --config /mnt "
+                         "stop historyserver", allow_fail=allow_fail)
         time.sleep(5)  # the stop script doesn't wait
         node.account.ssh("rm -rf /mnt/yarn-site.xml /mnt/mapred-site.xml /mnt/yarn-env.sh")
 

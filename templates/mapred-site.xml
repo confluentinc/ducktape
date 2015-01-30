@@ -8,4 +8,8 @@
     <name>mapred.job.tracker</name>
     <value>%(mapred_job_tracker)s</value>
   </property>
+  <property>
+    <name>mapreduce.jobhistory.address</name>
+    <value>%(mapreduce_jobhistory_address)s</value>
+  </property>
 </configuration>
