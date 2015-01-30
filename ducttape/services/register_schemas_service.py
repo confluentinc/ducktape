@@ -13,11 +13,12 @@
 # limitations under the License.
 
 from .service import Service
+from .performance import PerformanceService
 from .schema_registry_utils import *
 import time, threading
 
 
-class RegisterSchemasService(Service):
+class RegisterSchemasService(PerformanceService):
 
     def __init__(self, cluster, num_nodes, schema_registry, num_schemas, retry_wait_sec, num_tries):
         super(RegisterSchemasService, self).__init__(cluster, num_nodes)
@@ -38,33 +39,34 @@ class RegisterSchemasService(Service):
 
         self.worker_threads = []
 
-    def start(self):
-        super(RegisterSchemasService, self).start()
-
-        for idx, node in enumerate(self.nodes, 1):
-            self.logger.info("Running %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
-            worker = threading.Thread(
-                name=self.__class__.__name__ + "-worker-" + str(idx),
-                target=self._worker,
-                args=(idx, node)
-            )
-            worker.daemon = True
-            worker.start()
-            self.worker_threads.append(worker)
-
-    def wait(self):
-        super(RegisterSchemasService, self).wait()
-        for idx, worker in enumerate(self.worker_threads, 1):
-            self.logger.debug("Waiting for %s worker %d to finish", self.__class__.__name__, idx)
-            worker.join()
-        self.worker_threads = None
-
-    def stop(self):
-        super(RegisterSchemasService, self).stop()
-        assert self.worker_threads is None, "%s.stop should only be called after wait" % self.__class__.__name__
-        for idx, node in enumerate(self.nodes,1):
-            self.logger.debug("Stopping %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
-            node.free()
+    # def start(self):
+    #     super(RegisterSchemasService, self).start()
+    #
+    #     for idx, node in enumerate(self.nodes, 1):
+    #         self.logger.info("Running %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
+    #         worker = threading.Thread(
+    #             name=self.__class__.__name__ + "-worker-" + str(idx),
+    #             target=self._worker,
+    #             args=(idx, node)
+    #         )
+    #         worker.daemon = True
+    #         worker.start()
+    #         self.worker_threads.append(worker)
+    #
+    # def wait(self):
+    #     super(RegisterSchemasService, self).wait()
+    #     for idx, worker in enumerate(self.worker_threads, 1):
+    #         self.logger.debug("Waiting for %s worker %d to finish", self.__class__.__name__, idx)
+    #         worker.join()
+    #     self.worker_threads = None
+    #
+    # def stop(self):
+    #     super(RegisterSchemasService, self).stop()
+    #     assert self.worker_threads is None, "%s.stop should only be called after wait" % self.__class__.__name__
+    #     for idx, node in enumerate(self.nodes,1):
+    #         self.logger.debug("Stopping %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
+    #         node.free()
+    #
 
     def _worker(self, idx, node):
         # Set global schema compatibility requirement to NONE

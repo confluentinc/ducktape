@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os, subprocess, tempfile, time
-from ducttape.services.schema_registry_utils import http_request
+from ducttape.services.schema_registry_utils import http_request, SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES
 
 class RemoteAccount(object):
     def __init__(self, hostname, user=None, ssh_args=None, java_home="default", kafka_home="default"):
@@ -28,15 +28,14 @@ class RemoteAccount(object):
         "Returns true if this 'remote' account is actually local. This is only a heuristic, but should work for simple local testing."
         return self.hostname == "localhost" and self.user is None and self.ssh_args is None
 
-    def wait_for_http_service(self, port, timeout, path='/'):
+    def wait_for_http_service(self, port, headers, timeout=20, path='/'):
         url = "http://%s:%s%s" % (self.hostname, str(port), path)
-        http_request(url, "GET")
 
         stop = time.time() + timeout
         awake = False
         while time.time() < stop:
             try:
-                http_request(url, "GET", headers={"Accept": "*/*"})
+                http_request(url, "GET", "", headers)
                 awake = True
                 break
             except:
@@ -72,7 +71,7 @@ class RemoteAccount(object):
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
 
     def kill_process(self, process_grep_str, clean_shutdown=True, allow_fail=False):
-        cmd = """TARGET=`ps ax | grep -i """ + process_grep_str + """ | grep java | grep -v grep | awk '{print $1}'`;"""
+        cmd = """ps ax | grep -i """ + process_grep_str + """ | grep java | grep -v grep | awk '{print $1}'"""
         pids = list(self.ssh_capture(cmd))
 
         if clean_shutdown:
@@ -81,7 +80,8 @@ class RemoteAccount(object):
             kill = "kill -9 "
 
         for pid in pids:
-            self.ssh(kill + pid, allow_fail)
+            cmd = kill + pid
+            self.ssh(cmd, allow_fail)
 
     def scp_from_command(self, src, dest, recursive=False):
         r = "scp "

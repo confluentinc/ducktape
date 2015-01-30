@@ -49,13 +49,7 @@ class Service(Logger):
 
     def stop(self):
         """If the service left any running processes or data, clean them up."""
-        for idx, node in enumerate(self.nodes, 1):
-            self.logger.info("Stopping %s node %d on %s" % (type(self).__name__, idx, node.account.hostname))
-            self._stop_and_clean(node)
-            node.free()
-
-    def _stop_and_clean(self, node, allow_fail=False):
-        raise NotImplementedError("Implement _stop_and_clean")
+        pass
 
     def run(self):
         '''Helper that executes run(), wait(), and stop() in sequence. Useful for '''

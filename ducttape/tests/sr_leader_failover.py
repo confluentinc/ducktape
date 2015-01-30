@@ -15,6 +15,7 @@
 from .test import SchemaRegistryTest
 from ducttape.services.register_schemas_service import RegisterSchemasService
 from ducttape.services.schema_registry_utils import get_schema_by_id
+from ducttape.services.schema_registry_utils import SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES
 import time
 
 # Specify retry frequency and retry window
@@ -132,7 +133,7 @@ class LeaderCleanFailover(FailoverTest):
         """
         time.sleep(3)
         master_node = self.schema_registry.get_master_node()
-        self.schema_registry.kill_node(master_node)
+        self.schema_registry.stop_node(master_node)
 
 
 class LeaderHardFailover(FailoverTest):
@@ -152,14 +153,14 @@ class LeaderHardFailover(FailoverTest):
         """
         time.sleep(3)
         master_node = self.schema_registry.get_master_node()
-        self.schema_registry.kill_node(master_node, clean_shutdown=False)
+        self.schema_registry.stop_node(master_node, clean_shutdown=False)
 
 
 class CleanBounce(FailoverTest):
     def __init__(self, cluster):
         super(CleanBounce, self).__init__(cluster, num_zk=1, num_brokers=1, num_schema_reg=3)
 
-        self.num_schemas = 400
+        self.num_schemas = 1000
         # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .02
         self.num_retries = 10
@@ -174,14 +175,15 @@ class CleanBounce(FailoverTest):
             self.schema_registry.restart_node(prev_master_node, wait_sec=5)
 
             # Don't restart the new master until the previous master is running again
-            prev_master_node.account.wait_for_http_service(self.register_driver.port, timeout=10)
+            prev_master_node.account.wait_for_http_service(
+                self.schema_registry.port, headers=SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
 
 
 class HardBounce(FailoverTest):
     def __init__(self, cluster):
         super(HardBounce, self).__init__(cluster, num_zk=1, num_brokers=1, num_schema_reg=3)
 
-        self.num_schemas = 50
+        self.num_schemas = 1000
         # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .2
         self.num_retries = 40
@@ -196,7 +198,8 @@ class HardBounce(FailoverTest):
             self.schema_registry.restart_node(prev_master_node, wait_sec=5, clean_shutdown=False)
 
             # Don't restart the new master until the previous master is running again
-            prev_master_node.account.wait_for_http_service(self.register_driver.port, timeout=10)
+            prev_master_node.account.wait_for_http_service(
+                self.schema_registry.port, headers=SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
 
 
 if __name__ == "__main__":

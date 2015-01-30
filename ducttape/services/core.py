@@ -14,6 +14,7 @@
 
 from .service import Service
 import time, re
+from ducttape.services.schema_registry_utils import SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES
 
 
 class ZookeeperService(Service):
@@ -42,6 +43,13 @@ quorumListenOnAllIPs=true
             node.account.create_file("/mnt/zookeeper.properties", config)
             node.account.ssh("/opt/kafka/bin/zookeeper-server-start.sh /mnt/zookeeper.properties 1>> /mnt/zk.log 2>> /mnt/zk.log &")
             time.sleep(5) # give it some time to start
+
+    def stop(self):
+        """If the service left any running processes or data, clean them up."""
+        for idx, node in enumerate(self.nodes, 1):
+            self.logger.info("Stopping %s node %d on %s" % (type(self).__name__, idx, node.account.hostname))
+            self._stop_and_clean(node)
+            node.free()
 
     def _stop_and_clean(self, node, allow_fail=False):
         # This uses Kafka-REST's stop service script because it's better behaved
@@ -93,6 +101,13 @@ class KafkaService(Service):
                         'replication': settings.get('replication-factor', 1)
                     })
 
+    def stop(self):
+        """If the service left any running processes or data, clean them up."""
+        for idx, node in enumerate(self.nodes, 1):
+            self.logger.info("Stopping %s node %d on %s" % (type(self).__name__, idx, node.account.hostname))
+            self._stop_and_clean(node)
+            node.free()
+
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka/bin/kafka-server-stop.sh", allow_fail=allow_fail)
         time.sleep(5) # the stop script doesn't wait
@@ -126,7 +141,7 @@ class KafkaRestService(Service):
             config = template % template_params
             node.account.create_file("/mnt/rest.properties", config)
             node.account.ssh("/opt/kafka-rest/bin/kafka-rest-start /mnt/rest.properties 1>> /mnt/rest.log 2>> /mnt/rest.log &")
-            node.account.wait_for_http_service(self.port, timeout=10)
+            node.account.wait_for_http_service(self.port, headers=None)
 
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka-rest/bin/kafka-rest-stop", allow_fail=allow_fail)
@@ -160,13 +175,21 @@ class SchemaRegistryService(Service):
             self.start_node(node, config)
 
             # Wait for the server to become live
-            node.account.wait_for_http_service(self.port, timeout=10)
+            # TODO - add KafkaRest headers
+            node.account.wait_for_http_service(self.port, headers=SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
+
+    def stop(self):
+        """If the service left any running processes or data, clean them up."""
+        for idx, node in enumerate(self.nodes, 1):
+            self.logger.info("Stopping %s node %d on %s" % (type(self).__name__, idx, node.account.hostname))
+            self._stop_and_clean(node, True)
+            node.free()
 
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/schema-registry/bin/schema-registry-stop", allow_fail=allow_fail)
         node.account.ssh("rm -rf /mnt/schema-registry.properties /mnt/schema-registry.log")
 
-    def stop_node(self, node, clean_shutdown, allow_fail=True):
+    def stop_node(self, node, clean_shutdown=True, allow_fail=True):
         node.account.kill_process("schema-registry", clean_shutdown, allow_fail)
 
     def start_node(self, node, config=None):
@@ -175,7 +198,7 @@ class SchemaRegistryService(Service):
             template_params = {
                 'kafkastore_topic': '_schemas',
                 'kafkastore_url': self.zk.connect_setting(),
-                'rest_port': 8080
+                'rest_port': self.port
             }
             config = template % template_params
 
