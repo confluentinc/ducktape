@@ -38,6 +38,16 @@ if [ -z `which javac` ]; then
 fi
 
 chmod a+rw /opt
+if [ ! -e /opt/hadoop-cdh ]; then
+    mkdir -p /vagrant/hadoop-cdh
+    ln -s /vagrant/hadoop-cdh /opt/hadoop-cdh
+    pushd /opt/
+    wget http://archive.cloudera.com/cdh5/cdh/5/hadoop-2.5.0-cdh5.3.0.tar.gz
+    tar xvzf hadoop-2.5.0-cdh5.3.0.tar.gz
+    ln -s /opt/hadoop-2.5.0-cdh5.3.0 /opt/hadoop-cdh
+    popd
+fi
+
 if [ ! -e /opt/kafka ]; then
     ln -s /vagrant/kafka /opt/kafka
     ln -s /vagrant/common /opt/common

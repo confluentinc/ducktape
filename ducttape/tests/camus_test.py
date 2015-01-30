@@ -26,7 +26,7 @@ class CamusSetupTest(CamusTest):
         camus_perf = CamusPerformanceService(
             self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, settings={})
         camus_perf.run()
-        # self.tearDown()
+        self.tearDown()
 
 if __name__ == "__main__":
     CamusSetupTest.run_standalone()
