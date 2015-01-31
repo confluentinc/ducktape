@@ -9,11 +9,16 @@ if (( $ver > 6 )); then
     exit 1
 fi
 
+GIT_MODE="git@github.com:"
 while [ $# -gt 0 ]; do
   OPTION=$1
   case $OPTION in
     --update)
       UPDATE="yes"
+      shift
+      ;;
+    --http)
+      GIT_MODE="https://github.com/"
       shift
       ;;
     *)
@@ -31,9 +36,9 @@ fi
 
 pushd kafka
 
-if [ "x$UPDATE" == "xyes" ]; then      
-    echo "Updating Kafka"      
-    git fetch origin        
+if [ "x$UPDATE" == "xyes" ]; then
+    echo "Updating Kafka"
+    git fetch origin
 fi
 
 git checkout tags/$KAFKA_VERSION
@@ -86,8 +91,7 @@ function build_maven_project() {
     popd
 }
 
-build_maven_project "common" "git@github.com:confluentinc/common.git" "install"
-build_maven_project "rest-utils" "git@github.com:confluentinc/rest-utils.git" "install"
-build_maven_project "schema-registry" "git@github.com:confluentinc/schema-registry.git" "install"
-build_maven_project "kafka-rest" "git@github.com:confluentinc/kafka-rest.git" "package"
-
+build_maven_project "common" "${GIT_MODE}confluentinc/common.git" "install"
+build_maven_project "rest-utils" "${GIT_MODE}confluentinc/rest-utils.git" "install"
+build_maven_project "schema-registry" "${GIT_MODE}confluentinc/schema-registry.git" "install"
+build_maven_project "kafka-rest" "${GIT_MODE}confluentinc/kafka-rest.git" "package"

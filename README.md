@@ -124,3 +124,87 @@ be able to find it in the local Maven repository. You probably also want to
 update the `.gitignore` file to ignore the new subdirectory and
 `vagrant/base.sh` to provide a symlink under `/opt` in addition to the code
 under `/vagrant` to get Vagrant-agnostic naming.
+
+EC2 Quickstart
+--------------
+
+* Start jump server instance (manually through the AWS management console)
+ - If you haven't already, setup a keypair to use for SSH access.
+ - Nothing too big, t2.small or t2.medium is easily enough since this machine is
+   just a driver. t2.micro is even usable, but you do have to do builds locally
+   so you might want something a bit bigger.
+ - Ubuntu is recommended (only because the initial setup has been documented and
+   tested below)
+ - Most defaults are fine. Make sure you get an auto-assigned public IP
+   (normally on for the default settings) and set IAM role ->
+   ducttape-master, which gives permissions to launch/kill additional
+   machines. Tagging the instance with a useful name,
+   e.g. "<you>-ducttape-master" is recommended. Set the security group to
+   'ducttape-insecure', which leaves the machine open on a variety of ports for
+   traffic coming from other machines in the security group and enables SSH
+   access from anywhere. This is less secure than a production config, but makes
+   it so we generally don't have to worry about adding ports whenever we add new
+   services to ducttape.
+ - Once started, grab the public hostname/IP and SSH into the host using
+   `ssh -i /path/to/keypair.pem ubuntu@<public.hostname.amazonaws.com`. All
+   remaining steps will be run on the jump server. Highly recommended: use tmux
+   so any connectivity issues don't kill your session.
+ - Put a copy of the SSH key you're using (the pem file) on the jump server using scp.
+
+* Start by making sure you're up to date and installing a few dependencies,
+  getting ducttape, and building:
+
+        sudo apt-get update && sudo apt-get -y upgrade && \
+            sudo apt-get install git maven openjdk-6-jdk build-essential \
+            ruby-dev zlib1g-dev
+        wget https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.deb
+        sudo dpkg -i vagrant_1.7.2_x86_64.deb
+        vagrant plugin install vagrant-hostmanager
+        vagrant plugin install vagrant-cachier
+        sudo vagrant plugin install vagrant-aws
+        git clone https://github.com/confluentinc/ducttape.git
+        cd ducttape
+        wget https://services.gradle.org/distributions/gradle-2.2.1-bin.zip && \
+            unzip gradle-2.2.1-bin.zip
+        export PATH=`pwd`/gradle-2.2.1/bin:$PATH
+        export JAVA_HOME=/usr/lib/jvm/java-6-openjdk-amd64
+        ./build.sh --http
+
+  Now is a good time to install any extra stuff you might need, e.g. your
+  preferred text editor.
+
+* Setup your Vagrant config by putting something like the following in
+  Vagrantfile.local:
+
+        ec2_instance_type = "..." # Pick something appropriate for your
+                                  # test. Note that the default m3.medium has
+                                  # a small disk.
+        enable_dns = true
+        num_workers = 4
+        ec2_keypair_name = 'ewen'
+        ec2_keypair_file = '/home/ubuntu/confluent-ewen.pem'
+        ec2_security_groups = ['ducttape-insecure']
+        ec2_region = 'us-west-2'
+        ec2_ami = "ami-29ebb519"
+
+  These settings work for the default AWS setup you get with Confluent's
+  account (of course `num_workers`, `ec2_keypair_name` and `ec2_keypair_file`
+  should all be customized for your setup).
+
+* Make sure your access keys are configured:
+
+        export AWS_ACCESS_KEY=`curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ducttape-master | grep AccessKeyId | awk -F\" '{ print $4 }'`
+        export AWS_SECRET_KEY=`curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ducttape-master | grep SecretAccessKey | awk -F\" '{ print $4 }'`
+        export AWS_SESSION_TOKEN=`curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ducttape-master | grep Token | awk -F\" '{ print $4 }'`
+
+* Start up the instances:
+
+        vagrant up --provider=aws --no-parallel --no-provision && vagrant provision
+
+* Now you should be able to run tests:
+
+        python -m ducttape.tests.native_vs_rest_performance
+
+* Once configured, you can just shutdown your jump server until you need it
+  again. You'll still have to wait for your cluster to launch and configure, but
+  you'll avoid a bunch of the initial setup cost.

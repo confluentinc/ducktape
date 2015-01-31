@@ -28,6 +28,7 @@ ram_megabytes = 1280
 # EC2
 ec2_access_key = ENV['AWS_ACCESS_KEY']
 ec2_secret_key = ENV['AWS_SECRET_KEY']
+ec2_session_token = ENV['AWS_SESSION_TOKEN']
 ec2_keypair_name = nil
 ec2_keypair_file = nil
 
@@ -89,6 +90,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
     aws.access_key_id = ec2_access_key
     aws.secret_access_key = ec2_secret_key
+    aws.session_token = ec2_session_token
     aws.keypair_name = ec2_keypair_name
 
     aws.region = ec2_region
@@ -113,7 +115,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   def name_node(node, name)
     node.vm.hostname = name
     node.vm.provider :aws do |aws|
-      aws.tags = { 'Name' => "kafka-vagrant-" + Socket.gethostname + "-" + name }
+      aws.tags = { 'Name' => "ducttape-vagrant-" + Socket.gethostname + "-" + name, 'ducttape': 'true' }
     end
   end
 
