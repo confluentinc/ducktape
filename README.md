@@ -161,7 +161,7 @@ EC2 Quickstart
         sudo dpkg -i vagrant_1.7.2_x86_64.deb
         vagrant plugin install vagrant-hostmanager
         vagrant plugin install vagrant-cachier
-        sudo vagrant plugin install vagrant-aws
+        vagrant plugin install vagrant-aws
         git clone https://github.com/confluentinc/ducttape.git
         cd ducttape
         wget https://services.gradle.org/distributions/gradle-2.2.1-bin.zip && \
