@@ -115,7 +115,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   def name_node(node, name)
     node.vm.hostname = name
     node.vm.provider :aws do |aws|
-      aws.tags = { 'Name' => "ducttape-vagrant-" + Socket.gethostname + "-" + name, 'ducttape': 'true' }
+      aws.tags = { 'Name' => "ducttape-vagrant-" + Socket.gethostname + "-" + name, 'ducttape' => 'true' }
     end
   end
 
