@@ -74,9 +74,15 @@ def http_request(url, method, data="", headers=None):
     if url[0:7].lower() != "http://":
         url = "http://%s" % url
 
+    # print method, url, data
+
     req = urllib2.Request(url, data, headers)
     req.get_method = lambda: method
-    return urllib2.urlopen(req)
+    resp = urllib2.urlopen(req)
+
+    # print resp.getcode()
+
+    return resp
 
 
 def make_schema_string(num=None):

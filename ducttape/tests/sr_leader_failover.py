@@ -29,8 +29,8 @@ class FailoverTest(SchemaRegistryTest):
     def __init__(self, cluster, num_zk, num_brokers, num_schema_reg):
         super(FailoverTest, self).__init__(cluster, num_zk, num_brokers, num_schema_reg)
 
-        # Try to register this many schemas
-        self.num_schemas = 100
+        # # Try to register this many schemas
+        # self.num_schemas = 100
 
         # Time to wait between registration retries
         self.retry_wait_sec = .2
@@ -43,72 +43,86 @@ class FailoverTest(SchemaRegistryTest):
 
     def setUp(self):
         super(FailoverTest, self).setUp()
-        self.register_driver = RegisterSchemasService(
-            self.cluster, 1, self.schema_registry, self.num_schemas, self.retry_wait_sec, self.num_retries)
+        self.register_driver = RegisterSchemasService(self.cluster, 1, self.schema_registry, self.retry_wait_sec,
+                                                      self.num_retries, max_time_seconds=180)
 
     def drive_failures(self):
         raise NotImplementedError("drive_failures must be implemented by a subclass.")
 
     def report_summary(self):
         # Gather statistics
-        str = "\n-------------------------------------------------------------------\n"
-        str += "Summary\n"
+        summary = "\n-------------------------------------------------------------------\n"
+        summary += "Summary\n"
+        summary += str(self.register_driver.try_histogram) + "\n"
+        #
+        # for record in self.register_driver.registration_data:
+        #     print record
 
-        attempted = self.register_driver.num_schemas
-        succeeded = len(self.register_driver.registered_ids)
-        failed = attempted - succeeded
-        n_tries = self.register_driver.num_tries
-        try_time = (n_tries - 1) * self.register_driver.retry_wait_sec
+        # attempted = self.register_driver.max_schemas
+        # succeeded = len(self.register_driver.registered_ids)
+        # failed = attempted - succeeded
+        # n_tries = self.register_driver.num_tries
+        # try_time = (n_tries - 1) * self.register_driver.retry_wait_sec
+        #
+        # summary += "Attempted to register %d schemas.\n" % attempted
+        # summary += "%d out of %d were reported successful.\n" % (succeeded, attempted)
+        # summary += "%d out of %d failed with %d attempts over %f seconds.\n" % (failed, attempted, n_tries, try_time)
+        #
+        # # Max number of retries
+        # # Number which required multiple retries
+        # multiple_retries = [r for r in self.register_driver.successfully_registered.values() if r["n_tries"] > 1]
+        # summary += "%d schemas required multiple registration attempts.\n" % len(multiple_retries)
+        #
+        # max_tries = max([r["n_tries"] for r in self.register_driver.successfully_registered.values()])
+        # summary += "Max number of register attempts for successful registration of a single schema: %d\n" % max_tries
+        # summary += "Max time to register a schema: %f(seconds)\n" % ((max_tries - 1) * self.retry_wait_sec)
+        #
+        # # Get a node that's still alive
+        # master_id = self.schema_registry.idx(self.schema_registry.get_master_node())
+        #
+        # summary += "Validating that schemas reported as successful can be fetched by id...\n"
+        # registered_ids = self.register_driver.registered_ids
+        # success = True
+        # for id in registered_ids:
+        #     try:
+        #         schema = get_schema_by_id(self.schema_registry.url(master_id), id)
+        #     except:
+        #         success = False
+        #         summary += "%d was reported successful but actually failed\n" % id
+        # if success:
+        #     summary += "Validation successful.\n"
+        #
+        # # Validate by fetching versions
+        #
+        # # fetch versions
+        # # fetch each version
+        summary += "-------------------------------------------------------------------\n"
 
-        str += "Attempted to register %d schemas.\n" % attempted
-        str += "%d out of %d were reported successful.\n" % (succeeded, attempted)
-        str += "%d out of %d failed with %d attempts over %f seconds.\n" % (failed, attempted, n_tries, try_time)
-
-        # Max number of retries
-        # Number which required multiple retries
-        multiple_retries = [r for r in self.register_driver.successfully_registered.values() if r["n_tries"] > 1]
-        str += "%d schemas required multiple registration attempts.\n" % len(multiple_retries)
-
-        max_tries = 1
-        for r in self.register_driver.successfully_registered.values():
-            if r["n_tries"] > max_tries:
-                max_tries = r["n_tries"]
-        str += "Max number of register attempts for successful registration of a single schema: %d\n" % max_tries
-        str += "Max time to register a schema: %f(seconds)\n" % ((max_tries - 1) * self.retry_wait_sec)
-
-        # Get a node that's still alive
-        master_id = self.schema_registry.idx(self.schema_registry.get_master_node())
-
-        str += "Validating that schemas reported as successful can be fetched by id...\n"
-        registered_ids = self.register_driver.registered_ids
-        success = True
-        for id in registered_ids:
-            try:
-                schema = get_schema_by_id(self.schema_registry.url(master_id), id)
-            except:
-                success = False
-                str += "%d was reported successful but actually failed\n" % id
-        if success:
-            str += "Validation successful.\n"
-
-        # Validate by fetching versions
-
-        # fetch versions
-        # fetch each version
-        str += "-------------------------------------------------------------------\n"
-
-        self.logger.info(str)
+        self.logger.info(summary)
 
     def run(self):
         # set up
         self.setUp()
 
         # start schema registration in the background
+        self.logger.info("Starting registration thread(s)")
         self.register_driver.start()
 
+        # Make sure registrations have started
+        while self.register_driver.num_attempted_registrations < 2:
+            time.sleep(.5)
+
         # do the kill or bounce logic
+        self.logger.info("Driving failures")
         self.drive_failures()
 
+        # Wait a little before stopping registration
+        num_attempted = self.register_driver.num_attempted_registrations
+        while self.register_driver.num_attempted_registrations < num_attempted + 2:
+            time.sleep(.5)
+
+        self.logger.info("Ending registration...")
+        self.register_driver.ready_to_finish = True
         self.register_driver.wait()
         self.register_driver.stop()
 
@@ -143,9 +157,9 @@ class LeaderHardFailover(FailoverTest):
     def __init__(self, cluster):
         super(LeaderHardFailover, self).__init__(cluster, num_zk=1, num_brokers=1, num_schema_reg=3)
 
-        # Expect leader reelection to take less than about 4 seconds in a hard shutdown scenario
+        # Default zookeeper session timeout is 10 seconds
         self.retry_wait_sec = .1
-        self.num_retries = 90
+        self.num_retries = 110
 
     def drive_failures(self):
         """
@@ -160,17 +174,17 @@ class CleanBounce(FailoverTest):
     def __init__(self, cluster):
         super(CleanBounce, self).__init__(cluster, num_zk=1, num_brokers=1, num_schema_reg=3)
 
-        self.num_schemas = 1000
+        # self.num_schemas = 1000
         # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .02
         self.num_retries = 10
 
     def drive_failures(self):
         """
-        Wait a bit, and then kill the master node cleanly.
+        Bounce master several times - i.e. kill master with SIGTERM aka kill aka kill -15 and restart
         """
         # Bounce leader several times with some wait in-between
-        for i in range(10):
+        for i in range(5):
             prev_master_node = self.schema_registry.get_master_node()
             self.schema_registry.restart_node(prev_master_node, wait_sec=5)
 
@@ -183,17 +197,16 @@ class HardBounce(FailoverTest):
     def __init__(self, cluster):
         super(HardBounce, self).__init__(cluster, num_zk=1, num_brokers=1, num_schema_reg=3)
 
-        self.num_schemas = 1000
         # Expect leader reelection to take less than .2 sec in a clean shutdown
-        self.retry_wait_sec = .2
-        self.num_retries = 40
+        self.retry_wait_sec = .3
+        self.num_retries = 50
 
     def drive_failures(self):
         """
-        Wait a bit, and then kill the master node cleanly.
+        Bounce master several times - i.e. kill master with SIGKILL aka kill -9 and restart
         """
         # Bounce leader several times with some wait in-between
-        for i in range(10):
+        for i in range(5):
             prev_master_node = self.schema_registry.get_master_node()
             self.schema_registry.restart_node(prev_master_node, wait_sec=5, clean_shutdown=False)
 
