@@ -83,7 +83,21 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     override.vm.box = "dummy"
     override.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
 
-    override.hostmanager.ignore_private_ip = true
+    cached_addresses = {}
+    # Use a custom resolver that SSH's into the machine and finds the IP address
+    # directly. This lets us get at the private IP address directly, avoiding
+    # some issues with using the default IP resolver, which uses the public IP
+    # address.
+    config.hostmanager.ip_resolver = proc do |vm, resolving_vm|
+      if cached_addresses[vm.name].nil?
+        if hostname = (vm.ssh_info && vm.ssh_info[:host])
+          vm.communicate.execute("/sbin/ifconfig eth0 | grep 'inet addr' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1") do |type, contents|
+            cached_addresses[vm.name] = contents.split("\n").first[/(\d+\.\d+\.\d+\.\d+)/, 1]
+          end
+        end
+      end
+      cached_addresses[vm.name]
+    end
 
     override.ssh.username = ec2_user
     override.ssh.private_key_path = ec2_keypair_file
