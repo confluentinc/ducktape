@@ -197,7 +197,7 @@ EC2 Quickstart
 
 * Start up the instances:
 
-        vagrant up --provider=aws --no-parallel --no-provision && vagrant provision
+        vagrant up --provider=aws --no-provision && vagrant provision
 
 * Now you should be able to run tests:
 
