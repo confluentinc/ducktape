@@ -27,6 +27,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Default JAVA_HOME for EC2
+if [ -z "$JAVA_HOME" ]; then
+    export JAVA_HOME=/usr/lib/jvm/java-6-openjdk-amd64
+fi
+
 KAFKA_VERSION=0.8.2-beta
 
 if [ ! -e kafka ]; then
@@ -48,6 +53,10 @@ git checkout tags/$KAFKA_VERSION
 # building our own projects. Currently ours link to whatever version of Kafka
 # they default to, which should work ok for now.
 echo "Building Kafka"
+# Default gradle for local gradle download, e.g. on EC2
+if [ ! `which gradle` ]; then
+    PATH=`pwd`/gradle-*/bin:$PATH
+fi
 KAFKA_BUILD_OPTS=""
 if [ "x$SCALA_VERSION" != "x" ]; then
     KAFKA_BUILD_OPTS="$KAFKA_BUILD_OPTS -PscalaVersion=$SCALA_VERSION"

@@ -166,8 +166,6 @@ EC2 Quickstart
         cd ducttape
         wget https://services.gradle.org/distributions/gradle-2.2.1-bin.zip && \
             unzip gradle-2.2.1-bin.zip
-        export PATH=`pwd`/gradle-2.2.1/bin:$PATH
-        export JAVA_HOME=/usr/lib/jvm/java-6-openjdk-amd64
         ./build.sh --http
 
   Now is a good time to install any extra stuff you might need, e.g. your
