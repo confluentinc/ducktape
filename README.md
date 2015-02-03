@@ -203,6 +203,8 @@ EC2 Quickstart
 
         python -m ducttape.tests.native_vs_rest_performance
 
-* Once configured, you can just shutdown your jump server until you need it
-  again. You'll still have to wait for your cluster to launch and configure, but
-  you'll avoid a bunch of the initial setup cost.
+* Once configured, you can just shutdown your machines until you need them
+  again. To do so, use `vagrant halt` to stop your cluster and manually stop
+  your jump server from the management console. To bring them back up, restart
+  your jump server manually, then log in and run `vagrant up` to restore the
+  cluster.
