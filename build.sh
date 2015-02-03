@@ -22,7 +22,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-KAFKA_VERSION=0.8.2-beta
+KAFKA_VERSION=0.8.2.0
 
 if [ ! -e kafka ]; then
     echo "Cloning Kafka"
