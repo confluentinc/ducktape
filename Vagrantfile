@@ -28,6 +28,7 @@ ram_megabytes = 1280
 # EC2
 ec2_access_key = ENV['AWS_ACCESS_KEY']
 ec2_secret_key = ENV['AWS_SECRET_KEY']
+ec2_session_token = ENV['AWS_SESSION_TOKEN']
 ec2_keypair_name = nil
 ec2_keypair_file = nil
 
@@ -82,13 +83,28 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     override.vm.box = "dummy"
     override.vm.box_url = "https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box"
 
-    override.hostmanager.ignore_private_ip = true
+    cached_addresses = {}
+    # Use a custom resolver that SSH's into the machine and finds the IP address
+    # directly. This lets us get at the private IP address directly, avoiding
+    # some issues with using the default IP resolver, which uses the public IP
+    # address.
+    config.hostmanager.ip_resolver = proc do |vm, resolving_vm|
+      if cached_addresses[vm.name].nil?
+        if hostname = (vm.ssh_info && vm.ssh_info[:host])
+          vm.communicate.execute("/sbin/ifconfig eth0 | grep 'inet addr' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1") do |type, contents|
+            cached_addresses[vm.name] = contents.split("\n").first[/(\d+\.\d+\.\d+\.\d+)/, 1]
+          end
+        end
+      end
+      cached_addresses[vm.name]
+    end
 
     override.ssh.username = ec2_user
     override.ssh.private_key_path = ec2_keypair_file
 
     aws.access_key_id = ec2_access_key
     aws.secret_access_key = ec2_secret_key
+    aws.session_token = ec2_session_token
     aws.keypair_name = ec2_keypair_name
 
     aws.region = ec2_region
@@ -113,7 +129,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   def name_node(node, name)
     node.vm.hostname = name
     node.vm.provider :aws do |aws|
-      aws.tags = { 'Name' => "kafka-vagrant-" + Socket.gethostname + "-" + name }
+      aws.tags = { 'Name' => "ducttape-vagrant-" + Socket.gethostname + "-" + name, 'ducttape' => 'true' }
     end
   end
 
