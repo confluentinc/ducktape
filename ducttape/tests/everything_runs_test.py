@@ -30,7 +30,7 @@ class EverythingRunsTest(Test):
         self.zk = ZookeeperService(self.cluster, 1)
         self.zk.start()
 
-        self.kafka = KafkaService(self.cluster, 4, self.zk)
+        self.kafka = KafkaService(self.cluster, 1, self.zk)
         self.kafka.start()
 
         self.rest_proxy = KafkaRestService(self.cluster, 1, self.zk, self.kafka)
