@@ -37,7 +37,7 @@ if [ ! `which gradle` ]; then
     export PATH=`pwd`/`find . | grep gradle-.*/bin$`:$PATH
 fi
 
-KAFKA_VERSION=0.8.2-beta
+KAFKA_VERSION=0.8.2.0
 
 if [ ! -e kafka ]; then
     echo "Cloning Kafka"
