@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .service import Service
-import time, re
+import time, re, json
 from ducttape.services.schema_registry_utils import SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES
 from ducttape.services.kafka_rest_utils import KAFKA_REST_DEFAULT_REQUEST_PROPERTIES
 
@@ -72,31 +72,27 @@ class KafkaService(Service):
 
     def start(self):
         super(KafkaService, self).start()
-        template = open('templates/kafka.properties').read()
-        zk_connect = self.zk.connect_setting()
-        for idx,node in enumerate(self.nodes,1):
+
+        # Start all nodes in this Kafka service
+        for idx, node in enumerate(self.nodes, 1):
             self.logger.info("Starting Kafka node %d on %s", idx, node.account.hostname)
             self._stop_and_clean(node, allow_fail=True)
-            template_params = {
-                'broker_id': idx,
-                'hostname': node.account.hostname,
-                'zk_connect': zk_connect
-            }
-            config = template % template_params
-            node.account.create_file("/mnt/kafka.properties", config)
-            node.account.ssh("/opt/kafka/bin/kafka-server-start.sh /mnt/kafka.properties 1>> /mnt/kafka.log 2>> /mnt/kafka.log &")
-            time.sleep(5) # wait for start up
+            self.start_node(node)
 
+            # wait for start up
+            time.sleep(5)
+
+        # Create topics if necessary
         if self.topics is not None:
             node = self.nodes[0] # any node is fine here
-            for topic,settings in self.topics.items():
+            for topic, settings in self.topics.items():
                 if settings is None:
                     settings = {}
                 self.logger.info("Creating topic %s with settings %s", topic, settings)
                 node.account.ssh(
                     "/opt/kafka/bin/kafka-topics.sh --zookeeper %(zk_connect)s --create "\
                     "--topic %(name)s --partitions %(partitions)d --replication-factor %(replication)d" % {
-                        'zk_connect': zk_connect,
+                        'zk_connect': self.zk.connect_setting(),
                         'name': topic,
                         'partitions': settings.get('partitions', 1),
                         'replication': settings.get('replication-factor', 1)
@@ -106,13 +102,60 @@ class KafkaService(Service):
         """If the service left any running processes or data, clean them up."""
         for idx, node in enumerate(self.nodes, 1):
             self.logger.info("Stopping %s node %d on %s" % (type(self).__name__, idx, node.account.hostname))
-            self._stop_and_clean(node)
+            self._stop_and_clean(node, allow_fail=True)
             node.free()
 
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka/bin/kafka-server-stop.sh", allow_fail=allow_fail)
         time.sleep(5) # the stop script doesn't wait
         node.account.ssh("rm -rf /mnt/kafka-logs /mnt/kafka.properties /mnt/kafka.log")
+
+    def stop_node(self, node, clean_shutdown=True, allow_fail=True):
+        node.account.kill_process("kafka", clean_shutdown, allow_fail)
+
+    def start_node(self, node, config=None):
+        if config is None:
+            template = open('templates/kafka.properties').read()
+            template_params = {
+                'broker_id': self.idx(node),
+                'hostname': node.account.hostname,
+                'zk_connect': self.zk.connect_setting()
+            }
+
+            config = template % template_params
+
+        node.account.create_file("/mnt/kafka.properties", config)
+        node.account.ssh("/opt/kafka/bin/kafka-server-start.sh /mnt/kafka.properties 1>> /mnt/kafka.log 2>> /mnt/kafka.log &")
+
+    def restart_node(self, node, wait_sec=0, clean_shutdown=True):
+        self.stop_node(node, clean_shutdown, allow_fail=True)
+        time.sleep(wait_sec)
+        self.start_node(node)
+
+    def get_leader_node(self, topic, partition=0):
+        """ Get the leader replica for the given topic and partition.
+        """
+        cmd = "/opt/kafka/bin/kafka-run-class.sh kafka.tools.ZooKeeperMainWrapper -server %s " \
+              % self.zk.connect_setting()
+        cmd += "get /brokers/topics/%s/partitions/%d/state" % (topic, partition)
+        self.logger.debug(cmd)
+
+        node = self.nodes[0]
+        self.logger.debug("Querying zookeeper to find leader replica for topic %s: \n%s" % (cmd, topic))
+        partition_state = None
+        for line in node.account.ssh_capture(cmd):
+            match = re.match("^({.+})$", line)
+            if match is not None:
+                partition_state = match.groups()[0]
+                break
+
+        if partition_state is None:
+            raise Exception("Error finding leader for topic %s and partition %d." % (topic, partition))
+
+        partition_state = json.loads(partition_state)
+        leader_idx = int(partition_state["leader"])
+        self.logger.info("Leader for topic %s and partition %d is now: %d" % (topic, partition, leader_idx))
+        return self.get_node(leader_idx)
 
     def bootstrap_servers(self):
         return ','.join([node.account.hostname + ":9092" for node in self.nodes])
