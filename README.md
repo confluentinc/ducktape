@@ -204,7 +204,17 @@ EC2 Quickstart
         python -m ducttape.tests.native_vs_rest_performance
 
 * Once configured, you can just shutdown your machines until you need them
-  again. To do so, use `vagrant halt` to stop your cluster and manually stop
-  your jump server from the management console. To bring them back up, restart
-  your jump server manually, then log in and run `vagrant up` to restore the
-  cluster.
+  again. To do so, use
+
+        vagrant halt
+
+  to stop your cluster and manually stop your jump server from the management
+  console. To bring them back up, restart your jump server manually, then log in
+  and run
+
+         vagrant up --provider=aws --no-provision && vagrant provision
+
+  to restore the cluster. You need to reprovision to fix up some permissions for
+  ephemeral drives (under `/mnt`) which are lost when you halt the VMs, but it
+  should be very fast since most of the provisioning work is maintained across
+  reboots.
