@@ -14,7 +14,7 @@
 
 from .test import SchemaRegistryTest
 from ducttape.services.register_schemas_service import RegisterSchemasService
-from ducttape.services.schema_registry_utils import get_schema_by_id
+from ducttape.services.schema_registry_utils import get_schema_by_id, get_all_versions, get_schema_by_version
 from ducttape.services.schema_registry_utils import SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES
 import time
 
@@ -50,48 +50,59 @@ class FailoverTest(SchemaRegistryTest):
         summary = "\n-------------------------------------------------------------------\n"
         summary += "Summary\n"
         summary += str(self.register_driver.try_histogram) + "\n"
-        #
-        # for record in self.register_driver.registration_data:
-        #     print record
 
-        # attempted = self.register_driver.max_schemas
-        # succeeded = len(self.register_driver.registered_ids)
-        # failed = attempted - succeeded
-        # n_tries = self.register_driver.num_tries
-        # try_time = (n_tries - 1) * self.register_driver.retry_wait_sec
-        #
-        # summary += "Attempted to register %d schemas.\n" % attempted
-        # summary += "%d out of %d were reported successful.\n" % (succeeded, attempted)
-        # summary += "%d out of %d failed with %d attempts over %f seconds.\n" % (failed, attempted, n_tries, try_time)
-        #
-        # # Max number of retries
-        # # Number which required multiple retries
-        # multiple_retries = [r for r in self.register_driver.successfully_registered.values() if r["n_tries"] > 1]
-        # summary += "%d schemas required multiple registration attempts.\n" % len(multiple_retries)
-        #
-        # max_tries = max([r["n_tries"] for r in self.register_driver.successfully_registered.values()])
-        # summary += "Max number of register attempts for successful registration of a single schema: %d\n" % max_tries
-        # summary += "Max time to register a schema: %f(seconds)\n" % ((max_tries - 1) * self.retry_wait_sec)
-        #
-        # # Get a node that's still alive
-        # master_id = self.schema_registry.idx(self.schema_registry.get_master_node())
-        #
-        # summary += "Validating that schemas reported as successful can be fetched by id...\n"
-        # registered_ids = self.register_driver.registered_ids
-        # success = True
-        # for id in registered_ids:
-        #     try:
-        #         schema = get_schema_by_id(self.schema_registry.url(master_id), id)
-        #     except:
-        #         success = False
-        #         summary += "%d was reported successful but actually failed\n" % id
-        # if success:
-        #     summary += "Validation successful.\n"
-        #
-        # # Validate by fetching versions
-        #
-        # # fetch versions
-        # # fetch each version
+        attempted = self.register_driver.num_attempted_registrations
+        succeeded = sum([1 for record in self.register_driver.registration_data if record["success"]])
+        summary += "Attempted to register %d schemas. " % attempted + "\n"
+        summary += "Max registration attempts allowed: %d\n" % self.num_retries
+        summary += "Retry backoff: %f seconds\n" % self.retry_wait_sec
+        summary += "Successful: %d/%d = %f\n" % (succeeded, attempted, succeeded / float(attempted))
+
+        # Verify that all ids reported as successfully registered are in fact registered
+        master_id = self.schema_registry.idx(self.schema_registry.get_master_node())
+        base_url = self.schema_registry.url(master_id)
+        registered_ids = [record["schema_id"] for record in self.register_driver.registration_data if record["success"]]
+        registered_schemas = [record["schema_string"]
+                              for record in self.register_driver.registration_data if record["success"]]
+        summary += "Validating that schemas reported as successful can be fetched by id...\n"
+        success = True
+        for id in registered_ids:
+            try:
+                schema = get_schema_by_id(base_url, id)
+            except:
+                success = False
+                summary += "%d was reported successful but actually failed\n" % id
+        if success:
+            summary += "Success.\n"
+        else:
+            summary += "Failure.\n"
+
+        # Verify that number of versions fetched matches number of registered ids
+        versions = get_all_versions(base_url, self.register_driver.subject)
+        summary += \
+            "Validating that number of reported successful registrations matches number of versions in subject...\n"
+        if len(versions) == len(registered_ids):
+            summary += "Success.\n"
+        else:
+            summary += "Failure.\n"
+            success = False
+
+        # Validate by fetching versions
+        summary += "Validating schemas fetched by subject/version...\n"
+        try:
+            reported_registered_ids = set(registered_ids)
+            for version in versions:
+                schema_info = get_schema_by_version(base_url, self.register_driver.subject, version)
+                if schema_info["id"] not in reported_registered_ids:
+                    success = False
+        except:
+            success = False
+
+        if success:
+            summary += "Success.\n"
+        else:
+            summary += "Failure.\n"
+
         summary += "-------------------------------------------------------------------\n"
 
         self.logger.info(summary)
@@ -124,7 +135,6 @@ class FailoverTest(SchemaRegistryTest):
 
         self.report_summary()
         self.tearDown()
-
 
 class LeaderCleanFailover(FailoverTest):
     """
