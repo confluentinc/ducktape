@@ -24,13 +24,9 @@ import time
 # should be sufficient
 
 # For a kill -9, master reelection won't take place until zookeeper timeout, or about 4 seconds
-
 class FailoverTest(SchemaRegistryTest):
     def __init__(self, cluster, num_zk, num_brokers, num_schema_reg):
         super(FailoverTest, self).__init__(cluster, num_zk, num_brokers, num_schema_reg)
-
-        # # Try to register this many schemas
-        # self.num_schemas = 100
 
         # Time to wait between registration retries
         self.retry_wait_sec = .2
@@ -174,7 +170,6 @@ class CleanBounce(FailoverTest):
     def __init__(self, cluster):
         super(CleanBounce, self).__init__(cluster, num_zk=1, num_brokers=1, num_schema_reg=3)
 
-        # self.num_schemas = 1000
         # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .02
         self.num_retries = 10

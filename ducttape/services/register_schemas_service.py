@@ -103,7 +103,7 @@ class RegisterSchemasService(Service):
         # Set global schema compatibility requirement to NONE
         self.logger.debug("Changing compatibility requirement on %s" % self.schema_registry.url(1))
         self.logger.debug(self.schema_registry.url(1))
-        update_config(self.schema_registry.url(1), ConfigUpdateRequest(Compatibility.NONE))
+        update_config(self.schema_registry.url(1), Compatibility.NONE)
 
         start = time.time()
         i = 0
@@ -142,7 +142,7 @@ class RegisterSchemasService(Service):
 
             try:
                 self.logger.debug("Trying to register schema " + str(num))
-                schema_id = register_schema(target_url, RegisterSchemaRequest(schema_string), self.subject)
+                schema_id = register_schema(target_url, schema_string, self.subject)
                 stop = time.time()
                 success = True
                 break

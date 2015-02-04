@@ -74,15 +74,9 @@ def http_request(url, method, data="", headers=None):
     if url[0:7].lower() != "http://":
         url = "http://%s" % url
 
-    # print method, url, data
-
     req = urllib2.Request(url, data, headers)
     req.get_method = lambda: method
-    resp = urllib2.urlopen(req)
-
-    # print resp.getcode()
-
-    return resp
+    return urllib2.urlopen(req)
 
 
 def make_schema_string(num=None):
@@ -110,25 +104,27 @@ def ping_registry(base_url):
     return resp.getcode()
 
 
-def register_schema(base_url, register_schema_request, subject):
+def register_schema(base_url, schema_string, subject):
     """
     return id of registered schema, or return -1 to indicate that the request was not successful.
     """
 
+    request_data = RegisterSchemaRequest(schema_string).to_json()
     url = base_url + "/subjects/%s/versions" % subject
-    resp = http_request(url, "POST", register_schema_request.to_json(), SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
+    resp = http_request(url, "POST", request_data, SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
 
     data = json.loads(resp.read())
     return int(data["id"])
 
 
-def update_config(base_url, config_update_request, subject=None):
+def update_config(base_url, compatibility, subject=None):
     if subject is None:
         url = "%s/config" % base_url
     else:
         url = "%s/config/%s" % (base_url, subject)
 
-    http_request(url, "PUT", config_update_request.to_json(), SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
+    request_data = ConfigUpdateRequest(compatibility).to_json()
+    http_request(url, "PUT", request_data, SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
 
 
 def get_config(base_url, subject=None):
@@ -138,6 +134,7 @@ def get_config(base_url, subject=None):
         url = "%s/config/%s" % (base_url, subject)
     resp = http_request(url, "GET", "", SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
 
+    # Return the config json directly without extracting data
     return resp.read()
 
 
@@ -164,10 +161,7 @@ def get_schema_by_version(base_url, subject, version):
 
 
 def get_schema_by_id(base_url, id):
-
-    # TODO - note this is currently a bug with the implementation of the API (see schema-registry issue 48)
-    # TODO - should be GET /base_url/schemas/id
-    url = "%s/subjects/%d" % (base_url, id)
+    url = "%s/schemas/ids/%d" % (base_url, id)
 
     resp = http_request(url, "GET", headers=SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
     return json.loads(resp.read())

@@ -21,7 +21,7 @@ from ducttape.services.register_schemas_service import RegisterSchemasService
 
 
 class EverythingRunsTest(Test):
-    """ Simply check that the various core services all run.
+    """ Sanity check to ensure that various core services all run.
     """
     def __init__(self, cluster):
         self.cluster = cluster
@@ -38,6 +38,12 @@ class EverythingRunsTest(Test):
 
         self.schema_registry = SchemaRegistryService(self.cluster, 1, self.zk, self.kafka)
         self.schema_registry.start()
+
+        self.register_driver = RegisterSchemasService(self.cluster, 1, self.schema_registry, retry_wait_sec=.02,
+                                                      num_tries=5, max_time_seconds=10, max_schemas=50)
+        self.register_driver.start()
+        self.register_driver.wait()
+        self.register_driver.stop()
 
         self.schema_registry.stop()
         self.rest_proxy.stop()

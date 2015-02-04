@@ -15,6 +15,7 @@
 from .service import Service
 import time, re
 from ducttape.services.schema_registry_utils import SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES
+from ducttape.services.kafka_rest_utils import KAFKA_REST_DEFAULT_REQUEST_PROPERTIES
 
 
 class ZookeeperService(Service):
@@ -141,7 +142,7 @@ class KafkaRestService(Service):
             config = template % template_params
             node.account.create_file("/mnt/rest.properties", config)
             node.account.ssh("/opt/kafka-rest/bin/kafka-rest-start /mnt/rest.properties 1>> /mnt/rest.log 2>> /mnt/rest.log &")
-            node.account.wait_for_http_service(self.port, headers=None)
+            node.account.wait_for_http_service(self.port, headers=KAFKA_REST_DEFAULT_REQUEST_PROPERTIES)
 
     def _stop_and_clean(self, node, allow_fail=False):
         node.account.ssh("/opt/kafka-rest/bin/kafka-rest-stop", allow_fail=allow_fail)
