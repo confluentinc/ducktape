@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, subprocess, tempfile
+import os, subprocess, tempfile, time
+from ducttape.services.schema_registry_utils import http_request, SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES
 
 class RemoteAccount(object):
     def __init__(self, hostname, user=None, ssh_args=None, java_home="default", kafka_home="default"):
@@ -26,6 +27,25 @@ class RemoteAccount(object):
     def local(self):
         "Returns true if this 'remote' account is actually local. This is only a heuristic, but should work for simple local testing."
         return self.hostname == "localhost" and self.user is None and self.ssh_args is None
+
+    def wait_for_http_service(self, port, headers, timeout=20, path='/'):
+        url = "http://%s:%s%s" % (self.hostname, str(port), path)
+
+        stop = time.time() + timeout
+        awake = False
+        while time.time() < stop:
+            try:
+                http_request(url, "GET", "", headers)
+                awake = True
+                break
+            except:
+                time.sleep(.25)
+                pass
+        if not awake:
+            raise Exception("Timed out trying to contact service on %s. " % url +
+                            "Either the service failed to start, or there is a problem with the url. "
+                            "You may need to open Vagrantfile.local and add the line 'enable_dns = true'.")
+
 
     def ssh_command(self, cmd):
         r = "ssh "
@@ -49,6 +69,19 @@ class RemoteAccount(object):
         proc.communicate()
         if proc.returncode != 0:
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
+
+    def kill_process(self, process_grep_str, clean_shutdown=True, allow_fail=False):
+        cmd = """ps ax | grep -i """ + process_grep_str + """ | grep java | grep -v grep | awk '{print $1}'"""
+        pids = list(self.ssh_capture(cmd))
+
+        if clean_shutdown:
+            kill = "kill "
+        else:
+            kill = "kill -9 "
+
+        for pid in pids:
+            cmd = kill + pid
+            self.ssh(cmd, allow_fail)
 
     def scp_from_command(self, src, dest, recursive=False):
         r = "scp "
