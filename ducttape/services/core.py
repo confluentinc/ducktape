@@ -123,7 +123,7 @@ class KafkaRestService(Service):
         super(KafkaRestService, self).__init__(cluster, num_nodes)
         self.zk = zk
         self.kafka = kafka
-        self.port = 8080
+        self.port = 8082
 
     def start(self):
         super(KafkaRestService, self).start()
@@ -157,7 +157,7 @@ class SchemaRegistryService(Service):
         super(SchemaRegistryService, self).__init__(cluster, num_nodes)
         self.zk = zk
         self.kafka = kafka
-        self.port = 8080
+        self.port = 8081
 
     def start(self):
         super(SchemaRegistryService, self).start()
