@@ -38,12 +38,14 @@ if [ -z `which javac` ]; then
 fi
 
 chmod a+rw /opt
+
 if [ ! -e /opt/kafka ]; then
     ln -s /vagrant/kafka /opt/kafka
     ln -s /vagrant/common /opt/common
     ln -s /vagrant/rest-utils /opt/rest-utils
     ln -s /vagrant/kafka-rest /opt/kafka-rest
     ln -s /vagrant/schema-registry /opt/schema-registry
+    ln -s /vagrant/camus /opt/camus
 fi
 
 # For EC2 nodes, we want to use /mnt, which should have the local disk. On local
@@ -54,3 +56,17 @@ if [ ! -e /mnt ]; then
     mkdir /mnt
 fi
 chmod a+rwx /mnt
+
+
+# Hadoop Configurations
+if [ ! -e /opt/hadoop-cdh ]; then
+    mkdir -p /vagrant/hadoop-cdh
+    pushd /opt/
+    wget http://archive.cloudera.com/cdh5/cdh/5/hadoop-2.5.0-cdh5.3.0.tar.gz
+    tar xvzf hadoop-2.5.0-cdh5.3.0.tar.gz
+    ln -s /opt/hadoop-2.5.0-cdh5.3.0 /opt/hadoop-cdh
+    popd
+fi
+
+# Delete uncessary host binding so that datanode can connect to namenode
+sed -i '/127.0.1.1/d' /etc/hosts

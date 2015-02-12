@@ -75,6 +75,7 @@ function build_maven_project() {
     # can be used in the build process of applications, but applications only
     # need to build enough to be tested.
     BUILD_TARGET=$3
+    BRANCH=${4:-master}
 
     if [ ! -e $NAME ]; then
         echo "Cloning $NAME"
@@ -96,6 +97,12 @@ function build_maven_project() {
         git pull origin
     fi
 
+    if [ "x$BRANCH" != "xmaster" ]; then
+        echo "Checking out branch $BRANCH"
+        git branch --track $BRANCH origin/$BRANCH || true
+        git checkout $BRANCH
+    fi
+
     echo "Building $NAME"
     mvn $BUILD_OPTS $BUILD_TARGET
     popd
@@ -105,3 +112,4 @@ build_maven_project "common" "${GIT_MODE}confluentinc/common.git" "install"
 build_maven_project "rest-utils" "${GIT_MODE}confluentinc/rest-utils.git" "install"
 build_maven_project "schema-registry" "${GIT_MODE}confluentinc/schema-registry.git" "install"
 build_maven_project "kafka-rest" "${GIT_MODE}confluentinc/kafka-rest.git" "package"
+build_maven_project "camus" "${GIT_MODE}confluentinc/camus.git" "package" "confluent-master"

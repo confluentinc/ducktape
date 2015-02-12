@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from .service import Service
+from .core import HadoopV1Service
 import threading
+import requests, json
 
 class PerformanceService(Service):
     def start(self):
@@ -45,6 +47,7 @@ class PerformanceService(Service):
         for idx,node in enumerate(self.nodes,1):
             self.logger.debug("Stopping %s node %d on %s", self.__class__.__name__, idx, node.account.hostname)
             node.free()
+
 
 class ProducerPerformanceService(PerformanceService):
     def __init__(self, cluster, num_nodes, kafka, topic, num_records, record_size, throughput, settings={}, intermediate_stats=False):
@@ -191,7 +194,7 @@ class RestConsumerPerformanceService(PerformanceService):
         args.update({'rest_url': self.rest.url()})
         cmd = "/opt/kafka-rest/bin/kafka-rest-run-class io.confluent.kafkarest.tools.ConsumerPerformance "\
               "'%(rest_url)s' %(topic)s %(num_records)d %(throughput)d" % args
-        for key,value in self.settings.items():
+        for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
         self.logger.debug("REST Consumer performance %d command: %s", idx, cmd)
         last = None
@@ -221,7 +224,7 @@ class SchemaRegistryPerformanceService(PerformanceService):
 
         cmd = "/opt/schema-registry/bin/schema-registry-run-class io.confluent.kafka.schemaregistry.tools.SchemaRegistryPerformance "\
               "'%(schema_registry_url)s' %(subject)s %(num_schemas)d %(schemas_per_sec)d" % args
-        for key,value in self.settings.items():
+        for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
 
         self.logger.debug("Schema Registry performance %d command: %s", idx, cmd)
@@ -231,6 +234,174 @@ class SchemaRegistryPerformanceService(PerformanceService):
             last = line
         # Parse and save the last line's information
         self.results[idx-1] = parse_performance_output(last)
+
+
+"""
+    This is just a simple MapReduce job that makes sure that Hadoop is setup correctly for both MRv1 and MRv2
+"""
+
+
+class HadoopPerformanceService(PerformanceService):
+    def __init__(self, cluster, num_nodes, hadoop, settinss={}):
+        super(HadoopPerformanceService, self).__init__(cluster, num_nodes)
+        self.hadoop = hadoop
+        self.settings = settinss
+        self.args = {
+            'hadoop_path': '/opt/hadoop-cdh',
+            'hadoop_example_jar': 'share/hadoop/mapreduce/hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar',
+            'hadoop_conf_dir': '/mnt'
+        }
+
+    def _worker(self, idx, node):
+        args = self.args.copy()
+        self.hadoop.distribute_hdfs_confs(node)
+
+        if isinstance(self.hadoop, HadoopV1Service):
+            args.update({'hadoop_example_jar': 'share/hadoop/mapreduce1/hadoop-examples-2.5.0-mr1-cdh5.3.0.jar'})
+            self.hadoop.distribute_mr1_confs(node)
+        else:
+            self.hadoop.distribute_yarn_confs(node)
+
+        cmd = "HADOOP_CONF_DIR=%(hadoop_conf_dir)s %(hadoop_path)s/bin/hadoop jar " \
+              "%(hadoop_path)s/%(hadoop_example_jar)s pi 2 10" % args
+        for key, value in self.settings.items():
+            cmd += " %s=%s" % (str(key), str(value))
+
+        self.logger.debug("Hadoop performance %d command: %s", idx, cmd)
+        for line in node.account.ssh_capture(cmd):
+            self.logger.info("Hadoop performance %d: %s", idx, line.strip())
+
+
+class CamusPerformanceService(PerformanceService):
+    def __init__(self, cluster, num_nodes, kafka, hadoop, schema_registry, rest, settings={}):
+        super(CamusPerformanceService, self).__init__(cluster, num_nodes)
+        self.kafka = kafka
+        self.hadoop = hadoop
+        self.schema_registry = schema_registry
+        self.rest = rest
+        self.settings = settings
+        self.args = {
+            'hadoop_path': '/opt/hadoop-cdh',
+            'camus_path': '/opt/camus/camus-example/',
+            'camus_jar': 'confluent-camus-0.1.0-SNAPSHOT-shaded.jar',
+            'camus_property': '/mnt/camus.properties',
+            'camus_main': 'com.linkedin.camus.etl.kafka.CamusJob',
+            'broker_list': self.kafka.bootstrap_servers(),
+            'schema_registry_url': self.schema_registry.url(),
+            'rest_url': self.rest.url(),
+            'topic': 'testAvro'
+        }
+
+    def _worker(self, idx, node):
+        args = self.args.copy()
+
+        self.produce_avro(args['rest_url'] + '/topics/' + args['topic'])
+
+        self.hadoop.distribute_hdfs_confs(node)
+        if isinstance(self.hadoop, HadoopV1Service):
+            self.hadoop.distribute_mr1_confs(node)
+        else:
+            self.hadoop.distribute_yarn_confs(node)
+        self.create_camus_props(node)
+
+        cmd = "HADOOP_CONF_DIR=/mnt %(hadoop_path)s/bin/hadoop jar %(camus_path)s/target/%(camus_jar)s %(camus_main)s " \
+              "-D schema.registry.url=%(schema_registry_url)s -P %(camus_property)s " \
+              "-Dlog4j.configuration=file:%(camus_path)s/log4j.xml" % args
+
+        for key, value in self.settings.items():
+            cmd += " %s=%s" % (str(key), str(value))
+
+        self.logger.debug("Camus performance %d command: %s", idx, cmd)
+        # last = None
+        for line in node.account.ssh_capture(cmd):
+            self.logger.info("Camus performance %d: %s", idx, line.strip())
+            # last = line
+        # Parse and save the last line's information
+        # self.results[idx-1] = parse_performance_output(last)
+        node.account.ssh("rm -rf /mnt/camus.properties")
+
+    def produce_avro(self, url):
+        value_schema = {
+            "type": "record",
+            "name": "User",
+            "fields": [
+                {
+                    "name": "name",
+                    "type": "string"
+                }
+            ]
+        }
+
+        payload = {
+            "value_schema": json.dumps(value_schema),
+            "records": [
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}}
+            ]
+        }
+
+        payload2 = {
+            "records": [
+                {"value":  "null"}
+            ]
+        }
+
+        value_schema2 = {
+            "type": "record",
+            "name": "User",
+            "fields": [
+                {
+                    "name": "name",
+                    "type": "string"
+                },
+                {
+                    "name": "id",
+                    "type": "int",
+                    "default": 0
+                }
+            ]
+        }
+
+        payload3 = {
+            "value_schema": json.dumps(value_schema2),
+            "records": [
+                {"value": {"name": "testUser", "id": 1}},
+                {"value": {"name": "testUser", "id": 1}},
+            ]
+        }
+
+        self.logger.info("Produce avro data with schema %s", json.dumps(value_schema))
+        avro_headers = {'content-type': 'application/vnd.kafka.avro.v1+json'}
+
+        response = requests.post(url, data=json.dumps(payload), headers=avro_headers)
+        self.logger.info("Response %s", response.status_code)
+        self.logger.debug("Response data %s", response.text)
+
+        self.logger.info("Produce binary data")
+        binary_headers = {'content-type': 'application/vnd.kafka.binary.v1+json'}
+        response = requests.post(url, data=json.dumps(payload2), headers=binary_headers)
+        self.logger.info("Response %s", response.status_code)
+        self.logger.debug("Response data %s", response.text)
+
+        self.logger.info("Produce avro data with schema %s", json.dumps(value_schema2))
+        response = requests.post(url, data=json.dumps(payload3), headers=avro_headers)
+        self.logger.info("Response %s", response.status_code)
+        self.logger.debug("Response data %s", response.text)
+
+    def create_camus_props(self, node):
+        camus_props_template = open('templates/camus.properties').read()
+        camus_props_params = {
+            'kafka_brokers': self.args['broker_list'],
+            'kafka_whitelist_topics': self.args['topic']
+        }
+        camus_props = camus_props_template % camus_props_params
+        node.account.create_file(self.args['camus_property'], camus_props)
 
 
 class EndToEndLatencyService(PerformanceService):

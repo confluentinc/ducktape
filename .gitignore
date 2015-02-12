@@ -11,3 +11,4 @@ common/
 rest-utils/
 kafka-rest/
 schema-registry/
+camus/
