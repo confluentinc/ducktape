@@ -75,6 +75,7 @@ function build_maven_project() {
     # can be used in the build process of applications, but applications only
     # need to build enough to be tested.
     BUILD_TARGET=$3
+    BRANCH=${4:-master}
 
     if [ ! -e $NAME ]; then
         echo "Cloning $NAME"
@@ -94,6 +95,12 @@ function build_maven_project() {
     if [ "x$UPDATE" == "xyes" ]; then
         echo "Updating $NAME"
         git pull origin
+    fi
+
+    if [ "x$BRANCH" != "xmaster" ]; then
+        echo "Checking out branch $BRANCH"
+        git branch --track $BRANCH origin/$BRANCH || true
+        git checkout $BRANCH
     fi
 
     echo "Building $NAME"
@@ -101,44 +108,8 @@ function build_maven_project() {
     popd
 }
 
-function build_maven_project_branch() {
-    NAME=$1
-    URL=$2
-    # The build target can be specified so that shared libs get installed and
-    # can be used in the build process of applications, but applications only
-    # need to build enough to be tested.
-    BUILD_TARGET=$3
-    BRANCH=$4
-
-    if [ ! -e $NAME ]; then
-        echo "Cloning $NAME"
-        git clone $URL $NAME
-    fi
-
-    # Turn off tests for the build because some of these are local integration
-    # tests that take a long time. This shouldn't be a problem since these
-    # should be getting run elsewhere.
-    BUILD_OPTS="-DskipTests"
-    if [ "x$SCALA_VERSION" != "x" ]; then
-        BUILD_OPTS="$BUILD_OPTS -Dkafka.scala.version=$SCALA_VERSION"
-    fi
-
-    pushd $NAME
-
-    if [ "x$UPDATE" == "xyes" ]; then
-        echo "Updating $NAME"
-        git pull origin
-    fi
-
-    echo "Checking out branch $BRANCH"
-    git checkout $BRANCH
-    echo "Building $NAME"
-    mvn $BUILD_OPTS $BUILD_TARGET $BRANCH
-    popd
-}
-
-build_maven_project "common" "git@github.com:confluentinc/common.git" "install"
-build_maven_project "rest-utils" "git@github.com:confluentinc/rest-utils.git" "install"
-build_maven_project "schema-registry" "git@github.com:confluentinc/schema-registry.git" "install"
-build_maven_project "kafka-rest" "git@github.com:confluentinc/kafka-rest.git" "package"
-build_maven_project "camus" "git@github.com:confluentinc/camus.git" "package" "avro-decoder"
+build_maven_project "common" "${GIT_MODE}confluentinc/common.git" "install"
+build_maven_project "rest-utils" "${GIT_MODE}confluentinc/rest-utils.git" "install"
+build_maven_project "schema-registry" "${GIT_MODE}confluentinc/schema-registry.git" "install"
+build_maven_project "kafka-rest" "${GIT_MODE}confluentinc/kafka-rest.git" "package"
+build_maven_project "camus" "${GIT_MODE}confluentinc/camus.git" "package" "confluent-master"

@@ -120,11 +120,12 @@ class KafkaService(Service):
 
 
 class KafkaRestService(Service):
-    def __init__(self, cluster, num_nodes, zk, kafka):
+    def __init__(self, cluster, num_nodes, zk, kafka, schema_registry=None):
         super(KafkaRestService, self).__init__(cluster, num_nodes)
         self.zk = zk
         self.kafka = kafka
-        self.port = 8080
+        self.schema_registry = schema_registry
+        self.port = 8082
 
     def start(self):
         super(KafkaRestService, self).start()
@@ -138,8 +139,14 @@ class KafkaRestService(Service):
                 'id': idx,
                 'port': self.port,
                 'zk_connect': zk_connect,
-                'bootstrap_servers': bootstrapServers
+                'bootstrap_servers': bootstrapServers,
+                'schema_registry_url': None
             }
+
+            if self.schema_registry is not None:
+                template_params.update({'schema_registry_url': self.schema_registry.url()})
+
+            self.logger.info("Schema registry url for Kafka rest proxy is %s", template_params['schema_registry_url'])
             config = template % template_params
             node.account.create_file("/mnt/rest.properties", config)
             node.account.ssh("/opt/kafka-rest/bin/kafka-rest-start /mnt/rest.properties 1>> /mnt/rest.log 2>> /mnt/rest.log &")
@@ -165,7 +172,7 @@ class SchemaRegistryService(Service):
         super(SchemaRegistryService, self).__init__(cluster, num_nodes)
         self.zk = zk
         self.kafka = kafka
-        self.port = 8080
+        self.port = 8081
 
     def start(self):
         super(SchemaRegistryService, self).start()
@@ -258,6 +265,7 @@ class HDFSService(Service):
     def __init__(self, cluster, num_nodes):
         super(HDFSService, self).__init__(cluster, num_nodes)
         self.master_host = None
+        self.slaves = []
 
     def start(self):
         super(HDFSService, self).start()
@@ -270,15 +278,12 @@ class HDFSService(Service):
             self.distribute_hdfs_confs(node)
             self.logger.info("Stopping HDFS on %s", node.account.hostname)
             self._stop_and_clean_internal(node, allow_fail=True)
-            # for line in node.account.ssh_capture("echo $JAVA_HOME"):
-            #    self.logger.info(line.strip())
-
-            # node.account.ssh_output("echo $JAVA_HOME")
 
             if idx == 1:
                 self.format_namenode(node)
                 self.start_namenode(node)
             else:
+                self.slaves.append(node.account.hostname)
                 self.start_datanode(node)
             time.sleep(5)  # wait for start up
 

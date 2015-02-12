@@ -16,15 +16,28 @@ from ducttape.services.performance import CamusPerformanceService
 
 
 class CamusHadoopV1Test(CamusTest):
+    """
+    7 machines are required at minimum: Zookeeper 1, Kafka 1, Hadoop 2,
+    SchemaRegistry 1,  KafkaRest 1,
+    CamusPerformance 1
+    """
 
     def __init__(self, cluster):
-        super(CamusHadoopV1Test, self).__init__(cluster, 1, 1, 2, 1, hadoop_version=1, topics=None)
+        super(CamusHadoopV1Test, self).__init__(
+            cluster,
+            num_zk=1,
+            num_brokers=1,
+            num_hadoop=2,
+            num_registry=1,
+            num_rest=1,
+            hadoop_version=1,
+            topics={"testAvro": None})
 
     def run(self):
         self.setUp()
         self.logger.info("Running Camus example on Hadoop %d", self.hadoop_version)
         camus_perf = CamusPerformanceService(
-            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, settings={})
+            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
         camus_perf.run()
         self.tearDown()
 
@@ -33,15 +46,28 @@ if __name__ == "__main__":
 
 
 class CamusHadoopV2Test(CamusTest):
+    """
+    7 machines are required at minimum: Zookeeper 1, Kafka 1, Hadoop 2,
+    SchemaRegistry 1,  KafkaRest 1,
+    CamusPerformance 1
+    """
 
     def __init__(self, cluster):
-        super(CamusHadoopV2Test, self).__init__(cluster, 1, 1, 2, 1, hadoop_version=2, topics=None)
+        super(CamusHadoopV2Test, self).__init__(
+            cluster,
+            num_zk=1,
+            num_brokers=1,
+            num_hadoop=2,
+            num_registry=1,
+            num_rest=1,
+            hadoop_version=2,
+            topics={"testAvro": None})
 
     def run(self):
         self.setUp()
         self.logger.info("Running Camus example on Hadoop %d", self.hadoop_version)
         camus_perf = CamusPerformanceService(
-            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, settings={})
+            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
         camus_perf.run()
         self.tearDown()
 

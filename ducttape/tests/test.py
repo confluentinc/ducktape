@@ -103,17 +103,17 @@ class HadoopTest(Test):
     '''Helper class that managest setting up a Hadoop V1 cluster. Your run() method should
     call tearDown and setUp.
     '''
-    def __init__(self, cluster, num_nodes, hadoop_version=2):
+    def __init__(self, cluster, num_hadoop, hadoop_version=2):
         super(HadoopTest, self).__init__(cluster)
-        self.num_nodes = num_nodes
+        self.num_hadoop = num_hadoop
         self.hadoop = None
         self.hadoop_version = hadoop_version
 
     def setUp(self):
         if self.hadoop_version == 1:
-            self.hadoop = HadoopV1Service(self.cluster, self.num_nodes)
+            self.hadoop = HadoopV1Service(self.cluster, self.num_hadoop)
         else:
-            self.hadoop = HadoopV2Service(self.cluster, self.num_nodes)
+            self.hadoop = HadoopV2Service(self.cluster, self.num_hadoop)
         self.hadoop.start()
 
     def tearDown(self):
@@ -121,12 +121,14 @@ class HadoopTest(Test):
 
 
 class CamusTest(Test):
-    def __init__(self, cluster, num_zk, num_brokers, num_hadoop_nodes, num_registry_nodes, hadoop_version=2, topics=None):
+    def __init__(self, cluster, num_zk, num_brokers, num_hadoop, num_registry, num_rest,
+                 hadoop_version=2, topics=None):
         super(CamusTest, self).__init__(cluster)
         self.num_zk = num_zk
         self.num_brokers = num_brokers
-        self.num_nodes = num_hadoop_nodes
-        self.num_registry_nodes = num_registry_nodes
+        self.num_hadoop = num_hadoop
+        self.num_registry = num_registry
+        self.num_rest = num_rest
         self.topics = topics
         self.hadoop_version = hadoop_version
 
@@ -134,18 +136,21 @@ class CamusTest(Test):
         self.zk = ZookeeperService(self.cluster, self.num_zk)
         self.kafka = KafkaService(self.cluster, self.num_brokers, self.zk, topics=self.topics)
         if self.hadoop_version == 1:
-            self.hadoop = HadoopV1Service(self.cluster, self.num_nodes)
+            self.hadoop = HadoopV1Service(self.cluster, self.num_hadoop)
         else:
-            self.hadoop = HadoopV2Service(self.cluster, self.num_nodes)
-        self.schema_registry = SchemaRegistryService(self.cluster, self.num_registry_nodes, self.zk, self.kafka)
+            self.hadoop = HadoopV2Service(self.cluster, self.num_hadoop)
+        self.schema_registry = SchemaRegistryService(self.cluster, self.num_registry, self.zk, self.kafka)
+        self.rest = KafkaRestService(self.cluster, self.num_rest, self.zk, self.kafka, self.schema_registry)
+
         self.zk.start()
         self.kafka.start()
         self.hadoop.start()
         self.schema_registry.start()
+        self.rest.start()
 
     def tearDown(self):
         self.zk.stop()
         self.kafka.stop()
         self.hadoop.stop()
         self.schema_registry.stop()
-
+        self.rest.stop()

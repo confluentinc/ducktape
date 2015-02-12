@@ -15,7 +15,7 @@
 from .service import Service
 from .core import HadoopV1Service
 import threading
-
+import requests, json
 
 class PerformanceService(Service):
     def start(self):
@@ -236,6 +236,11 @@ class SchemaRegistryPerformanceService(PerformanceService):
         self.results[idx-1] = parse_performance_output(last)
 
 
+"""
+    This is just a simple MapReduce job that makes sure that Hadoop is setup correctly for both MRv1 and MRv2
+"""
+
+
 class HadoopPerformanceService(PerformanceService):
     def __init__(self, cluster, num_nodes, hadoop, settinss={}):
         super(HadoopPerformanceService, self).__init__(cluster, num_nodes)
@@ -264,38 +269,33 @@ class HadoopPerformanceService(PerformanceService):
 
         self.logger.debug("Hadoop performance %d command: %s", idx, cmd)
         for line in node.account.ssh_capture(cmd):
-            self.logger.info("Camus performance %d: %s", idx, line.strip())
+            self.logger.info("Hadoop performance %d: %s", idx, line.strip())
 
 
 class CamusPerformanceService(PerformanceService):
-    def __init__(self, cluster, num_nodes, kafka, hadoop, schema_registry, settings={}):
+    def __init__(self, cluster, num_nodes, kafka, hadoop, schema_registry, rest, settings={}):
         super(CamusPerformanceService, self).__init__(cluster, num_nodes)
         self.kafka = kafka
         self.hadoop = hadoop
         self.schema_registry = schema_registry
+        self.rest = rest
         self.settings = settings
         self.args = {
             'hadoop_path': '/opt/hadoop-cdh',
             'camus_path': '/opt/camus/camus-example/',
-            'camus_jar': 'camus-example-0.1.0-SNAPSHOT-shaded.jar',
+            'camus_jar': 'confluent-camus-0.1.0-SNAPSHOT-shaded.jar',
             'camus_property': '/mnt/camus.properties',
             'camus_main': 'com.linkedin.camus.etl.kafka.CamusJob',
             'broker_list': self.kafka.bootstrap_servers(),
             'schema_registry_url': self.schema_registry.url(),
-            'avro_producer_path': '/vagrant/avro-producer',
-            'avro_producer': 'avro-producer-1.0-SNAPSHOT-jar-with-dependencies.jar',
-            'topic': 'testAvro',
-            'num_messages': 10
+            'rest_url': self.rest.url(),
+            'topic': 'testAvro'
         }
 
     def _worker(self, idx, node):
         args = self.args.copy()
 
-        produce_cmd = "java -jar %(avro_producer_path)s/%(avro_producer)s " \
-                      "%(topic)s %(broker_list)s %(schema_registry_url)s %(num_messages)d" % args
-        self.logger.debug("Avro producer %d command: %s", idx, produce_cmd)
-        for line in node.account.ssh_capture(produce_cmd):
-            self.logger.info("Avro producer %d: %s", idx, line.strip())
+        self.produce_avro(args['rest_url'] + '/topics/' + args['topic'])
 
         self.hadoop.distribute_hdfs_confs(node)
         if isinstance(self.hadoop, HadoopV1Service):
@@ -318,7 +318,81 @@ class CamusPerformanceService(PerformanceService):
             # last = line
         # Parse and save the last line's information
         # self.results[idx-1] = parse_performance_output(last)
-        # node.account.ssh("rm -rf /mnt/camus.properties")
+        node.account.ssh("rm -rf /mnt/camus.properties")
+
+    def produce_avro(self, url):
+        value_schema = {
+            "type": "record",
+            "name": "User",
+            "fields": [
+                {
+                    "name": "name",
+                    "type": "string"
+                }
+            ]
+        }
+
+        payload = {
+            "value_schema": json.dumps(value_schema),
+            "records": [
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}},
+                {"value": {"name": "testUser"}}
+            ]
+        }
+
+        payload2 = {
+            "records": [
+                {"value":  "null"}
+            ]
+        }
+
+        value_schema2 = {
+            "type": "record",
+            "name": "User",
+            "fields": [
+                {
+                    "name": "name",
+                    "type": "string"
+                },
+                {
+                    "name": "id",
+                    "type": "int",
+                    "default": 0
+                }
+            ]
+        }
+
+        payload3 = {
+            "value_schema": json.dumps(value_schema2),
+            "records": [
+                {"value": {"name": "testUser", "id": 1}},
+                {"value": {"name": "testUser", "id": 1}},
+            ]
+        }
+
+        self.logger.info("Produce avro data with schema %s", json.dumps(value_schema))
+        avro_headers = {'content-type': 'application/vnd.kafka.avro.v1+json'}
+
+        response = requests.post(url, data=json.dumps(payload), headers=avro_headers)
+        self.logger.info("Response %s", response.status_code)
+        self.logger.debug("Response data %s", response.text)
+
+        self.logger.info("Produce binary data")
+        binary_headers = {'content-type': 'application/vnd.kafka.binary.v1+json'}
+        response = requests.post(url, data=json.dumps(payload2), headers=binary_headers)
+        self.logger.info("Response %s", response.status_code)
+        self.logger.debug("Response data %s", response.text)
+
+        self.logger.info("Produce avro data with schema %s", json.dumps(value_schema2))
+        response = requests.post(url, data=json.dumps(payload3), headers=avro_headers)
+        self.logger.info("Response %s", response.status_code)
+        self.logger.debug("Response data %s", response.text)
 
     def create_camus_props(self, node):
         camus_props_template = open('templates/camus.properties').read()
