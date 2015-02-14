@@ -136,7 +136,7 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
         summary += "Retry backoff: %f seconds\n" % self.retry_wait_sec
         summary += "Successful: %d/%d = %f\n" % (succeeded, attempted, succeeded / float(attempted))
 
-        # Verify that all ids reported as successfully registered are in fact registered
+        # Verify that all ids reported as successfully registered can be fetched
         master_id = self.schema_registry.idx(self.schema_registry.get_master_node())
         base_url = self.schema_registry.url(master_id)
         registered_ids = [record["schema_id"] for record in self.register_driver.registration_data if record["success"]]
@@ -150,20 +150,15 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
             except:
                 success = False
                 summary += "%d was reported successful but actually failed\n" % id
-        if success:
-            summary += "Success.\n"
-        else:
-            summary += "Failure.\n"
+        summary += "Success.\n" if success else "Failure.\n"
 
         # Verify that number of versions fetched matches number of registered ids
         versions = get_all_versions(base_url, self.register_driver.subject)
         summary += \
             "Validating that number of reported successful registrations matches number of versions in subject...\n"
-        if len(versions) == len(registered_ids):
-            summary += "Success.\n"
-        else:
-            summary += "Failure.\n"
+        if len(versions) != len(registered_ids):
             success = False
+        summary += "Success.\n" if success else "Failure.\n"
 
         # Validate by fetching versions
         summary += "Validating schemas fetched by subject/version...\n"
@@ -175,14 +170,9 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
                     success = False
         except:
             success = False
-
-        if success:
-            summary += "Success.\n"
-        else:
-            summary += "Failure.\n"
+        summary += "Success.\n" if success else "Failure.\n"
 
         summary += "-------------------------------------------------------------------\n"
-
         self.logger.info(summary)
 
     def run(self):
