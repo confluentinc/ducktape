@@ -58,7 +58,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.provider :virtualbox do |vb,override|
     override.vm.box = "ubuntu/trusty64"
 
-    override.hostmanager.ignore_private_ip = false
+    override.hostmanager.ignore_private_ip = false 
 
     # Brokers started with the standard script currently set Xms and Xmx to 1G,
     # plus we need some extra head room.
@@ -88,7 +88,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     # directly. This lets us get at the private IP address directly, avoiding
     # some issues with using the default IP resolver, which uses the public IP
     # address.
-    config.hostmanager.ip_resolver = proc do |vm, resolving_vm|
+    aws.hostmanager.ip_resolver = proc do |vm, resolving_vm|
       if cached_addresses[vm.name].nil?
         if hostname = (vm.ssh_info && vm.ssh_info[:host])
           vm.communicate.execute("/sbin/ifconfig eth0 | grep 'inet addr' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1") do |type, contents|
