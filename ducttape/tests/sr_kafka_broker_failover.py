@@ -27,9 +27,8 @@ class KafkaLeaderCleanFailover(SchemaRegistryFailoverTest):
     def __init__(self, cluster):
         super(KafkaLeaderCleanFailover, self).__init__(cluster, num_zk=1, num_brokers=3, num_schema_reg=1)
 
-        # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .02
-        self.num_retries = 10
+        self.num_retries = 20
 
     def drive_failures(self):
         time.sleep(3)
@@ -57,9 +56,8 @@ class KafkaBrokerCleanBounce(SchemaRegistryFailoverTest):
     def __init__(self, cluster):
         super(KafkaBrokerCleanBounce, self).__init__(cluster, num_zk=1, num_brokers=3, num_schema_reg=1)
 
-        # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .02
-        self.num_retries = 10
+        self.num_retries = 20
 
     def drive_failures(self):
         # Bounce leader several times with some wait in-between
@@ -75,18 +73,17 @@ class KafkaBrokerHardBounce(SchemaRegistryFailoverTest):
     def __init__(self, cluster):
         super(KafkaBrokerHardBounce, self).__init__(cluster, num_zk=1, num_brokers=3, num_schema_reg=1)
 
-        # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .3
         self.num_retries = 50
 
     def drive_failures(self):
         # Bounce leader several times with some wait in-between
-        for i in range(5):
+        for i in range(1):
             prev_leader_node = self.kafka.get_leader_node(topic="_schemas", partition=0)
-            self.kafka.restart_node(prev_leader_node, wait_sec=5, clean_shutdown=False)
+            self.kafka.restart_node(prev_leader_node, wait_sec=7, clean_shutdown=False)
 
             # Wait long enough for previous leader to probably be awake again
-            time.sleep(6)
+            time.sleep(10)
 
 
 if __name__ == "__main__":

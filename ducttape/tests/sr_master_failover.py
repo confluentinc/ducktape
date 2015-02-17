@@ -51,7 +51,7 @@ class MasterHardFailover(SchemaRegistryFailoverTest):
 
         # Default zookeeper session timeout is 10 seconds
         self.retry_wait_sec = .1
-        self.num_retries = 110
+        self.num_retries = 1500
 
     def drive_failures(self):
         """
@@ -97,7 +97,7 @@ class HardBounce(SchemaRegistryFailoverTest):
         Bounce master several times - i.e. kill master with SIGKILL aka kill -9 and restart
         """
         # Bounce leader several times with some wait in-between
-        for i in range(5):
+        for i in range(6):
             prev_master_node = self.schema_registry.get_master_node()
             self.schema_registry.restart_node(prev_master_node, wait_sec=5, clean_shutdown=False)
 

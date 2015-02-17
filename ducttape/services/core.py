@@ -80,7 +80,7 @@ class KafkaService(Service):
             self.start_node(node)
 
             # wait for start up
-            time.sleep(5)
+            time.sleep(6)
 
         # Create topics if necessary
         if self.topics is not None:
@@ -89,14 +89,28 @@ class KafkaService(Service):
                 if settings is None:
                     settings = {}
                 self.logger.info("Creating topic %s with settings %s", topic, settings)
-                node.account.ssh(
-                    "/opt/kafka/bin/kafka-topics.sh --zookeeper %(zk_connect)s --create "\
+
+                cmd = "/opt/kafka/bin/kafka-topics.sh --zookeeper %(zk_connect)s --create "\
                     "--topic %(name)s --partitions %(partitions)d --replication-factor %(replication)d" % {
                         'zk_connect': self.zk.connect_setting(),
                         'name': topic,
                         'partitions': settings.get('partitions', 1),
                         'replication': settings.get('replication-factor', 1)
-                    })
+                    }
+
+                if settings["configs"] is not None:
+                    for config_name, config_value in settings["configs"].items():
+                        cmd += " --config %s=%s" % (config_name, str(config_value))
+
+                self.logger.info("Running topic creation command...\n%s" % cmd)
+                node.account.ssh(cmd)
+
+                time.sleep(5)
+                cmd = "/opt/kafka/bin/kafka-topics.sh --zookeeper %s --topic %s --describe" % \
+                      (self.zk.connect_setting(), topic)
+                self.logger.info("Checking to see if topic was properly created...\n%s" % cmd)
+                for line in node.account.ssh_capture(cmd):
+                    self.logger.info(line)
 
     def stop(self):
         """If the service left any running processes or data, clean them up."""
@@ -150,9 +164,11 @@ class KafkaService(Service):
                 break
 
         if partition_state is None:
-            raise Exception("Error finding leader for topic %s and partition %d." % (topic, partition))
+            raise Exception("Error finding partition state for topic %s and partition %d." % (topic, partition))
 
         partition_state = json.loads(partition_state)
+        self.logger.info(partition_state)
+
         leader_idx = int(partition_state["leader"])
         self.logger.info("Leader for topic %s and partition %d is now: %d" % (topic, partition, leader_idx))
         return self.get_node(leader_idx)
@@ -196,7 +212,7 @@ class KafkaRestService(Service):
             node.account.wait_for_http_service(self.port, headers=KAFKA_REST_DEFAULT_REQUEST_PROPERTIES)
 
     def stop(self):
-        for idx, node in enumerate(self.nodes,1):
+        for idx, node in enumerate(self.nodes, 1):
             self.logger.info("Stopping REST node %d on %s", idx, node.account.hostname)
             self._stop_and_clean(node)
             node.free()
@@ -233,7 +249,6 @@ class SchemaRegistryService(Service):
             self.start_node(node, config)
 
             # Wait for the server to become live
-            # TODO - add KafkaRest headers
             node.account.wait_for_http_service(self.port, headers=SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
 
     def stop(self):
@@ -274,7 +289,7 @@ class SchemaRegistryService(Service):
     def get_master_node(self):
         node = self.nodes[0]
 
-        cmd = "/opt/kafka/bin/kafka-run-class.sh kafka.tools.ZooKeeperMainWrapper -server %s get /schema-registry-master" \
+        cmd = "/opt/kafka/bin/kafka-run-class.sh kafka.tools.ZooKeeperMainWrapper -server %s get /schema_registry/schema_registry_master" \
               % self.zk.connect_setting()
 
         host = None
