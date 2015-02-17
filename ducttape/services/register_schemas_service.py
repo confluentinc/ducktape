@@ -107,8 +107,10 @@ class RegisterSchemasService(Service):
 
         start = time.time()
         i = 0
-        while i < self.max_schemas:
-            if self.ready_to_finish or (time.time() - start) > self.max_time_seconds:
+        while True:
+            elapsed = time.time() - start
+            self.ready_to_finish = self.ready_to_finish or elapsed > self.max_time_seconds or i >= self.max_schemas
+            if self.ready_to_finish:
                 break
 
             self.try_register(i, idx, node)

@@ -146,6 +146,15 @@ def get_all_subjects(base_url):
     return json.loads(data)
 
 
+def get_by_schema(base_url, schema, subject):
+    url = "%s/subjects/%s" % (base_url, subject)
+
+    request_data = RegisterSchemaRequest(schema).to_json()
+    resp = http_request(url, "POST", data=request_data, headers=SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
+
+    return json.loads(resp.read())
+
+
 def get_all_versions(base_url, subject):
     url = "%s/subjects/%s/versions" % (base_url, subject)
     resp = http_request(url, "GET", headers=SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES)
