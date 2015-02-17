@@ -153,6 +153,8 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
         summary += "Retry backoff: %f seconds\n" % self.retry_wait_sec
         summary += "Successful: %d/%d = %f\n" % (succeeded, attempted, succeeded / float(attempted))
 
+        success = True
+
         # Verify that all ids reported as successfully registered can be fetched
         master_id = self.schema_registry.idx(self.schema_registry.get_master_node())
         base_url = self.schema_registry.url(master_id)
@@ -160,7 +162,6 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
         registered_schemas = [record["schema_string"]
                               for record in self.register_driver.registration_data if record["success"]]
         summary += "Validating that schemas reported as successful can be fetched by id...\n"
-        success = True
         for id in registered_ids:
             try:
                 schema = get_schema_by_id(base_url, id)
@@ -177,19 +178,6 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
             success = False
         summary += "Success.\n" if success else "Failure.\n"
 
-        reported_records = self.get_ids_and_schemas_registered()
-        stored_records = self.fetch_ids_and_schemas_by_subjectschema(reported_records)
-
-        reported_records = set(map(lambda r: (r[0], json.loads(r[1])["fields"][0]["name"]), reported_records))
-        stored_records = set(map(lambda r: (r[0], json.loads(r[1])["fields"][0]["name"]), stored_records))
-
-        print "reported - stored"
-        print reported_records - stored_records
-        print "stored - reported"
-        print stored_records - reported_records
-
-        success = True
-
         results = self.validate_schema_consistency()
         summary += results["message"] + "\n"
         success = success and results["success"]
@@ -198,11 +186,9 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
         summary += results["message"] + "\n"
         success = success and results["success"]
 
-        # results = self.validate_registered_vs_subjectschema()
+        results = self.validate_registered_vs_subjectschema()
         summary += results["message"] + "\n"
         success = success and results["success"]
-
-        summary += "Success.\n" if success else "Failure.\n"
 
         summary += "-------------------------------------------------------------------\n"
         self.logger.info(summary)
@@ -258,6 +244,33 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
             raise Exception("Failed to fetch versions: " + str(failed_versions))
 
         return fetched_ids_and_schemas
+
+    def validate_registered_vs_subjectschema(self):
+        """
+        Check successfully registered against schemas fetched by subject/schema
+        """
+        registered_ids_and_schemas = self.get_ids_and_schemas_registered()
+        fetched_ids_and_schemas = self.fetch_ids_and_schemas_by_subjectschema(registered_ids_and_schemas)
+
+        registered_ids_and_schemas = set(map(lambda r: (r[0], json.loads(r[1])["fields"][0]["name"]), registered_ids_and_schemas))
+        fetched_ids_and_schemas = set(map(lambda r: (r[0], json.loads(r[1])["fields"][0]["name"]), fetched_ids_and_schemas))
+
+        message = "Validating successfully registered ids agains ids fetched by subject/schema...\n"
+        success = True
+
+        registered_not_fetched = registered_ids_and_schemas - fetched_ids_and_schemas
+        if len(registered_not_fetched) > 0:
+            success = False
+            message += "There are registered ids which were not fetched: " + str(registered_not_fetched) + "\n"
+
+        fetched_not_registered = fetched_ids_and_schemas - registered_ids_and_schemas
+        if len(fetched_not_registered) > 0:
+            success = False
+            message += "There are fetched ids which were not registered: " + str(fetched_not_registered) + "\n"
+
+        message += "Success." if success else "Failure."
+        return {"success": success, "message": message}
+
 
     def validate_registered_vs_subjectversion(self):
         """

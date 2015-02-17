@@ -31,7 +31,7 @@ class MasterCleanFailover(SchemaRegistryFailoverTest):
 
         # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .02
-        self.num_retries = 10
+        self.num_retries = 100
 
     def drive_failures(self):
         """
@@ -68,7 +68,7 @@ class CleanBounce(SchemaRegistryFailoverTest):
 
         # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .02
-        self.num_retries = 10
+        self.num_retries = 100
 
     def drive_failures(self):
         """
@@ -90,7 +90,7 @@ class HardBounce(SchemaRegistryFailoverTest):
 
         # Expect leader reelection to take less than .2 sec in a clean shutdown
         self.retry_wait_sec = .3
-        self.num_retries = 50
+        self.num_retries = 100
 
     def drive_failures(self):
         """
