@@ -88,7 +88,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     # directly. This lets us get at the private IP address directly, avoiding
     # some issues with using the default IP resolver, which uses the public IP
     # address.
-    aws.hostmanager.ip_resolver = proc do |vm, resolving_vm|
+    override.hostmanager.ip_resolver = proc do |vm, resolving_vm|
       if cached_addresses[vm.name].nil?
         if hostname = (vm.ssh_info && vm.ssh_info[:host])
           vm.communicate.execute("/sbin/ifconfig eth0 | grep 'inet addr' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1") do |type, contents|
