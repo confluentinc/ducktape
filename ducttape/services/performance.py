@@ -13,9 +13,11 @@
 # limitations under the License.
 
 from .service import Service
-from .core import HadoopV1Service
+from .core import HadoopV1Service, HDP_YARNService
 import threading
-import requests, json
+import requests
+import json
+
 
 class PerformanceService(Service):
     def start(self):
@@ -236,12 +238,10 @@ class SchemaRegistryPerformanceService(PerformanceService):
         self.results[idx-1] = parse_performance_output(last)
 
 
-"""
-    This is just a simple MapReduce job that makes sure that Hadoop is setup correctly for both MRv1 and MRv2
-"""
-
-
 class HadoopPerformanceService(PerformanceService):
+    """
+    This is a simple MapReduce job that makes sure that Hadoop is setup correctly for both MRv1 and MRv2
+    """
     def __init__(self, cluster, num_nodes, hadoop, settings={}):
         super(HadoopPerformanceService, self).__init__(cluster, num_nodes)
         self.hadoop = hadoop
@@ -250,6 +250,7 @@ class HadoopPerformanceService(PerformanceService):
             bin_dir_name = 'bin-mapreduce1'
         else:
             bin_dir_name = 'bin'
+
         self.args = {
             'hadoop_path': '/opt/hadoop-cdh',
             'hadoop_bin_dir_name': bin_dir_name,
@@ -271,6 +272,35 @@ class HadoopPerformanceService(PerformanceService):
               "HADOOP_CONF_DIR=%(hadoop_conf_dir)s %(hadoop_path)s/%(hadoop_bin_dir_name)s/hadoop jar " \
               "%(hadoop_path)s/%(hadoop_example_jar)s pi " \
               "2 10 " % args
+        for key, value in self.settings.items():
+            cmd += " %s=%s" % (str(key), str(value))
+
+        self.logger.debug("Hadoop performance %d command: %s", idx, cmd)
+        for line in node.account.ssh_capture(cmd):
+            self.logger.info("Hadoop performance %d: %s", idx, line.strip())
+
+
+class HDP_HadoopPerformanceService(PerformanceService):
+    """
+    This is a simple MapReduce job that makes sure that Hadoop is setup correctly for HDP
+    """
+    def __init__(self, cluster, num_nodes, hadoop, settings={}):
+        super(HDP_HadoopPerformanceService, self).__init__(cluster, num_nodes)
+        self.hadoop = hadoop
+        self.settings = settings
+        self.args = {
+            'hadoop_path': '/usr/hdp/current/hadoop-client',
+            'hadoop_example_jar': '/usr/hdp/current/hadoop-mapreduce-client/hadoop-mapreduce-examples-*.jar',
+            'hadoop_conf_dir': '/mnt'
+        }
+
+    def _worker(self, idx, node):
+        args = self.args.copy()
+        self.hadoop.distribute_hdfs_confs(node)
+        self.hadoop.distribute_yarn_confs(node)
+
+        cmd = "HADOOP_CONF_DIR=%(hadoop_conf_dir)s %(hadoop_path)s/bin/hadoop jar " \
+              "%(hadoop_example_jar)s pi 2 10" % args
         for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
 
@@ -332,7 +362,7 @@ class CamusPerformanceService(PerformanceService):
             # last = line
         # Parse and save the last line's information
         # self.results[idx-1] = parse_performance_output(last)
-        node.account.ssh("rm -rf /mnt/camus.properties")
+        # node.account.ssh("rm -rf /mnt/camus.properties")
 
     def produce_avro(self, url):
         value_schema = {

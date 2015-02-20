@@ -58,7 +58,7 @@ fi
 chmod a+rwx /mnt
 
 
-# Hadoop Configurations
+# Install and configure CDH
 if [ ! -e /opt/hadoop-cdh ]; then
     mkdir -p /vagrant/hadoop-cdh
     pushd /opt/
@@ -70,3 +70,10 @@ fi
 
 # Delete uncessary host binding so that datanode can connect to namenode
 sed -i '/127.0.1.1/d' /etc/hosts
+
+# Install and configure HDP
+wget http://public-repo-1.hortonworks.com/HDP/ubuntu12/2.x/GA/2.2.0.0/hdp.list -O /etc/apt/sources.list.d/hdp.list
+apt-get update
+apt-get install -y --force-yes hadoop hadoop-hdfs libhdfs0 hadoop-yarn hadoop-mapreduce hadoop-client openssl
+echo "export JAVA_HOME=/usr/lib/jvm/java-6-oracle" >> /etc/hadoop/conf/hadoop-env.sh
+echo "export HADOOP_CONF_DIR=/mnt" >> /etc/hadoop/conf/hadoop-env.sh
