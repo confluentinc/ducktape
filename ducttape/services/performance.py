@@ -242,12 +242,17 @@ class SchemaRegistryPerformanceService(PerformanceService):
 
 
 class HadoopPerformanceService(PerformanceService):
-    def __init__(self, cluster, num_nodes, hadoop, settinss={}):
+    def __init__(self, cluster, num_nodes, hadoop, settings={}):
         super(HadoopPerformanceService, self).__init__(cluster, num_nodes)
         self.hadoop = hadoop
-        self.settings = settinss
+        self.settings = settings
+        if isinstance(self.hadoop, HadoopV1Service):
+            bin_dir_name = 'bin-mapreduce1'
+        else:
+            bin_dir_name = 'bin'
         self.args = {
             'hadoop_path': '/opt/hadoop-cdh',
+            'hadoop_bin_dir_name': bin_dir_name,
             'hadoop_example_jar': 'share/hadoop/mapreduce/hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar',
             'hadoop_conf_dir': '/mnt'
         }
@@ -262,8 +267,10 @@ class HadoopPerformanceService(PerformanceService):
         else:
             self.hadoop.distribute_yarn_confs(node)
 
-        cmd = "HADOOP_CONF_DIR=%(hadoop_conf_dir)s %(hadoop_path)s/bin/hadoop jar " \
-              "%(hadoop_path)s/%(hadoop_example_jar)s pi 2 10" % args
+        cmd = "HADOOP_USER_CLASSPATH_FIRST=true HADOOP_CLASSPATH=%(hadoop_path)s/%(hadoop_example_jar)s " \
+              "HADOOP_CONF_DIR=%(hadoop_conf_dir)s %(hadoop_path)s/%(hadoop_bin_dir_name)s/hadoop jar " \
+              "%(hadoop_path)s/%(hadoop_example_jar)s pi " \
+              "2 10 " % args
         for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
 
@@ -280,10 +287,16 @@ class CamusPerformanceService(PerformanceService):
         self.schema_registry = schema_registry
         self.rest = rest
         self.settings = settings
+        camus_path = '/opt/camus/camus-example/'
+        if isinstance(self.hadoop, HadoopV1Service):
+            bin_dir_name = 'bin-mapreduce1'
+        else:
+            bin_dir_name = 'bin'
         self.args = {
             'hadoop_path': '/opt/hadoop-cdh',
-            'camus_path': '/opt/camus/camus-example/',
-            'camus_jar': 'confluent-camus-0.1.0-SNAPSHOT-shaded.jar',
+            'hadoop_bin_dir_name': bin_dir_name,
+            'camus_path': camus_path,
+            'camus_jar': 'confluent-camus-0.1.0-SNAPSHOT.jar',
             'camus_property': '/mnt/camus.properties',
             'camus_main': 'com.linkedin.camus.etl.kafka.CamusJob',
             'broker_list': self.kafka.bootstrap_servers(),
@@ -304,9 +317,10 @@ class CamusPerformanceService(PerformanceService):
             self.hadoop.distribute_yarn_confs(node)
         self.create_camus_props(node)
 
-        cmd = "HADOOP_CONF_DIR=/mnt %(hadoop_path)s/bin/hadoop jar %(camus_path)s/target/%(camus_jar)s %(camus_main)s " \
-              "-D schema.registry.url=%(schema_registry_url)s -P %(camus_property)s " \
-              "-Dlog4j.configuration=file:%(camus_path)s/log4j.xml" % args
+        cmd_template = "PATH=%(hadoop_path)s/%(hadoop_bin_dir_name)s:$PATH HADOOP_CONF_DIR=/mnt /opt/camus/bin/camus-run " \
+                       "-D schema.registry.url=%(schema_registry_url)s -P %(camus_property)s " \
+                       "-Dlog4j.configuration=file:%(camus_path)s/log4j.xml"
+        cmd = cmd_template % args
 
         for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
@@ -456,4 +470,3 @@ def parse_performance_output(summary):
         results['rate_mps'] = results['records_per_sec']
 
         return results
-

@@ -98,7 +98,7 @@ class KafkaService(Service):
                         'replication': settings.get('replication-factor', 1)
                     }
 
-                if settings["configs"] is not None:
+                if settings.get("configs") is not None:
                     for config_name, config_value in settings["configs"].items():
                         cmd += " --config %s=%s" % (config_name, str(config_value))
 
@@ -491,7 +491,7 @@ class HadoopV2Service(HDFSService):
         }
         mapred_site = mapred_site_template % mapred_site_params
 
-        yarn_env_template = open('templates/hadoop-env.sh').read()
+        yarn_env_template = open('templates/yarn-env.sh').read()
         yarn_env_params = {
             'java_home': '/usr/lib/jvm/java-6-oracle'
         }
