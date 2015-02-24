@@ -73,7 +73,9 @@ sed -i '/127.0.1.1/d' /etc/hosts
 
 # Install and configure HDP
 wget http://public-repo-1.hortonworks.com/HDP/ubuntu12/2.x/GA/2.2.0.0/hdp.list -O /etc/apt/sources.list.d/hdp.list
+gpg --keyserver pgp.mit.edu --recv-keys B9733A7A07513CAD
+gpg -a --export 07513CAD | apt-key add -
 apt-get update
-apt-get install -y --force-yes hadoop hadoop-hdfs libhdfs0 hadoop-yarn hadoop-mapreduce hadoop-client openssl
+apt-get install -y hadoop hadoop-hdfs libhdfs0 hadoop-yarn hadoop-mapreduce hadoop-client openssl
 echo "export JAVA_HOME=/usr/lib/jvm/java-6-oracle" >> /etc/hadoop/conf/hadoop-env.sh
 echo "export HADOOP_CONF_DIR=/mnt" >> /etc/hadoop/conf/hadoop-env.sh

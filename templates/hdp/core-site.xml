@@ -18,7 +18,7 @@
 
 <configuration>
   <property>
-    <name>fs.defaultFS</name>
-    <value>%(fs_defaultFS)s</value>
+    <name>fs.default.name</name>
+    <value>%(fs_default_name)s</value>
   </property>
 </configuration>

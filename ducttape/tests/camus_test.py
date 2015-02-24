@@ -30,12 +30,14 @@ class CamusHadoopV1Test(CamusTest):
             num_hadoop=2,
             num_registry=1,
             num_rest=1,
+            hadoop_distro='cdh',
             hadoop_version=1,
             topics={"testAvro": None})
 
     def run(self):
         self.setUp()
-        self.logger.info("Running Camus example on Hadoop %d", self.hadoop_version)
+        self.logger.info("Running Camus example on Hadoop distribution %s, Hadoop version %d",
+                         self.hadoop_distro, self.hadoop_version)
         camus_perf = CamusPerformanceService(
             self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
         camus_perf.run()
@@ -60,12 +62,14 @@ class CamusHadoopV2Test(CamusTest):
             num_hadoop=2,
             num_registry=1,
             num_rest=1,
+            hadoop_distro='cdh',
             hadoop_version=2,
             topics={"testAvro": None})
 
     def run(self):
         self.setUp()
-        self.logger.info("Running Camus example on Hadoop %d", self.hadoop_version)
+        self.logger.info("Running Camus example on Hadoop distribution %s, Hadoop version %d",
+                         self.hadoop_distro, self.hadoop_version)
         camus_perf = CamusPerformanceService(
             self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
         camus_perf.run()
@@ -73,3 +77,35 @@ class CamusHadoopV2Test(CamusTest):
 
 if __name__ == "__main__":
     CamusHadoopV2Test.run_standalone()
+
+
+class CamusHDPTest(CamusTest):
+    """
+    7 machines are required at minimum: Zookeeper 1, Kafka 1, Hadoop 2,
+    SchemaRegistry 1,  KafkaRest 1,
+    CamusPerformance 1
+    """
+
+    def __init__(self, cluster):
+        super(CamusHDPTest, self).__init__(
+            cluster,
+            num_zk=1,
+            num_brokers=1,
+            num_hadoop=2,
+            num_registry=1,
+            num_rest=1,
+            hadoop_distro='hdp',
+            hadoop_version=2,
+            topics={"testAvro": None})
+
+    def run(self):
+        self.setUp()
+        self.logger.info("Running Camus example on Hadoop distribution %s, Hadoop version %d",
+                         self.hadoop_distro, self.hadoop_version)
+        camus_perf = CamusPerformanceService(
+            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
+        camus_perf.run()
+        self.tearDown()
+
+if __name__ == "__main__":
+    CamusHDPTest.run_standalone()
