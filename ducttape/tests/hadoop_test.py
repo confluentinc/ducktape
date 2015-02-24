@@ -18,7 +18,7 @@ from ducttape.services.performance import HadoopPerformanceService
 class HadoopV1SetupTest(HadoopTest):
 
     def __init__(self, cluster):
-        super(HadoopV1SetupTest, self).__init__(cluster, 2, hadoop_version=1)
+        super(HadoopV1SetupTest, self).__init__(cluster, 2, hadoop_distro='cdh', hadoop_version=1)
 
     def run(self):
         self.setUp()
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 class HadoopV2SetupTest(HadoopTest):
 
     def __init__(self, cluster):
-        super(HadoopV2SetupTest, self).__init__(cluster, 2, hadoop_version=2)
+        super(HadoopV2SetupTest, self).__init__(cluster, 2, hadoop_distro='cdh', hadoop_version=2)
 
     def run(self):
         self.setUp()
@@ -45,3 +45,19 @@ class HadoopV2SetupTest(HadoopTest):
 
 if __name__ == "__main__":
     HadoopV2SetupTest.run_standalone()
+
+
+class HDPSetupTest(HadoopTest):
+
+    def __init__(self, cluster):
+        super(HDPSetupTest, self).__init__(cluster, 2, hadoop_distro='hdp', hadoop_version=2)
+
+    def run(self):
+        self.setUp()
+        hadoop_perf = HadoopPerformanceService(self.cluster, 1, self.hadoop)
+        hadoop_perf.run()
+        self.tearDown()
+
+
+if __name__ == "__main__":
+    HDPSetupTest.run_standalone()

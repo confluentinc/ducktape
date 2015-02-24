@@ -13,15 +13,15 @@
 # limitations under the License.
 
 from ducttape.cluster import VagrantCluster
-from ducttape.services.core import ZookeeperService, KafkaService, KafkaRestService, SchemaRegistryService
 from ducttape.services.register_schemas_service import RegisterSchemasService
 from ducttape.services.schema_registry_utils import get_schema_by_id, get_all_versions, get_schema_by_version, \
     get_by_schema
 from ducttape.services.core import ZookeeperService, KafkaService, KafkaRestService, SchemaRegistryService, \
-    HadoopV1Service, HadoopV2Service
+    create_hadoop_service
 from ducttape.logger import Logger
-import logging, time, json
-
+import logging
+import time
+import json
 
 class Test(Logger):
     """
@@ -381,20 +381,14 @@ class SchemaRegistryFailoverTest(SchemaRegistryTest):
 
 class HadoopTest(Test):
     """
-    Helper class that managest setting up a Hadoop V1 cluster. Your run() method should
+    Helper class that manages setting up a Hadoop cluster. Your run() method should
     call tearDown and setUp.
     """
-    def __init__(self, cluster, num_hadoop, hadoop_version=2):
+    def __init__(self, cluster, num_hadoop, hadoop_distro='cdh', hadoop_version=2):
         super(HadoopTest, self).__init__(cluster)
-        self.num_hadoop = num_hadoop
-        self.hadoop = None
-        self.hadoop_version = hadoop_version
+        self.hadoop = create_hadoop_service(cluster, num_hadoop, hadoop_distro, hadoop_version)
 
     def setUp(self):
-        if self.hadoop_version == 1:
-            self.hadoop = HadoopV1Service(self.cluster, self.num_hadoop)
-        else:
-            self.hadoop = HadoopV2Service(self.cluster, self.num_hadoop)
         self.hadoop.start()
 
     def tearDown(self):
@@ -403,7 +397,7 @@ class HadoopTest(Test):
 
 class CamusTest(Test):
     def __init__(self, cluster, num_zk, num_brokers, num_hadoop, num_registry, num_rest,
-                 hadoop_version=2, topics=None):
+                 hadoop_distro='cdh', hadoop_version=2, topics=None):
         super(CamusTest, self).__init__(cluster)
         self.num_zk = num_zk
         self.num_brokers = num_brokers
@@ -411,15 +405,13 @@ class CamusTest(Test):
         self.num_registry = num_registry
         self.num_rest = num_rest
         self.topics = topics
+        self.hadoop_distro = hadoop_distro
         self.hadoop_version = hadoop_version
 
     def setUp(self):
         self.zk = ZookeeperService(self.cluster, self.num_zk)
         self.kafka = KafkaService(self.cluster, self.num_brokers, self.zk, topics=self.topics)
-        if self.hadoop_version == 1:
-            self.hadoop = HadoopV1Service(self.cluster, self.num_hadoop)
-        else:
-            self.hadoop = HadoopV2Service(self.cluster, self.num_hadoop)
+        self.hadoop = create_hadoop_service(self.cluster, self.num_hadoop, self.hadoop_distro, self.hadoop_version)
         self.schema_registry = SchemaRegistryService(self.cluster, self.num_registry, self.zk, self.kafka)
         self.rest = KafkaRestService(self.cluster, self.num_rest, self.zk, self.kafka, self.schema_registry)
 

@@ -13,9 +13,10 @@
 # limitations under the License.
 
 from .service import Service
-from .core import HadoopV1Service
 import threading
-import requests, json
+import requests
+import json
+
 
 class PerformanceService(Service):
     def start(self):
@@ -236,45 +237,35 @@ class SchemaRegistryPerformanceService(PerformanceService):
         self.results[idx-1] = parse_performance_output(last)
 
 
-"""
-    This is just a simple MapReduce job that makes sure that Hadoop is setup correctly for both MRv1 and MRv2
-"""
-
-
 class HadoopPerformanceService(PerformanceService):
+    """
+    This is a simple MapReduce job that makes sure that Hadoop is setup correctly
+    """
     def __init__(self, cluster, num_nodes, hadoop, settings={}):
         super(HadoopPerformanceService, self).__init__(cluster, num_nodes)
         self.hadoop = hadoop
         self.settings = settings
-        if isinstance(self.hadoop, HadoopV1Service):
-            bin_dir_name = 'bin-mapreduce1'
-        else:
-            bin_dir_name = 'bin'
+
         self.args = {
-            'hadoop_path': '/opt/hadoop-cdh',
-            'hadoop_bin_dir_name': bin_dir_name,
-            'hadoop_example_jar': 'share/hadoop/mapreduce/hadoop-mapreduce-examples-2.5.0-cdh5.3.0.jar',
+            'hadoop_path': self.hadoop.hadoop_home,
+            'hadoop_bin_dir_name': self.hadoop.hadoop_bin_dir,
+            'hadoop_example_jar': self.hadoop.hadoop_example_jar,
             'hadoop_conf_dir': '/mnt'
         }
 
     def _worker(self, idx, node):
         args = self.args.copy()
         self.hadoop.distribute_hdfs_confs(node)
+        self.hadoop.distribute_mr_confs(node)
 
-        if isinstance(self.hadoop, HadoopV1Service):
-            args.update({'hadoop_example_jar': 'share/hadoop/mapreduce1/hadoop-examples-2.5.0-mr1-cdh5.3.0.jar'})
-            self.hadoop.distribute_mr1_confs(node)
-        else:
-            self.hadoop.distribute_yarn_confs(node)
-
-        cmd = "HADOOP_USER_CLASSPATH_FIRST=true HADOOP_CLASSPATH=%(hadoop_path)s/%(hadoop_example_jar)s " \
+        cmd = "HADOOP_USER_CLASSPATH_FIRST=true HADOOP_CLASSPATH=%(hadoop_example_jar)s " \
               "HADOOP_CONF_DIR=%(hadoop_conf_dir)s %(hadoop_path)s/%(hadoop_bin_dir_name)s/hadoop jar " \
-              "%(hadoop_path)s/%(hadoop_example_jar)s pi " \
+              "%(hadoop_example_jar)s pi " \
               "2 10 " % args
         for key, value in self.settings.items():
             cmd += " %s=%s" % (str(key), str(value))
 
-        self.logger.debug("Hadoop performance %d command: %s", idx, cmd)
+        self.logger.info("Hadoop performance %d command: %s", idx, cmd)
         for line in node.account.ssh_capture(cmd):
             self.logger.info("Hadoop performance %d: %s", idx, line.strip())
 
@@ -288,13 +279,9 @@ class CamusPerformanceService(PerformanceService):
         self.rest = rest
         self.settings = settings
         camus_path = '/opt/camus/camus-example/'
-        if isinstance(self.hadoop, HadoopV1Service):
-            bin_dir_name = 'bin-mapreduce1'
-        else:
-            bin_dir_name = 'bin'
         self.args = {
-            'hadoop_path': '/opt/hadoop-cdh',
-            'hadoop_bin_dir_name': bin_dir_name,
+            'hadoop_path': self.hadoop.hadoop_home,
+            'hadoop_bin_dir_name': self.hadoop.hadoop_bin_dir,
             'camus_path': camus_path,
             'camus_jar': 'confluent-camus-0.1.0-SNAPSHOT.jar',
             'camus_property': '/mnt/camus.properties',
@@ -311,10 +298,7 @@ class CamusPerformanceService(PerformanceService):
         self.produce_avro(args['rest_url'] + '/topics/' + args['topic'])
 
         self.hadoop.distribute_hdfs_confs(node)
-        if isinstance(self.hadoop, HadoopV1Service):
-            self.hadoop.distribute_mr1_confs(node)
-        else:
-            self.hadoop.distribute_yarn_confs(node)
+        self.hadoop.distribute_mr_confs(node)
         self.create_camus_props(node)
 
         cmd_template = "PATH=%(hadoop_path)s/%(hadoop_bin_dir_name)s:$PATH HADOOP_CONF_DIR=/mnt /opt/camus/bin/camus-run " \
