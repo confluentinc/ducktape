@@ -146,10 +146,12 @@ EC2 Quickstart
    it so we generally don't have to worry about adding ports whenever we add new
    services to ducttape.
  - Once started, grab the public hostname/IP and SSH into the host using
-   `ssh -i /path/to/keypair.pem ubuntu@<public.hostname.amazonaws.com`. All
-   remaining steps will be run on the jump server. Highly recommended: use tmux
-   so any connectivity issues don't kill your session.
- - Put a copy of the SSH key you're using (the pem file) on the jump server using scp.
+   `ssh -i /path/to/keypair.pem ubuntu@public.hostname.amazonaws.com`. All
+   remaining steps will be run on the jump server. Highly recommended: use tmux 
+   so any connectivity issues don't kill your session
+   (installation - mac: brew install tmux; ubuntu/debian: sudo apt-get install tmux). 
+ - Put a copy of the SSH key you're using (the pem file) on the jump server using 
+   `scp -i /path/to/keypair.pem /path/to/keypair.pem ubuntu@public.hostname.amazonaws.com:keypair.pem`
 
 * Start by making sure you're up to date and installing a few dependencies,
   getting ducttape, and building:
