@@ -160,7 +160,8 @@ EC2 Quickstart
         wget https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.deb
         sudo dpkg -i vagrant_1.7.2_x86_64.deb
         vagrant plugin install vagrant-hostmanager
-        vagrant plugin install vagrant-cachier
+        # Do NOT install vagrant-cachier since it doesn't work on AWS and only
+        # adds log noise
         vagrant plugin install vagrant-aws
         git clone https://github.com/confluentinc/ducttape.git
         cd ducttape
