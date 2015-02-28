@@ -17,22 +17,22 @@ from ducttape.services.performance import SchemaRegistryPerformanceService
 
 class SchemaRegistryBenchmark(SchemaRegistryTest):
     def __init__(self, cluster):
-        super(SchemaRegistryBenchmark, self).__init__(cluster, num_zk=1, num_brokers=3, num_schema_reg=1)
+        super(SchemaRegistryBenchmark, self).__init__(cluster, num_zk=1, num_brokers=3, num_schema_registry=1)
 
     def run(self):
         self.setUp()
 
-        num_schema_reg_nodes = 1
+        num_schema_registry = 1
         subject = "testSubject"
         num_schemas = 10000
         schemas_per_sec = 1000
 
         schema_registry_perf = SchemaRegistryPerformanceService(
-            self.cluster, num_schema_reg_nodes, self.schema_registry, subject, num_schemas, schemas_per_sec, settings={}
+            self.cluster, num_schema_registry, self.schema_registry, subject, num_schemas, schemas_per_sec, settings={}
         )
 
         self.logger.info("Running SchemaRegistryBenchmark: registering %d schemas on %d schema registry node." %
-                         (num_schemas, num_schema_reg_nodes))
+                         (num_schemas, num_schema_registry))
         schema_registry_perf.run()
         self.tearDown()
 

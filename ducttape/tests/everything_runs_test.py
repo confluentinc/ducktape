@@ -25,22 +25,31 @@ class EverythingRunsTest(Test):
     """
     def __init__(self, cluster):
         self.cluster = cluster
+        self.num_zk = 1
+        self.num_brokers = 1
+        self.num_rest = 1
+        self.num_schema_registry = 1
+        self.num_register_driver = 1
+
+    def min_cluster_size(self):
+        return self.num_zk + self.num_brokers + self.num_rest + self.num_schema_registry + self.num_register_driver
 
     def run(self):
-        self.zk = ZookeeperService(self.cluster, 1)
+        self.zk = ZookeeperService(self.cluster, self.num_zk)
         self.zk.start()
 
-        self.kafka = KafkaService(self.cluster, 1, self.zk)
+        self.kafka = KafkaService(self.cluster, self.num_brokers, self.zk)
         self.kafka.start()
 
-        self.rest_proxy = KafkaRestService(self.cluster, 1, self.zk, self.kafka)
+        self.rest_proxy = KafkaRestService(self.cluster, self.num_rest, self.zk, self.kafka)
         self.rest_proxy.start()
 
-        self.schema_registry = SchemaRegistryService(self.cluster, 1, self.zk, self.kafka)
+        self.schema_registry = SchemaRegistryService(self.cluster, self.num_schema_registry, self.zk, self.kafka)
         self.schema_registry.start()
 
-        self.register_driver = RegisterSchemasService(self.cluster, 1, self.schema_registry, retry_wait_sec=.02,
-                                                      num_tries=5, max_time_seconds=10, max_schemas=50)
+        self.register_driver = RegisterSchemasService(self.cluster, self.num_register_driver, self.schema_registry,
+                                                      retry_wait_sec=.02, num_tries=5,
+                                                      max_time_seconds=10, max_schemas=50)
         self.register_driver.start()
         self.register_driver.wait()
         self.register_driver.stop()

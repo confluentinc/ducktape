@@ -34,17 +34,17 @@ class Service(Logger):
         self.cluster = cluster
 
     def start(self):
-        '''Start the service running in the background.'''
+        """Start the service running in the background."""
         self.nodes = self.cluster.request(self.num_nodes)
-        for idx,node in enumerate(self.nodes,1):
+        for idx, node in enumerate(self.nodes, 1):
             self.logger.debug("Forcibly cleaning node %d on %s", idx, node.account.hostname)
             self._clean_node(node)
 
     def wait(self):
-        '''Wait for the service to finish. This only makes sense for tasks with a fixed
+        """Wait for the service to finish. This only makes sense for tasks with a fixed
         amount of work to do. For services that generate output, it is only
         guaranteed to be available after this call returns.
-        '''
+        """
         pass
 
     def stop(self):
@@ -52,19 +52,17 @@ class Service(Logger):
         pass
 
     def run(self):
-        '''Helper that executes run(), wait(), and stop() in sequence. Useful for '''
+        """Helper that executes run(), wait(), and stop() in sequence."""
         self.start()
         self.wait()
         self.stop()
 
     def get_node(self, idx):
-        """ ids presented externally are indexed from 1, so we provide a helper method to avoid confusion.
-        """
+        """ids presented externally are indexed from 1, so we provide a helper method to avoid confusion."""
         return self.nodes[idx - 1]
 
     def idx(self, node):
-        """ Return id of the given node. Return -1 if node does not belong to this service.
-        """
+        """Return id of the given node. Return -1 if node does not belong to this service. """
         for idx, n in enumerate(self.nodes, 1):
             if self.get_node(idx) == node:
                 return idx
@@ -79,10 +77,10 @@ class Service(Logger):
 
     @staticmethod
     def run_parallel(*args):
-        '''Helper to run a set of services in parallel. This is useful if you want
+        """Helper to run a set of services in parallel. This is useful if you want
         multiple services of different types to run concurrently, e.g. a
         producer + consumer pair.
-        '''
+        """
         for svc in args:
             svc.start()
         for svc in args:

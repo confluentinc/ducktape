@@ -17,10 +17,11 @@ from .remoteaccount import RemoteAccount
 
 import collections, json, os, os.path
 
+
 class JsonCluster(Cluster):
-    '''
+    """
     An implementation of Cluster that uses static settings specified in a cluster file.
-    '''
+    """
 
     def __init__(self, cluster_json=None):
         super(JsonCluster, self).__init__()
@@ -34,8 +35,11 @@ class JsonCluster(Cluster):
         self.in_use_nodes = set()
         self.id_source = 1
 
+    def num_available_nodes(self):
+        return len(self.available_nodes)
+
     def request(self, nslots):
-        if nslots > len(self.available_nodes):
+        if nslots > self.num_available_nodes():
             raise RuntimeError("There aren't enough available nodes to satisfy the resource request.")
 
         result = []

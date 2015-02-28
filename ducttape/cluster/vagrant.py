@@ -18,10 +18,10 @@ from .json import JsonCluster
 import subprocess
 
 class VagrantCluster(JsonCluster):
-    '''
+    """
     An implementation of Cluster that uses a set of VMs created by Vagrant. Because we need hostnames that can be
     advertised, this assumes that the Vagrant VM's name is a routeable hostname on all the hosts.
-    '''
+    """
 
     def __init__(self):
         hostname, username, flags = None, None, ""
@@ -36,15 +36,15 @@ class VagrantCluster(JsonCluster):
                         "hostname": hostname,
                         "user": username,
                         "ssh_args": flags,
-                        # java_home is determined automatically, but we need to explicitly indicate that should be the case
-                        # instead of using "default"
+                        # java_home is determined automatically, but we need to explicitly indicate that should be
+                        # the case instead of using "default"
                         "java_home": None,
                         "kafka_home": "/opt/kafka",
                     })
                     hostname, username, flags = None, None, ""
                 continue
             try:
-                key,val = line.split()
+                key, val = line.split()
             except ValueError:
                 # Sometimes Vagrant includes extra messages in the output that need to be ignore
                 continue
