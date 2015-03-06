@@ -14,6 +14,7 @@
 
 import collections
 
+
 class ClusterSlot(object):
     def __init__(self, parent, account, **kwargs):
         self.parent = parent
@@ -26,13 +27,12 @@ class ClusterSlot(object):
 
 
 class Cluster(object):
-    '''
-    Interface for a cluster -- a collection of nodes with login credentials. This interface doesn't
-    define any mapping of roles/services to nodes. It only interacts with some underlying system that
-    can describe available resources and mediates reservations of those resources. This is intentionally
-    simple right now: the only "resource" right now is a generic VM and it is assumed everything is
-    approximately homogeneous.
-    '''
+    """ Interface for a cluster -- a collection of nodes with login credentials.
+    This interface doesn't define any mapping of roles/services to nodes. It only interacts with some underlying
+    system that can describe available resources and mediates reservations of those resources. This is intentionally
+    simple right now: the only "resource" right now is a generic VM and it is assumed everything is approximately
+    homogeneous.
+    """
 
     _FACTORY = {}
 
@@ -41,11 +41,15 @@ class Cluster(object):
         return cls._FACTORY[type](*args, **kwargs)
 
     def request(self, nslots):
-        "Request the specified number of slots, which will be reserved until they are freed by the caller."
+        """Request the specified number of slots, which will be reserved until they are freed by the caller."""
+        raise NotImplementedError()
+
+    def num_available_nodes(self):
+        """Number of available slots."""
         raise NotImplementedError()
 
     def free(self, slots):
-        "Free the given slot or list of slots"
+        """Free the given slot or list of slots"""
         if isinstance(slots, collections.Iterable):
             for s in slots:
                 self.free_single(s)

@@ -34,11 +34,23 @@ class Test(Logger):
     def log_start(self):
         self.logger.info("Running test %s", self._short_class_name())
 
+    def min_cluster_size(self):
+        """
+        Subclasses implement this to provide a helpful heuristic to prevent trying to run a test on a cluster
+        with too few nodes.
+        """
+        raise NotImplementedError("All tests must implement this method.")
+
     @classmethod
     def run_standalone(cls):
         logging.basicConfig(level=logging.INFO)
         cluster = VagrantCluster()
         test = cls(cluster)
+
+        if test.min_cluster_size() > cluster.num_available_nodes():
+            raise RuntimeError(
+                "There are not enough nodes available in the cluster to run this test. Needed: %d, Available: %d" %
+                (test.min_cluster_size(), cluster.num_available_nodes()))
 
         test.log_start()
         test.run()
@@ -54,12 +66,15 @@ class KafkaTest(Test):
     """
     def __init__(self, cluster, num_zk, num_brokers, topics=None):
         super(KafkaTest, self).__init__(cluster)
-        self.num_zk_nodes = num_zk
+        self.num_zk = num_zk
         self.num_brokers = num_brokers
         self.topics = topics
 
+    def min_cluster_size(self):
+        return self.num_zk + self.num_brokers
+
     def setUp(self):
-        self.zk = ZookeeperService(self.cluster, self.num_zk_nodes)
+        self.zk = ZookeeperService(self.cluster, self.num_zk)
         self.kafka = KafkaService(self.cluster, self.num_brokers, self.zk, topics=self.topics)
         self.zk.start()
         self.kafka.start()
@@ -78,6 +93,9 @@ class RestProxyTest(KafkaTest):
         super(RestProxyTest, self).__init__(cluster, num_zk, num_brokers, topics=topics)
         self.num_rest = num_rest
 
+    def min_cluster_size(self):
+        return self.num_zk + self.num_brokers + self.num_rest
+
     def setUp(self):
         super(RestProxyTest, self).setUp()
         self.rest = KafkaRestService(self.cluster, self.num_rest, self.zk, self.kafka)
@@ -93,7 +111,7 @@ class SchemaRegistryTest(KafkaTest):
     Helper class that manages setting up Kafka and the Schema Registry proxy. The Schema Registry
     service is available as the field SchemaRegistryTest.schema_registry.
     """
-    def __init__(self, cluster, num_zk=1, num_brokers=1, num_schema_reg=1):
+    def __init__(self, cluster, num_zk=1, num_brokers=1, num_schema_registry=1):
         super(SchemaRegistryTest, self).__init__(cluster, num_zk, num_brokers, topics={"_schemas": {
             "name": "_schemas",
             "partitions": 1,
@@ -104,13 +122,16 @@ class SchemaRegistryTest(KafkaTest):
             }
         }})
 
-        self.num_schema_reg = num_schema_reg
+        self.num_schema_registry = num_schema_registry
         # Initialize self.schema_registry in setUp()
         self.schema_registry = None
 
+    def min_cluster_size(self):
+        return self.num_zk + self.num_brokers + self.num_schema_registry
+
     def setUp(self):
         super(SchemaRegistryTest, self).setUp()
-        self.schema_registry = SchemaRegistryService(self.cluster, self.num_schema_reg, self.zk, self.kafka)
+        self.schema_registry = SchemaRegistryService(self.cluster, self.num_schema_registry, self.zk, self.kafka)
         self.schema_registry.start()
 
     def tearDown(self):
@@ -119,8 +140,8 @@ class SchemaRegistryTest(KafkaTest):
 
 
 class SchemaRegistryFailoverTest(SchemaRegistryTest):
-    def __init__(self, cluster, num_zk, num_brokers, num_schema_reg):
-        super(SchemaRegistryFailoverTest, self).__init__(cluster, num_zk, num_brokers, num_schema_reg)
+    def __init__(self, cluster, num_zk, num_brokers, num_schema_registry):
+        super(SchemaRegistryFailoverTest, self).__init__(cluster, num_zk, num_brokers, num_schema_registry)
 
         # Time to wait between registration retries
         self.retry_wait_sec = .2
@@ -386,7 +407,11 @@ class HadoopTest(Test):
     """
     def __init__(self, cluster, num_hadoop, hadoop_distro='cdh', hadoop_version=2):
         super(HadoopTest, self).__init__(cluster)
+        self.num_hadoop = num_hadoop
         self.hadoop = create_hadoop_service(cluster, num_hadoop, hadoop_distro, hadoop_version)
+
+    def min_cluster_size(self):
+        return self.num_hadoop
 
     def setUp(self):
         self.hadoop.start()
@@ -396,23 +421,26 @@ class HadoopTest(Test):
 
 
 class CamusTest(Test):
-    def __init__(self, cluster, num_zk, num_brokers, num_hadoop, num_registry, num_rest,
+    def __init__(self, cluster, num_zk, num_brokers, num_hadoop, num_schema_registry, num_rest,
                  hadoop_distro='cdh', hadoop_version=2, topics=None):
         super(CamusTest, self).__init__(cluster)
         self.num_zk = num_zk
         self.num_brokers = num_brokers
         self.num_hadoop = num_hadoop
-        self.num_registry = num_registry
+        self.num_schema_registry = num_schema_registry
         self.num_rest = num_rest
         self.topics = topics
         self.hadoop_distro = hadoop_distro
         self.hadoop_version = hadoop_version
 
+    def min_cluster_size(self):
+        return self.num_zk + self.num_brokers + self.num_hadoop + self.num_schema_registry + self.num_rest
+
     def setUp(self):
         self.zk = ZookeeperService(self.cluster, self.num_zk)
         self.kafka = KafkaService(self.cluster, self.num_brokers, self.zk, topics=self.topics)
         self.hadoop = create_hadoop_service(self.cluster, self.num_hadoop, self.hadoop_distro, self.hadoop_version)
-        self.schema_registry = SchemaRegistryService(self.cluster, self.num_registry, self.zk, self.kafka)
+        self.schema_registry = SchemaRegistryService(self.cluster, self.num_schema_registry, self.zk, self.kafka)
         self.rest = KafkaRestService(self.cluster, self.num_rest, self.zk, self.kafka, self.schema_registry)
 
         self.zk.start()
