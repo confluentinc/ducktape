@@ -27,43 +27,38 @@ class VagrantCluster(JsonCluster):
         hostname, username, flags = None, None, ""
         nodes = []
 
-        # get a list of names of running vagrant virtual machines
-        running_regex = "^([^\s]+)\s+running.*$"
-        workers_info = subprocess.check_output("vagrant status", shell=True).split("\n")
-        running_workers_info = filter(lambda info: re.search(running_regex, info) is not None, workers_info)
-        running_workers = map(lambda info: re.search(running_regex, info).groups(0)[0], running_workers_info)
-
         # Parse ssh-config info on each running vagrant virtual machine into json
-        for worker_name in running_workers:
-            for line in subprocess.check_output("vagrant ssh-config %s" % worker_name, shell=True).split("\n"):
-                line = line.strip()
-                if len(line.strip()) == 0:
-                    if hostname is not None:
-                        nodes.append({
-                            "hostname": hostname,
-                            "user": username,
-                            "ssh_args": flags,
-                            # java_home is determined automatically, but we need to explicitly indicate that should be
-                            # the case instead of using "default"
-                            "java_home": None,
-                            "kafka_home": "/opt/kafka",
-                        })
-                        hostname, username, flags = None, None, ""
-                    break
-                try:
-                    key, val = line.split()
-                except ValueError:
-                    # Sometimes Vagrant includes extra messages in the output that need to be ignore
-                    continue
-                if key == "Host":
-                    hostname = val
-                elif key == "Hostname":
-                    # Ignore since we use the Vagrant VM name
-                    pass
-                elif key == "User":
-                    username = val
-                else:
-                    flags += "-o '" + line + "' "
+        p = subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (ssh_config_info, error) = p.communicate()
+        for line in ssh_config_info.split("\n"):
+            line = line.strip()
+            if len(line.strip()) == 0:
+                if hostname is not None:
+                    nodes.append({
+                        "hostname": hostname,
+                        "user": username,
+                        "ssh_args": flags,
+                        # java_home is determined automatically, but we need to explicitly indicate that should be
+                        # the case instead of using "default"
+                        "java_home": None,
+                        "kafka_home": "/opt/kafka",
+                    })
+                    hostname, username, flags = None, None, ""
+                continue
+            try:
+                key, val = line.split()
+            except ValueError:
+                # Sometimes Vagrant includes extra messages in the output that need to be ignored
+                continue
+            if key == "Host":
+                hostname = val
+            elif key == "Hostname":
+                # Ignore since we use the Vagrant VM name
+                pass
+            elif key == "User":
+                username = val
+            else:
+                flags += "-o '" + line + "' "
 
         cluster_json = {
             "nodes": nodes
