@@ -28,18 +28,23 @@ class CamusHadoopV1Test(CamusTest):
             num_zk=1,
             num_brokers=1,
             num_hadoop=2,
-            num_registry=1,
+            num_schema_registry=1,
             num_rest=1,
             hadoop_distro='cdh',
             hadoop_version=1,
             topics={"testAvro": None})
+
+        self.num_camus_perf = 1
+
+    def min_cluster_size(self):
+        return self.num_camus_perf + super(CamusHadoopV1Test, self).min_cluster_size()
 
     def run(self):
         self.setUp()
         self.logger.info("Running Camus example on Hadoop distribution %s, Hadoop version %d",
                          self.hadoop_distro, self.hadoop_version)
         camus_perf = CamusPerformanceService(
-            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
+            self.cluster, self.num_camus_perf, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
         camus_perf.run()
         self.tearDown()
 
@@ -60,18 +65,23 @@ class CamusHadoopV2Test(CamusTest):
             num_zk=1,
             num_brokers=1,
             num_hadoop=2,
-            num_registry=1,
+            num_schema_registry=1,
             num_rest=1,
             hadoop_distro='cdh',
             hadoop_version=2,
             topics={"testAvro": None})
+
+        self.num_camus_perf = 1
+
+    def min_cluster_size(self):
+        return self.num_camus_perf + super(CamusHadoopV2Test, self).min_cluster_size()
 
     def run(self):
         self.setUp()
         self.logger.info("Running Camus example on Hadoop distribution %s, Hadoop version %d",
                          self.hadoop_distro, self.hadoop_version)
         camus_perf = CamusPerformanceService(
-            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
+            self.cluster, self.num_camus_perf, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
         camus_perf.run()
         self.tearDown()
 
@@ -92,18 +102,23 @@ class CamusHDPTest(CamusTest):
             num_zk=1,
             num_brokers=1,
             num_hadoop=2,
-            num_registry=1,
+            num_schema_registry=1,
             num_rest=1,
             hadoop_distro='hdp',
             hadoop_version=2,
             topics={"testAvro": None})
+
+        self.num_camus_perf = 1
+
+    def min_cluster_size(self):
+        return self.num_camus_perf + super(CamusHDPTest, self).min_cluster_size()
 
     def run(self):
         self.setUp()
         self.logger.info("Running Camus example on Hadoop distribution %s, Hadoop version %d",
                          self.hadoop_distro, self.hadoop_version)
         camus_perf = CamusPerformanceService(
-            self.cluster, 1, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
+            self.cluster, self.num_camus_perf, self.kafka, self.hadoop, self.schema_registry, self.rest, settings={})
         camus_perf.run()
         self.tearDown()
 

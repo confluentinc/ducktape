@@ -427,20 +427,20 @@ class CamusTest(Test):
         self.num_zk = num_zk
         self.num_brokers = num_brokers
         self.num_hadoop = num_hadoop
-        self.num_registry = num_schema_registry
+        self.num_schema_registry = num_schema_registry
         self.num_rest = num_rest
         self.topics = topics
         self.hadoop_distro = hadoop_distro
         self.hadoop_version = hadoop_version
 
     def min_cluster_size(self):
-        return self.num_zk + self.num_brokers + self.num_hadoop + self.num_registry + self.num_rest
+        return self.num_zk + self.num_brokers + self.num_hadoop + self.num_schema_registry + self.num_rest
 
     def setUp(self):
         self.zk = ZookeeperService(self.cluster, self.num_zk)
         self.kafka = KafkaService(self.cluster, self.num_brokers, self.zk, topics=self.topics)
         self.hadoop = create_hadoop_service(self.cluster, self.num_hadoop, self.hadoop_distro, self.hadoop_version)
-        self.schema_registry = SchemaRegistryService(self.cluster, self.num_registry, self.zk, self.kafka)
+        self.schema_registry = SchemaRegistryService(self.cluster, self.num_schema_registry, self.zk, self.kafka)
         self.rest = KafkaRestService(self.cluster, self.num_rest, self.zk, self.kafka, self.schema_registry)
 
         self.zk.start()
