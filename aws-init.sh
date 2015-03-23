@@ -6,6 +6,7 @@ sudo apt-get update && sudo apt-get -y upgrade && \
             ruby-dev zlib1g-dev
 wget https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.deb
 sudo dpkg -i vagrant_1.7.2_x86_64.deb
+rm -f vagrant_1.7.2_x86_64.deb
 vagrant plugin install vagrant-hostmanager
 # Do NOT install vagrant-cachier since it doesn't work on AWS and only
 # adds log noise
@@ -14,10 +15,10 @@ wget https://services.gradle.org/distributions/gradle-2.2.1-bin.zip && \
     unzip gradle-2.2.1-bin.zip
 
 # Create Vagrantfile.local as a convenience
-mv aws-example-Vagrantfile.local Vagrantfile.local
+cp aws-example-Vagrantfile.local Vagrantfile.local
 
 # Ensure aws access keys are in the environment
 cat aws-access-keys-commands >> ~/.bashrc
-source .bashrc
+source ~/.bashrc
 
 ./build.sh --aws
