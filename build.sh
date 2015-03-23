@@ -17,8 +17,9 @@ while [ $# -gt 0 ]; do
       UPDATE="yes"
       shift
       ;;
-    --http)
+    --aws)
       GIT_MODE="https://github.com/"
+      ./aws-access-keys.sh
       shift
       ;;
     *)
