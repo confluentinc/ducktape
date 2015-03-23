@@ -13,4 +13,5 @@ git clone https://github.com/confluentinc/ducttape.git
 cd ducttape
 wget https://services.gradle.org/distributions/gradle-2.2.1-bin.zip && \
     unzip gradle-2.2.1-bin.zip
+mv aws-example-Vagrantfile.local Vagrantfile.local
 ./build.sh --aws
