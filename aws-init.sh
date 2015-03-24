@@ -1,9 +1,11 @@
 #!/bin/bash -e
 
-# Make sure appropriate dependencies are installed
-sudo apt-get update && sudo apt-get -y upgrade && \
-            sudo apt-get install git maven openjdk-6-jdk build-essential \
-            ruby-dev zlib1g-dev
+# This script should be run once on your aws test driver machine before
+# attempting to run any ducttape tests
+
+# Install dependencies
+sudo apt-get install maven openjdk-6-jdk build-essential \
+            ruby-dev zlib1g-dev realpath
 wget https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.deb
 sudo dpkg -i vagrant_1.7.2_x86_64.deb
 rm -f vagrant_1.7.2_x86_64.deb
@@ -18,7 +20,12 @@ wget https://services.gradle.org/distributions/gradle-2.2.1-bin.zip && \
 cp aws-example-Vagrantfile.local Vagrantfile.local
 
 # Ensure aws access keys are in the environment
-cat aws-access-keys-commands >> ~/.bashrc
-source ~/.bashrc
+grep "AWS ACCESS KEYS" ~/.bashrc
+if [ $? != 0 ]; then
+  echo "# --- AWS ACCESS KEYS ---" >> ~/.bashrc
+  echo ". `realpath aws-access-keys-commands`" >> ~/.bashrc
+  echo "# -----------------------" >> ~/.bashrc
+  source ~/.bashrc
+fi
 
 ./build.sh --aws
