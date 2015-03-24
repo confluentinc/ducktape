@@ -164,7 +164,7 @@ EC2 Quickstart
   Now is a good time to install any extra stuff you might need, e.g. your
   preferred text editor.
 
-* An example Vagrantfile.local has been created:
+* An example Vagrantfile.local has been created by aws-init.sh which looks something like:
 
         ec2_instance_type = "..." # Pick something appropriate for your
                                   # test. Note that the default m3.medium has
