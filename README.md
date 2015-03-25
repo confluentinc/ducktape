@@ -151,7 +151,7 @@ EC2 Quickstart
    so any connectivity issues don't kill your session
    (installation - mac: brew install tmux; ubuntu/debian: sudo apt-get install tmux). 
  - Put a copy of the SSH key you're using (the pem file) on the jump server using 
-   `scp -i /path/to/keypair.pem /path/to/keypair.pem ubuntu@public.hostname.amazonaws.com:keypair.pem`
+   `scp -i /path/to/confluent.pem /path/to/confluent.pem ubuntu@public.hostname.amazonaws.com:confluent.pem`
 
 * Start by making sure you're up to date and installing a few dependencies,
   getting ducttape, and building:
@@ -171,8 +171,8 @@ EC2 Quickstart
                                   # a small disk.
         enable_dns = true
         num_workers = 4
-        ec2_keypair_name = 'ewen'
-        ec2_keypair_file = '/home/ubuntu/confluent-ewen.pem'
+        ec2_keypair_name = 'confluent'
+        ec2_keypair_file = '/home/ubuntu/confluent.pem'
         ec2_security_groups = ['ducttape-insecure']
         ec2_region = 'us-west-2'
         ec2_ami = "ami-29ebb519"
