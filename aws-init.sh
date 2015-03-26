@@ -35,9 +35,9 @@ if [ -z `which gradle` ]; then
     gradle="gradle-2.2.1"
     if [ ! -e $gradle-bin.zip ]; then
         wget https://services.gradle.org/distributions/$gradle-bin.zip
-        rm -rf $gradle-bin.zip
     fi
     unzip $gradle-bin.zip
+    rm -rf $gradle-bin.zip
 fi
 
 # Ensure aws access keys are in the environment
