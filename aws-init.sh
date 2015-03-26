@@ -31,8 +31,8 @@ if [ ! -e "Vagrantfile.local" ]; then
     cp aws-example-Vagrantfile.local Vagrantfile.local
 fi
 
-if [ -z `which gradle` ]; then
-    gradle="gradle-2.2.1"
+gradle="gradle-2.2.1"
+if [ -z `which gradle` ] && [ ! -d $gradle ]; then
     if [ ! -e $gradle-bin.zip ]; then
         wget https://services.gradle.org/distributions/$gradle-bin.zip
     fi

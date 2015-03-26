@@ -159,7 +159,7 @@ EC2 Quickstart
         sudo apt-get update && sudo apt-get -y upgrade && sudo apt-get install -y git
         git clone https://github.com/confluentinc/ducttape.git
         cd ducttape
-        ./aws-init.sh
+        . aws-init.sh
 
   Now is a good time to install any extra stuff you might need, e.g. your
   preferred text editor.
