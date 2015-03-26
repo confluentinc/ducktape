@@ -1,0 +1,8 @@
+ec3_instance_type = "m3.medium"
+enable_dns = true
+num_workers = 1
+ec2_keypair_name = 'confluent'
+ec2_keypair_file = '../confluent.pem'
+ec2_security_groups = ['ducttape-insecure']
+ec2_region = 'us-west-2'
+ec2_ami = "ami-af200d9f"

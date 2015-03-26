@@ -151,39 +151,28 @@ EC2 Quickstart
    so any connectivity issues don't kill your session
    (installation - mac: brew install tmux; ubuntu/debian: sudo apt-get install tmux). 
  - Put a copy of the SSH key you're using (the pem file) on the jump server using 
-   `scp -i /path/to/keypair.pem /path/to/keypair.pem ubuntu@public.hostname.amazonaws.com:keypair.pem`
+   `scp -i /path/to/confluent.pem /path/to/confluent.pem ubuntu@public.hostname.amazonaws.com:confluent.pem`
 
 * Start by making sure you're up to date and installing a few dependencies,
   getting ducttape, and building:
 
-        sudo apt-get update && sudo apt-get -y upgrade && \
-            sudo apt-get install git maven openjdk-6-jdk build-essential \
-            ruby-dev zlib1g-dev
-        wget https://dl.bintray.com/mitchellh/vagrant/vagrant_1.7.2_x86_64.deb
-        sudo dpkg -i vagrant_1.7.2_x86_64.deb
-        vagrant plugin install vagrant-hostmanager
-        # Do NOT install vagrant-cachier since it doesn't work on AWS and only
-        # adds log noise
-        vagrant plugin install vagrant-aws
+        sudo apt-get update && sudo apt-get -y upgrade && sudo apt-get install -y git
         git clone https://github.com/confluentinc/ducttape.git
         cd ducttape
-        wget https://services.gradle.org/distributions/gradle-2.2.1-bin.zip && \
-            unzip gradle-2.2.1-bin.zip
-        ./build.sh --http
+        . aws-init.sh
 
   Now is a good time to install any extra stuff you might need, e.g. your
   preferred text editor.
 
-* Setup your Vagrant config by putting something like the following in
-  Vagrantfile.local:
+* An example Vagrantfile.local has been created by aws-init.sh which looks something like:
 
         ec2_instance_type = "..." # Pick something appropriate for your
                                   # test. Note that the default m3.medium has
                                   # a small disk.
         enable_dns = true
         num_workers = 4
-        ec2_keypair_name = 'ewen'
-        ec2_keypair_file = '/home/ubuntu/confluent-ewen.pem'
+        ec2_keypair_name = 'confluent'
+        ec2_keypair_file = '/home/ubuntu/confluent.pem'
         ec2_security_groups = ['ducttape-insecure']
         ec2_region = 'us-west-2'
         ec2_ami = "ami-29ebb519"
@@ -191,12 +180,6 @@ EC2 Quickstart
   These settings work for the default AWS setup you get with Confluent's
   account (of course `num_workers`, `ec2_keypair_name` and `ec2_keypair_file`
   should all be customized for your setup).
-
-* Make sure your access keys are configured:
-
-        export AWS_ACCESS_KEY=`curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ducttape-master | grep AccessKeyId | awk -F\" '{ print $4 }'`
-        export AWS_SECRET_KEY=`curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ducttape-master | grep SecretAccessKey | awk -F\" '{ print $4 }'`
-        export AWS_SESSION_TOKEN=`curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ducttape-master | grep Token | awk -F\" '{ print $4 }'`
 
 * Start up the instances:
 
