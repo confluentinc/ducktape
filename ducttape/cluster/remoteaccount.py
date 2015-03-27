@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os, subprocess, tempfile, time
-from ducttape.services.schema_registry_utils import http_request, SCHEMA_REGISTRY_DEFAULT_REQUEST_PROPERTIES
+import urllib2
 
 class RemoteAccount(object):
     def __init__(self, hostname, user=None, ssh_args=None, java_home="default", kafka_home="default"):
@@ -153,3 +153,12 @@ class RemoteAccount(object):
             r += self.user + "@"
         r += self.hostname
         return r
+
+
+def http_request(url, method, data="", headers=None):
+    if url[0:7].lower() != "http://":
+        url = "http://%s" % url
+
+    req = urllib2.Request(url, data, headers)
+    req.get_method = lambda: method
+    return urllib2.urlopen(req)
