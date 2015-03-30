@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducttape.cluster import VagrantCluster
-from ducttape.logger import Logger
+from ducktape.cluster import VagrantCluster
+from ducktape.logger import Logger
 import logging
 
 class Test(Logger):

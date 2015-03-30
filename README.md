@@ -69,7 +69,7 @@ and tests of output. You should request the number of nodes you'll need using
 the `num_nodes` parameter to the Service base class's constructor. Then, in your
 Service's methods you'll have access to `self.nodes` to access the nodes
 allocated to your service. Each node has an associated
-`ducttape.cluster.RemoteAccount` instance which lets you easily perform remote
+`ducktape.cluster.RemoteAccount` instance which lets you easily perform remote
 operations such as running commands via SSH or creating files. By default, these
 operations try to hide output (but provide it to you if you need to extract
 some subset of it) and *checks status codes for errors* so any operations that
