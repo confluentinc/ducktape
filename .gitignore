@@ -1,16 +1,10 @@
-.vagrant/
-Vagrantfile.local
-
 .idea/
 
 *.pyc
 *.ipynb
 
-kafka/
-common/
-rest-utils/
-kafka-rest/
-schema-registry/
-camus/
+build/
+dist/
+*.egg-info/
 
 .DS_Store

@@ -25,7 +25,7 @@
 # that there won't be resource conflicts: the cluster tests are being run on
 # should be large enough to use one instance per service instance.
 
-from ducttape.logger import Logger
+from ducktape.logger import Logger
 
 
 class Service(Logger):
