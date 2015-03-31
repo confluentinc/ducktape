@@ -13,9 +13,10 @@
 # limitations under the License.
 
 import os, subprocess, tempfile, time
-import urllib2
+from ducktape.utils.http_utils import HttpMixin
 
-class RemoteAccount(object):
+
+class RemoteAccount(HttpMixin):
     def __init__(self, hostname, user=None, ssh_args=None, java_home="default", kafka_home="default"):
         self.hostname = hostname
         self.user = user
@@ -35,7 +36,7 @@ class RemoteAccount(object):
         awake = False
         while time.time() < stop:
             try:
-                http_request(url, "GET", "", headers)
+                self.http_request(url, "GET", "", headers)
                 awake = True
                 break
             except:
@@ -154,11 +155,3 @@ class RemoteAccount(object):
         r += self.hostname
         return r
 
-
-def http_request(url, method, data="", headers=None):
-    if url[0:7].lower() != "http://":
-        url = "http://%s" % url
-
-    req = urllib2.Request(url, data, headers)
-    req.get_method = lambda: method
-    return urllib2.urlopen(req)
