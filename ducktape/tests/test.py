@@ -58,7 +58,7 @@ class TestLoader(Logger):
     DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
 
     def discover(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):
-        """Recurse through file hierarchy beginning at base_dir and returns a list of all found test classes.
+        """Recurse through file hierarchy beginning at base_dir and return a list of all found test classes.
 
         - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
@@ -75,7 +75,7 @@ class TestLoader(Logger):
             except Exception as e:
                 self.logger.debug("Error getting test classes from module: " + e.message)
 
-        self.logger.info("Discovered these test classes: " + str(test_classes))
+        self.logger.debug("Discovered these test classes: " + str(test_classes))
         return test_classes
 
     def find_test_files(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):
@@ -112,7 +112,7 @@ class TestLoader(Logger):
                 # Try to import the current file as a module
                 try:
                     module_list.append(importlib.import_module(module_name))
-                    self.logger.info("Successfully imported " + module_name)
+                    self.logger.debug("Successfully imported " + module_name)
                     break  # no need to keep trying
                 except Exception as e:
                     self.logger.debug("Could not import " + module_name + ": " + e.message)
