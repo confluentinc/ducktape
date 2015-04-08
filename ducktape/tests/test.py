@@ -14,7 +14,12 @@
 
 from ducktape.cluster import VagrantCluster
 from ducktape.logger import Logger
+import importlib
 import logging
+import os
+import inspect
+import re
+
 
 class Test(Logger):
     """
@@ -47,3 +52,55 @@ class Test(Logger):
 
         test.log_start()
         test.run()
+
+
+class TestLoader(Logger):
+
+    def is_test_file(self, file_name):
+        """test_*.py or *_test.py"""
+        pattern = "(^test_.*\.py$)|(^.*_test\.py$)"
+        return re.match(pattern, file_name) is not None
+
+    def discover(self, base_dir):
+        test_classes = []
+
+        for pwd, dirs, files in os.walk(base_dir):
+            for f in files:
+                if not self.is_test_file(f):
+                    continue
+
+                # Try all possible module imports for given file
+                path = os.path.abspath(os.path.join(pwd, f))
+                path_pieces = path[:-3].split("/")
+                while len(path_pieces) > 0:
+                    module_name = '.'.join(path_pieces)
+                    # Try to import the current file as a module
+                    try:
+                        module = importlib.import_module(module_name)
+                        self.logger.info("Successfully imported " + module_name)
+                    except Exception as e:
+                        self.logger.warn("Could not import " + module_name + ": " + e.message)
+                        continue
+                    finally:
+                        path_pieces = path_pieces[1:]
+
+                    # Pull out any test classes from the module
+                    try:
+                        test_classes.extend(self.get_test_classes(module))
+                    except Exception as e:
+                        self.logger.warn("Error getting test classes from module: " + e.message)
+
+        self.logger.info("Found these test classes: " + str(test_classes))
+        return test_classes
+
+    def get_test_classes(self, module):
+        """Return list of any all classes in the module object."""
+        module_objects = map(lambda x: getattr(module, x), [obj_name for obj_name in dir(module)])
+        return filter(lambda x: self.is_test_class(x), module_objects)
+
+    def is_test_class(self, obj):
+        """An object is a test class if it's a leafy subclass of Test.
+        """
+        return inspect.isclass(obj) and issubclass(obj, Test) and len(obj.__subclasses__()) == 0
+
+
