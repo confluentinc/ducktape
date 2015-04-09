@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.cluster import VagrantCluster
 from ducktape.logger import Logger
 import importlib
-import logging
 import os
 import inspect
 import re
+import json
+import logging
 
 
 class Test(Logger):
@@ -39,19 +39,6 @@ class Test(Logger):
         """
         raise NotImplementedError("All tests must implement this method.")
 
-    @classmethod
-    def run_standalone(cls):
-        logging.basicConfig(level=logging.INFO)
-        cluster = VagrantCluster()
-        test = cls(cluster)
-
-        if test.min_cluster_size() > cluster.num_available_nodes():
-            raise RuntimeError(
-                "There are not enough nodes available in the cluster to run this test. Needed: %d, Available: %d" %
-                (test.min_cluster_size(), cluster.num_available_nodes()))
-
-        test.log_start()
-        test.run()
 
 
 class TestLoader(Logger):
@@ -64,7 +51,10 @@ class TestLoader(Logger):
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
           (i.e. it has no subclasses).
         """
-        test_files = self.find_test_files(base_dir, pattern)
+        if os.path.isfile(base_dir):
+            test_files = [os.path.abspath(base_dir)]
+        else:
+            test_files = self.find_test_files(base_dir, pattern)
         test_modules = self.import_modules(test_files)
 
         # pull test_classes out of test_modules
@@ -135,5 +125,152 @@ class TestLoader(Logger):
         """An object is a test class if it's a leafy subclass of Test.
         """
         return inspect.isclass(obj) and issubclass(obj, Test) and len(obj.__subclasses__()) == 0
+
+
+# -----
+# fixture exception
+# test failed exception
+# -----
+
+# class TestContext(object):
+#     def __init__(self, root_log_name, report_base_path):
+#         self.root_log_name = root_log_name
+#         self.report_base_path = report_base_path
+
+
+# class TestSuite(object):
+#     def __init__(self):
+#         pass
+#
+#     def add_test(self, test, context):
+#         pass
+
+
+class TestReporter(object):
+    def __init__(self, results):
+        self.results = results
+
+    def report(self):
+        raise NotImplementedError()
+
+
+class SimpleStdoutReporter(TestReporter):
+    def report(self):
+        print "PASS" if self.results.get_aggregate_success() else "FAIL"
+        print "------------------------------------------------------------"
+
+
+        for result in self.results:
+            pass_fail = "PASS" if result.success else "FAIL"
+            print pass_fail + ": " + result.test_name
+
+
+
+class TestResult(object):
+    def __init__(self, test_session_id, test_name, success=True, summary=""):
+        self.test_name = test_name
+        self.success = success
+        self.summary = summary
+        self.test_session_id = test_session_id
+
+class TestResults(object):
+    # TODO make this tread safe
+
+    def __init__(self, test_session_id):
+        # test_name -> test_result
+        self.results_map = {}
+
+        # maintains an ordering of test_results
+        self.results_list = []
+
+        # Aggregate success of all results
+        self.success = True
+
+        self.test_session_id = test_session_id
+
+    def add_result(self, test_result):
+        assert test_result.__class__ == TestResult
+        self.results_map[test_result.test_name] = test_result
+        self.results_list.append(test_result)
+        self.success = self.success and test_result.success
+
+    def get_result(self, result_name):
+        return self.results_map.get(result_name)
+
+    def get_aggregate_success(self):
+        """Check cumulative success of all tests run so far"""
+        if not self.success:
+            return False
+
+        for result in self:
+            if not result.success:
+                return False
+
+        return True
+
+    def __iter__(self):
+        for item in self.results_list:
+            yield item
+
+
+class TestRunner(Logger):
+    DEFAULT_TEST_RUN_ID_FILE = ".ducktape/test_run_id"
+
+    def __init__(self, test_session_id, test_classes, cluster):
+        self.tests = test_classes
+        self.cluster = cluster
+        self.test_session_id = test_session_id
+        self.results = TestResults(self.test_session_id)
+        logging.basicConfig(level=logging.INFO)
+
+
+    def run_all_tests(self):
+        raise NotImplementedError()
+
+
+class SerialTestRunner(TestRunner):
+    def run_all_tests(self):
+        for test in self.tests:
+            result = TestResult(self.test_session_id, str(test))
+            try:
+                self.run_test(test)
+
+                # some mechanism for collecting summary and/or test data (json?)
+            except Exception as e:
+                result.success = False
+                result.summary += e.message + "\n"
+            finally:
+                self.results.add_result(result)
+
+        return self.results
+
+
+    def run_test(self, test_class):
+        test = test_class(self.cluster)
+
+
+        if test.min_cluster_size() > self.cluster.num_available_nodes():
+            raise RuntimeError(
+                "There are not enough nodes available in the cluster to run this test. Needed: %d, Available: %d" %
+                (test.min_cluster_size(), self.cluster.num_available_nodes()))
+
+        test.log_start()
+
+        try:
+            if hasattr(test, 'setUp'):
+                print self.__class__.__name__ + ": setting up " + test.__class__.__name__
+                test.setUp()
+
+            print self.__class__.__name__ + ": running " + test.__class__.__name__
+            test.run()
+        except Exception as e:
+            raise e
+        finally:
+            if hasattr(test, 'tearDown'):
+                print self.__class__.__name__ + ": tearing down " + test.__class__.__name__
+                test.tearDown()
+
+
+
 
 
