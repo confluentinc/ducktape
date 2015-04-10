@@ -75,6 +75,9 @@ class TestLoader(Logger):
         test_files = []
 
         for pwd, dirs, files in os.walk(base_dir):
+            if "__init__.py" not in files:
+                # Not a package - ignore this directory
+                continue
             for f in files:
                 file_path = os.path.abspath(os.path.join(pwd, f))
                 if self.is_test_file(file_path, pattern):
