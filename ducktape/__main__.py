@@ -1,6 +1,8 @@
 from ducktape.tests.test import TestLoader
 from ducktape.tests.test import SerialTestRunner
 from ducktape.tests.test import SimpleStdoutReporter
+from ducktape.tests.test import SimpleFileReporter
+from ducktape.tests.test import TestSessionContext
 from ducktape.cluster.vagrant import VagrantCluster
 
 import os
@@ -96,6 +98,9 @@ def main():
 
     test_session_id = get_test_session_id()
     print test_session_id
+    test_session_results_dir = test_session_id + "-test-results"
+    os.mkdir(test_session_results_dir)
+    test_session_context = TestSessionContext(test_session_results_dir, test_session_id)
 
     loader = TestLoader()
     test_classes = loader.discover(sys.argv[1])
@@ -104,11 +109,13 @@ def main():
 
     # TODO command-line hooks specify type of cluster and type of test runner
     cluster = VagrantCluster()
-    runner = SerialTestRunner(test_session_id, test_classes, cluster)
+    runner = SerialTestRunner(test_session_context, test_classes, cluster)
     test_results = runner.run_all_tests()
 
     # TODO command-line hook for type of reporter
     reporter = SimpleStdoutReporter(test_results)
+    reporter.report()
+    reporter = SimpleFileReporter(test_results)
     reporter.report()
 
     if not test_results.get_aggregate_success():

@@ -40,7 +40,6 @@ class Test(Logger):
         raise NotImplementedError("All tests must implement this method.")
 
 
-
 class TestLoader(Logger):
     DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
 
@@ -150,33 +149,72 @@ class TestReporter(object):
     def __init__(self, results):
         self.results = results
 
+    def pass_fail(self, success):
+        return "PASS" if success else "FAIL"
+
     def report(self):
-        raise NotImplementedError()
+        raise NotImplementedError("method report must be implemented by subclasses of TestReporter")
 
 
-class SimpleStdoutReporter(TestReporter):
-    def report(self):
-        print "PASS" if self.results.get_aggregate_success() else "FAIL"
-        print "------------------------------------------------------------"
+class SimpleReporter(TestReporter):
+    def header_string(self):
+        header = ""
+        header += self.pass_fail(self.results.get_aggregate_success()) + "\n"
+        header += "------------------------------------------------------------\n"
 
+        return header
+
+    def result_string(self, result):
+        result_str = ""
+        result_str += self.pass_fail(result.success) + ": " + result.test_name + "\n"
+        if not result.success:
+            result_str += "    " + result.summary + "\n"
+        if result.data is not None:
+            result_str += json.dumps(result.data) + "\n"
+
+        return result_str
+
+    def report_string(self):
+        report_str = ""
+        report_str += self.header_string()
 
         for result in self.results:
-            pass_fail = "PASS" if result.success else "FAIL"
-            print pass_fail + ": " + result.test_name
+            report_str += self.result_string(result)
 
+        return report_str
+
+
+class SimpleFileReporter(SimpleReporter):
+    def report(self):
+        report_file = os.path.join(self.results.test_session_context.test_session_report_dir, "summary")
+        with open(report_file, "w") as fp:
+            fp.write(self.report_string())
+
+
+class SimpleStdoutReporter(SimpleReporter):
+    def report(self):
+        print self.report_string()
+
+
+class TestSessionContext(object):
+    def __init__(self, test_session_report_dir, test_session_id):
+        self.test_session_report_dir = test_session_report_dir
+        self.test_session_id = test_session_id
 
 
 class TestResult(object):
-    def __init__(self, test_session_id, test_name, success=True, summary=""):
+    def __init__(self, test_session_context, test_name, success=True, summary="", data=None):
+        self.test_session_context = test_session_context
         self.test_name = test_name
         self.success = success
         self.summary = summary
-        self.test_session_id = test_session_id
+        self.data = data
+
 
 class TestResults(object):
-    # TODO make this tread safe
+    # TODO make this tread safe - once tests are run in parallel, this will be shared by multiple threads
 
-    def __init__(self, test_session_id):
+    def __init__(self, test_session_context):
         # test_name -> test_result
         self.results_map = {}
 
@@ -186,7 +224,7 @@ class TestResults(object):
         # Aggregate success of all results
         self.success = True
 
-        self.test_session_id = test_session_id
+        self.test_session_context = test_session_context
 
     def add_result(self, test_result):
         assert test_result.__class__ == TestResult
@@ -216,13 +254,12 @@ class TestResults(object):
 class TestRunner(Logger):
     DEFAULT_TEST_RUN_ID_FILE = ".ducktape/test_run_id"
 
-    def __init__(self, test_session_id, test_classes, cluster):
+    def __init__(self, test_session_context, test_classes, cluster):
         self.tests = test_classes
         self.cluster = cluster
-        self.test_session_id = test_session_id
-        self.results = TestResults(self.test_session_id)
+        self.test_session_context = test_session_context
+        self.results = TestResults(self.test_session_context)
         logging.basicConfig(level=logging.INFO)
-
 
     def run_all_tests(self):
         raise NotImplementedError()
@@ -231,7 +268,7 @@ class TestRunner(Logger):
 class SerialTestRunner(TestRunner):
     def run_all_tests(self):
         for test in self.tests:
-            result = TestResult(self.test_session_id, str(test))
+            result = TestResult(self.test_session_context, str(test))
             try:
                 self.run_test(test)
 
@@ -244,10 +281,8 @@ class SerialTestRunner(TestRunner):
 
         return self.results
 
-
     def run_test(self, test_class):
         test = test_class(self.cluster)
-
 
         if test.min_cluster_size() > self.cluster.num_available_nodes():
             raise RuntimeError(
