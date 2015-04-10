@@ -126,25 +126,6 @@ class TestLoader(Logger):
         return inspect.isclass(obj) and issubclass(obj, Test) and len(obj.__subclasses__()) == 0
 
 
-# -----
-# fixture exception
-# test failed exception
-# -----
-
-# class TestContext(object):
-#     def __init__(self, root_log_name, report_base_path):
-#         self.root_log_name = root_log_name
-#         self.report_base_path = report_base_path
-
-
-# class TestSuite(object):
-#     def __init__(self):
-#         pass
-#
-#     def add_test(self, test, context):
-#         pass
-
-
 class TestReporter(object):
     def __init__(self, results):
         self.results = results
@@ -159,6 +140,7 @@ class TestReporter(object):
 class SimpleReporter(TestReporter):
     def header_string(self):
         header = ""
+        header += "Test run with session_id " + self.results.test_session_context.test_session_id + "\n"
         header += self.pass_fail(self.results.get_aggregate_success()) + "\n"
         header += "------------------------------------------------------------\n"
 
