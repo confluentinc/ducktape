@@ -8,3 +8,7 @@ dist/
 *.egg-info/
 
 .DS_Store
+
+# ducktape
+.ducktape
+*-test-results
