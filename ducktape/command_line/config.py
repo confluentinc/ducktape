@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ducktape
+import os
 
-if __name__ == "__main__":
-    ducktape.command_line.main.main()
+
+class ConsoleConfig(object):
+    # Store various bookkeeping data here
+    METADATA_DIR = ".ducktape"
+
+    # Track the last-used session_id here
+    SESSION_ID_FILE = os.path.join(METADATA_DIR, "session_id")

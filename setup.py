@@ -7,7 +7,7 @@ setup(name="ducktape",
       author_email='ewen@confluent.io',
       platforms=["any"], 
       entry_points={
-        'console_scripts': ['ducktape=ducktape.__main__:main'],
+        'console_scripts': ['ducktape=ducktape.command_line.main:main'],
       },
       license="apache2.0",
       url="http://github.com/confluentinc/ducktape",
