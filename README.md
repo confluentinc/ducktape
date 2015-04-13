@@ -83,3 +83,9 @@ containing a set of fields based on the output of the final line of those
 programs. They also maintains all the intermediate stats in the same format in a
 field called `stats`. Users of these classes need to know the names of the
 fields to get the information they want.
+
+Unit Tests
+----------
+Assuming you have pytest installed (if not, sudo pip install pytest):
+cd ducktape/ducktape/unit_tests
+py.test .
