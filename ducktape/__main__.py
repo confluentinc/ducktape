@@ -12,17 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import ducktape
 
-
-class Logger(object):
-    @property
-    def logger(self):
-        if not hasattr(self, '_logger'):
-            self._logger = logging.getLogger(self._short_class_name())
-        return self._logger
-
-    def _short_class_name(self):
-        return \
-            '.'.join([x[0] for x in self.__class__.__module__.split('.')]) + \
-            '.' + self.__class__.__name__
+if __name__ == "__main__":
+    ducktape.command_line.main.main()

@@ -12,17 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+from ducktape.tests.test import Test
 
 
-class Logger(object):
-    @property
-    def logger(self):
-        if not hasattr(self, '_logger'):
-            self._logger = logging.getLogger(self._short_class_name())
-        return self._logger
+class TestB(Test):
+    """Loader should discover this."""
+    pass
 
-    def _short_class_name(self):
-        return \
-            '.'.join([x[0] for x in self.__class__.__module__.split('.')]) + \
-            '.' + self.__class__.__name__
+
+class TestBB(Test):
+    """Loader should discover this."""
+    pass
+
+
+class TestInvisible(object):
+    """Loader should not discover this."""
+    pass
