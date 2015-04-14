@@ -25,13 +25,15 @@
 # that there won't be resource conflicts: the cluster tests are being run on
 # should be large enough to use one instance per service instance.
 
-from ducktape.logger import Logger
 
-
-class Service(Logger):
-    def __init__(self, cluster, num_nodes):
-        self.num_nodes = num_nodes
-        self.cluster = cluster
+class Service(object):
+    def __init__(self, service_context):
+        """
+        :type service_context: ServiceContext
+        """
+        self.num_nodes = service_context.num_nodes
+        self.cluster = service_context.cluster
+        self.logger = service_context.logger
 
     def start(self):
         """Start the service running in the background."""
@@ -87,3 +89,12 @@ class Service(Logger):
             svc.wait()
         for svc in args:
             svc.stop()
+
+
+class ServiceContext(object):
+    """Wrapper class for information needed by any service."""
+    def __init__(self, cluster, num_nodes, logger):
+        self.cluster = cluster
+        self.num_nodes = num_nodes
+        self.logger = logger
+

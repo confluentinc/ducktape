@@ -15,8 +15,12 @@
 
 from ducktape.logger import Logger
 from ducktape.tests.result import TestResult, TestResults
+from ducktape.tests.session_context import TestContext
 
+import errno
 import logging
+import os
+import traceback
 
 
 class TestRunner(Logger):
@@ -31,6 +35,50 @@ class TestRunner(Logger):
         raise NotImplementedError()
 
 
+def mkdir_p(path):
+    """mkdir -p functionality.
+    :type path: str
+    """
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+def get_test_case(test_class, session_context):
+    """Create test context object and instantiate test class.
+    :type test_class: ducktape.tests.test.Test.__class__
+    :type session_context: ducktape.tests.session_context.SessionContext
+    :rtype test_class
+    """
+    print str(session_context)
+    print test_class.__module__
+    print test_class
+    print test_class.run.__name__
+
+    test_context = TestContext(session_context, test_class.__module__, test_class, test_class.run, config=None)
+
+    mkdir_p(test_context.get_log_dir())
+    fh = logging.FileHandler(os.path.join(test_context.get_log_dir(), "test_log"))
+    fh.setLevel(logging.DEBUG)
+    # create console handler with a higher log level
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.ERROR)
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+    fh.setFormatter(formatter)
+    ch.setFormatter(formatter)
+
+    # add the handlers to the logger
+    test_context.logger.addHandler(fh)
+    test_context.logger.addHandler(ch)
+
+    return test_class(test_context)
+
+
 class SerialTestRunner(TestRunner):
     def run_all_tests(self):
         for test in self.tests:
@@ -41,14 +89,15 @@ class SerialTestRunner(TestRunner):
                 # some mechanism for collecting summary and/or test data (json?)
             except Exception as e:
                 result.success = False
-                result.summary += e.message + "\n"
+                result.summary += e.message + "\n" + traceback.format_exc(limit=16) + "\n"
             finally:
                 self.results.add_result(result)
 
         return self.results
 
     def run_test(self, test_class):
-        test = test_class(self.cluster)
+        test = get_test_case(test_class, self.session_context)
+        print "Instantiated test class:", str(test)
 
         if test.min_cluster_size() > self.cluster.num_available_nodes():
             raise RuntimeError(
@@ -64,6 +113,7 @@ class SerialTestRunner(TestRunner):
 
             print self.__class__.__name__ + ": running " + test.__class__.__name__
             test.run()
+            print self.__class__.__name__ + ": successfully run " + test.__class__.__name__
         except Exception as e:
             raise e
         finally:

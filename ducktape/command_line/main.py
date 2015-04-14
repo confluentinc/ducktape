@@ -15,7 +15,7 @@
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.runner import SerialTestRunner
 from ducktape.tests.reporter import SimpleStdoutReporter, SimpleFileReporter
-from ducktape.tests.session_context import TestSessionContext
+from ducktape.tests.session_context import SessionContext
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.tests.session_context import generate_session_id, generate_results_dir
@@ -56,16 +56,6 @@ def main():
     if not os.path.isdir(ConsoleConfig.METADATA_DIR):
         os.makedirs(ConsoleConfig.METADATA_DIR)
 
-    # Generate a shared 'global' identifier for this test run and create the directory
-    # in which all test results will be stored
-    session_id = generate_session_id(ConsoleConfig.SESSION_ID_FILE)
-    results_dir = generate_results_dir(session_id)
-    test_session_context = TestSessionContext(session_id, results_dir)
-    if os.path.isdir(results_dir):
-        raise Exception(
-            "A test results directory with session id %s already exists. Exiting without overwriting..." % session_id)
-    os.mkdir(results_dir)
-
     # Discover and load tests to be run
     loader = TestLoader()
     test_classes = loader.discover(args.test_path[0])
@@ -77,10 +67,20 @@ def main():
         swap_in_mock_run(test_classes)
         swap_in_mock_fixtures(test_classes)
 
-    # Initialize the cluster
-    # TODO command-line hooks specify type of cluster and type of test runner
+    # Generate a shared 'global' identifier for this test run and create the directory
+    # in which all test results will be stored
+    session_id = generate_session_id(ConsoleConfig.SESSION_ID_FILE)
+    results_dir = generate_results_dir(session_id)
     cluster = VagrantCluster()
-    runner = SerialTestRunner(test_session_context, test_classes, cluster)
+    session_context = SessionContext(session_id, results_dir, cluster)
+    if os.path.isdir(results_dir):
+        raise Exception(
+            "A test results directory with session id %s already exists. Exiting without overwriting..." % session_id)
+    os.mkdir(results_dir)
+
+    # Run the tests
+    # TODO command-line hooks specify type of cluster and type of test runner
+    runner = SerialTestRunner(session_context, test_classes, cluster)
     test_results = runner.run_all_tests()
 
     # Report results

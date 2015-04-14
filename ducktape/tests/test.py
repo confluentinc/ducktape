@@ -14,15 +14,24 @@
 
 from ducktape.logger import Logger
 
-class Test(Logger):
+import errno
+import logging
+import os
+
+
+class Test(object):
+    """Base class for tests.
     """
-    Base class for tests.
-    """
-    def __init__(self, cluster):
-        self.cluster = cluster
+    def __init__(self, test_context):
+        """
+        :type test_context: ducktape.tests.session_context.TestContext
+        """
+        self.cluster = test_context.session_context.cluster
+        self.test_context = test_context
+        self.logger = test_context.logger
 
     def log_start(self):
-        self.logger.info("Running test %s", self._short_class_name())
+        self.logger.info("Running test %s")
 
     def min_cluster_size(self):
         """
@@ -30,3 +39,6 @@ class Test(Logger):
         with too few nodes.
         """
         raise NotImplementedError("All tests must implement this method.")
+
+
+

@@ -12,23 +12,69 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import logging
 import os
 import time
 
 
-class TestSessionContext(object):
-    """Wrapper class for 'global' variables. A call to ducktape generates a single shared TestSessionContext object
+class SessionContext(object):
+    """Wrapper class for 'global' variables. A call to ducktape generates a single shared SessionContext object
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, session_id, results_dir):
+    def __init__(self, session_id, results_dir, cluster):
         """
         :type session_id: str   Global session identifier
         :type results_dir: str  All test results go here
+        :type cluster: ducktape.cluster.cluster.Cluster
         """
         self.session_id = session_id
         self.results_dir = os.path.abspath(results_dir)
+        self.cluster = cluster
+
+
+class TestContext(object):
+    """Wrapper class for state variables needed to properly run a single 'test unit'."""
+    def __init__(self, session_context, module, cls, function, config):
+        """
+        :type session_context: ducktape.tests.session_context.SessionContext
+        """
+        self.module = module
+        self.cls = cls
+        self.function = function
+        self.config = config
+
+        self.session_context = session_context
+
+    def get_log_name(self):
+        """
+        :type test_context: ducktape.tests.session_context.TestContext
+        """
+        name_components = [
+            self.session_context.session_id,
+            self.module]
+
+        if self.cls is not None:
+            name_components.append(self.cls.__name__)
+
+        name_components.append(self.function.__name__)
+
+        return ".".join(name_components)
+
+    def get_log_dir(self):
+        """
+        :type test_context: ducktape.tests.session_context.TestContext
+        """
+        session_base_dir = self.session_context.results_dir
+        return os.path.join(session_base_dir, self.cls.__name__)
+
+    @property
+    def logger(self):
+        """Read-only logger attribure."""
+        if not hasattr(self, '_logger'):
+            self._logger = logging.getLogger(self.get_log_name())
+        return self._logger
+
 
 
 def generate_session_id(session_id_file):
