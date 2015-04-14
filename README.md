@@ -87,5 +87,4 @@ fields to get the information they want.
 Unit Tests
 ----------
 Assuming you have pytest installed (if not, sudo pip install pytest):
-cd ducktape/ducktape/unit_tests
-py.test .
+py.test ducktape/unit_tests/
