@@ -64,8 +64,8 @@ def get_test_case(test_class, session_context):
     test_context = TestContext(session_context, test_class.__module__, test_class, test_class.run, config=None)
     test_context.logger.setLevel(logging.DEBUG)
 
-    mkdir_p(test_context.get_log_dir())
-    fh = logging.FileHandler(os.path.join(test_context.get_log_dir(), "test_log"))
+    mkdir_p(test_context.results_dir)
+    fh = logging.FileHandler(os.path.join(test_context.results_dir, "test_log"))
     fh.setLevel(logging.DEBUG)
     # create console handler with a higher log level
     ch = logging.StreamHandler(sys.stdout)
@@ -106,8 +106,6 @@ class SerialTestRunner(TestRunner):
             raise RuntimeError(
                 "There are not enough nodes available in the cluster to run this test. Needed: %d, Available: %d" %
                 (test.min_cluster_size(), self.cluster.num_available_nodes()))
-
-        test.log_start()
 
         try:
             if hasattr(test, 'setUp'):

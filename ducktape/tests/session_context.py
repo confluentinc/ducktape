@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.tests.logger import Logger
+
+import errno
 import logging
 import os
+import sys
 import time
 
 
-class SessionContext(object):
+class SessionContext(Logger):
     """Wrapper class for 'global' variables. A call to ducktape generates a single shared SessionContext object
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, session_id, results_dir, cluster):
+    def __init__(self, session_id, results_dir, cluster, log_config=None):
         """
         :type session_id: str   Global session identifier
         :type results_dir: str  All test results go here
@@ -32,58 +36,50 @@ class SessionContext(object):
         self.results_dir = os.path.abspath(results_dir)
         self.cluster = cluster
 
-    def get_log_name(self):
+        self._logger_configured = False
+        self.configure_logger(log_config)
+
+    @property
+    def logger_name(self):
         return self.session_id + ".session_logger"
 
-    @property
-    def logger(self):
-        """Read-only logger attribure."""
-        if not hasattr(self, '_logger'):
-            self._logger = logging.getLogger(self.get_log_name())
-        return self._logger
-
-
-class TestContext(object):
-    """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module, cls, function, config):
+    def configure_logger(self, log_config=None):
         """
         :type session_context: ducktape.tests.session_context.SessionContext
+
+        This method should only be called once during instantiation.
+        TODO - config object is currently unused, but the idea here is that ultimately the user should be able to
+        configure handlers etc in the session_logger
         """
-        self.module = module
-        self.cls = cls
-        self.function = function
-        self.config = config
+        if self._logger_configured:
+            raise RuntimeError("Session log handlers should only be set once.")
 
-        self.session_context = session_context
+        self.logger.setLevel(logging.DEBUG)
 
-    def get_log_name(self):
-        """
-        :type test_context: ducktape.tests.session_context.TestContext
-        """
-        name_components = [
-            self.session_context.session_id,
-            self.module]
+        fh = logging.FileHandler(os.path.join(self.results_dir, "session_log"))
+        fh.setLevel(logging.INFO)
 
-        if self.cls is not None:
-            name_components.append(self.cls.__name__)
+        fh_debug = logging.FileHandler(os.path.join(self.results_dir, "session_log_debug"))
+        fh_debug.setLevel(logging.DEBUG)
 
-        name_components.append(self.function.__name__)
+        # create console handler with a higher log level
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(logging.INFO)
 
-        return ".".join(name_components)
+        # create formatter and add it to the handlers
+        formatter = logging.Formatter('[%(levelname)s:%(asctime)s]: %(message)s')
+        fh.setFormatter(formatter)
+        fh_debug.setFormatter(formatter)
+        ch.setFormatter(formatter)
 
-    def get_log_dir(self):
-        """
-        :type test_context: ducktape.tests.session_context.TestContext
-        """
-        session_base_dir = self.session_context.results_dir
-        return os.path.join(session_base_dir, self.cls.__name__)
+        # add the handlers to the logger
+        self.logger.addHandler(fh)
+        self.logger.addHandler(fh_debug)
+        self.logger.addHandler(ch)
 
-    @property
-    def logger(self):
-        """Read-only logger attribure."""
-        if not hasattr(self, '_logger'):
-            self._logger = logging.getLogger(self.get_log_name())
-        return self._logger
+        self._logger_configured = True
+
+
 
 
 def generate_session_id(session_id_file):
@@ -139,3 +135,74 @@ def generate_results_dir(session_id):
     :rtype: str
     """
     return session_id + "-test-results"
+
+
+def mkdir_p(path):
+    """mkdir -p functionality.
+    :type path: str
+    """
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+class TestContext(Logger):
+    """Wrapper class for state variables needed to properly run a single 'test unit'."""
+    def __init__(self, session_context, module, cls, function, config, log_config=None):
+        """
+        :type session_context: ducktape.tests.session_context.SessionContext
+        """
+        self.module = module
+        self.cls = cls
+        self.function = function
+        self.config = config
+        self.session_context = session_context
+
+        self.results_dir = os.path.join(self.session_context.results_dir, self.cls.__name__)
+        mkdir_p(self.results_dir)
+
+        self._logger_configured = False
+        self.configure_logger(log_config)
+
+    @property
+    def test_id(self):
+        name_components = [
+            self.session_context.session_id,
+            self.module]
+
+        if self.cls is not None:
+            name_components.append(self.cls.__name__)
+
+        name_components.append(self.function.__name__)
+        return ".".join(name_components)
+
+    @property
+    def logger_name(self):
+        return self.test_id
+
+    def configure_logger(self, log_config=None):
+        if self._logger_configured:
+            raise RuntimeError("test logger should only be configured once.")
+
+        self.logger.setLevel(logging.DEBUG)
+
+        mkdir_p(self.results_dir)
+        fh = logging.FileHandler(os.path.join(self.results_dir, "test_log"))
+        fh.setLevel(logging.DEBUG)
+        # create console handler with a higher log level
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(logging.INFO)
+        # create formatter and add it to the handlers
+        formatter = logging.Formatter('[%(levelname)-6s - %(asctime)s - %(module)s - %(funcName)s - lineno:%(lineno)s]: %(message)s')
+        fh.setFormatter(formatter)
+        ch.setFormatter(formatter)
+
+        # add the handlers to the logger
+        self.logger.addHandler(fh)
+        # test_context.logger.addHandler(ch)
+
+        self._logger_configured = True

@@ -17,12 +17,15 @@ import logging
 
 class Logger(object):
     @property
+    def logger_name(self):
+        raise NotImplementedError("logger_name property must be implemented by a subclass")
+
+    @property
     def logger(self):
+        """Read-only logger attribure."""
         if not hasattr(self, '_logger'):
-            self._logger = logging.getLogger(self._short_class_name())
+            self._logger = logging.getLogger(self.logger_name)
         return self._logger
 
-    def _short_class_name(self):
-        return \
-            '.'.join([x[0] for x in self.__class__.__module__.split('.')]) + \
-            '.' + self.__class__.__name__
+    def configure_logger(self, log_config=None):
+        raise NotImplementedError("configure_logger property must be implemented by a subclass")

@@ -22,8 +22,6 @@ from ducktape.tests.session_context import generate_session_id, generate_results
 from tests.mock import swap_in_mock_run, swap_in_mock_fixtures
 
 import argparse
-import logging
-import logging.handlers
 import os
 import sys
 
@@ -45,33 +43,6 @@ def parse_args():
     return args
 
 
-def add_session_log_handlers(session_context):
-    """
-    :type session_context: ducktape.tests.session_context.SessionContext
-    """
-    session_context.logger.setLevel(logging.DEBUG)
-
-    fh = logging.FileHandler(os.path.join(session_context.results_dir, "session_log"))
-    fh.setLevel(logging.INFO)
-
-    fh_debug = logging.FileHandler(os.path.join(session_context.results_dir, "session_log_debug"))
-    fh_debug.setLevel(logging.DEBUG)
-
-    # create console handler with a higher log level
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
-
-    # create formatter and add it to the handlers
-    formatter = logging.Formatter('[%(levelname)s:%(asctime)s]: %(message)s')
-    fh.setFormatter(formatter)
-    fh_debug.setFormatter(formatter)
-    ch.setFormatter(formatter)
-
-    # add the handlers to the logger
-    session_context.logger.addHandler(fh)
-    session_context.logger.addHandler(fh_debug)
-    session_context.logger.addHandler(ch)
-
 def main():
     """Ducktape entry point. This contains top level logic for ducktape command-line program which does the following:
 
@@ -90,8 +61,8 @@ def main():
     session_id = generate_session_id(ConsoleConfig.SESSION_ID_FILE)
     results_dir = generate_results_dir(session_id)
     cluster = VagrantCluster()
-    session_context = SessionContext(session_id, results_dir, cluster)
 
+    # Make directory in which results will be stored
     if os.path.isdir(results_dir):
         raise Exception(
             "A test results directory with session id %s already exists. Exiting without overwriting..." % session_id)
@@ -101,7 +72,7 @@ def main():
         os.unlink(latest_test_dir)
     os.symlink(results_dir, latest_test_dir)
 
-    add_session_log_handlers(session_context)
+    session_context = SessionContext(session_id, results_dir, cluster)
 
     # Discover and load tests to be run
     loader = TestLoader(session_context)

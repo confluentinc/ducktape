@@ -24,9 +24,6 @@ class Test(object):
         self.test_context = test_context
         self.logger = test_context.logger
 
-    def log_start(self):
-        self.logger.info("Running test %s")
-
     def min_cluster_size(self):
         """
         Subclasses implement this to provide a helpful heuristic to prevent trying to run a test on a cluster
