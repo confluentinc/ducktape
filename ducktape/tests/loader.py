@@ -39,6 +39,7 @@ class TestLoader(object):
         :rtype: list
         """
         test_classes = []
+        assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
         for symbol in test_discovery_symbols:
 
             if os.path.isfile(symbol):
