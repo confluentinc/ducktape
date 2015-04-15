@@ -32,6 +32,16 @@ class SessionContext(object):
         self.results_dir = os.path.abspath(results_dir)
         self.cluster = cluster
 
+    def get_log_name(self):
+        return self.session_id
+
+    @property
+    def logger(self):
+        """Read-only logger attribure."""
+        if not hasattr(self, '_logger'):
+            self._logger = logging.getLogger(self.get_log_name())
+        return self._logger
+
 
 class TestContext(object):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
@@ -74,7 +84,6 @@ class TestContext(object):
         if not hasattr(self, '_logger'):
             self._logger = logging.getLogger(self.get_log_name())
         return self._logger
-
 
 
 def generate_session_id(session_id_file):

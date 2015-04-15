@@ -13,23 +13,25 @@
 # limitations under the License.
 
 
-from ducktape.logger import Logger
 from ducktape.tests.result import TestResult, TestResults
 from ducktape.tests.session_context import TestContext
 
 import errno
 import logging
 import os
+import sys
 import traceback
 
 
-class TestRunner(Logger):
+class TestRunner(object):
     def __init__(self, session_context, test_classes, cluster):
         self.tests = test_classes
         self.cluster = cluster
         self.session_context = session_context
         self.results = TestResults(self.session_context)
-        logging.basicConfig(level=logging.INFO)
+        self.logger = session_context.logger
+
+        logging.basicConfig(level=logging.DEBUG)
 
     def run_all_tests(self):
         raise NotImplementedError()
@@ -65,10 +67,10 @@ def get_test_case(test_class, session_context):
     fh = logging.FileHandler(os.path.join(test_context.get_log_dir(), "test_log"))
     fh.setLevel(logging.DEBUG)
     # create console handler with a higher log level
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.ERROR)
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.INFO)
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+    formatter = logging.Formatter('%(levelname)s:%(asctime)s:%(message)s')
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
 

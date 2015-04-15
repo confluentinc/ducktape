@@ -21,3 +21,4 @@ class ConsoleConfig(object):
 
     # Track the last-used session_id here
     SESSION_ID_FILE = os.path.join(METADATA_DIR, "session_id")
+

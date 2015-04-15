@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.logger import Logger
 from ducktape.tests.test import Test
 
 import importlib
@@ -21,9 +20,12 @@ import os
 import re
 
 
-class TestLoader(Logger):
+class TestLoader(object):
     """Class used to discover and load tests."""
     DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
+
+    def __init__(self, session_context):
+        self.logger = session_context.logger
 
     def discover(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):
         """Recurse through packages in file hierarchy starting at base_dir, and return a list of all found test classes.
@@ -40,7 +42,6 @@ class TestLoader(Logger):
             test_files = [os.path.abspath(base_dir)]
         else:
             test_files = self.find_test_files(base_dir, pattern)
-
         test_modules = self.import_modules(test_files)
 
         # pull test_classes out of test_modules
@@ -84,6 +85,9 @@ class TestLoader(Logger):
         :type file_list: list
         :rtype: list
         """
+        import sys
+        print sys.path
+
         module_list = []
 
         for f in file_list:

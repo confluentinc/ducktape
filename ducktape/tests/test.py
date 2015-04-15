@@ -12,12 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.logger import Logger
-
-import errno
-import logging
-import os
-
 
 class Test(object):
     """Base class for tests.
