@@ -86,5 +86,12 @@ fields to get the information they want.
 
 Unit Tests
 ----------
-Assuming you have pytest installed (if not, sudo pip install pytest):
-py.test ducktape/unit_tests/
+
+You can run the tests via the setup.py script:
+
+    python setup.py test
+
+Alternatively, if you've installed pytest (`sudo pip install pytest`) you can run
+it directly on the `tests` directory`:
+
+    py.test tests
