@@ -23,6 +23,7 @@ from tests.mock import swap_in_mock_run, swap_in_mock_fixtures
 
 import argparse
 import logging
+import logging.handlers
 import os
 import sys
 
@@ -48,19 +49,28 @@ def add_session_log_handlers(session_context):
     """
     :type session_context: ducktape.tests.session_context.SessionContext
     """
+    session_context.logger.setLevel(logging.DEBUG)
+
     fh = logging.FileHandler(os.path.join(session_context.results_dir, "session_log"))
     fh.setLevel(logging.INFO)
+
+    fh_debug = logging.FileHandler(os.path.join(session_context.results_dir, "session_log_debug"))
+    fh_debug.setLevel(logging.DEBUG)
+
     # create console handler with a higher log level
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.INFO)
+
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(levelname)s:%(asctime)s:%(message)s')
+    formatter = logging.Formatter('[%(levelname)s:%(asctime)s]: %(message)s')
     fh.setFormatter(formatter)
+    fh_debug.setFormatter(formatter)
     ch.setFormatter(formatter)
 
     # add the handlers to the logger
     session_context.logger.addHandler(fh)
-    # logger.addHandler(ch)
+    session_context.logger.addHandler(fh_debug)
+    session_context.logger.addHandler(ch)
 
 def main():
     """Ducktape entry point. This contains top level logic for ducktape command-line program which does the following:

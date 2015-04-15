@@ -57,7 +57,8 @@ class TestLoader(object):
 
             self.logger.debug("Discovered these test classes: " + str(tests_from_symbol))
             test_classes.extend(tests_from_symbol)
-            
+
+        self.logger.debug("Discovered these tests: " + str(test_classes))
         return test_classes
 
     def find_test_files(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):
@@ -90,9 +91,6 @@ class TestLoader(object):
         :type file_list: list
         :rtype: list
         """
-        import sys
-        print sys.path
-
         module_list = []
 
         for f in file_list:

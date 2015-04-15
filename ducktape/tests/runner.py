@@ -31,7 +31,7 @@ class TestRunner(object):
         self.results = TestResults(self.session_context)
         self.logger = session_context.logger
 
-        logging.basicConfig(level=logging.DEBUG)
+        self.logger.debug("Instantiating %s" + self.__class__.__name__)
 
     def run_all_tests(self):
         raise NotImplementedError()
@@ -56,12 +56,13 @@ def get_test_case(test_class, session_context):
     :type session_context: ducktape.tests.session_context.SessionContext
     :rtype test_class
     """
-    print str(session_context)
-    print test_class.__module__
-    print test_class
-    print test_class.run.__name__
+    session_context.logger.debug(str(session_context))
+    session_context.logger.debug(test_class.__module__)
+    session_context.logger.debug(test_class)
+    session_context.logger.debug(test_class.run.__name__)
 
     test_context = TestContext(session_context, test_class.__module__, test_class, test_class.run, config=None)
+    test_context.logger.setLevel(logging.DEBUG)
 
     mkdir_p(test_context.get_log_dir())
     fh = logging.FileHandler(os.path.join(test_context.get_log_dir(), "test_log"))
@@ -70,13 +71,13 @@ def get_test_case(test_class, session_context):
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.INFO)
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(levelname)s:%(asctime)s:%(message)s')
+    formatter = logging.Formatter('[%(levelname)-6s - %(asctime)s - %(module)s - %(funcName)s - lineno:%(lineno)s]: %(message)s')
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
 
     # add the handlers to the logger
     test_context.logger.addHandler(fh)
-    test_context.logger.addHandler(ch)
+    # test_context.logger.addHandler(ch)
 
     return test_class(test_context)
 
@@ -99,7 +100,7 @@ class SerialTestRunner(TestRunner):
 
     def run_test(self, test_class):
         test = get_test_case(test_class, self.session_context)
-        print "Instantiated test class:", str(test)
+        self.logger.debug("Instantiated test class: " + str(test))
 
         if test.min_cluster_size() > self.cluster.num_available_nodes():
             raise RuntimeError(
@@ -110,17 +111,17 @@ class SerialTestRunner(TestRunner):
 
         try:
             if hasattr(test, 'setUp'):
-                print self.__class__.__name__ + ": setting up " + test.__class__.__name__
+                self.logger.info(self.__class__.__name__ + ": setting up " + test.__class__.__name__)
                 test.setUp()
 
-            print self.__class__.__name__ + ": running " + test.__class__.__name__
+            self.logger.info(self.__class__.__name__ + ": running " + test.__class__.__name__)
             test.run()
-            print self.__class__.__name__ + ": successfully run " + test.__class__.__name__
+            self.logger.info(self.__class__.__name__ + ": successfully ran " + test.__class__.__name__)
         except Exception as e:
             raise e
         finally:
             if hasattr(test, 'tearDown'):
-                print self.__class__.__name__ + ": tearing down " + test.__class__.__name__
+                self.logger.inf(self.__class__.__name__ + ": tearing down " + test.__class__.__name__)
                 test.tearDown()
 
 

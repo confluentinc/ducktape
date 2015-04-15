@@ -2,7 +2,7 @@ import urllib2
 from ducktape.logger import Logger
 
 
-class HttpMixin(Logger):
+class HttpMixin(object):
 
     def http_request(self, url, method, data="", headers=None):
         if url[0:7].lower() != "http://":

@@ -39,6 +39,10 @@ class Service(object):
         """Start the service running in the background."""
         self.nodes = self.cluster.request(self.num_nodes)
         for idx, node in enumerate(self.nodes, 1):
+
+            # Remote accounts utilities should log where this service logs
+            node.account.set_logger(self.logger)
+
             self.logger.debug("Forcibly cleaning node %d on %s", idx, node.account.hostname)
             self._clean_node(node)
 

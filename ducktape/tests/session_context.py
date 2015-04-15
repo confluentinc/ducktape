@@ -33,7 +33,7 @@ class SessionContext(object):
         self.cluster = cluster
 
     def get_log_name(self):
-        return self.session_id
+        return self.session_id + ".session_logger"
 
     @property
     def logger(self):
