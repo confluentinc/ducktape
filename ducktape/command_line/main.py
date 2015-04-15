@@ -19,7 +19,7 @@ from ducktape.tests.session_context import SessionContext
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.tests.session_context import generate_session_id, generate_results_dir
-from ducktape.unit_tests.mock import swap_in_mock_run, swap_in_mock_fixtures
+from tests.mock import swap_in_mock_run, swap_in_mock_fixtures
 
 import argparse
 import logging
@@ -95,7 +95,7 @@ def main():
 
     # Discover and load tests to be run
     loader = TestLoader(session_context)
-    test_classes = loader.discover(args.test_path[0])
+    test_classes = loader.discover(args.test_path)
     if args.collect_only:
         print test_classes
         sys.exit(0)
