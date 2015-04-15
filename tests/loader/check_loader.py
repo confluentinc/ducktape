@@ -14,31 +14,11 @@
 
 from ducktape.tests.loader import TestLoader
 
-import os
-
-
-def find_ducktape_base_dir():
-    """Return ducktape root directory.
-
-    Ducktape root directory is the directory named "ducktape" (containing setup.py) above the ducktape python package.
-    This function assumes there aren't additional directories named "ducktape" in the path, and that we are
-    running it from *somewhere* inside the ducktape root directory.
-    """
-    pwd = os.path.abspath(os.path.curdir)
-    pwd_vector = pwd.split("/")
-
-    i = pwd_vector.index("ducktape")  # leftmost index
-    assert i >= 0
-    pwd_vector = pwd_vector[:i + 1]   # truncate path components after first occurrence of "ducktape"
-
-    root_ducktape_path = "/".join(pwd_vector)
-    return os.path.abspath(root_ducktape_path)
-
+import os.path
 
 def discover_dir():
     """Return the absolute path to the directory to use with discovery tests."""
-    base_dir = find_ducktape_base_dir()
-    return os.path.join(base_dir, "ducktape", "unit_tests", "tests", "resources", "loader_test_directory")
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "loader_test_directory")
 
 
 class CheckTestLoader(object):
