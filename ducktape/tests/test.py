@@ -15,6 +15,7 @@
 from ducktape.tests.logger import Logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.config import ConsoleConfig
+from ducktape.services.service import ServiceContext
 
 import logging
 import os
@@ -39,6 +40,13 @@ class Test(object):
         """
         raise NotImplementedError("All tests must implement this method.")
 
+    def service_context(self, num_nodes):
+        """A convenience method to reduce boilerplate which returns ServiceContext object.
+        :type num_nodes: int
+        :rtype ducktape.services.service.ServiceContext
+        """
+        return ServiceContext(self.cluster, num_nodes, self.logger)
+        
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
