@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="http://fb.me/react-0.13.1.min.js"></script>
+    <script src="http://fb.me/JSXTransformer-0.13.1.js"></script>
+  </head>
+  <link rel="stylesheet" href="report.css" type="text/css">
+  <body>
+    <div id="heading"></div>
+    <div id="summary_panel"></div>
+    <div id="test_panel"></div>
+    <script type="text/jsx">
+      var Heading = React.createClass({
+        render: function() {
+          return (
+            <div>
+              <h1>
+                System Test Report
+              </h1>
+              <p>Test Session: {this.props.heading.session}</p>
+            </div>
+          );
+        }
+      });
+      
+      var SummaryRow = React.createClass({
+        render: function() {
+          return (
+            <tr>
+              <td colSpan='5' align='center'>{this.props.summary_prop.tests}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.passes}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.failures}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.run_time}</td>
+            </tr>
+          );
+        }
+      })
+      
+      var SummaryTable = React.createClass({
+        render: function() {
+          return (
+            <table id="summary_report_table">
+              <thead>
+                <tr id="summary_header_row">
+                  <th colSpan='5' align='center'>Tests</th>
+                  <th colSpan='5' align='center'>Passes</th>
+                  <th colSpan='5' align='center'>Failures</th>
+                  <th colSpan='5' align='center'>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {this.props.summary_props.map(function(summary_prop){
+                  return (
+                    <SummaryRow summary_prop={summary_prop} />
+                  );
+                }, this)}
+              </tbody>
+            </table>
+          );
+        }
+      });
+      
+      var TestRow = React.createClass({
+        render: function() {
+          var className = this.props.test.test_result + "Class"
+          return (
+            <tr className={className}>
+              <td colSpan='5' align='center'>{this.props.test.test_name}</td>
+              <td colSpan='5' align='center'>{this.props.test.test_result}</td>
+              <td colSpan='5' align='center'><a href={this.props.test.test_log}>Detail</a></td>
+            </tr>
+          );
+        }
+      });
+
+      var TestTable = React.createClass({
+        render: function() {
+          return (
+            <table id="report_table">
+              <thead>
+                <tr id="header_row">
+                  <th colSpan='5' align='center'>Test</th>
+                  <th colSpan='5' align='center'>Result</th>
+                  <th colSpan='5' align='center'>Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {this.props.tests.map(function(test) {
+                  var className = test.test_result + "Class";
+                  return (
+                    <TestRow test={test} /> 
+                  );
+                }, this)}
+              </tbody>
+            </table>
+          );
+        }
+      });
+
+      SummaryPanel = React.createClass({
+        render: function() {
+          return (
+            <div>
+              <h2>Summary</h2>
+              <SummaryTable summary_props={this.props.summary_props}/>
+            </div>
+          );
+        }
+      });
+
+      TestPanel = React.createClass({
+        render: function() {
+          return (
+            <div>
+              <h2>Results</h2>
+              <TestTable tests={this.props.tests}/>
+            </div>
+          );
+        }
+      });
+
+      SUMMARY=[{
+        "tests": %(num_tests)d,
+        "passes": %(num_passes)d,
+        "failures": %(num_failures)d,
+        "run_time": '%(run_time)s'
+      }];
+      
+      HEADING={
+        "session": '%(session)s'
+      };
+
+      TESTS=[%(tests)s];
+
+      React.render(<Heading heading={HEADING}/>, document.getElementById('heading'));
+      React.render(<SummaryPanel summary_props={SUMMARY}/>, document.getElementById('summary_panel'));
+      React.render(<TestPanel tests={TESTS}/>, document.getElementById('test_panel'));
+    </script>
+  </body>
+</html>
