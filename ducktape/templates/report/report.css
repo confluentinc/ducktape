@@ -1,0 +1,72 @@
+body { 
+    font-family: verdana, arial, helvetica, sans-serif; 
+    font-size: 80%; 
+}
+
+table { 
+    font-size: 100%;
+}
+
+h1 {
+	font-size: 16pt;
+	color: gray;
+}
+
+h2 {
+    font-size: 14pt;
+    color: gray;
+}
+
+#summary_header_row {
+    font-weight: bold;
+    color: white;
+    background-color: #777;
+}
+
+#summary_header_row th {
+    border: 1px solid #777;
+    padding: 2px; 
+}
+
+#summary_report_table {
+    width: 80%;
+    border-collapse: collapse;
+    border: 1px solid #777;
+}
+
+#summary_report_table td {
+    border: 1px solid #777;
+    padding: 2px;
+}
+
+#header_row {
+    font-weight: bold;
+    color: white;
+    background-color: #777;
+}
+
+#header_row th {
+    border: 1px solid #777;
+    padding: 2px; 
+}
+
+#report_table {
+    width: 80%;
+    border-collapse: collapse;
+    border: 1px solid #777;
+}
+
+#report_table td {
+    border: 1px solid #777;
+    padding: 2px;
+}
+
+.passClass { 
+    background-color: #6c6;
+}
+.failClass { 
+    background-color: #c60; 
+}
+.testcase { 
+    margin-left: 2em;
+}

@@ -14,7 +14,8 @@
 
 import json
 import os
-
+import shutil
+import pkg_resources
 
 class TestReporter(object):
     def __init__(self, results):
@@ -77,3 +78,58 @@ class SimpleFileReporter(SimpleReporter):
 class SimpleStdoutReporter(SimpleReporter):
     def report(self):
         print self.report_string()
+
+
+class HTMLReporter(TestReporter):
+
+    def format_result(self, result):
+        if result.success:
+            test_result = 'pass'
+        else:
+            test_result = 'fail'
+
+        result_json = {
+            "test_name": result.test_name,
+            "test_result": test_result,
+            "summary": result.summary,
+            # mocked for now, will change once
+            # the log capability is enabled
+            "test_log": "test.log"
+        }
+        return result_json
+
+    def format_report(self):
+        template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
+
+        num_tests = len(self.results.results_list)
+        num_passes = 0
+        result_string = ""
+        for result in self.results:
+            if result.success:
+                num_passes += 1
+            result_string += json.dumps(self.format_result(result))
+            result_string += ","
+
+        args = {
+            'num_tests': num_tests,
+            'num_passes': num_passes,
+            'num_failures': num_tests - num_passes,
+            # mocked for now, will change once
+            # we collect the running time
+            'run_time': '100s',
+            'session': self.results.session_context.session_id,
+            'tests': result_string
+        }
+
+        html = template % args
+        report_html = os.path.join(self.results.session_context.results_dir, "report.html")
+        with open(report_html, "w") as fp:
+            fp.write(html)
+            fp.close()
+
+        report_css = os.path.join(self.results.session_context.results_dir, "report.css")
+        report_css_origin = pkg_resources.resource_filename(__name__, '../templates/report/report.css')
+        shutil.copy2(report_css_origin, report_css)
+
+    def report(self):
+        self.format_report()
