@@ -46,7 +46,7 @@ class Test(object):
         :rtype ducktape.services.service.ServiceContext
         """
         return ServiceContext(self.cluster, num_nodes, self.logger)
-        
+
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""

@@ -20,6 +20,7 @@ from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from tests.mock import swap_in_mock_run, swap_in_mock_fixtures
+from ducktape.utils.local_filesystem_utils import mkdir_p
 
 import argparse
 import os
@@ -43,6 +44,19 @@ def parse_args():
     return args
 
 
+def setup_results_directory(results_dir, session_id):
+    """Make directory in which results will be stored"""
+    if os.path.isdir(results_dir):
+        raise Exception(
+            "A test results directory with session id %s already exists. Exiting without overwriting..." % session_id)
+    mkdir_p(results_dir)
+    latest_test_dir = os.path.join(ConsoleConfig.RESULTS_ROOT_DIRECTORY, "latest")
+
+    if os.path.exists(latest_test_dir):
+        os.unlink(latest_test_dir)
+    os.symlink(results_dir, latest_test_dir)
+
+
 def main():
     """Ducktape entry point. This contains top level logic for ducktape command-line program which does the following:
 
@@ -62,16 +76,7 @@ def main():
     results_dir = generate_results_dir(session_id)
     cluster = VagrantCluster()
 
-    # Make directory in which results will be stored
-    if os.path.isdir(results_dir):
-        raise Exception(
-            "A test results directory with session id %s already exists. Exiting without overwriting..." % session_id)
-    os.mkdir(results_dir)
-    latest_test_dir = "latest-test-results"
-    if os.path.exists(latest_test_dir):
-        os.unlink(latest_test_dir)
-    os.symlink(results_dir, latest_test_dir)
-
+    setup_results_directory(results_dir, session_id)
     session_context = SessionContext(session_id, results_dir, cluster)
 
     # Discover and load tests to be run

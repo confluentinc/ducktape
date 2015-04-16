@@ -132,6 +132,6 @@ def generate_results_dir(session_id):
     :type session_id: str
     :rtype: str
     """
-    return session_id
+    return os.path.join(os.path.abspath(ConsoleConfig.RESULTS_ROOT_DIRECTORY), session_id)
 
 
