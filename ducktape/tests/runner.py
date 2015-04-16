@@ -16,10 +16,6 @@
 from ducktape.tests.result import TestResult, TestResults
 from ducktape.tests.session_context import TestContext
 
-import errno
-import logging
-import os
-import sys
 import traceback
 
 
@@ -37,19 +33,6 @@ class TestRunner(object):
         raise NotImplementedError()
 
 
-def mkdir_p(path):
-    """mkdir -p functionality.
-    :type path: str
-    """
-    try:
-        os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
-
-
 def get_test_case(test_class, session_context):
     """Create test context object and instantiate test class.
     :type test_class: ducktape.tests.test.Test.__class__
@@ -62,23 +45,6 @@ def get_test_case(test_class, session_context):
     session_context.logger.debug(test_class.run.__name__)
 
     test_context = TestContext(session_context, test_class.__module__, test_class, test_class.run, config=None)
-    test_context.logger.setLevel(logging.DEBUG)
-
-    mkdir_p(test_context.results_dir)
-    fh = logging.FileHandler(os.path.join(test_context.results_dir, "test_log"))
-    fh.setLevel(logging.DEBUG)
-    # create console handler with a higher log level
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
-    # create formatter and add it to the handlers
-    formatter = logging.Formatter('[%(levelname)-6s - %(asctime)s - %(module)s - %(funcName)s - lineno:%(lineno)s]: %(message)s')
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-
-    # add the handlers to the logger
-    test_context.logger.addHandler(fh)
-    # test_context.logger.addHandler(ch)
-
     return test_class(test_context)
 
 

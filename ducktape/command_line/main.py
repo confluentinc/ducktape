@@ -86,7 +86,6 @@ def main():
         swap_in_mock_fixtures(test_classes)
 
     # Run the tests
-    # TODO command-line hooks specify type of cluster and type of test runner
     runner = SerialTestRunner(session_context, test_classes, cluster)
     test_results = runner.run_all_tests()
 
