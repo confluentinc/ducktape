@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ducktape.tests.loader import TestLoader
-from ducktape.tests.session_context import SessionContext
+from ducktape.tests.session import SessionContext
 
 import os
 import os.path

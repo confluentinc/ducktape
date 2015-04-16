@@ -9,6 +9,39 @@ triggering special events (e.g. bouncing a service), collect results (such as
 logs or console output) and report results (expected conditions met, performance
 results, etc.).
 
+Running Tests
+-------------
+To run one or more tests, run
+`ducktape <relative_path_to_testfile>`
+`ducktape <relative_path_to_testdirectory>`
+
+ducktape will discover tests and run all tests that it finds. 
+
+Test Output
+-----------
+Test results are output in the directory `<session_id>`. `<session_id>` looks like `<date>--<test_number>`. For
+example: `2015-03-28--002`
+
+ducktape does its best to group test results and log files in a sensible way. The output directory structure is 
+the following:
+
+```
+<test_id>_results
+    summary - top level summary - indicates single aggregate PASS/FAIL and all individual PASS/FAIL results. Each entry gives enough information to easily
+    service_log
+    <test_class>/<test_method> (e.g. test_thing)
+        test_logs - log(s) from logic in test driver go here
+            log.info
+            log.debug
+        service_logs - log(s) collected from service nodes go here
+            <service_name>[__<num>]/<instance_id>  - e.g. kafka_service__1/3 - means 1st kafka service in test on
+            metadata
+    ...
+```
+
+Test Discovery
+--------------
+
 Writing New Tests
 -----------------
 
@@ -87,7 +120,7 @@ fields to get the information they want.
 Unit Tests
 ----------
 
-You can run the tests via the setup.py script:
+It's a good idea to write and run unit tests on the ducktape framework itself. You can run the tests via the setup.py script:
 
     python setup.py test
 

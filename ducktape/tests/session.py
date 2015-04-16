@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from ducktape.tests.logger import Logger
+from ducktape.command_line.config import ConsoleConfig
 
-import errno
 import logging
 import os
 import sys
@@ -45,7 +45,7 @@ class SessionContext(Logger):
 
     def configure_logger(self, log_config=None):
         """
-        :type session_context: ducktape.tests.session_context.SessionContext
+        :type session_context: ducktape.tests.session.SessionContext
 
         This method should only be called once during instantiation.
         TODO - config object is currently unused, but the idea here is that ultimately the user should be able to
@@ -67,7 +67,7 @@ class SessionContext(Logger):
         ch.setLevel(logging.INFO)
 
         # create formatter and add it to the handlers
-        formatter = logging.Formatter('[%(levelname)s:%(asctime)s]: %(message)s')
+        formatter = logging.Formatter(ConsoleConfig.SESSION_LOG_FORMATTER)
         fh.setFormatter(formatter)
         fh_debug.setFormatter(formatter)
         ch.setFormatter(formatter)
@@ -78,8 +78,6 @@ class SessionContext(Logger):
         self.logger.addHandler(ch)
 
         self._logger_configured = True
-
-
 
 
 def generate_session_id(session_id_file):
@@ -134,75 +132,6 @@ def generate_results_dir(session_id):
     :type session_id: str
     :rtype: str
     """
-    return session_id + "-test-results"
+    return session_id
 
 
-def mkdir_p(path):
-    """mkdir -p functionality.
-    :type path: str
-    """
-    try:
-        os.makedirs(path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
-
-
-class TestContext(Logger):
-    """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module, cls, function, config, log_config=None):
-        """
-        :type session_context: ducktape.tests.session_context.SessionContext
-        """
-        self.module = module
-        self.cls = cls
-        self.function = function
-        self.config = config
-        self.session_context = session_context
-
-        self.results_dir = os.path.join(self.session_context.results_dir, self.cls.__name__)
-        mkdir_p(self.results_dir)
-
-        self._logger_configured = False
-        self.configure_logger(log_config)
-
-    @property
-    def test_id(self):
-        name_components = [
-            self.session_context.session_id,
-            self.module]
-
-        if self.cls is not None:
-            name_components.append(self.cls.__name__)
-
-        name_components.append(self.function.__name__)
-        return ".".join(name_components)
-
-    @property
-    def logger_name(self):
-        return self.test_id
-
-    def configure_logger(self, log_config=None):
-        if self._logger_configured:
-            raise RuntimeError("test logger should only be configured once.")
-
-        self.logger.setLevel(logging.DEBUG)
-
-        mkdir_p(self.results_dir)
-        fh = logging.FileHandler(os.path.join(self.results_dir, "test_log"))
-        fh.setLevel(logging.DEBUG)
-        # create console handler with a higher log level
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.INFO)
-        # create formatter and add it to the handlers
-        formatter = logging.Formatter('[%(levelname)-6s - %(asctime)s - %(module)s - %(funcName)s - lineno:%(lineno)s]: %(message)s')
-        fh.setFormatter(formatter)
-        ch.setFormatter(formatter)
-
-        # add the handlers to the logger
-        self.logger.addHandler(fh)
-        # test_context.logger.addHandler(ch)
-
-        self._logger_configured = True

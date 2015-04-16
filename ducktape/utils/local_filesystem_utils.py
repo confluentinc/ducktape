@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import errno
 import os
 
 
-class ConsoleConfig(object):
-    # Store various bookkeeping data here
-    METADATA_DIR = ".ducktape"
-
-    # Track the last-used session_id here
-    SESSION_ID_FILE = os.path.join(METADATA_DIR, "session_id")
-
-    SESSION_LOG_FORMATTER = '[%(levelname)s:%(asctime)s]: %(message)s'
-    TEST_LOG_FORMATTER = '[%(levelname)-5s - %(asctime)s - %(module)s - %(funcName)s - lineno:%(lineno)s]: %(message)s'
-
+def mkdir_p(path):
+    """mkdir -p functionality.
+    :type path: str
+    """
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise

@@ -14,7 +14,7 @@
 
 
 from ducktape.tests.result import TestResult, TestResults
-from ducktape.tests.session_context import TestContext
+from ducktape.tests.test import TestContext
 
 import traceback
 
@@ -36,13 +36,9 @@ class TestRunner(object):
 def get_test_case(test_class, session_context):
     """Create test context object and instantiate test class.
     :type test_class: ducktape.tests.test.Test.__class__
-    :type session_context: ducktape.tests.session_context.SessionContext
+    :type session_context: ducktape.tests.session.SessionContext
     :rtype test_class
     """
-    session_context.logger.debug(str(session_context))
-    session_context.logger.debug(test_class.__module__)
-    session_context.logger.debug(test_class)
-    session_context.logger.debug(test_class.run.__name__)
 
     test_context = TestContext(session_context, test_class.__module__, test_class, test_class.run, config=None)
     return test_class(test_context)
@@ -85,7 +81,7 @@ class SerialTestRunner(TestRunner):
             raise e
         finally:
             if hasattr(test, 'tearDown'):
-                self.logger.inf(self.__class__.__name__ + ": tearing down " + test.__class__.__name__)
+                self.logger.info(self.__class__.__name__ + ": tearing down " + test.__class__.__name__)
                 test.tearDown()
 
 

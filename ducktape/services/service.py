@@ -41,6 +41,11 @@ class Service(object):
         for idx, node in enumerate(self.nodes, 1):
 
             # Remote accounts utilities should log where this service logs
+            if node.account.logger is not None:
+                raise RuntimeError(
+                    "logger was not None on service start. There may be a concurrency issue, " +
+                    "or some service which isn't properly cleaning up after itself. " +
+                    "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.set_logger(self.logger)
 
             self.logger.debug("Forcibly cleaning node %d on %s", idx, node.account.hostname)
@@ -55,7 +60,9 @@ class Service(object):
 
     def stop(self):
         """If the service left any running processes or data, clean them up."""
-        pass
+        for idx, node in enumerate(self.nodes, 1):
+            node.account.set_logger(None)
+
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""

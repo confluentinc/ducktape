@@ -15,10 +15,10 @@
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.runner import SerialTestRunner
 from ducktape.tests.reporter import SimpleStdoutReporter, SimpleFileReporter
-from ducktape.tests.session_context import SessionContext
+from ducktape.tests.session import SessionContext
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.command_line.config import ConsoleConfig
-from ducktape.tests.session_context import generate_session_id, generate_results_dir
+from ducktape.tests.session import generate_session_id, generate_results_dir
 from tests.mock import swap_in_mock_run, swap_in_mock_fixtures
 
 import argparse
