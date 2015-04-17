@@ -14,7 +14,7 @@
 
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.runner import SerialTestRunner
-from ducktape.tests.reporter import SimpleStdoutReporter, SimpleFileReporter
+from ducktape.tests.reporter import SimpleStdoutReporter, SimpleFileReporter, HTMLReporter
 from ducktape.tests.session import SessionContext
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.command_line.config import ConsoleConfig
@@ -99,6 +99,10 @@ def main():
     reporter = SimpleStdoutReporter(test_results)
     reporter.report()
     reporter = SimpleFileReporter(test_results)
+    reporter.report()
+
+    # Generate HTML reporter
+    reporter = HTMLReporter(test_results)
     reporter.report()
 
     if not test_results.get_aggregate_success():
