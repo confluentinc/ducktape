@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.logger import Logger
 from ducktape.tests.test import Test
 
 import importlib
@@ -21,37 +20,46 @@ import os
 import re
 
 
-class TestLoader(Logger):
+class TestLoader(object):
     """Class used to discover and load tests."""
     DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
 
-    def discover(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):
+    def __init__(self, session_context):
+        self.logger = session_context.logger
+
+    def discover(self, test_discovery_symbols, pattern=DEFAULT_TEST_FILE_PATTERN):
         """Recurse through packages in file hierarchy starting at base_dir, and return a list of all found test classes.
 
         - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
           (i.e. it has no subclasses).
 
-        :type base_dir: str
+        :type test_discovery_symbols: list
         :type pattern: str
         :rtype: list
         """
-        if os.path.isfile(base_dir):
-            test_files = [os.path.abspath(base_dir)]
-        else:
-            test_files = self.find_test_files(base_dir, pattern)
-
-        test_modules = self.import_modules(test_files)
-
-        # pull test_classes out of test_modules
         test_classes = []
-        for module in test_modules:
-            try:
-                test_classes.extend(self.get_test_classes(module))
-            except Exception as e:
-                self.logger.debug("Error getting test classes from module: " + e.message)
+        assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
+        for symbol in test_discovery_symbols:
 
-        self.logger.debug("Discovered these test classes: " + str(test_classes))
+            if os.path.isfile(symbol):
+                test_files = [os.path.abspath(symbol)]
+            else:
+                test_files = self.find_test_files(symbol, pattern)
+            test_modules = self.import_modules(test_files)
+
+            # pull test_classes out of test_modules
+            tests_from_symbol = []
+            for module in test_modules:
+                try:
+                    tests_from_symbol.extend(self.get_test_classes(module))
+                except Exception as e:
+                    self.logger.debug("Error getting test classes from module: " + e.message)
+
+            self.logger.debug("Discovered these test classes: " + str(tests_from_symbol))
+            test_classes.extend(tests_from_symbol)
+
+        self.logger.debug("Discovered these tests: " + str(test_classes))
         return test_classes
 
     def find_test_files(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):

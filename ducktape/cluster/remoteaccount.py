@@ -17,12 +17,17 @@ from ducktape.utils.http_utils import HttpMixin
 
 
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, java_home="default", kafka_home="default"):
+    def __init__(self, hostname, user=None, ssh_args=None, java_home="default", kafka_home="default", logger=None):
         self.hostname = hostname
         self.user = user
         self.ssh_args = ssh_args
         self.java_home = java_home
         self.kafka_home = kafka_home
+
+        self.logger = logger
+
+    def set_logger(self, logger):
+        self.logger = logger
 
     @property
     def local(self):

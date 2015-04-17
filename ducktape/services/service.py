@@ -25,18 +25,33 @@
 # that there won't be resource conflicts: the cluster tests are being run on
 # should be large enough to use one instance per service instance.
 
-from ducktape.logger import Logger
+from ducktape.command_line.config import ConsoleConfig
 
 
-class Service(Logger):
-    def __init__(self, cluster, num_nodes):
-        self.num_nodes = num_nodes
-        self.cluster = cluster
+class Service(object):
+    def __init__(self, service_context):
+        """
+        :type service_context: ServiceContext
+        """
+        self.num_nodes = service_context.num_nodes
+        self.cluster = service_context.cluster
+        self.logger = service_context.logger
 
     def start(self):
         """Start the service running in the background."""
         self.nodes = self.cluster.request(self.num_nodes)
         for idx, node in enumerate(self.nodes, 1):
+
+            # Remote accounts utilities should log where this service logs
+            if node.account.logger is not None:
+                # This log message help test-writer identify which test and/or service didn't clean up after itself
+                node.account.logger.critical(ConsoleConfig.BAD_TEST_MESSAGE)
+                raise RuntimeError(
+                    "logger was not None on service start. There may be a concurrency issue, " +
+                    "or some service which isn't properly cleaning up after itself. " +
+                    "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
+            node.account.set_logger(self.logger)
+
             self.logger.debug("Forcibly cleaning node %d on %s", idx, node.account.hostname)
             self._clean_node(node)
 
@@ -49,7 +64,9 @@ class Service(Logger):
 
     def stop(self):
         """If the service left any running processes or data, clean them up."""
-        pass
+        for idx, node in enumerate(self.nodes, 1):
+            node.account.set_logger(None)
+
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""
@@ -87,3 +104,12 @@ class Service(Logger):
             svc.wait()
         for svc in args:
             svc.stop()
+
+
+class ServiceContext(object):
+    """Wrapper class for information needed by any service."""
+    def __init__(self, cluster, num_nodes, logger):
+        self.cluster = cluster
+        self.num_nodes = num_nodes
+        self.logger = logger
+

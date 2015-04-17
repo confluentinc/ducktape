@@ -1,5 +1,5 @@
 Distributed System Integration & Performance Testing Library
-========================================
+============================================================
 
 This repository contains tools for running system integraton and performance
 tests. It provides utilities for pulling up and tearing down services
@@ -8,6 +8,54 @@ nodes. Tests are just Python scripts that run a set of services, possibly
 triggering special events (e.g. bouncing a service), collect results (such as
 logs or console output) and report results (expected conditions met, performance
 results, etc.).
+
+Users
+----
+This section contains basic information on how to run tests with ducktape.
+
+Running Tests
+-------------
+To run one or more tests, run
+`ducktape <relative_path_to_testfile>`
+`ducktape <relative_path_to_testdirectory>`
+
+ducktape will discover tests and run all tests that it finds. ducktape can take multiple test files and/or test directories
+ as its arguments, and will discover and run tests from every path provided.
+
+Test Output
+-----------
+Test results are output in the directory `<session_id>`. `<session_id>` looks like `<date>--<test_number>`. For
+example: `2015-03-28--002`
+
+ducktape does its best to group test results and log files in a sensible way. The output directory structure is 
+the following:
+
+```
+<test_id>_results
+    summary - top level summary - indicates single aggregate PASS/FAIL and all individual PASS/FAIL results. Each entry gives enough information to easily
+    service_log
+    <test_class>/<test_method> (e.g. test_thing)
+        test_logs - log(s) from logic in test driver go here
+            log.info
+            log.debug
+        service_logs - log(s) collected from service nodes go here
+            <service_name>[__<num>]/<instance_id>  - e.g. kafka_service__1/3 - means 1st kafka service in test on
+            metadata
+    ...
+```
+
+Test Discovery
+--------------
+ducktape searches recursively in the given path(s) for your tests. If the path is a directory, it follows a few rules for discovery:
+
+* Try to import all modules that "look like" test modules. I.e. the module name is either "test_*.py" or "*_test.py"
+* From imported modules, gather classes that are leaf subclasses of the ducktape.tests.test.Test class. Leaf subclass means the class has no subclass.
+
+If you run ducktape on a file, i.e. `ducktape <path_to_file>`, ducktape will ignore the module name and search for leafy subclasses of Test.
+
+Developers
+----------
+This section is for those of you who might want to implement a test or a service using the ducktape framework.
 
 Writing New Tests
 -----------------
@@ -87,7 +135,7 @@ fields to get the information they want.
 Unit Tests
 ----------
 
-You can run the tests via the setup.py script:
+It's a good idea to write and run unit tests on the ducktape framework itself. You can run the tests via the setup.py script:
 
     python setup.py test
 

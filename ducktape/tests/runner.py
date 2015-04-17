@@ -13,22 +13,35 @@
 # limitations under the License.
 
 
-from ducktape.logger import Logger
 from ducktape.tests.result import TestResult, TestResults
+from ducktape.tests.test import TestContext
 
-import logging
+import traceback
 
 
-class TestRunner(Logger):
+class TestRunner(object):
     def __init__(self, session_context, test_classes, cluster):
         self.tests = test_classes
         self.cluster = cluster
         self.session_context = session_context
         self.results = TestResults(self.session_context)
-        logging.basicConfig(level=logging.INFO)
+        self.logger = session_context.logger
+
+        self.logger.debug("Instantiating %s" + self.__class__.__name__)
 
     def run_all_tests(self):
         raise NotImplementedError()
+
+
+def get_test_case(test_class, session_context):
+    """Create test context object and instantiate test class.
+    :type test_class: ducktape.tests.test.Test.__class__
+    :type session_context: ducktape.tests.session.SessionContext
+    :rtype test_class
+    """
+
+    test_context = TestContext(session_context, test_class.__module__, test_class, test_class.run, config=None)
+    return test_class(test_context)
 
 
 class SerialTestRunner(TestRunner):
@@ -41,34 +54,34 @@ class SerialTestRunner(TestRunner):
                 # some mechanism for collecting summary and/or test data (json?)
             except Exception as e:
                 result.success = False
-                result.summary += e.message + "\n"
+                result.summary += e.message + "\n" + traceback.format_exc(limit=16) + "\n"
             finally:
                 self.results.add_result(result)
 
         return self.results
 
     def run_test(self, test_class):
-        test = test_class(self.cluster)
+        test = get_test_case(test_class, self.session_context)
+        self.logger.debug("Instantiated test class: " + str(test))
 
         if test.min_cluster_size() > self.cluster.num_available_nodes():
             raise RuntimeError(
                 "There are not enough nodes available in the cluster to run this test. Needed: %d, Available: %d" %
                 (test.min_cluster_size(), self.cluster.num_available_nodes()))
 
-        test.log_start()
-
         try:
             if hasattr(test, 'setUp'):
-                print self.__class__.__name__ + ": setting up " + test.__class__.__name__
+                self.logger.info(self.__class__.__name__ + ": setting up " + test.__class__.__name__)
                 test.setUp()
 
-            print self.__class__.__name__ + ": running " + test.__class__.__name__
+            self.logger.info(self.__class__.__name__ + ": running " + test.__class__.__name__)
             test.run()
+            self.logger.info(self.__class__.__name__ + ": successfully ran " + test.__class__.__name__)
         except Exception as e:
             raise e
         finally:
             if hasattr(test, 'tearDown'):
-                print self.__class__.__name__ + ": tearing down " + test.__class__.__name__
+                self.logger.info(self.__class__.__name__ + ": tearing down " + test.__class__.__name__)
                 test.tearDown()
 
 

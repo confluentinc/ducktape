@@ -18,7 +18,7 @@ class TestResult(object):
 
     def __init__(self, session_context, test_name, success=True, summary="", data=None):
         """
-        :type session_context: ducktape.tests.session_context.TestSessionContext
+        :type session_context: ducktape.tests.session.SessionContext
         :type test_name: str
         :type success: bool
         :type summary: str
@@ -38,7 +38,7 @@ class TestResults(object):
 
     def __init__(self, session_context):
         """
-        :type session_context: ducktape.tests.session_context.TestSessionContext
+        :type session_context: ducktape.tests.session.SessionContext
         """
         self.session_context = session_context
 

@@ -15,11 +15,12 @@
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.runner import SerialTestRunner
 from ducktape.tests.reporter import SimpleStdoutReporter, SimpleFileReporter, HTMLReporter
-from ducktape.tests.session_context import TestSessionContext
+from ducktape.tests.session import SessionContext
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.command_line.config import ConsoleConfig
-from ducktape.tests.session_context import generate_session_id, generate_results_dir
-from ducktape.unit_tests.mock import swap_in_mock_run, swap_in_mock_fixtures
+from ducktape.tests.session import generate_session_id, generate_results_dir
+from tests.mock import swap_in_mock_run, swap_in_mock_fixtures
+from ducktape.utils.local_filesystem_utils import mkdir_p
 
 import argparse
 import os
@@ -43,6 +44,19 @@ def parse_args():
     return args
 
 
+def setup_results_directory(results_dir, session_id):
+    """Make directory in which results will be stored"""
+    if os.path.isdir(results_dir):
+        raise Exception(
+            "A test results directory with session id %s already exists. Exiting without overwriting..." % session_id)
+    mkdir_p(results_dir)
+    latest_test_dir = os.path.join(ConsoleConfig.RESULTS_ROOT_DIRECTORY, "latest")
+
+    if os.path.exists(latest_test_dir):
+        os.unlink(latest_test_dir)
+    os.symlink(results_dir, latest_test_dir)
+
+
 def main():
     """Ducktape entry point. This contains top level logic for ducktape command-line program which does the following:
 
@@ -60,15 +74,14 @@ def main():
     # in which all test results will be stored
     session_id = generate_session_id(ConsoleConfig.SESSION_ID_FILE)
     results_dir = generate_results_dir(session_id)
-    test_session_context = TestSessionContext(session_id, results_dir)
-    if os.path.isdir(results_dir):
-        raise Exception(
-            "A test results directory with session id %s already exists. Exiting without overwriting..." % session_id)
-    os.mkdir(results_dir)
+    cluster = VagrantCluster()
+
+    setup_results_directory(results_dir, session_id)
+    session_context = SessionContext(session_id, results_dir, cluster)
 
     # Discover and load tests to be run
-    loader = TestLoader()
-    test_classes = loader.discover(args.test_path[0])
+    loader = TestLoader(session_context)
+    test_classes = loader.discover(args.test_path)
     if args.collect_only:
         print test_classes
         sys.exit(0)
@@ -77,10 +90,8 @@ def main():
         swap_in_mock_run(test_classes)
         swap_in_mock_fixtures(test_classes)
 
-    # Initialize the cluster
-    # TODO command-line hooks specify type of cluster and type of test runner
-    cluster = VagrantCluster()
-    runner = SerialTestRunner(test_session_context, test_classes, cluster)
+    # Run the tests
+    runner = SerialTestRunner(session_context, test_classes, cluster)
     test_results = runner.run_all_tests()
 
     # Report results

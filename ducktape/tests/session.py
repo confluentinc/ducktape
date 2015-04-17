@@ -12,23 +12,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.tests.logger import Logger
+from ducktape.command_line.config import ConsoleConfig
 
+import logging
 import os
+import sys
 import time
 
 
-class TestSessionContext(object):
-    """Wrapper class for 'global' variables. A call to ducktape generates a single shared TestSessionContext object
+class SessionContext(Logger):
+    """Wrapper class for 'global' variables. A call to ducktape generates a single shared SessionContext object
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, session_id, results_dir):
+    def __init__(self, session_id, results_dir, cluster, log_config=None):
         """
         :type session_id: str   Global session identifier
         :type results_dir: str  All test results go here
+        :type cluster: ducktape.cluster.cluster.Cluster
         """
         self.session_id = session_id
         self.results_dir = os.path.abspath(results_dir)
+        self.cluster = cluster
+
+        self._logger_configured = False
+        self.configure_logger(log_config)
+
+    @property
+    def logger_name(self):
+        return self.session_id + ".session_logger"
+
+    def configure_logger(self, log_config=None):
+        """
+        :type session_context: ducktape.tests.session.SessionContext
+
+        This method should only be called once during instantiation.
+        TODO - config object is currently unused, but the idea here is that ultimately the user should be able to
+        configure handlers etc in the session_logger
+        """
+        if self._logger_configured:
+            raise RuntimeError("Session log handlers should only be set once.")
+
+        self.logger.setLevel(logging.DEBUG)
+
+        fh = logging.FileHandler(os.path.join(self.results_dir, "session_log"))
+        fh.setLevel(logging.INFO)
+
+        fh_debug = logging.FileHandler(os.path.join(self.results_dir, "session_log_debug"))
+        fh_debug.setLevel(logging.DEBUG)
+
+        # create console handler with a higher log level
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(logging.INFO)
+
+        # create formatter and add it to the handlers
+        formatter = logging.Formatter(ConsoleConfig.SESSION_LOG_FORMATTER)
+        fh.setFormatter(formatter)
+        fh_debug.setFormatter(formatter)
+        ch.setFormatter(formatter)
+
+        # add the handlers to the logger
+        self.logger.addHandler(fh)
+        self.logger.addHandler(fh_debug)
+        self.logger.addHandler(ch)
+
+        self._logger_configured = True
 
 
 def generate_session_id(session_id_file):
@@ -83,4 +132,6 @@ def generate_results_dir(session_id):
     :type session_id: str
     :rtype: str
     """
-    return session_id + "-test-results"
+    return os.path.join(os.path.abspath(ConsoleConfig.RESULTS_ROOT_DIRECTORY), session_id)
+
+
