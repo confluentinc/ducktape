@@ -25,6 +25,8 @@
 # that there won't be resource conflicts: the cluster tests are being run on
 # should be large enough to use one instance per service instance.
 
+from ducktape.command_line.config import ConsoleConfig
+
 
 class Service(object):
     def __init__(self, service_context):
@@ -42,6 +44,8 @@ class Service(object):
 
             # Remote accounts utilities should log where this service logs
             if node.account.logger is not None:
+                # This log message help test-writer identify which test and/or service didn't clean up after itself
+                node.account.logger.critical(ConsoleConfig.BAD_TEST_MESSAGE)
                 raise RuntimeError(
                     "logger was not None on service start. There may be a concurrency issue, " +
                     "or some service which isn't properly cleaning up after itself. " +
