@@ -16,13 +16,14 @@ from ducktape.tests.logger import Logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.services.service import ServiceContext
+from ducktape.template import TemplateRenderer
 
 import logging
 import os
 import sys
 
 
-class Test(object):
+class Test(TemplateRenderer):
     """Base class for tests.
     """
     def __init__(self, test_context):
@@ -50,7 +51,7 @@ class Test(object):
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module, cls, function, config, log_config=None):
+    def __init__(self, session_context, module=None, cls=None, function=None, config=None, log_config=None):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
@@ -60,7 +61,9 @@ class TestContext(Logger):
         self.config = config
         self.session_context = session_context
 
-        self.results_dir = os.path.join(self.session_context.results_dir, self.cls.__name__)
+        self.results_dir = self.session_context.results_dir
+        if self.cls is not None:
+            self.results_dir = os.path.join(self.results_dir, self.cls.__name__)
         mkdir_p(self.results_dir)
 
         self._logger_configured = False
@@ -68,15 +71,12 @@ class TestContext(Logger):
 
     @property
     def test_id(self):
-        name_components = [
-            self.session_context.session_id,
-            self.module]
+        name_components = [self.session_context.session_id,
+                           self.module,
+                           self.cls.__name__ if self.cls is not None else None,
+                           self.function.__name__ if self.function is not None else None]
 
-        if self.cls is not None:
-            name_components.append(self.cls.__name__)
-
-        name_components.append(self.function.__name__)
-        return ".".join(name_components)
+        return ".".join(filter(lambda x: x is not None, name_components))
 
     @property
     def logger_name(self):

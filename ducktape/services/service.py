@@ -26,13 +26,14 @@
 # should be large enough to use one instance per service instance.
 
 from ducktape.command_line.config import ConsoleConfig
+from ducktape.template import TemplateRenderer
 
-
-class Service(object):
-    def __init__(self, service_context):
+class Service(TemplateRenderer):
+    def __init__(self, service_context, *args, **kwargs):
         """
         :type service_context: ServiceContext
         """
+        super(Service, self).__init__(*args, **kwargs)
         self.num_nodes = service_context.num_nodes
         self.cluster = service_context.cluster
         self.logger = service_context.logger
@@ -112,4 +113,3 @@ class ServiceContext(object):
         self.cluster = cluster
         self.num_nodes = num_nodes
         self.logger = logger
-
