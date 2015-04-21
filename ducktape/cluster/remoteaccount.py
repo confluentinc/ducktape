@@ -101,6 +101,7 @@ class RemoteAccount(HttpMixin):
         return r
 
     def scp_from(self, src, dest, recursive=False):
+        """Copy something from this node."""
         return self._ssh_quiet(self.scp_from_command(src, dest, recursive))
 
     def scp_to_command(self, src, dest, recursive=False):
