@@ -19,6 +19,8 @@ import inspect
 import os
 import re
 
+class LoaderException(Exception):
+    pass
 
 class TestLoader(object):
     """Class used to discover and load tests."""
@@ -41,6 +43,8 @@ class TestLoader(object):
         test_classes = []
         assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
         for symbol in test_discovery_symbols:
+            if not os.path.exists(symbol):
+                raise LoaderException("Path {} does not exist".format(symbol))
 
             if os.path.isfile(symbol):
                 test_files = [os.path.abspath(symbol)]
