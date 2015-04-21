@@ -13,8 +13,11 @@
 # limitations under the License.
 
 from ducktape.services.service import Service
+from ducktape.utils.local_filesystem_utils import mkdir_p
 
 from collections import OrderedDict
+
+import os
 
 
 class ServiceRegistry(OrderedDict):
@@ -32,23 +35,39 @@ class ServiceRegistry(OrderedDict):
             except Exception as e:
                 service.logger.debug("Error stopping service %s: %s" % (service, e.message))
 
-    def pull_logs(self, service_name, destination_directory):
-        """Pull logs from service. Service can be service name or the original service object."""
+    def pull_logs(self, service_name, test_context):
+        """Pull logs from service. Service can be service name or the original service object.
+
+        :type service_name: str
+        :type test_context: ducktape.tests.test.TestContext
+        """
         service = self[service_name]
-        log_directories = service.logs
+
+        if not hasattr(service, 'logs'):
+            test_context.logger.debug("Won't collect service logs from %s - no 'logs' attribute." %
+                service.__class__.__name__)
+
+        log_dirs = service.logs
 
         for node in service.nodes:
-            for log_name in log_directories.keys():
+            for log_name in log_dirs.keys():
                 if self.should_collect_log(log_name, service_name, node):
+                    dest = os.path.join(test_context.results_dir, service.__class__.__name__, node.account.hostname)
+                    if os.path.isfile(dest):
+                        pass # error!
+
+                    if not os.path.isdir(dest):
+                        mkdir_p(dest)
+
                     try:
-                        node.account.scp_from(log_directories[log_name], destination_directory, recursive=True)
+                        node.account.scp_from(log_dirs[log_name], dest, recursive=True)
                     except Exception as e:
-                        service.logger.debug(
+                        test_context.logger.warn(
                             "Error copying log %(log_name)s from %(source)s to %(dest)s. \
                             service %(service)s: %(message)s" %
                             {'log_name': log_name,
-                             'source': log_directories[log_name],
-                             'dest': destination_directory,
+                             'source': log_dirs[log_name],
+                             'dest': dest,
                              'service': service,
                              'message': e.message})
 
