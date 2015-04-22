@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.loader import TestLoader
+from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.session import SessionContext
 
 import os
 import os.path
 import tempfile
+import pytest
 
 def discover_dir():
     """Return the absolute path to the directory to use with discovery tests."""
@@ -44,6 +45,11 @@ class CheckTestLoader(object):
         test_classes = loader.discover([os.path.join(discover_dir(), "test_a.py")])
         assert len(test_classes) == 1
 
+    def check_test_loader_with_nonexistent_file(self):
+        """Check discovery on a starting path that doesn't exist throws an"""
+        with pytest.raises(LoaderException):
+            loader = TestLoader(self.SESSION_CONTEXT)
+            test_classes = loader.discover([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
 
 
 

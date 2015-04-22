@@ -27,7 +27,7 @@ class TestRunner(object):
         self.results = TestResults(self.session_context)
         self.logger = session_context.logger
 
-        self.logger.debug("Instantiating %s" + self.__class__.__name__)
+        self.logger.debug("Instantiating " + self.__class__.__name__)
 
     def run_all_tests(self):
         raise NotImplementedError()

@@ -13,6 +13,21 @@ Users
 ----
 This section contains basic information on how to run tests with ducktape.
 
+Installation
+------------
+While ducktape is in active development, clone this repository and run:
+
+    cd ducktape
+    python setup.py install
+    
+This makes the ducktape script available in your PATH, and the ducktape modules
+available for import in your own projects.
+
+If you are are a ducktape developer, consider using the develop command instead of install. This allows you to make code changes without constantly reinstalling ducktape (see http://stackoverflow.com/questions/19048732/python-setup-py-develop-vs-install for more information)
+
+    cd ducktape
+    python setup.py develop
+
 Running Tests
 -------------
 To run one or more tests, run

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.loader import TestLoader
+from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.runner import SerialTestRunner
 from ducktape.tests.reporter import SimpleStdoutReporter, SimpleFileReporter, HTMLReporter
 from ducktape.tests.session import SessionContext
@@ -81,7 +81,12 @@ def main():
 
     # Discover and load tests to be run
     loader = TestLoader(session_context)
-    test_classes = loader.discover(args.test_path)
+    try:
+        test_classes = loader.discover(args.test_path)
+    except LoaderException as e:
+        print "Failed while trying to discover tests: {}".format(e)
+        sys.exit(1)
+
     if args.collect_only:
         print test_classes
         sys.exit(0)
