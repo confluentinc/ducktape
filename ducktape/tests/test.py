@@ -16,6 +16,7 @@ from ducktape.tests.logger import Logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.services.service import ServiceContext
+from ducktape.services.service_registry import ServiceRegistry
 
 import logging
 import os
@@ -32,17 +33,80 @@ class Test(object):
         self.cluster = test_context.session_context.cluster
         self.test_context = test_context
         self.logger = test_context.logger
+        self.services = ServiceRegistry()
+
+        # dict for toggling service log collection on/off
+        self.log_collect = {}
 
     def min_cluster_size(self):
         """
-        Subclasses implement this to provide a helpful heuristic to prevent trying to run a test on a cluster
-        with too few nodes.
+        Provides a helpful heuristic for determining if there are enough nodes in the cluster to run this test.
         """
-        raise NotImplementedError("All tests must implement this method.")
+        return self.services.num_nodes()
 
-    def service_context(self, num_nodes):
+    def tearDown(self):
+        """Default teardown method which stops and cleans services registered in the ServiceRegistry.
+        Note that there is not a default setUp method. This is because the framework makes no assumptions
+        about when and in what methods the various services are started.
+        """
+        if hasattr(self, 'services') and type(self.services) == ServiceRegistry:
+            self.services.stop_all()
+            self.copy_service_logs()
+            self.services.clean_all()
+            self.services.free_all()
+
+    def copy_service_logs(self):
+        """Copy logs from service nodes to the results directory."""
+        for service in self.services.values():
+            if not hasattr(service, 'logs'):
+                self.test_context.logger.debug("Won't collect service logs from %s - no 'logs' attribute." %
+                    service.__class__.__name__)
+                return
+
+            log_dirs = service.logs
+            for node in service.nodes:
+                for log_name in log_dirs.keys():
+                    if self.should_collect_log(log_name, service, node):
+                        dest = os.path.join(
+                            self.test_context.results_dir, service.__class__.__name__, node.account.hostname)
+
+                        if not os.path.isdir(dest):
+                            mkdir_p(dest)
+
+                        try:
+                            node.account.scp_from(log_dirs[log_name], dest, recursive=True)
+                        except Exception as e:
+                            self.test_context.logger.warn(
+                                "Error copying log %(log_name)s from %(source)s to %(dest)s. \
+                                service %(service)s: %(message)s" %
+                                {'log_name': log_name,
+                                 'source': log_dirs[log_name],
+                                 'dest': dest,
+                                 'service': service,
+                                 'message': e.message})
+
+    def mark_log_for_collect(self, log_name, service, node=None):
+        if node is None:
+            # By default, mark all nodes for collection
+            for n in service.nodes:
+                self.log_collect[(log_name, service.__class__.__name__, n.account.hostname)] = True
+        else:
+            self.log_collect[(log_name, service.__class__.__name__, node.account.hostname)] = True
+
+    def mark_log_for_no_collect(self, log_name, service, node):
+        if node is None:
+            # By default, mark all nodes for collection
+            for n in service.nodes:
+                self.log_collect[(log_name, service.__class__.__name__, n.account.hostname)] = False
+        else:
+            self.log_collect[(log_name, service.__class__.__name__, node.account.hostname)] = False
+
+    def should_collect_log(self, log_name, service, node):
+        return True
+
+    def service_context(self, num_nodes=1):
         """A convenience method to reduce boilerplate which returns ServiceContext object.
-        :type num_nodes: int
+        :type num_nodes: int    Number of nodes to allocate to the service.
         :rtype ducktape.services.service.ServiceContext
         """
         return ServiceContext(self.cluster, num_nodes, self.logger)

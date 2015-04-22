@@ -49,9 +49,7 @@ class SerialTestRunner(TestRunner):
         for test in self.tests:
             result = TestResult(self.session_context, str(test))
             try:
-                self.run_test(test)
-
-                # some mechanism for collecting summary and/or test data (json?)
+                self.run_single_test(test)
             except Exception as e:
                 result.success = False
                 result.summary += e.message + "\n" + traceback.format_exc(limit=16) + "\n"
@@ -60,18 +58,26 @@ class SerialTestRunner(TestRunner):
 
         return self.results
 
-    def run_test(self, test_class):
+    def run_single_test(self, test_class):
         test = get_test_case(test_class, self.session_context)
         self.logger.debug("Instantiated test class: " + str(test))
 
+        self.logger.debug("Checking if there are enough nodes...")
         if test.min_cluster_size() > self.cluster.num_available_nodes():
             raise RuntimeError(
                 "There are not enough nodes available in the cluster to run this test. Needed: %d, Available: %d" %
                 (test.min_cluster_size(), self.cluster.num_available_nodes()))
 
         try:
+            # Obtain nodes from the cluster
+            self.logger.info(self.__class__.__name__ + ": allocating nodes for " + test.__class__.__name__)
+            test.services.allocate_nodes()
+            self.logger.info((self.__class__.__name__ + ": allocated %d nodes for %s " %
+                              (test.services.num_nodes(), test.__class__.__name__)))
+
             if hasattr(test, 'setUp'):
                 self.logger.info(self.__class__.__name__ + ": setting up " + test.__class__.__name__)
+                # start services etc
                 test.setUp()
 
             self.logger.info(self.__class__.__name__ + ": running " + test.__class__.__name__)
