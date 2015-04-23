@@ -19,8 +19,10 @@ import inspect
 import os
 import re
 
+
 class LoaderException(Exception):
     pass
+
 
 class TestLoader(object):
     """Class used to discover and load tests."""
@@ -28,6 +30,28 @@ class TestLoader(object):
 
     def __init__(self, session_context):
         self.logger = session_context.logger
+
+    def parse_discovery_symbol(self, discovery_symbol):
+        """Parse command-line argument into a tuple (directory, module.py, class_name).
+
+        :raise LoaderException if it can't be parsed
+        """
+        directory = os.path.abspath(os.path.dirname(discovery_symbol))
+        base = os.path.basename(discovery_symbol)
+
+        if base.find("::") >= 0:
+            parts = base.split("::")
+            if len(parts) == 1:
+                module, cls_name = parts[0], ""
+            elif len(parts) == 2:
+                module, cls_name = parts
+            else:
+                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
+        else:
+            module, cls_name = base, ""
+
+        return tuple([directory, module, cls_name])
+
 
     def discover(self, test_discovery_symbols, pattern=DEFAULT_TEST_FILE_PATTERN):
         """Recurse through packages in file hierarchy starting at base_dir, and return a list of all found test classes.
@@ -43,13 +67,17 @@ class TestLoader(object):
         test_classes = []
         assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
         for symbol in test_discovery_symbols:
-            if not os.path.exists(symbol):
-                raise LoaderException("Path {} does not exist".format(symbol))
+            directory, module_name, cls_name = self.parse_discovery_symbol(symbol)
 
-            if os.path.isfile(symbol):
-                test_files = [os.path.abspath(symbol)]
+            # Check validity
+            path = os.path.join(directory, module_name)
+            if not os.path.exists(path):
+                raise LoaderException("Path {} does not exist".format(path))
+
+            if os.path.isfile(path):
+                test_files = [os.path.abspath(path)]
             else:
-                test_files = self.find_test_files(symbol, pattern)
+                test_files = self.find_test_files(path, pattern)
             test_modules = self.import_modules(test_files)
 
             # pull test_classes out of test_modules
@@ -59,6 +87,15 @@ class TestLoader(object):
                     tests_from_symbol.extend(self.get_test_classes(module))
                 except Exception as e:
                     self.logger.debug("Error getting test classes from module: " + e.message)
+
+            if len(cls_name) > 0:
+                # We only want to run a specific test class
+                tests_from_symbol = [test for test in tests_from_symbol if test.__name__ == cls_name]
+                if len(tests_from_symbol) == 0:
+                    raise LoaderException("Could not find any tests corresponding to the symbol " + symbol)
+
+                if len(tests_from_symbol) > 1:
+                    raise LoaderException("Somehow there are multiple tests corresponding to the symbol " + symbol)
 
             self.logger.debug("Discovered these test classes: " + str(tests_from_symbol))
             test_classes.extend(tests_from_symbol)
