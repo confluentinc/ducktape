@@ -62,14 +62,19 @@ class Service(object):
 
     def start(self):
         """Start the service on all nodes."""
+        self.logger.info("Starting service: %s" % self.__class__.__name__)
+
+        self.logger.debug("Killing processes and attempting to clean up before starting nodes.")
         for node in self.nodes:
             # Added precaution - kill running processes
-            self.logger.debug("Forcibly killing running processes on node %d on %s", self.idx(node), node.account.hostname)
             self._kill_running_processes(node)
 
             self.stop_node(node)
             self.clean_node(node)
 
+        self.logger.info("Starting nodes for %s " % self.__class__.__name__)
+        for node in self.nodes:
+            self.logger.debug("Starting node %d on %s" % (self.idx(node), node.account.hostname))
             self.start_node(node)
             self.wait_until_alive(node)
 

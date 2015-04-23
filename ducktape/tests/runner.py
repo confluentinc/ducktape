@@ -71,7 +71,7 @@ class SerialTestRunner(TestRunner):
         try:
             # Obtain nodes from the cluster
             self.logger.info(self.__class__.__name__ + ": allocating nodes for " + test.__class__.__name__)
-            test.services.allocate_nodes()
+            test.allocate_nodes()
             self.logger.info((self.__class__.__name__ + ": allocated %d nodes for %s " %
                               (test.services.num_nodes(), test.__class__.__name__)))
 
@@ -89,6 +89,7 @@ class SerialTestRunner(TestRunner):
             if hasattr(test, 'tearDown'):
                 self.logger.info(self.__class__.__name__ + ": tearing down " + test.__class__.__name__)
                 test.tearDown()
+                test.free_nodes()
 
 
 

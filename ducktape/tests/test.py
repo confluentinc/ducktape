@@ -44,6 +44,9 @@ class Test(object):
         """
         return self.services.num_nodes()
 
+    def allocate_nodes(self):
+        self.services.allocate_nodes()
+
     def tearDown(self):
         """Default teardown method which stops and cleans services registered in the ServiceRegistry.
         Note that there is not a default setUp method. This is because the framework makes no assumptions
@@ -53,7 +56,9 @@ class Test(object):
             self.services.stop_all()
             self.copy_service_logs()
             self.services.clean_all()
-            self.services.free_all()
+
+    def free_nodes(self):
+        self.services.free_all()
 
     def copy_service_logs(self):
         """Copy logs from service nodes to the results directory."""

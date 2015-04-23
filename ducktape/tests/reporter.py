@@ -36,9 +36,11 @@ class SimpleReporter(TestReporter):
     def header_string(self):
         """Header lines of the report"""
         header_lines = [
+            "=========================================================================",
             "Test run with session_id " + self.results.session_context.session_id,
             self.pass_fail(self.results.get_aggregate_success()),
-            "---------------------------------------------------------------------"
+            "==========================="
+
             ]
 
         return "\n".join(header_lines)
@@ -54,6 +56,8 @@ class SimpleReporter(TestReporter):
 
         if result.data is not None:
             result_lines.append(json.dumps(result.data))
+
+        result_lines.append("===========================")
 
         return "\n".join(result_lines)
 

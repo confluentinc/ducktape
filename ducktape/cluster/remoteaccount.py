@@ -52,7 +52,6 @@ class RemoteAccount(HttpMixin):
                             "Either the service failed to start, or there is a problem with the url. "
                             "You may need to open Vagrantfile.local and add the line 'enable_dns = true'.")
 
-
     def ssh_command(self, cmd):
         r = "ssh "
         if self.user:
@@ -150,8 +149,8 @@ class RemoteAccount(HttpMixin):
         except subprocess.CalledProcessError as e:
             if allow_fail:
                 return
-            print "Error running remote command: " + cmd
-            print e.output
+            self.logger.warn("Error running remote command: " + cmd)
+            self.logger.warn(e.output)
             raise e
 
     def __str__(self):
