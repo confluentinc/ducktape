@@ -84,7 +84,7 @@ class SerialTestRunner(TestRunner):
             test.run()
             self.logger.info(self.__class__.__name__ + ": successfully ran " + test.__class__.__name__)
         except Exception as e:
-            raise e
+            raise
         finally:
             if hasattr(test, 'tearDown'):
                 self.logger.info(self.__class__.__name__ + ": tearing down " + test.__class__.__name__)

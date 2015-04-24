@@ -43,6 +43,22 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def extend_import_paths(paths):
+    """Extends sys.path with top-level packages found based on a set of input paths. This only adds top-level packages
+    in order to avoid naming conflict with internal packages, e.g. ensure that a package foo.bar.os does not conflict
+    with the top-level os package.
+
+    Adding these import paths is necessary to make importing tests work even when the test modules are not available on
+    PYTHONPATH/sys.path, as they normally will be since tests generally will not be installed and available for import
+
+    :param paths:
+    :return:
+    """
+    for path in paths:
+        dir = os.path.abspath(path if os.path.isdir(path) else os.path.dirname(path))
+        while(os.path.exists(os.path.join(dir, '__init__.py'))):
+            dir = os.path.dirname(dir)
+        sys.path.append(dir)
 
 def setup_results_directory(results_dir, session_id):
     """Make directory in which results will be stored"""
@@ -69,6 +85,8 @@ def main():
 
     if not os.path.isdir(ConsoleConfig.METADATA_DIR):
         os.makedirs(ConsoleConfig.METADATA_DIR)
+
+    extend_import_paths(args.test_path)
 
     # Generate a shared 'global' identifier for this test run and create the directory
     # in which all test results will be stored
