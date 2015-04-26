@@ -28,9 +28,12 @@ class JsonCluster(Cluster):
         if cluster_json is None:
             cluster_json_path = os.path.abspath(os.path.join(os.getcwd(), "cluster.json"))
             cluster_json = json.load(open(cluster_json_path))
-        init_nodes = [RemoteAccount(ninfo["hostname"], ninfo.get("user"), ninfo.get("ssh_args"),
-                                    ninfo.get("java_home", "default"), ninfo.get("kafka_home", "default"))
-                                    for ninfo in cluster_json["nodes"]]
+        try:
+            init_nodes = [RemoteAccount(ninfo["hostname"], ninfo.get("user"), ninfo.get("ssh_args"),
+                                        ssh_hostname=ninfo.get("ssh_hostname"))
+                                        for ninfo in cluster_json["nodes"]]
+        except BaseException as e:
+            raise ValueError("JSON cluster definition invalid", e)
         self.available_nodes = collections.deque(init_nodes)
         self.in_use_nodes = set()
         self.id_source = 1
