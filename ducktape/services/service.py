@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-
 from ducktape.command_line.config import ConsoleConfig
 
 
@@ -76,16 +75,10 @@ class Service(object):
         for node in self.nodes:
             self.logger.debug("Starting node %d on %s" % (self.idx(node), node.account.hostname))
             self.start_node(node)
-            self.wait_until_alive(node)
 
     def start_node(self, node):
         """Start service process(es) on the given node."""
         raise NotImplementedError("Subclasses must implement clean_node.")
-
-    def wait_until_alive(self, node):
-        """Wait until this service node is alive.
-        """
-        pass
 
     def wait(self):
         """Wait for the service to finish.
