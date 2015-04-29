@@ -69,12 +69,6 @@ class SerialTestRunner(TestRunner):
                 (test.min_cluster_size(), self.cluster.num_available_nodes()))
 
         try:
-            # Obtain nodes from the cluster
-            self.logger.info(self.__class__.__name__ + ": allocating nodes for " + test.__class__.__name__)
-            test.allocate_nodes()
-            self.logger.info((self.__class__.__name__ + ": allocated %d nodes for %s " %
-                              (test.services.num_nodes(), test.__class__.__name__)))
-
             if hasattr(test, 'setUp'):
                 self.logger.info(self.__class__.__name__ + ": setting up " + test.__class__.__name__)
                 # start services etc

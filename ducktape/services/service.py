@@ -34,21 +34,31 @@ class Service(object):
     should be large enough to use one instance per service instance.
     """
 
-    def __init__(self, service_context):
-        """
-        :type service_context: ServiceContext
-        """
-        self.num_nodes = service_context.num_nodes
-        self.cluster = service_context.cluster
-        self.logger = service_context.logger
+    def __init__(self, context, num_nodes):
+
+        self.num_nodes = num_nodes
+        self.cluster = context.cluster
+        self.logger = context.logger
+        self.context = context
+        self.allocated = False
+
+        # Every time a service instance is created, it registers itself with its
+        # context object. This makes it possible for external mechanisms to clean up
+        # after the service if something goes wrong.
+        if hasattr(self.context, "services"):
+            self.context.services.append(self)
 
     def allocate_nodes(self):
         """Request resources from the cluster."""
+        if self.allocated:
+            self.logger.warn("Requesting nodes for a service that has already been allocated nodes.")
+            self.logger.warn("Returning without requesting new nodes.")
+            return
+
         self.logger.debug("Requesting nodes from the cluster.")
         self.nodes = self.cluster.request(self.num_nodes)
 
         for idx, node in enumerate(self.nodes, 1):
-
             # Remote accounts utilities should log where this service logs
             if node.account.logger is not None:
                 # This log message help test-writer identify which test and/or service didn't clean up after itself
@@ -58,10 +68,14 @@ class Service(object):
                     "or some service which isn't properly cleaning up after itself. " +
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.set_logger(self.logger)
+            self.allocated = True
 
     def start(self):
         """Start the service on all nodes."""
         self.logger.info("Starting service: %s" % self.__class__.__name__)
+
+        if not self.allocated:
+            self.allocate_nodes()
 
         self.logger.debug("Killing processes and attempting to clean up before starting nodes.")
         for node in self.nodes:
@@ -78,7 +92,7 @@ class Service(object):
 
     def start_node(self, node):
         """Start service process(es) on the given node."""
-        raise NotImplementedError("Subclasses must implement clean_node.")
+        raise NotImplementedError("Subclasses must implement start_node.")
 
     def wait(self):
         """Wait for the service to finish.
@@ -93,7 +107,6 @@ class Service(object):
         """
         for node in self.nodes:
             self.stop_node(node)
-            node.account.set_logger(None)
 
     def stop_node(self, node):
         """Halt service process(es) on this node."""
@@ -108,11 +121,13 @@ class Service(object):
 
     def clean_node(self, node):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
-        raise NotImplementedError("Subclasses must implement clean_node.")
+        self.logger.warn("clean_node has not been overriden. " +
+                         "This may be fine if the service leaves no persistent state.")
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
         for node in self.nodes:
+            node.account.set_logger(None)
             self.free_node(node)
 
     def free_node(self, node):
@@ -159,11 +174,4 @@ class Service(object):
         for svc in args:
             svc.stop()
 
-
-class ServiceContext(object):
-    """Wrapper class for information needed by any service."""
-    def __init__(self, cluster, num_nodes, logger):
-        self.cluster = cluster
-        self.num_nodes = num_nodes
-        self.logger = logger
 

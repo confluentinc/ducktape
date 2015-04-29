@@ -20,24 +20,14 @@ from collections import OrderedDict
 import os
 
 
-class ServiceRegistry(OrderedDict):
-
-    def allocate_nodes(self):
-        """Make all registered services request nodes from the cluster."""
-        for service in self.values():
-            service.allocate_nodes()
-
-    def start_all(self):
-        """Start all currently registered services in the same order in which they were added."""
-        for service in self.values():
-            service.start()
+class ServiceRegistry(list):
 
     def stop_all(self):
         """Stop all currently registered services in the reverse of the order in which they were added.
 
         Note that this does not clean up persistent state or free the nodes back to the cluster.
         """
-        for service in reversed(self.values()):
+        for service in reversed(self):
             try:
                 service.stop()
             except BaseException as e:
@@ -45,7 +35,7 @@ class ServiceRegistry(OrderedDict):
 
     def clean_all(self):
         """Clean all services. This should only be called after services are stopped."""
-        for service in self.values():
+        for service in self:
             try:
                 service.clean()
             except BaseException as e:
@@ -53,11 +43,11 @@ class ServiceRegistry(OrderedDict):
 
     def free_all(self):
         """Release nodes back to the cluster."""
-        for service in self.values():
+        for service in self:
             try:
                 service.free()
             except BaseException as e:
                 service.logger.warn("Error cleaning service %s: %s" % (service, e.message))
 
     def num_nodes(self):
-        return sum([service.num_nodes for service in self.values()])
+        return sum([service.num_nodes for service in self])

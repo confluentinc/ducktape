@@ -15,7 +15,6 @@
 from ducktape.tests.logger import Logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.config import ConsoleConfig
-from ducktape.services.service import ServiceContext
 from ducktape.services.service_registry import ServiceRegistry
 
 import logging
@@ -33,7 +32,6 @@ class Test(object):
         self.cluster = test_context.session_context.cluster
         self.test_context = test_context
         self.logger = test_context.logger
-        self.services = ServiceRegistry()
 
         # dict for toggling service log collection on/off
         self.log_collect = {}
@@ -41,28 +39,28 @@ class Test(object):
     def min_cluster_size(self):
         """
         Provides a helpful heuristic for determining if there are enough nodes in the cluster to run this test.
-        """
-        return self.services.num_nodes()
 
-    def allocate_nodes(self):
-        self.services.allocate_nodes()
+        Note this is not a reliable indicator of the true minimum cluster size, since new service instances may
+        be added at any time. However, it does provide a lower bound on the minimum cluster size.
+        """
+        return self.test_context.services.num_nodes()
 
     def tearDown(self):
         """Default teardown method which stops and cleans services registered in the ServiceRegistry.
         Note that there is not a default setUp method. This is because the framework makes no assumptions
         about when and in what methods the various services are started.
         """
-        if hasattr(self, 'services') and type(self.services) == ServiceRegistry:
-            self.services.stop_all()
+        if hasattr(self.test_context, 'services') and type(self.test_context.services) == ServiceRegistry:
+            self.test_context.services.stop_all()
             self.copy_service_logs()
-            self.services.clean_all()
+            self.test_context.services.clean_all()
 
     def free_nodes(self):
-        self.services.free_all()
+        self.test_context.services.free_all()
 
     def copy_service_logs(self):
         """Copy logs from service nodes to the results directory."""
-        for service in self.services.values():
+        for service in self.test_context.services:
             if not hasattr(service, 'logs'):
                 self.test_context.logger.debug("Won't collect service logs from %s - no 'logs' attribute." %
                     service.__class__.__name__)
@@ -90,7 +88,7 @@ class Test(object):
                                  'service': service,
                                  'message': e.message})
 
-    def mark_log_for_collect(self, log_name, service, node=None):
+    def mark_for_collect(self, service, log_name=None, node=None):
         if node is None:
             # By default, mark all nodes for collection
             for n in service.nodes:
@@ -98,7 +96,7 @@ class Test(object):
         else:
             self.log_collect[(log_name, service.__class__.__name__, node.account.hostname)] = True
 
-    def mark_log_for_no_collect(self, log_name, service, node):
+    def mark_no_collect(self, service, log_name=None, node=None):
         if node is None:
             # By default, mark all nodes for collection
             for n in service.nodes:
@@ -109,17 +107,10 @@ class Test(object):
     def should_collect_log(self, log_name, service, node):
         return True
 
-    def service_context(self, num_nodes=1):
-        """A convenience method to reduce boilerplate which returns ServiceContext object.
-        :type num_nodes: int    Number of nodes to allocate to the service.
-        :rtype ducktape.services.service.ServiceContext
-        """
-        return ServiceContext(self.cluster, num_nodes, self.logger)
-
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module, cls, function, config, log_config=None):
+    def __init__(self, session_context, module, cls, function, config=None, log_config=None):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
@@ -128,7 +119,10 @@ class TestContext(Logger):
         self.function = function
         self.config = config
         self.session_context = session_context
+        self.cluster = session_context.cluster
+        self.services = ServiceRegistry()
 
+        # Results for run of this test unit go in results_dir
         self.results_dir = os.path.join(self.session_context.results_dir, self.cls.__name__)
         mkdir_p(self.results_dir)
 
