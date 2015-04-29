@@ -40,7 +40,7 @@ class ServiceRegistry(OrderedDict):
         for service in reversed(self.values()):
             try:
                 service.stop()
-            except Exception as e:
+            except BaseException as e:
                 service.logger.warn("Error stopping service %s: %s" % (service, e.message))
 
     def clean_all(self):
@@ -48,7 +48,7 @@ class ServiceRegistry(OrderedDict):
         for service in self.values():
             try:
                 service.clean()
-            except Exception as e:
+            except BaseException as e:
                 service.logger.warn("Error cleaning service %s: %s" % (service, e.message))
 
     def free_all(self):
@@ -56,7 +56,7 @@ class ServiceRegistry(OrderedDict):
         for service in self.values():
             try:
                 service.free()
-            except Exception as e:
+            except BaseException as e:
                 service.logger.warn("Error cleaning service %s: %s" % (service, e.message))
 
     def num_nodes(self):
