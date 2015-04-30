@@ -50,7 +50,7 @@ class SerialTestRunner(TestRunner):
             result = TestResult(self.session_context, str(test))
             try:
                 self.run_single_test(test)
-            except Exception as e:
+            except BaseException as e:
                 result.success = False
                 result.summary += e.message + "\n" + traceback.format_exc(limit=16) + "\n"
             finally:
@@ -77,7 +77,7 @@ class SerialTestRunner(TestRunner):
             self.logger.info(self.__class__.__name__ + ": running " + test.__class__.__name__)
             test.run()
             self.logger.info(self.__class__.__name__ + ": successfully ran " + test.__class__.__name__)
-        except Exception as e:
+        except BaseException as e:
             raise
         finally:
             if hasattr(test, 'tearDown'):

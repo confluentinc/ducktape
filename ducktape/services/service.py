@@ -68,7 +68,8 @@ class Service(object):
                     "or some service which isn't properly cleaning up after itself. " +
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.set_logger(self.logger)
-            self.allocated = True
+
+        self.allocated = True
 
     def start(self):
         """Start the service on all nodes."""
