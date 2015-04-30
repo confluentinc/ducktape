@@ -40,8 +40,7 @@ class SimpleReporter(TestReporter):
             "Test run with session_id " + self.results.session_context.session_id,
             self.pass_fail(self.results.get_aggregate_success()),
             "==========================="
-
-            ]
+        ]
 
         return "\n".join(header_lines)
 

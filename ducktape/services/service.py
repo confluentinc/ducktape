@@ -48,6 +48,16 @@ class Service(object):
         if hasattr(self.context, "services"):
             self.context.services.append(self)
 
+        # Provides a mechanism for locating and collecting log files produced by the service on its nodes.
+        # logs is a dict with entries that look like log_name: {"path": log_path, "collect_default": boolean}
+        #
+        # For example, zookeeper service might have self.logs like this:
+        # self.logs = {
+        #    "zk_log": {"path": "/mnt/zk.log",
+        #               "collect_default": True}
+        # }
+        self.logs = {}
+
     def allocate_nodes(self):
         """Request resources from the cluster."""
         if self.allocated:

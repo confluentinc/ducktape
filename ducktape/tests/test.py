@@ -33,9 +33,6 @@ class Test(object):
         self.test_context = test_context
         self.logger = test_context.logger
 
-        # dict for toggling service log collection on/off
-        self.log_collect = {}
-
     def min_cluster_size(self):
         """
         Provides a helpful heuristic for determining if there are enough nodes in the cluster to run this test.
@@ -61,51 +58,60 @@ class Test(object):
     def copy_service_logs(self):
         """Copy logs from service nodes to the results directory."""
         for service in self.test_context.services:
-            if not hasattr(service, 'logs'):
-                self.test_context.logger.debug("Won't collect service logs from %s - no 'logs' attribute." %
+            if not hasattr(service, 'logs') or len(service.logs) == 0:
+                self.test_context.logger.debug("Won't collect service logs from %s - no logs to collect." %
                     service.__class__.__name__)
                 return
 
             log_dirs = service.logs
             for node in service.nodes:
+                # Gather locations of logs to collect
+                node_logs = []
                 for log_name in log_dirs.keys():
                     if self.should_collect_log(log_name, service, node):
-                        dest = os.path.join(
-                            self.test_context.results_dir, service.__class__.__name__, node.account.hostname)
+                        node_logs.append(log_dirs[log_name]["path"])
 
-                        if not os.path.isdir(dest):
-                            mkdir_p(dest)
+                if len(node_logs) > 0:
+                    # Create directory into which service logs will be copied
+                    dest = os.path.join(
+                        self.test_context.results_dir, service.__class__.__name__, node.account.hostname)
+                    if not os.path.isdir(dest):
+                        mkdir_p(dest)
 
-                        try:
-                            node.account.scp_from(log_dirs[log_name], dest, recursive=True)
-                        except Exception as e:
-                            self.test_context.logger.warn(
-                                "Error copying log %(log_name)s from %(source)s to %(dest)s. \
-                                service %(service)s: %(message)s" %
-                                {'log_name': log_name,
-                                 'source': log_dirs[log_name],
-                                 'dest': dest,
-                                 'service': service,
-                                 'message': e.message})
+                    # Try to copy the service logs
+                    try:
+                        node.account.scp_from(node_logs, dest, recursive=True)
+                    except Exception as e:
+                        self.test_context.logger.warn(
+                            "Error copying log %(log_name)s from %(source)s to %(dest)s. \
+                            service %(service)s: %(message)s" %
+                            {'log_name': log_name,
+                             'source': log_dirs[log_name],
+                             'dest': dest,
+                             'service': service,
+                             'message': e.message})
 
     def mark_for_collect(self, service, log_name=None, node=None):
         if node is None:
             # By default, mark all nodes for collection
             for n in service.nodes:
-                self.log_collect[(log_name, service.__class__.__name__, n.account.hostname)] = True
+                self.test_context.log_collect[(log_name, service, n.account.hostname)] = True
         else:
-            self.log_collect[(log_name, service.__class__.__name__, node.account.hostname)] = True
+            self.test_context.log_collect[(log_name, service, node.account.hostname)] = True
 
     def mark_no_collect(self, service, log_name=None, node=None):
         if node is None:
             # By default, mark all nodes for collection
             for n in service.nodes:
-                self.log_collect[(log_name, service.__class__.__name__, n.account.hostname)] = False
+                self.test_context.log_collect[(log_name, service, n.account.hostname)] = False
         else:
-            self.log_collect[(log_name, service.__class__.__name__, node.account.hostname)] = False
+            self.test_context.log_collect[(log_name, service, node.account.hostname)] = False
 
     def should_collect_log(self, log_name, service, node):
-        return True
+        key = (log_name, service, node.account.hostname)
+        default = service.logs[log_name]["collect_default"]
+        val = self.test_context.log_collect.get(key, default)
+        return val
 
 
 class TestContext(Logger):
@@ -121,6 +127,9 @@ class TestContext(Logger):
         self.session_context = session_context
         self.cluster = session_context.cluster
         self.services = ServiceRegistry()
+
+        # dict for toggling service log collection on/off
+        self.log_collect = {}
 
         # Results for run of this test unit go in results_dir
         self.results_dir = os.path.join(self.session_context.results_dir, self.cls.__name__)

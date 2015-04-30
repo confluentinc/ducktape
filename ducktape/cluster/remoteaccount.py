@@ -89,6 +89,14 @@ class RemoteAccount(HttpMixin):
             self.ssh(cmd, allow_fail)
 
     def scp_from_command(self, src, dest, recursive=False):
+        if type(src) == list:
+            if len(src) == 0:
+                src = ""
+            elif len(src) == 1:
+                src = src[0]
+            else:
+                src = "\{" + ",".join(src) + "\}"
+
         r = "scp "
         if self.ssh_args:
             r += self.ssh_args + " "
@@ -104,6 +112,14 @@ class RemoteAccount(HttpMixin):
         return self._ssh_quiet(self.scp_from_command(src, dest, recursive))
 
     def scp_to_command(self, src, dest, recursive=False):
+        if type(src) == list:
+            if len(src) == 0:
+                src = ""
+            elif len(src) == 1:
+                src = src[0]
+            else:
+                src = " ".join(src)
+
         r = "scp "
         if self.ssh_args:
             r += self.ssh_args + " "
