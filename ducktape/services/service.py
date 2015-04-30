@@ -34,8 +34,22 @@ class Service(object):
     should be large enough to use one instance per service instance.
     """
 
-    def __init__(self, context, num_nodes):
+    # Provides a mechanism for locating and collecting log files produced by the service on its nodes.
+    # logs is a dict with entries that look like log_name: {"path": log_path, "collect_default": boolean}
+    #
+    # For example, zookeeper service might have self.logs like this:
+    # self.logs = {
+    #    "zk_log": {"path": "/mnt/zk.log",
+    #               "collect_default": True}
+    # }
+    logs = {}
 
+    def __init__(self, context, num_nodes):
+        """
+        :param context    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a TestContext object.
+        :param num_nodes  Number of nodes to allocate to this service from the cluster. Node allocation takes place
+                          when start() is called, or when allocate_nodes() is called, whichever happens first.
+        """
         self.num_nodes = num_nodes
         self.cluster = context.cluster
         self.logger = context.logger
@@ -48,16 +62,6 @@ class Service(object):
         if hasattr(self.context, "services"):
             self.context.services.append(self)
 
-        # Provides a mechanism for locating and collecting log files produced by the service on its nodes.
-        # logs is a dict with entries that look like log_name: {"path": log_path, "collect_default": boolean}
-        #
-        # For example, zookeeper service might have self.logs like this:
-        # self.logs = {
-        #    "zk_log": {"path": "/mnt/zk.log",
-        #               "collect_default": True}
-        # }
-        self.logs = {}
-
     def who_am_i(self, node=None):
         """Human-readable identifier useful for log messages."""
         if node is None:
@@ -68,9 +72,7 @@ class Service(object):
     def allocate_nodes(self):
         """Request resources from the cluster."""
         if self.allocated:
-            self.logger.warn("Requesting nodes for a service that has already been allocated nodes.")
-            self.logger.warn("Returning without requesting new nodes.")
-            return
+            raise Exception("Requesting nodes for a service that has already been allocated nodes.")
 
         self.logger.debug("Requesting nodes from the cluster.")
         self.nodes = self.cluster.request(self.num_nodes)

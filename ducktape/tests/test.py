@@ -68,7 +68,7 @@ class Test(object):
                 # Gather locations of logs to collect
                 node_logs = []
                 for log_name in log_dirs.keys():
-                    if self.should_collect_log(log_name, service, node):
+                    if self.should_collect_log(log_name, service):
                         node_logs.append(log_dirs[log_name]["path"])
 
                 if len(node_logs) > 0:
@@ -91,24 +91,14 @@ class Test(object):
                              'service': service,
                              'message': e.message})
 
-    def mark_for_collect(self, service, log_name=None, node=None):
-        if node is None:
-            # By default, mark all nodes for collection
-            for n in service.nodes:
-                self.test_context.log_collect[(log_name, service, n.account.hostname)] = True
-        else:
-            self.test_context.log_collect[(log_name, service, node.account.hostname)] = True
+    def mark_for_collect(self, service, log_name=None):
+        self.test_context.log_collect[(log_name, service)] = True
 
-    def mark_no_collect(self, service, log_name=None, node=None):
-        if node is None:
-            # By default, mark all nodes for collection
-            for n in service.nodes:
-                self.test_context.log_collect[(log_name, service, n.account.hostname)] = False
-        else:
-            self.test_context.log_collect[(log_name, service, node.account.hostname)] = False
+    def mark_no_collect(self, service, log_name=None):
+        self.test_context.log_collect[(log_name, service)] = False
 
-    def should_collect_log(self, log_name, service, node):
-        key = (log_name, service, node.account.hostname)
+    def should_collect_log(self, log_name, service):
+        key = (log_name, service)
         default = service.logs[log_name]["collect_default"]
         val = self.test_context.log_collect.get(key, default)
         return val
