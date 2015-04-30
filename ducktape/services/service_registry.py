@@ -38,6 +38,8 @@ class ServiceRegistry(list):
         for service in self:
             try:
                 service.clean()
+                if not service.check_clean():
+                    service.logger.warn("%s cleanup may be incomplete" % service.who_am_i())
             except BaseException as e:
                 service.logger.warn("Error cleaning service %s: %s" % (service, e.message))
 

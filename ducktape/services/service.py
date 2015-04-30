@@ -58,6 +58,13 @@ class Service(object):
         # }
         self.logs = {}
 
+    def who_am_i(self, node=None):
+        """Human-readable identifier useful for log messages."""
+        if node is None:
+            return self.__class__.__name__
+        else:
+            return "%s node %d on %s" % (self.__class__.__name__, self.idx(node), node.account.hostname)
+
     def allocate_nodes(self):
         """Request resources from the cluster."""
         if self.allocated:
@@ -83,27 +90,26 @@ class Service(object):
 
     def start(self):
         """Start the service on all nodes."""
-        self.logger.info("Starting service: %s" % self.__class__.__name__)
+        self.logger.info("%s: starting service" % self.who_am_i())
 
         if not self.allocated:
             self.allocate_nodes()
 
-        self.logger.debug("Killing processes and attempting to clean up before starting nodes.")
+        self.logger.debug(self.who_am_i() + ": killing processes and attempting to clean up before starting")
         for node in self.nodes:
             # Added precaution - kill running processes
             self._kill_running_processes(node)
-
+            self.force_clean_node(node)
             self.stop_node(node)
             self.clean_node(node)
 
-        self.logger.info("Starting nodes for %s " % self.__class__.__name__)
         for node in self.nodes:
-            self.logger.debug("Starting node %d on %s" % (self.idx(node), node.account.hostname))
+            self.logger.debug("%s: starting node" % self.who_am_i(node))
             self.start_node(node)
 
     def start_node(self, node):
         """Start service process(es) on the given node."""
-        raise NotImplementedError("Subclasses must implement start_node.")
+        raise NotImplementedError("%s: subclasses must implement start_node." % self.who_am_i())
 
     def wait(self):
         """Wait for the service to finish.
@@ -116,28 +122,64 @@ class Service(object):
         """Stop service processes on each node in this service.
         Subclasses must override stop_node.
         """
+        self.logger.info("%s: stopping service" % self.who_am_i())
         for node in self.nodes:
+            self.logger.info("%s: stopping node" % self.who_am_i(node))
             self.stop_node(node)
 
     def stop_node(self, node):
         """Halt service process(es) on this node."""
-        raise NotImplementedError("Subclasses must implement stop_node.")
+        raise NotImplementedError("%s: subclasses must implement stop_node." % self.who_am_i())
 
     def clean(self):
         """Clean up persistent state on each node - e.g. logs, config files etc.
         Subclasses must override clean_node.
         """
+        self.logger.info("%s: cleaning service" % self.who_am_i())
         for node in self.nodes:
+            self.logger.info("%s: cleaning node" % self.who_am_i(node))
             self.clean_node(node)
+
+    def force_clean_node(self, node):
+        self.logger.info("%s: recklessly cleaning leftover files on node" % self.who_am_i(node))
+        node.account.ssh("rm -rf /mnt/*", allow_fail=True)
 
     def clean_node(self, node):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
-        self.logger.warn("clean_node has not been overriden. " +
+        self.logger.warn("%s: clean_node has not been overriden. " % self.who_am_i(),
                          "This may be fine if the service leaves no persistent state.")
+
+    def check_clean(self):
+        """Check that there is no leftover persistent state.
+
+        This is an imperfect check, but can provide early warning for service developers.
+        """
+        self.logger.debug("%s: checking that there are no stray files left by this or other services" % self.who_am_i())
+        clean = True
+        for node in self.nodes:
+            clean = clean and self.check_clean_node(node)
+        return clean
+
+    def check_clean_node(self, node):
+        """Rule-of-thumb to verify that the service properly cleaned up after itself.
+
+        /mnt is the defacto standard for where to place files, so simply check that this is empty.
+        """
+        self.logger.debug("%s: checking for cleanliness" % self.who_am_i(node))
+        lines = [line.strip() for line in node.account.ssh_capture("for f in `ls /mnt`; do echo `pwd`/$f; done") if len(line.strip()) > 0]
+        if len(lines) == 0:
+            self.logger.debug("%s: appears clean", self.who_am_i(node))
+            return True
+        else:
+            self.logger.debug("%s: unclean!!", self.who_am_i(node))
+            self.logger.debug("Found these files: %s. %s or another service may not have properly cleaned up after itself.",
+                              lines, self.who_am_i())
+            return False
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
         for node in self.nodes:
+            self.logger.info("%s: freeing node" % self.who_am_i(node))
             node.account.set_logger(None)
             self.free_node(node)
 

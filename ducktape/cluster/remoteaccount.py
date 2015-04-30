@@ -163,10 +163,11 @@ class RemoteAccount(HttpMixin):
         try:
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            if allow_fail:
-                return
             self.logger.warn("Error running remote command: " + cmd)
             self.logger.warn(e.output)
+
+            if allow_fail:
+                return
             raise e
 
     def __str__(self):
