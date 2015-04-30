@@ -116,7 +116,7 @@ class Test(object):
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module, cls, function, config=None, log_config=None):
+    def __init__(self, session_context, module, cls, function, config=None):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
@@ -136,7 +136,7 @@ class TestContext(Logger):
         mkdir_p(self.results_dir)
 
         self._logger_configured = False
-        self.configure_logger(log_config)
+        self.configure_logger()
 
     @property
     def test_id(self):
@@ -154,7 +154,7 @@ class TestContext(Logger):
     def logger_name(self):
         return self.test_id
 
-    def configure_logger(self, log_config=None):
+    def configure_logger(self):
         if self._logger_configured:
             raise RuntimeError("test logger should only be configured once.")
 
@@ -163,9 +163,11 @@ class TestContext(Logger):
         mkdir_p(self.results_dir)
         fh = logging.FileHandler(os.path.join(self.results_dir, "test_log"))
         fh.setLevel(logging.DEBUG)
+
         # create console handler with a higher log level
         ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.INFO)
+        ch.setLevel(logging.DEBUG if self.session_context.debug else logging.INFO)
+
         # create formatter and add it to the handlers
         formatter = logging.Formatter(ConsoleConfig.TEST_LOG_FORMATTER)
         fh.setFormatter(formatter)
@@ -173,7 +175,8 @@ class TestContext(Logger):
 
         # add the handlers to the logger
         self.logger.addHandler(fh)
-        # test_context.logger.addHandler(ch)
+        if self.session_context.debug:
+            self.logger.addHandler(ch)
 
         self._logger_configured = True
 

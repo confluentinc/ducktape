@@ -31,14 +31,11 @@ def parse_args():
     """Parse in command-line options.
     :rtype: argparse.Namespace
     """
-    parser = argparse.ArgumentParser(description="Discover and run your tests.")
-
+    parser = argparse.ArgumentParser(description="Discover and run your tests")
     parser.add_argument('test_path', metavar='test_path', type=str, nargs='+',
-                        help='path which tells ducktape which test(s) to run')
-
+                        help='one or more space-delimited strings indicating where to search for tests')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run")
-    # TODO - delete --mock option - only used for development
-    parser.add_argument("--mock", action="store_true", help="dev helper to simulate simple test runs")
+    parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout")
 
     args = parser.parse_args()
     return args
@@ -59,6 +56,7 @@ def extend_import_paths(paths):
         while(os.path.exists(os.path.join(dir, '__init__.py'))):
             dir = os.path.dirname(dir)
         sys.path.append(dir)
+
 
 def setup_results_directory(results_dir, session_id):
     """Make directory in which results will be stored"""
@@ -83,6 +81,7 @@ def main():
     """
     args = parse_args()
 
+    # Make .ducktape directory where metadata such as the last used session_id is stored
     if not os.path.isdir(ConsoleConfig.METADATA_DIR):
         os.makedirs(ConsoleConfig.METADATA_DIR)
 
@@ -95,7 +94,7 @@ def main():
     cluster = VagrantCluster()
 
     setup_results_directory(results_dir, session_id)
-    session_context = SessionContext(session_id, results_dir, cluster)
+    session_context = SessionContext(session_id, results_dir, cluster, args.debug)
 
     # Discover and load tests to be run
     loader = TestLoader(session_context)
@@ -108,10 +107,6 @@ def main():
     if args.collect_only:
         print test_classes
         sys.exit(0)
-
-    if args.mock:
-        swap_in_mock_run(test_classes)
-        swap_in_mock_fixtures(test_classes)
 
     # Run the tests
     runner = SerialTestRunner(session_context, test_classes, cluster)
