@@ -31,11 +31,15 @@ If you are are a ducktape developer, consider using the develop command instead 
 Running Tests
 -------------
 To run one or more tests, run
-`ducktape <relative_path_to_testfile>`
-`ducktape <relative_path_to_testdirectory>`
 
-ducktape will discover tests and run all tests that it finds. ducktape can take multiple test files and/or test directories
- as its arguments, and will discover and run tests from every path provided.
+    ducktape <relative_path_to_testfile>        # e.g. ducktape dir/tests/my_test.py
+    ducktape <relative_path_to_testdirectory>   # e.g. ducktape dir/tests
+    ducktape <path_to_test>[::SomeTestClass]    # e.g. ducktape dir/tests/my_test.py::TestA
+    ducktape [<test_path1> [<test_path2> ...]]  # e.g. ducktape dir/tests/my_test.py dir/tests/my_other_test.py::OtherTest
+
+ducktape will discover tests and run all tests that it finds. ducktape can take multiple test files and/or test directories as its arguments, and will discover and run tests from every path provided. To see what tests would be run without actuall running, use the `--collect-only` flag.
+
+    ducktape <path_to_testfile_or_directory> --collect-only
 
 Test Output
 -----------
