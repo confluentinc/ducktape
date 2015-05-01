@@ -33,6 +33,10 @@ class Test(object):
         self.test_context = test_context
         self.logger = test_context.logger
 
+    def who_am_i(self):
+        """Human-readable name for help with logging."""
+        return self.__class__.__name__
+
     def min_cluster_size(self):
         """
         Provides a helpful heuristic for determining if there are enough nodes in the cluster to run this test.
@@ -42,18 +46,46 @@ class Test(object):
         """
         return self.test_context.services.num_nodes()
 
+    def setUp(self):
+        """Override this for custom setup logic."""
+        pass
+
     def tearDown(self):
         """Default teardown method which stops and cleans services registered in the ServiceRegistry.
         Note that there is not a default setUp method. This is because the framework makes no assumptions
         about when and in what methods the various services are started.
+
+        Catch all exceptions so that we try to do the full clean and free process.
+        Propagate KeyboardInterrupt so the top level test runner can decide how to handle it.
         """
         if hasattr(self.test_context, 'services') and type(self.test_context.services) == ServiceRegistry:
-            self.test_context.services.stop_all()
-            self.copy_service_logs()
-            self.test_context.services.clean_all()
+            exceptions = []
+            try:
+                self.test_context.services.stop_all()
+            except BaseException as e:
+                exceptions.append(e)
+
+            try:
+                self.copy_service_logs()
+            except BaseException as e:
+                exceptions.append(e)
+
+            try:
+                self.test_context.services.clean_all()
+            except BaseException as e:
+                exceptions.append(e)
+
+            keyboard_interrupts = [e for e in exceptions if isinstance(e, KeyboardInterrupt)]
+            if len(keyboard_interrupts) > 0:
+                raise keyboard_interrupts[0]
 
     def free_nodes(self):
-        self.test_context.services.free_all()
+        try:
+            self.test_context.services.free_all()
+        except BaseException as e:
+            if isinstance(e, KeyboardInterrupt):
+                raise e
+
 
     def copy_service_logs(self):
         """Copy logs from service nodes to the results directory."""

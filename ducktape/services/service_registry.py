@@ -27,29 +27,47 @@ class ServiceRegistry(list):
 
         Note that this does not clean up persistent state or free the nodes back to the cluster.
         """
+        keyboard_interrupt = None
         for service in reversed(self):
             try:
                 service.stop()
             except BaseException as e:
+                if isinstance(e, KeyboardInterrupt):
+                    keyboard_interrupt = e
                 service.logger.warn("Error stopping service %s: %s" % (service, e.message))
+
+        if keyboard_interrupt is not None:
+            raise keyboard_interrupt
 
     def clean_all(self):
         """Clean all services. This should only be called after services are stopped."""
+        keyboard_interrupt = None
         for service in self:
             try:
                 service.clean()
                 if not service.check_clean():
                     service.logger.warn("%s cleanup may be incomplete" % service.who_am_i())
             except BaseException as e:
+                if isinstance(e, KeyboardInterrupt):
+                    keyboard_interrupt = e
                 service.logger.warn("Error cleaning service %s: %s" % (service, e.message))
+
+        if keyboard_interrupt is not None:
+            raise keyboard_interrupt
 
     def free_all(self):
         """Release nodes back to the cluster."""
+        keyboard_interrupt = None
         for service in self:
             try:
                 service.free()
             except BaseException as e:
+                if isinstance(e, KeyboardInterrupt):
+                    keyboard_interrupt = e
                 service.logger.warn("Error cleaning service %s: %s" % (service, e.message))
+
+        if keyboard_interrupt is not None:
+            raise keyboard_interrupt
 
     def num_nodes(self):
         return sum([service.num_nodes for service in self])

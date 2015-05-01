@@ -26,17 +26,19 @@ class SessionContext(Logger):
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, session_id, results_dir, cluster, debug=False):
+    def __init__(self, session_id, results_dir, cluster, args):
         """
         :type session_id: str   Global session identifier
         :type results_dir: str  All test results go here
         :type cluster: ducktape.cluster.cluster.Cluster
-        :type debug: boolean    Signals that user would like more verbose output
+        :type args: Command-line arguments
         """
         self.session_id = session_id
         self.results_dir = os.path.abspath(results_dir)
         self.cluster = cluster
-        self.debug = debug
+        self.args = args
+        self.debug = args.debug
+        self.exit_first = args.exitfirst
 
         self._logger_configured = False
         self.configure_logger()

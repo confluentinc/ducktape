@@ -19,7 +19,6 @@ from ducktape.tests.session import SessionContext
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.tests.session import generate_session_id, generate_results_dir
-from tests.mock import swap_in_mock_run, swap_in_mock_fixtures
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 import argparse
@@ -36,9 +35,11 @@ def parse_args():
                         help='one or more space-delimited strings indicating where to search for tests')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout")
+    parser.add_argument("--exitfirst", action="store_true", help="exit after first failure")
 
     args = parser.parse_args()
     return args
+
 
 def extend_import_paths(paths):
     """Extends sys.path with top-level packages found based on a set of input paths. This only adds top-level packages
@@ -77,7 +78,7 @@ def main():
         Discover tests
         Initialize cluster for distributed services
         Run tests
-        Report results
+        Report a summary of all results
     """
     args = parse_args()
 
@@ -85,18 +86,16 @@ def main():
     if not os.path.isdir(ConsoleConfig.METADATA_DIR):
         os.makedirs(ConsoleConfig.METADATA_DIR)
 
-    extend_import_paths(args.test_path)
-
     # Generate a shared 'global' identifier for this test run and create the directory
     # in which all test results will be stored
     session_id = generate_session_id(ConsoleConfig.SESSION_ID_FILE)
     results_dir = generate_results_dir(session_id)
-    cluster = VagrantCluster()
 
     setup_results_directory(results_dir, session_id)
-    session_context = SessionContext(session_id, results_dir, cluster, args.debug)
+    session_context = SessionContext(session_id, results_dir, cluster=None, args=args)
 
     # Discover and load tests to be run
+    extend_import_paths(args.test_path)
     loader = TestLoader(session_context)
     try:
         test_classes = loader.discover(args.test_path)
@@ -108,8 +107,12 @@ def main():
         print test_classes
         sys.exit(0)
 
+    # Initializing the cluster is slow, so do so only if
+    # tests are sure to be run
+    session_context.cluster = VagrantCluster()
+
     # Run the tests
-    runner = SerialTestRunner(session_context, test_classes, cluster)
+    runner = SerialTestRunner(session_context, test_classes)
     test_results = runner.run_all_tests()
 
     # Report results

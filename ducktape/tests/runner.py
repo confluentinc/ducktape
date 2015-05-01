@@ -16,25 +16,32 @@
 from ducktape.tests.result import TestResult, TestResults
 from ducktape.tests.test import TestContext
 
+import time
 import traceback
 
 
 class TestRunner(object):
-    def __init__(self, session_context, test_classes, cluster):
+    """Abstract class responsible for running one or more tests."""
+    def __init__(self, session_context, test_classes):
         self.tests = test_classes
-        self.cluster = cluster
         self.session_context = session_context
         self.results = TestResults(self.session_context)
+        self.cluster = session_context.cluster
         self.logger = session_context.logger
 
-        self.logger.debug("Instantiating " + self.__class__.__name__)
+        self.logger.debug("Instantiating " + self.who_am_i())
+
+    def who_am_i(self):
+        """Human-readable name helpful for logging."""
+        return self.__class__.__name__
 
     def run_all_tests(self):
         raise NotImplementedError()
 
 
-def get_test_case(test_class, session_context):
+def create_test_case(test_class, session_context):
     """Create test context object and instantiate test class.
+
     :type test_class: ducktape.tests.test.Test.__class__
     :type session_context: ducktape.tests.session.SessionContext
     :rtype test_class
@@ -45,22 +52,36 @@ def get_test_case(test_class, session_context):
 
 
 class SerialTestRunner(TestRunner):
+    """Runs tests serially."""
+
     def run_all_tests(self):
+
+        self.results.start_time = time.time()
         for test in self.tests:
-            result = TestResult(self.session_context, str(test))
+            # Create single testable unit and corresponding test result object
+            test_case = create_test_case(test, self.session_context)
+            result = TestResult(self.session_context, test_case.who_am_i())
+
+            # Run the test unit
             try:
-                self.run_single_test(test)
+                result.start_time = time.time()
+                result.data = self.run_single_test(test_case)
             except BaseException as e:
                 result.success = False
-                result.summary += e.message + "\n" + traceback.format_exc(limit=16) + "\n"
-            finally:
-                self.results.add_result(result)
+                result.summary += e.message + "\n" + traceback.format_exc(limit=16)
 
+                if self.session_context.exit_first or isinstance(e, KeyboardInterrupt):
+                    # Don't run any more tests
+                    break
+            finally:
+                result.stop_time = time.time()
+                self.results.append(result)
+
+        self.results.stop_time = time.time()
         return self.results
 
-    def run_single_test(self, test_class):
-        test = get_test_case(test_class, self.session_context)
-        self.logger.debug("Instantiated test class: " + str(test))
+    def run_single_test(self, test):
+        """Setup, run, and tear down one testable unit."""
 
         self.logger.debug("Checking if there are enough nodes...")
         if test.min_cluster_size() > self.cluster.num_available_nodes():
@@ -69,21 +90,24 @@ class SerialTestRunner(TestRunner):
                 (test.min_cluster_size(), self.cluster.num_available_nodes()))
 
         try:
-            if hasattr(test, 'setUp'):
-                self.logger.info(self.__class__.__name__ + ": setting up " + test.__class__.__name__)
-                # start services etc
-                test.setUp()
+            # start services etc
+            self.logger.info("%s: %s: setting up" % (self.who_am_i(), test.who_am_i()))
+            test.setUp()
 
-            self.logger.info(self.__class__.__name__ + ": running " + test.__class__.__name__)
-            test.run()
-            self.logger.info(self.__class__.__name__ + ": successfully ran " + test.__class__.__name__)
+            # run the test!
+            self.logger.info("%s: %s: running" % (self.who_am_i(), test.who_am_i()))
+            data = test.run()
+            self.logger.info("%s: %s: PASS" % (self.who_am_i(), test.who_am_i()))
         except BaseException as e:
+            self.logger.info("%s: %s: FAIL" % (self.who_am_i(), test.who_am_i()))
             raise
         finally:
-            if hasattr(test, 'tearDown'):
-                self.logger.info(self.__class__.__name__ + ": tearing down " + test.__class__.__name__)
-                test.tearDown()
-                test.free_nodes()
+            # clean up no matter what the exception is
+            self.logger.info("%s: %s: tearing down" % (self.who_am_i(), test.who_am_i()))
+            test.tearDown()
+            test.free_nodes()
+
+        return data
 
 
 

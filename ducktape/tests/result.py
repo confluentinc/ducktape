@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 
 class TestResult(object):
     """Wrapper class for a single result returned by a single test."""
@@ -31,8 +33,21 @@ class TestResult(object):
         self.summary = summary
         self.data = data
 
+        # For tracking run time
+        self.start_time = -1
+        self.stop_time = -1
 
-class TestResults(object):
+    @property
+    def run_time(self):
+        if self.start_time < 0:
+            return -1
+        if self.stop_time < 0:
+            return time.time() - self.start_time
+
+        return self.stop_time - self.start_time
+
+
+class TestResults(list):
     """Class used to aggregate individual TestResult objects from many tests."""
     # TODO make this tread safe - once tests are run in parallel, this will be shared by multiple threads
 
@@ -40,47 +55,36 @@ class TestResults(object):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
+        super(list, self).__init__()
+
         self.session_context = session_context
 
-        # Mapping from test_name -> test_result
-        self.results_map = {}
+        # For tracking total run time
+        self.start_time = -1
+        self.stop_time = -1
 
-        # maintains an ordering of test_results
-        self.results_list = []
+    def num_passed(self):
+        return sum([1 for r in self if r.success])
 
-        # Aggregate success of all results
-        self.success = True
+    def num_failed(self):
+        return sum([1 for r in self if not r.success])
 
-    def add_result(self, test_result):
-        """Add a TestResult to this collection.
-        :type test_result: TestResult
-        """
-        assert test_result.__class__ == TestResult
-        self.results_map[test_result.test_name] = test_result
-        self.results_list.append(test_result)
-        self.success = self.success and test_result.success
+    @property
+    def run_time(self):
+        if self.start_time < 0:
+            return -1
+        if self.stop_time < 0:
+            return time.time() - self.start_time
 
-    def get_result(self, test_name):
-        """Get the TestResult associated with given test_name
-        :type test_name: str
-        :rtype: TestResult
-        """
-        return self.results_map.get(test_name)
+        return self.stop_time - self.start_time
 
     def get_aggregate_success(self):
         """Check cumulative success of all tests run so far
         :rtype: bool
         """
-        if not self.success:
-            return False
-
         for result in self:
             if not result.success:
                 return False
-
         return True
 
-    def __iter__(self):
-        for item in self.results_list:
-            yield item
 

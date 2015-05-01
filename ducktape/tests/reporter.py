@@ -17,6 +17,7 @@ import os
 import shutil
 import pkg_resources
 
+
 class TestReporter(object):
     def __init__(self, results):
         """
@@ -28,6 +29,19 @@ class TestReporter(object):
         """Convenient helper. Converts boolean to PASS/FAIL."""
         return "PASS" if success else "FAIL"
 
+    def format_time(self, t):
+        """Return human-readable interval of time.
+        Assumes t is in units of seconds.
+        """
+        minutes = int(t / 60)
+        seconds = t % 60
+
+        r = ""
+        if minutes > 0:
+            r += "%d minutes " % minutes
+        r += "%.3f seconds" % seconds
+        return r
+
     def report(self):
         raise NotImplementedError("method report must be implemented by subclasses of TestReporter")
 
@@ -36,21 +50,28 @@ class SimpleReporter(TestReporter):
     def header_string(self):
         """Header lines of the report"""
         header_lines = [
-            "=========================================================================",
-            "Test run with session_id " + self.results.session_context.session_id,
-            self.pass_fail(self.results.get_aggregate_success()),
-            "==========================="
+            "=========================================================================================",
+            "session_id: %s" % self.results.session_context.session_id,
+            "tests run:  %d" % len(self.results),
+            "run time:   %s" % self.format_time(self.results.run_time),
+            "passed:     %d" % self.results.num_passed(),
+            "failed:     %d" % self.results.num_failed(),
+            "========================================================================================="
         ]
 
         return "\n".join(header_lines)
 
     def result_string(self, result):
         """Stringify a single result."""
+
         result_lines = [
-            self.pass_fail(result.success) + ": " + result.test_name]
+            self.pass_fail(result.success) + ":     " + result.test_name,
+            "run time: %s" % self.format_time(result.run_time)
+            ]
 
         if not result.success:
             # Add summary if the test failed
+            result_lines.append("\n")
             result_lines.append("    " + result.summary)
 
         if result.data is not None:
@@ -104,7 +125,7 @@ class HTMLReporter(TestReporter):
     def format_report(self):
         template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
 
-        num_tests = len(self.results.results_list)
+        num_tests = len(self.results)
         num_passes = 0
         result_string = ""
         for result in self.results:
