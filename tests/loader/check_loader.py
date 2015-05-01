@@ -33,7 +33,6 @@ class CheckTestLoader(object):
         self.SESSION_CONTEXT = SessionContext("test_session", session_dir, None)
 
     def check_test_loader_with_directory(self):
-
         """Check discovery on a directory."""
         loader = TestLoader(self.SESSION_CONTEXT)
         test_classes = loader.discover([discover_dir()])
