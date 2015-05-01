@@ -77,8 +77,7 @@ class SimpleReporter(TestReporter):
         if result.data is not None:
             result_lines.append(json.dumps(result.data))
 
-        result_lines.append("===========================")
-
+        result_lines.append("-----------------------------------------------------------------------------------------")
         return "\n".join(result_lines)
 
     def report_string(self):

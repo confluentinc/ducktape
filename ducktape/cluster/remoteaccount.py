@@ -22,6 +22,7 @@ class RemoteAccount(HttpMixin):
         self.user = user
         self.ssh_args = ssh_args
         self.ssh_hostname = ssh_hostname
+        self.externally_routable_ip = None
 
         self.logger = logger
 
@@ -34,7 +35,7 @@ class RemoteAccount(HttpMixin):
         return self.hostname == "localhost" and self.user is None and self.ssh_args is None
 
     def wait_for_http_service(self, port, headers, timeout=20, path='/'):
-        url = "http://%s:%s%s" % (self.hostname, str(port), path)
+        url = "http://%s:%s%s" % (self.externally_routable_ip, str(port), path)
 
         stop = time.time() + timeout
         awake = False

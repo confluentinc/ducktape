@@ -72,6 +72,13 @@ class VagrantCluster(JsonCluster):
 
         super(VagrantCluster, self).__init__(cluster_json)
 
+        # go through and find fully qualified domain name for each node
+        # this makes it possible to not require write access to /etc/hosts on the test driver machine
+        is_aws = self._is_aws()
+        for node_account in self.available_nodes:
+            node_account.externally_routable_ip = self._externally_routable_ip(is_aws, node_account)
+            print node_account.externally_routable_ip
+
     def _vagrant_ssh_config(self):
         return subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 
@@ -83,6 +90,17 @@ class VagrantCluster(JsonCluster):
         proc = subprocess.Popen("vagrant status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, _ = proc.communicate()
         return output.find("aws") >= 0
+
+    def _externally_routable_ip(self, is_aws, node_account):
+        if is_aws:
+            cmd = "/sbin/ifconfig eth0 "
+        else:
+            cmd = "/sbin/ifconfig eth1 "
+        cmd += "| grep 'inet addr' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1"
+
+        output = "".join(node_account.ssh_capture(cmd))
+        return output.strip()
+
 
 
 Cluster._FACTORY["vagrant"] = VagrantCluster
