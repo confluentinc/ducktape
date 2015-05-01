@@ -75,4 +75,14 @@ class VagrantCluster(JsonCluster):
     def _vagrant_ssh_config(self):
         return subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
 
-Cluster._FACTORY["vagrant"]   = VagrantCluster
+    def _is_aws(self):
+        """Heuristic to detect whether the slave nodes are local or aws.
+
+        Return true if they are running on aws.
+        """
+        proc = subprocess.Popen("vagrant status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        output, _ = proc.communicate()
+        return output.find("aws") >= 0
+
+
+Cluster._FACTORY["vagrant"] = VagrantCluster
