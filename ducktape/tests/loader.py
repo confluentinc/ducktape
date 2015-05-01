@@ -150,6 +150,8 @@ class TestLoader(object):
                     break  # no need to keep trying
                 except Exception as e:
                     self.logger.debug("Could not import " + module_name + ": " + e.message)
+                    self.logger.debug(
+                        "   But it's ok: at most one import should work per module, so import failures are expected.")
                     continue
                 finally:
                     path_pieces = path_pieces[1:]

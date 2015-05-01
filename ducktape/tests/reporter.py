@@ -38,7 +38,7 @@ class TestReporter(object):
 
         r = ""
         if minutes > 0:
-            r += "%d minutes " % minutes
+            r += "%d minute%s " % (minutes, "" if minutes == 1 else "s")
         r += "%.3f seconds" % seconds
         return r
 
