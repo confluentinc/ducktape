@@ -14,9 +14,9 @@
 
 
 from ducktape.command_line.config import ConsoleConfig
+from ducktape.template import TemplateRenderer
 
-
-class Service(object):
+class Service(TemplateRenderer):
     """Service classes know how to deploy a service onto a set of nodes and then clean up after themselves.
 
     They request the necessary resources from the cluster,
@@ -44,12 +44,13 @@ class Service(object):
     # }
     logs = {}
 
-    def __init__(self, context, num_nodes):
+    def __init__(self, context, num_nodes, *args, **kwargs):
         """
         :param context    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a TestContext object.
         :param num_nodes  Number of nodes to allocate to this service from the cluster. Node allocation takes place
                           when start() is called, or when allocate_nodes() is called, whichever happens first.
         """
+        super(Service, self).__init__(*args, **kwargs)
         self.num_nodes = num_nodes
         self.cluster = context.cluster
         self.logger = context.logger
@@ -228,5 +229,4 @@ class Service(object):
             svc.wait()
         for svc in args:
             svc.stop()
-
 
