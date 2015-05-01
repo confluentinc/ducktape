@@ -17,12 +17,11 @@ from ducktape.utils.http_utils import HttpMixin
 
 
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, java_home="default", kafka_home="default", logger=None):
+    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, logger=None):
         self.hostname = hostname
         self.user = user
         self.ssh_args = ssh_args
-        self.java_home = java_home
-        self.kafka_home = kafka_home
+        self.ssh_hostname = ssh_hostname
 
         self.logger = logger
 
@@ -65,19 +64,19 @@ class RemoteAccount(HttpMixin):
     def ssh(self, cmd, allow_fail=False):
         return self._ssh_quiet(self.ssh_command(cmd), allow_fail)
 
-    def ssh_capture(self, cmd):
-        """Runs the command via SSH and captures the output, yielding lines of the output."""
+    def ssh_capture(self, cmd, allow_fail=False):
+        '''Runs the command via SSH and captures the output, yielding lines of the output.'''
         ssh_cmd = self.ssh_command(cmd)
         proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         for line in iter(proc.stdout.readline, ''):
             yield line
         proc.communicate()
-        if proc.returncode != 0:
+        if proc.returncode != 0 and not allow_fail:
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
 
     def kill_process(self, process_grep_str, clean_shutdown=True, allow_fail=False):
         cmd = """ps ax | grep -i """ + process_grep_str + """ | grep java | grep -v grep | awk '{print $1}'"""
-        pids = list(self.ssh_capture(cmd))
+        pids = list(self.ssh_capture(cmd, allow_fail=True))
 
         if clean_shutdown:
             kill = "kill "
