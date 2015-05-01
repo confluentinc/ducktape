@@ -44,11 +44,30 @@ class CheckTestLoader(object):
         test_classes = loader.discover([os.path.join(discover_dir(), "test_a.py")])
         assert len(test_classes) == 1
 
+    def check_test_loader_multiple_files(self):
+        loader = TestLoader(self.SESSION_CONTEXT)
+        test_classes = loader.discover([
+            os.path.join(discover_dir(), "test_a.py"),
+            os.path.join(discover_dir(), "test_b.py")
+
+        ])
+        assert len(test_classes) == 3
+
     def check_test_loader_with_nonexistent_file(self):
         """Check discovery on a starting path that doesn't exist throws an"""
         with pytest.raises(LoaderException):
             loader = TestLoader(self.SESSION_CONTEXT)
             test_classes = loader.discover([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+
+    def check_test_loader_with_class(self):
+        """Check test discovery with discover class syntax."""
+        loader = TestLoader(self.SESSION_CONTEXT)
+        test_classes = loader.discover([os.path.join(discover_dir(), "test_b.py::TestBB")])
+        assert len(test_classes) == 1
+
+        # Sanity check, test that it discovers two tests if it searches the whole module
+        test_classes = loader.discover([os.path.join(discover_dir(), "test_b.py")])
+        assert len(test_classes) == 2
 
 
 

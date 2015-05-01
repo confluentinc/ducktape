@@ -17,12 +17,11 @@ from ducktape.utils.http_utils import HttpMixin
 
 
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, java_home="default", kafka_home="default", logger=None):
+    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, logger=None):
         self.hostname = hostname
         self.user = user
         self.ssh_args = ssh_args
-        self.java_home = java_home
-        self.kafka_home = kafka_home
+        self.ssh_hostname = ssh_hostname
 
         self.logger = logger
 
@@ -31,7 +30,7 @@ class RemoteAccount(HttpMixin):
 
     @property
     def local(self):
-        "Returns true if this 'remote' account is actually local. This is only a heuristic, but should work for simple local testing."
+        """Returns true if this 'remote' account is actually local. This is only a heuristic, but should work for simple local testing."""
         return self.hostname == "localhost" and self.user is None and self.ssh_args is None
 
     def wait_for_http_service(self, port, headers, timeout=20, path='/'):
@@ -52,7 +51,6 @@ class RemoteAccount(HttpMixin):
                             "Either the service failed to start, or there is a problem with the url. "
                             "You may need to open Vagrantfile.local and add the line 'enable_dns = true'.")
 
-
     def ssh_command(self, cmd):
         r = "ssh "
         if self.user:
@@ -66,19 +64,19 @@ class RemoteAccount(HttpMixin):
     def ssh(self, cmd, allow_fail=False):
         return self._ssh_quiet(self.ssh_command(cmd), allow_fail)
 
-    def ssh_capture(self, cmd):
+    def ssh_capture(self, cmd, allow_fail=False):
         '''Runs the command via SSH and captures the output, yielding lines of the output.'''
         ssh_cmd = self.ssh_command(cmd)
         proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         for line in iter(proc.stdout.readline, ''):
             yield line
         proc.communicate()
-        if proc.returncode != 0:
+        if proc.returncode != 0 and not allow_fail:
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
 
     def kill_process(self, process_grep_str, clean_shutdown=True, allow_fail=False):
         cmd = """ps ax | grep -i """ + process_grep_str + """ | grep java | grep -v grep | awk '{print $1}'"""
-        pids = list(self.ssh_capture(cmd))
+        pids = list(self.ssh_capture(cmd, allow_fail=True))
 
         if clean_shutdown:
             kill = "kill "
@@ -90,20 +88,36 @@ class RemoteAccount(HttpMixin):
             self.ssh(cmd, allow_fail)
 
     def scp_from_command(self, src, dest, recursive=False):
+        if self.user:
+            remotehost = self.user + "@" + self.hostname
+        else:
+            remotehost = self.hostname
+
+        if isinstance(src, basestring):
+            src = remotehost + ":" + src
+        else:
+            # assume src is iterable
+            # e.g. "ubuntu@host:path1 ubuntu@host:path2"
+            src = " ".join([remotehost + ":" + path for path in src])
+
         r = "scp "
         if self.ssh_args:
             r += self.ssh_args + " "
         if recursive:
             r += "-r "
-        if self.user:
-            r += self.user + "@"
-        r += self.hostname + ":" + src + " " + dest
+
+        r += src + " " + dest
         return r
 
     def scp_from(self, src, dest, recursive=False):
+        """Copy something from this node. src may be a string or an iterable of several sources."""
         return self._ssh_quiet(self.scp_from_command(src, dest, recursive))
 
     def scp_to_command(self, src, dest, recursive=False):
+        if not isinstance(src, basestring):
+            # Assume src is iterable
+            src = " ".join(src)
+
         r = "scp "
         if self.ssh_args:
             r += self.ssh_args + " "
@@ -142,15 +156,17 @@ class RemoteAccount(HttpMixin):
         os.remove(local_name)
 
     def _ssh_quiet(self, cmd, allow_fail=False):
-        '''Runs the command on the remote host using SSH. If it succeeds, there is no
-        output; if it fails the output is printed and the CalledProcessError is re-raised.'''
+        """Runs the command on the remote host using SSH. If it succeeds, there is no
+        output; if it fails the output is printed and the CalledProcessError is re-raised."""
         try:
+            self.logger.debug("Trying to run remote command: " + cmd)
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
+            self.logger.warn("Error running remote command: " + cmd)
+            self.logger.warn(e.output)
+
             if allow_fail:
                 return
-            print "Error running remote command: " + cmd
-            print e.output
             raise e
 
     def __str__(self):

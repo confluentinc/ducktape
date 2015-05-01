@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.services.service import Service, ServiceContext
+from ducktape.services.service import Service
 
 class CheckTemplateRenderingService(object):
     """
@@ -34,13 +34,17 @@ class CheckTemplateRenderingService(object):
     def check_file_template(self):
         self.new_instance().render_file_template()
 
+class DummyContext(object):
+    logger = None
+    cluster = None
+
 class TemplateRenderingService(Service):
     NO_VARIABLE = "fixed content"
     SIMPLE_VARIABLE = "Hello {{name}}!"
     OVERLOAD_VARIABLES = "{{normal}} {{overload}}"
 
     def __init__(self):
-        super(TemplateRenderingService, self).__init__(ServiceContext(None, 1, None))
+        super(TemplateRenderingService, self).__init__(DummyContext(), 1)
 
     def render_simple(self):
         "Test that a trivial template works"

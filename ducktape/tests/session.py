@@ -26,24 +26,26 @@ class SessionContext(Logger):
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, session_id, results_dir, cluster, log_config=None):
+    def __init__(self, session_id, results_dir, cluster, debug=False):
         """
         :type session_id: str   Global session identifier
         :type results_dir: str  All test results go here
         :type cluster: ducktape.cluster.cluster.Cluster
+        :type debug: boolean    Signals that user would like more verbose output
         """
         self.session_id = session_id
         self.results_dir = os.path.abspath(results_dir)
         self.cluster = cluster
+        self.debug = debug
 
         self._logger_configured = False
-        self.configure_logger(log_config)
+        self.configure_logger()
 
     @property
     def logger_name(self):
         return self.session_id + ".session_logger"
 
-    def configure_logger(self, log_config=None):
+    def configure_logger(self):
         """
         :type session_context: ducktape.tests.session.SessionContext
 
@@ -64,7 +66,7 @@ class SessionContext(Logger):
 
         # create console handler with a higher log level
         ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.INFO)
+        ch.setLevel(logging.DEBUG if self.debug else logging.INFO)
 
         # create formatter and add it to the handlers
         formatter = logging.Formatter(ConsoleConfig.SESSION_LOG_FORMATTER)
@@ -112,7 +114,6 @@ def generate_session_id(session_id_file):
             next_num = 1
 
         return get_id(next_day, next_num)
-
 
     if os.path.isfile(session_id_file):
         with open(session_id_file, "r") as fp:

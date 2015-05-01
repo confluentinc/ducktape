@@ -14,6 +14,7 @@
 
 from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
+import sys
 
 class LocalhostCluster(Cluster):
     '''
@@ -22,10 +23,18 @@ class LocalhostCluster(Cluster):
     on the resources available.
     '''
 
+    def __init__(self, *args, **kwargs):
+        # Use a very large number, but fixed value so accounting for # of available nodes works
+        self._available = sys.maxint
+
     def request(self, nslots):
+        self._available -= nslots
         return [ClusterSlot(self, RemoteAccount("localhost")) for i in range(nslots)]
 
+    def num_available_nodes(self):
+        return self._available
+
     def free_single(self, slot):
-        pass
+        self._available += 1
 
 Cluster._FACTORY["localhost"] = LocalhostCluster
