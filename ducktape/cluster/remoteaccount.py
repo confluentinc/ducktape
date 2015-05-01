@@ -30,7 +30,7 @@ class RemoteAccount(HttpMixin):
 
     @property
     def local(self):
-        "Returns true if this 'remote' account is actually local. This is only a heuristic, but should work for simple local testing."
+        """Returns true if this 'remote' account is actually local. This is only a heuristic, but should work for simple local testing."""
         return self.hostname == "localhost" and self.user is None and self.ssh_args is None
 
     def wait_for_http_service(self, port, headers, timeout=20, path='/'):
@@ -50,7 +50,6 @@ class RemoteAccount(HttpMixin):
             raise Exception("Timed out trying to contact service on %s. " % url +
                             "Either the service failed to start, or there is a problem with the url. "
                             "You may need to open Vagrantfile.local and add the line 'enable_dns = true'.")
-
 
     def ssh_command(self, cmd):
         r = "ssh "
@@ -89,20 +88,36 @@ class RemoteAccount(HttpMixin):
             self.ssh(cmd, allow_fail)
 
     def scp_from_command(self, src, dest, recursive=False):
+        if self.user:
+            remotehost = self.user + "@" + self.hostname
+        else:
+            remotehost = self.hostname
+
+        if isinstance(src, basestring):
+            src = remotehost + ":" + src
+        else:
+            # assume src is iterable
+            # e.g. "ubuntu@host:path1 ubuntu@host:path2"
+            src = " ".join([remotehost + ":" + path for path in src])
+
         r = "scp "
         if self.ssh_args:
             r += self.ssh_args + " "
         if recursive:
             r += "-r "
-        if self.user:
-            r += self.user + "@"
-        r += self.hostname + ":" + src + " " + dest
+
+        r += src + " " + dest
         return r
 
     def scp_from(self, src, dest, recursive=False):
+        """Copy something from this node. src may be a string or an iterable of several sources."""
         return self._ssh_quiet(self.scp_from_command(src, dest, recursive))
 
     def scp_to_command(self, src, dest, recursive=False):
+        if not isinstance(src, basestring):
+            # Assume src is iterable
+            src = " ".join(src)
+
         r = "scp "
         if self.ssh_args:
             r += self.ssh_args + " "
@@ -141,15 +156,17 @@ class RemoteAccount(HttpMixin):
         os.remove(local_name)
 
     def _ssh_quiet(self, cmd, allow_fail=False):
-        '''Runs the command on the remote host using SSH. If it succeeds, there is no
-        output; if it fails the output is printed and the CalledProcessError is re-raised.'''
+        """Runs the command on the remote host using SSH. If it succeeds, there is no
+        output; if it fails the output is printed and the CalledProcessError is re-raised."""
         try:
+            self.logger.debug("Trying to run remote command: " + cmd)
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
+            self.logger.warn("Error running remote command: " + cmd)
+            self.logger.warn(e.output)
+
             if allow_fail:
                 return
-            print "Error running remote command: " + cmd
-            print e.output
             raise e
 
     def __str__(self):
