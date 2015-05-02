@@ -22,10 +22,10 @@ class Logger(object):
 
     @property
     def logger(self):
-        """Read-only logger attribure."""
+        """Read-only logger attribute."""
         if not hasattr(self, '_logger'):
             self._logger = logging.getLogger(self.logger_name)
         return self._logger
 
-    def configure_logger(self, log_config=None):
+    def configure_logger(self):
         raise NotImplementedError("configure_logger property must be implemented by a subclass")

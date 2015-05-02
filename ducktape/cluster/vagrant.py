@@ -77,7 +77,6 @@ class VagrantCluster(JsonCluster):
         is_aws = self._is_aws()
         for node_account in self.available_nodes:
             node_account.externally_routable_ip = self._externally_routable_ip(is_aws, node_account)
-            print node_account.externally_routable_ip
 
     def _vagrant_ssh_config(self):
         return subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
