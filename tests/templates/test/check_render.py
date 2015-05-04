@@ -14,6 +14,9 @@
 
 from ducktape.tests.test import Test, TestContext
 from ducktape.tests.session import SessionContext
+
+from tests.test_utils.mock import MockArgs
+
 import tempfile
 
 class CheckTemplateRenderingTest(object):
@@ -23,7 +26,7 @@ class CheckTemplateRenderingTest(object):
 
     def setup(self):
         dir = tempfile.gettempdir()
-        session_ctx = SessionContext("session_id", dir, None)
+        session_ctx = SessionContext("session_id", dir, None, MockArgs())
         test_ctx = TestContext(session_ctx)
         return TemplateRenderingTest(test_ctx)
 
