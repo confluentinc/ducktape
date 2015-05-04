@@ -18,16 +18,17 @@ import time
 class TestResult(object):
     """Wrapper class for a single result returned by a single test."""
 
-    def __init__(self, session_context, test_name, success=True, summary="", data=None):
+    def __init__(self, test_context, test_name, success=True, summary="", data=None):
         """
-        :type session_context: ducktape.tests.session.SessionContext
+        :type test_context: ducktape.tests.tests.TestContext
         :type test_name: str
         :type success: bool
         :type summary: str
         :type data: dict
         """
 
-        self.session_context = session_context
+        self.test_context = test_context
+        self.session_context = self.test_context.session_context
         self.test_name = test_name
         self.success = success
         self.summary = summary

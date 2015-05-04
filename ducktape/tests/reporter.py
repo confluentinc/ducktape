@@ -115,9 +115,7 @@ class HTMLReporter(TestReporter):
             "test_name": result.test_name,
             "test_result": test_result,
             "summary": result.summary,
-            # mocked for now, will change once
-            # the log capability is enabled
-            "test_log": "test.log"
+            "test_log": result.test_context.results_dir
         }
         return result_json
 
@@ -135,11 +133,9 @@ class HTMLReporter(TestReporter):
 
         args = {
             'num_tests': num_tests,
-            'num_passes': num_passes,
-            'num_failures': num_tests - num_passes,
-            # mocked for now, will change once
-            # we collect the running time
-            'run_time': '100s',
+            'num_passes': self.results.num_passed(),
+            'num_failures': self.results.num_failed(),
+            'run_time': self.results.run_time,
             'session': self.results.session_context.session_id,
             'tests': result_string
         }

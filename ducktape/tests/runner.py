@@ -60,7 +60,7 @@ class SerialTestRunner(TestRunner):
         for test in self.tests:
             # Create single testable unit and corresponding test result object
             test_case = create_test_case(test, self.session_context)
-            result = TestResult(self.session_context, test_case.who_am_i())
+            result = TestResult(test_case.test_context, test_case.who_am_i())
 
             # Run the test unit
             try:
