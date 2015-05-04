@@ -111,13 +111,27 @@ class HTMLReporter(TestReporter):
         else:
             test_result = 'fail'
 
+        print self.test_results_dir(result)
+
         result_json = {
             "test_name": result.test_name,
             "test_result": test_result,
             "summary": result.summary,
-            "test_log": result.test_context.results_dir
+            "test_log": self.test_results_dir(result)
         }
         return result_json
+
+    def test_results_dir(self, result):
+        """Return *relative path* to test results directory.
+
+        Path is relative to the base results_dir. Relative path behaves better if the results directory is copied,
+        moved etc.
+        """
+        base_dir = os.path.abspath(result.session_context.results_dir)
+        base_dir = os.path.join(base_dir, "")  # Ensure trailing directory indicator
+
+        test_results_dir = os.path.abspath(result.test_context.results_dir)
+        return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
     def format_report(self):
         template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
