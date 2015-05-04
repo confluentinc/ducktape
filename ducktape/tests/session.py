@@ -38,7 +38,7 @@ class SessionContext(Logger):
         self.cluster = cluster
         self.args = args
         self.debug = args.debug
-        self.exit_first = args.exitfirst
+        self.exit_first = args.exit_first
 
         self._logger_configured = False
         self.configure_logger()
