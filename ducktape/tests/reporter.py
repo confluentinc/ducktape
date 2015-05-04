@@ -52,8 +52,8 @@ class SimpleReporter(TestReporter):
         header_lines = [
             "=========================================================================================",
             "session_id: %s" % self.results.session_context.session_id,
-            "tests run:  %d" % len(self.results),
             "run time:   %s" % self.format_time(self.results.run_time),
+            "tests run:  %d" % len(self.results),
             "passed:     %d" % self.results.num_passed(),
             "failed:     %d" % self.results.num_failed(),
             "========================================================================================="

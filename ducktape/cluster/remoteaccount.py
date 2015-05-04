@@ -49,8 +49,7 @@ class RemoteAccount(HttpMixin):
                 pass
         if not awake:
             raise Exception("Timed out trying to contact service on %s. " % url +
-                            "Either the service failed to start, or there is a problem with the url. "
-                            "You may need to open Vagrantfile.local and add the line 'enable_dns = true'.")
+                            "Either the service failed to start, or there is a problem with the url.")
 
     def ssh_command(self, cmd):
         r = "ssh "
