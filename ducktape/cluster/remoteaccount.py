@@ -22,6 +22,7 @@ class RemoteAccount(HttpMixin):
         self.user = user
         self.ssh_args = ssh_args
         self.ssh_hostname = ssh_hostname
+        self.externally_routable_ip = None
 
         self.logger = logger
 
@@ -34,7 +35,7 @@ class RemoteAccount(HttpMixin):
         return self.hostname == "localhost" and self.user is None and self.ssh_args is None
 
     def wait_for_http_service(self, port, headers, timeout=20, path='/'):
-        url = "http://%s:%s%s" % (self.hostname, str(port), path)
+        url = "http://%s:%s%s" % (self.externally_routable_ip, str(port), path)
 
         stop = time.time() + timeout
         awake = False
@@ -48,8 +49,7 @@ class RemoteAccount(HttpMixin):
                 pass
         if not awake:
             raise Exception("Timed out trying to contact service on %s. " % url +
-                            "Either the service failed to start, or there is a problem with the url. "
-                            "You may need to open Vagrantfile.local and add the line 'enable_dns = true'.")
+                            "Either the service failed to start, or there is a problem with the url.")
 
     def ssh_command(self, cmd):
         r = "ssh "

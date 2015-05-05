@@ -17,6 +17,7 @@ import os
 import shutil
 import pkg_resources
 
+
 class TestReporter(object):
     def __init__(self, results):
         """
@@ -28,6 +29,19 @@ class TestReporter(object):
         """Convenient helper. Converts boolean to PASS/FAIL."""
         return "PASS" if success else "FAIL"
 
+    def format_time(self, t):
+        """Return human-readable interval of time.
+        Assumes t is in units of seconds.
+        """
+        minutes = int(t / 60)
+        seconds = t % 60
+
+        r = ""
+        if minutes > 0:
+            r += "%d minute%s " % (minutes, "" if minutes == 1 else "s")
+        r += "%.3f seconds" % seconds
+        return r
+
     def report(self):
         raise NotImplementedError("method report must be implemented by subclasses of TestReporter")
 
@@ -36,28 +50,34 @@ class SimpleReporter(TestReporter):
     def header_string(self):
         """Header lines of the report"""
         header_lines = [
-            "=========================================================================",
-            "Test run with session_id " + self.results.session_context.session_id,
-            self.pass_fail(self.results.get_aggregate_success()),
-            "==========================="
+            "=========================================================================================",
+            "session_id: %s" % self.results.session_context.session_id,
+            "run time:   %s" % self.format_time(self.results.run_time),
+            "tests run:  %d" % len(self.results),
+            "passed:     %d" % self.results.num_passed(),
+            "failed:     %d" % self.results.num_failed(),
+            "========================================================================================="
         ]
 
         return "\n".join(header_lines)
 
     def result_string(self, result):
         """Stringify a single result."""
+
         result_lines = [
-            self.pass_fail(result.success) + ": " + result.test_name]
+            self.pass_fail(result.success) + ":     " + result.test_name,
+            "run time: %s" % self.format_time(result.run_time)
+            ]
 
         if not result.success:
             # Add summary if the test failed
+            result_lines.append("\n")
             result_lines.append("    " + result.summary)
 
         if result.data is not None:
             result_lines.append(json.dumps(result.data))
 
-        result_lines.append("===========================")
-
+        result_lines.append("-----------------------------------------------------------------------------------------")
         return "\n".join(result_lines)
 
     def report_string(self):
@@ -95,16 +115,26 @@ class HTMLReporter(TestReporter):
             "test_name": result.test_name,
             "test_result": test_result,
             "summary": result.summary,
-            # mocked for now, will change once
-            # the log capability is enabled
-            "test_log": "test.log"
+            "test_log": self.test_results_dir(result)
         }
         return result_json
+
+    def test_results_dir(self, result):
+        """Return *relative path* to test results directory.
+
+        Path is relative to the base results_dir. Relative path behaves better if the results directory is copied,
+        moved etc.
+        """
+        base_dir = os.path.abspath(result.session_context.results_dir)
+        base_dir = os.path.join(base_dir, "")  # Ensure trailing directory indicator
+
+        test_results_dir = os.path.abspath(result.test_context.results_dir)
+        return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
     def format_report(self):
         template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
 
-        num_tests = len(self.results.results_list)
+        num_tests = len(self.results)
         num_passes = 0
         result_string = ""
         for result in self.results:
@@ -115,11 +145,9 @@ class HTMLReporter(TestReporter):
 
         args = {
             'num_tests': num_tests,
-            'num_passes': num_passes,
-            'num_failures': num_tests - num_passes,
-            # mocked for now, will change once
-            # we collect the running time
-            'run_time': '100s',
+            'num_passes': self.results.num_passed(),
+            'num_failures': self.results.num_failed(),
+            'run_time': self.results.run_time,
             'session': self.results.session_context.session_id,
             'tests': result_string
         }

@@ -26,17 +26,19 @@ class SessionContext(Logger):
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, session_id, results_dir, cluster, debug=False):
+    def __init__(self, session_id, results_dir, cluster, args):
         """
         :type session_id: str   Global session identifier
         :type results_dir: str  All test results go here
         :type cluster: ducktape.cluster.cluster.Cluster
-        :type debug: boolean    Signals that user would like more verbose output
+        :type args: Command-line arguments
         """
         self.session_id = session_id
         self.results_dir = os.path.abspath(results_dir)
         self.cluster = cluster
-        self.debug = debug
+        self.args = args
+        self.debug = args.debug
+        self.exit_first = args.exit_first
 
         self._logger_configured = False
         self.configure_logger()
@@ -58,10 +60,9 @@ class SessionContext(Logger):
 
         self.logger.setLevel(logging.DEBUG)
 
-        fh = logging.FileHandler(os.path.join(self.results_dir, "session_log"))
-        fh.setLevel(logging.INFO)
-
-        fh_debug = logging.FileHandler(os.path.join(self.results_dir, "session_log_debug"))
+        fh_info = logging.FileHandler(os.path.join(self.results_dir, "session_log.info"))
+        fh_debug = logging.FileHandler(os.path.join(self.results_dir, "session_log.debug"))
+        fh_info.setLevel(logging.INFO)
         fh_debug.setLevel(logging.DEBUG)
 
         # create console handler with a higher log level
@@ -70,12 +71,12 @@ class SessionContext(Logger):
 
         # create formatter and add it to the handlers
         formatter = logging.Formatter(ConsoleConfig.SESSION_LOG_FORMATTER)
-        fh.setFormatter(formatter)
+        fh_info.setFormatter(formatter)
         fh_debug.setFormatter(formatter)
         ch.setFormatter(formatter)
 
         # add the handlers to the logger
-        self.logger.addHandler(fh)
+        self.logger.addHandler(fh_info)
         self.logger.addHandler(fh_debug)
         self.logger.addHandler(ch)
 

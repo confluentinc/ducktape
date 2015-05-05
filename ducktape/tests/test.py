@@ -35,27 +35,32 @@ class Test(TemplateRenderer):
         self.test_context = test_context
         self.logger = test_context.logger
 
+    def who_am_i(self):
+        """Human-readable name for help with logging."""
+        return self.__module__.split(".")[-1] + "." + self.__class__.__name__
+
     def min_cluster_size(self):
-        """
-        Provides a helpful heuristic for determining if there are enough nodes in the cluster to run this test.
+        """Heuristic for guessing whether there are enough nodes in the cluster to run this test.
 
         Note this is not a reliable indicator of the true minimum cluster size, since new service instances may
         be added at any time. However, it does provide a lower bound on the minimum cluster size.
         """
         return self.test_context.services.num_nodes()
 
+    def setUp(self):
+        """Override this for custom setup logic."""
+        pass
+
     def tearDown(self):
-        """Default teardown method which stops and cleans services registered in the ServiceRegistry.
-        Note that there is not a default setUp method. This is because the framework makes no assumptions
-        about when and in what methods the various services are started.
-        """
-        if hasattr(self.test_context, 'services') and type(self.test_context.services) == ServiceRegistry:
-            self.test_context.services.stop_all()
-            self.copy_service_logs()
-            self.test_context.services.clean_all()
+        """Override this for custom teardown logic."""
+        pass
 
     def free_nodes(self):
-        self.test_context.services.free_all()
+        try:
+            self.test_context.services.free_all()
+        except BaseException as e:
+            if isinstance(e, KeyboardInterrupt):
+                raise e
 
     def copy_service_logs(self):
         """Copy logs from service nodes to the results directory."""
@@ -149,23 +154,27 @@ class TestContext(Logger):
             raise RuntimeError("test logger should only be configured once.")
 
         self.logger.setLevel(logging.DEBUG)
-
         mkdir_p(self.results_dir)
-        fh = logging.FileHandler(os.path.join(self.results_dir, "test_log"))
-        fh.setLevel(logging.DEBUG)
 
-        # create console handler with a higher log level
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG if self.session_context.debug else logging.INFO)
+        # Create info and debug level handlers to pipe to log files
+        info_fh = logging.FileHandler(os.path.join(self.results_dir, "test_log.info"))
+        debug_fh = logging.FileHandler(os.path.join(self.results_dir, "test_log.debug"))
 
-        # create formatter and add it to the handlers
+        info_fh.setLevel(logging.INFO)
+        debug_fh.setLevel(logging.DEBUG)
+
         formatter = logging.Formatter(ConsoleConfig.TEST_LOG_FORMATTER)
-        fh.setFormatter(formatter)
-        ch.setFormatter(formatter)
+        info_fh.setFormatter(formatter)
+        debug_fh.setFormatter(formatter)
 
-        # add the handlers to the logger
-        self.logger.addHandler(fh)
+        self.logger.addHandler(info_fh)
+        self.logger.addHandler(debug_fh)
+
+        # If debug flag is set, pipe verbose test logging to stdout
         if self.session_context.debug:
+            ch = logging.StreamHandler(sys.stdout)
+            ch.setLevel(logging.DEBUG)
+            ch.setFormatter(formatter)
             self.logger.addHandler(ch)
 
         self._logger_configured = True

@@ -145,7 +145,10 @@ class Service(TemplateRenderer):
 
     def force_clean_node(self, node):
         self.logger.info("%s: recklessly cleaning leftover files on node" % self.who_am_i(node))
-        node.account.ssh("rm -rf /mnt/*", allow_fail=True)
+        if node is None:
+            self.logger.warn("Called force clean on a non-existent node.")
+        else:
+            node.account.ssh("rm -rf /mnt/*", allow_fail=True)
 
     def clean_node(self, node):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
