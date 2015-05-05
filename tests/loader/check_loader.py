@@ -15,12 +15,13 @@
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.session import SessionContext
 
-from tests.test_utils.mock import MockArgs
+from tests.mock import MockArgs
 
 import os
 import os.path
 import tempfile
 import pytest
+
 
 def discover_dir():
     """Return the absolute path to the directory to use with discovery tests."""

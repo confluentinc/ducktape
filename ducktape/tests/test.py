@@ -52,33 +52,8 @@ class Test(TemplateRenderer):
         pass
 
     def tearDown(self):
-        """Default teardown method which stops and cleans services registered in the ServiceRegistry.
-        Note that there is not a default setUp method. This is because the framework makes no assumptions
-        about when and in what methods the various services are started.
-
-        Catch all exceptions so that we try to do the full clean and free process.
-        Propagate KeyboardInterrupt so the top level test runner can decide how to handle it.
-        """
-        if hasattr(self.test_context, 'services') and type(self.test_context.services) == ServiceRegistry:
-            exceptions = []
-            try:
-                self.test_context.services.stop_all()
-            except BaseException as e:
-                exceptions.append(e)
-
-            try:
-                self.copy_service_logs()
-            except BaseException as e:
-                exceptions.append(e)
-
-            try:
-                self.test_context.services.clean_all()
-            except BaseException as e:
-                exceptions.append(e)
-
-            keyboard_interrupts = [e for e in exceptions if isinstance(e, KeyboardInterrupt)]
-            if len(keyboard_interrupts) > 0:
-                raise keyboard_interrupts[0]
+        """Override this for custom teardown logic."""
+        pass
 
     def free_nodes(self):
         try:

@@ -15,7 +15,7 @@
 from ducktape.tests.test import Test, TestContext
 from ducktape.tests.session import SessionContext
 
-from tests.test_utils.mock import MockArgs
+from tests.mock import MockArgs
 
 import tempfile
 

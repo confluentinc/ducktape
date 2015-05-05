@@ -16,6 +16,7 @@
 from ducktape.tests.result import TestResult, TestResults
 from ducktape.tests.test import TestContext
 
+import logging
 import time
 import traceback
 
@@ -54,6 +55,9 @@ def create_test_case(test_class, session_context):
 class SerialTestRunner(TestRunner):
     """Runs tests serially."""
 
+    # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
+    stop_testing = False
+
     def run_all_tests(self):
 
         self.results.start_time = time.time()
@@ -64,50 +68,94 @@ class SerialTestRunner(TestRunner):
 
             # Run the test unit
             try:
+                self.log(logging.INFO, test_case, "setting up")
+                self.setup_single_test(test_case)
+
+                self.log(logging.INFO, test_case, "running")
                 result.start_time = time.time()
                 result.data = self.run_single_test(test_case)
+                self.log(logging.INFO, test_case, "PASS")
+
             except BaseException as e:
+                self.log(logging.INFO, test_case, "FAIL")
                 result.success = False
                 result.summary += e.message + "\n" + traceback.format_exc(limit=16)
 
-                if self.session_context.exit_first or isinstance(e, KeyboardInterrupt):
-                    # Don't run any more tests
-                    break
+                self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
+
             finally:
+                self.log(logging.INFO, test_case, "tearing down")
+                self.teardown_single_test(test_case)
                 result.stop_time = time.time()
                 self.results.append(result)
+
+            if self.stop_testing:
+                break
 
         self.results.stop_time = time.time()
         return self.results
 
-    def run_single_test(self, test):
-        """Setup, run, and tear down one testable unit."""
+    def setup_single_test(self, test):
+        """start services etc"""
 
-        self.logger.debug("Checking if there are enough nodes...")
+        self.log(logging.DEBUG, test, "Checking if there are enough nodes...")
         if test.min_cluster_size() > self.cluster.num_available_nodes():
             raise RuntimeError(
                 "There are not enough nodes available in the cluster to run this test. Needed: %d, Available: %d" %
                 (test.min_cluster_size(), self.cluster.num_available_nodes()))
 
+        test.setUp()
+
+    def run_single_test(self, test):
+        """Run the test!"""
+        return test.run()
+
+    def teardown_single_test(self, test):
+        """teardown method which stops services, gathers log data, removes persistent state, and releases cluster nodes.
+
+        Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
+        should stop if a keyboard interrupt is caught.
+        """
+        test_context = test.test_context
+        exceptions = []
+        if hasattr(test_context, 'services'):
+            services = test_context.services
+            try:
+                services.stop_all()
+            except BaseException as e:
+                exceptions.append(e)
+                self.log(logging.WARN, test, "Error stopping services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+
+            try:
+                test.copy_service_logs()
+            except BaseException as e:
+                exceptions.append(e)
+                self.log(logging.WARN, test, "Error copying service logs: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+
+            try:
+                services.clean_all()
+            except BaseException as e:
+                exceptions.append(e)
+                self.log(logging.WARN, test, "Error cleaning services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+
         try:
-            # start services etc
-            self.logger.info("%s: %s: setting up" % (self.who_am_i(), test.who_am_i()))
-            test.setUp()
-
-            # run the test!
-            self.logger.info("%s: %s: running" % (self.who_am_i(), test.who_am_i()))
-            data = test.run()
-            self.logger.info("%s: %s: PASS" % (self.who_am_i(), test.who_am_i()))
-        except BaseException as e:
-            self.logger.info("%s: %s: FAIL" % (self.who_am_i(), test.who_am_i()))
-            raise
-        finally:
-            # clean up no matter what the exception is
-            self.logger.info("%s: %s: tearing down" % (self.who_am_i(), test.who_am_i()))
-            test.tearDown()
             test.free_nodes()
+        except BaseException as e:
+            exceptions.append(e)
+            self.log(logging.WARN, test, "Error freeing nodes: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
-        return data
+        if len([e for e in exceptions if isinstance(e, KeyboardInterrupt)]) > 0:
+            # Signal no more tests if we caught a keyboard interrupt
+            self.stop_testing = True
+
+    def log(self, log_level, test, msg):
+        """Log to the service log and the test log of the given test."""
+        msg = "%s: %s: %s" % (self.who_am_i(), test.who_am_i(), msg)
+        self.logger.log(log_level, msg)
+        test.logger.log(log_level, msg)
+
+
+
 
 
 
