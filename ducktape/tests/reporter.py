@@ -111,8 +111,6 @@ class HTMLReporter(TestReporter):
         else:
             test_result = 'fail'
 
-        print self.test_results_dir(result)
-
         result_json = {
             "test_name": result.test_name,
             "test_result": test_result,
