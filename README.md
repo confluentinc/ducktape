@@ -39,7 +39,7 @@ Test Output
 -----------
 Test results go in `results/<session_id>`. `<session_id>` looks like `<date>--<test_number>`. For example, `results/2015-03-28--002`
 
-ducktape does its best to group test results and log files in a sensible way. The output directory structure is 
+ducktape does its best to group test results and log files in a sensible way. The output directory is 
 structured like so:
 
 ```
@@ -62,49 +62,53 @@ structured like so:
 To see an example of the output structure, go to `testing.confluent.io/confluent_platform/results/latest` and click on one of the details links.
 
 Write ducktape Tests
------------------
+--------------------
 
-A test is just a series of service operations. The simplest tests
-just create a number of services with the desired settings, call `run()` on each
-and report the results.
+Subclass ducktape.tests.test.Test and implement a `run` method. Typically, a test will 
+start a few services and collect some data (in the case of a performance test).
 
-Each service has a few required methods that you can call:
-
-* start - start the service (possibly waiting to ensure it started successfully)
-* wait - wait for the service to complete; only meaningful for services with a
-  fixed amount of work or clear exit condition
-* stop - stop the service (possibly waiting to ensure it stopped
-  successfully). May also perform additional cleanup, such as deleting log
-  files.
-* run - call `start`, `wait`, and `stop` in sequence.
-
-There is also a static helper method in `Test`:
-
-* run_parallel - Call `start`, `wait`, and `stop` for each of the given
-  services, allowing them to run in parallel and waiting for all of them to
-  complete successfully
+If `run` finishes with no exceptions, the test passes, otherwise it is recorded as a failure.
 
 The `test` base class sets up logger you can use which is tagged by class name
 so adding some logging for debugging or to track the progress of tests is easy:
 
     self.logger.debug("End-to-end latency %d: %s", idx, line.strip())
+    
+These types of tests can be difficult to debug, so err toward more rather than less logging.    
 
-Since these types of tests are difficult to debug without sufficient logging,
-you should err on the side of too much logging and make your tests report a
-summary when they complete to make it easy to find the results of the test.
+Here is an example of a test that just tries to start a a Zookeeper cluster with 2 nodes, and a 
+Kafka cluster with 3 nodes.
 
-Adding New Services
+    class StartServicesTest(Test):
+        """Make sure we can start Kafka and Zookeeper services."""
+        def __init__(self, test_context):
+            super(StartServicesTest, self).__init__(test_context=test_context)
+            self.zk = ZookeeperService(test_context, num_nodes=2)
+            self.kafka = KafkaService(test_context, num_nodes=3, self.zk)
+
+        def run(self):
+            self.zk.start()
+            self.kafka.start()
+
+Add New Services
 -------------------
 
-"Services" refers generally to any process, possibly long-running, which you
-want to run on the test cluster. These can be services you would actually deploy
+"Service" refers generally to any process, possibly long-running, which you
+want to run on the test cluster. 
+
+These can be services you would actually deploy
 (e.g., Kafka brokers, ZK servers, REST proxy) or processes used during testing
 (e.g. producer/consumer performance processes). You should also make each
 service class support starting a variable number of instances of the service so
 test code is as concise as possible.
 
-Each service is implemented as a class and should at least implement `start` and
-`stop` methods. These may block to ensure services start or stop properly, but
+Each service is implemented as a class and should at least implement the following:
+
+    start_node(self, node) - start the service (possibly waiting to ensure it started successfully)
+    stop_node(self, node) - kill processes on the given node
+    clean_node(self, node) - remove persistent state leftover from testing, e.g. log files
+
+These may block to ensure services start or stop properly, but
 must *not* block for the full lifetime of the service. If you need to run a
 blocking process (e.g. run a process via SSH and iterate over its output), this
 should be done in a background thread. For services that exit after completing a
@@ -126,18 +130,18 @@ operations try to hide output (but provide it to you if you need to extract
 some subset of it) and *checks status codes for errors* so any operations that
 fail cause an obvious failure of the entire test.
 
-There is no standard interface for extracting results. It is assumed the user of
-your service will know how to extract the information wherever you store it. For
-example, the output of the `*PerformanceService` classes is stored in a field
-called `results` with one entry per worker, where each entry is a dict
-containing a set of fields based on the output of the final line of those
-programs. They also maintains all the intermediate stats in the same format in a
-field called `stats`. Users of these classes need to know the names of the
-fields to get the information they want.
+Contribute
+----------
 
+- Source Code: https://github.com/confluentinc/ducktape
+- Issue Tracker: https://github.com/confluentinc/ducktape/issues
 
-Install
+License
 -------
+The project is licensed under the Apache 2 license.
+
+Developer Install
+-----------------
 If you are are a ducktape developer, consider using the develop command instead of install. This allows you to make code changes without constantly reinstalling ducktape (see http://stackoverflow.com/questions/19048732/python-setup-py-develop-vs-install for more information)
 
     cd ducktape
@@ -151,8 +155,7 @@ To uninstall:
 
 Unit Tests
 ----------
-
-It's a good idea to write and run unit tests on the ducktape framework itself. You can run the tests via the setup.py script:
+You can run the tests via the setup.py script:
 
     python setup.py test
 
