@@ -59,7 +59,7 @@ structured like so:
     ...
 ```
 
-To see an example of the output structure, go to `testing.confluent.io/confluent_platform/results/latest` and click on one of the details links.
+To see an example of the output structure, go to http://testing.confluent.io/confluent_platform/latest and click on one of the details links.
 
 Write ducktape Tests
 --------------------
