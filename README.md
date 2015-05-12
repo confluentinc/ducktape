@@ -65,18 +65,18 @@ Write ducktape Tests
 --------------------
 
 Subclass ducktape.tests.test.Test and implement a `run` method. Typically, a test will 
-start a few services and collect some data (in the case of a performance test).
+start a few services, collect and/or validate some data, and then finish.
 
-If `run` finishes with no exceptions, the test passes, otherwise it is recorded as a failure.
+If `run` finishes with no exceptions, the test is recorded as successful, otherwise it is recorded as a failure.
 
-The `test` base class sets up logger you can use which is tagged by class name
+The `test` base class sets up logger you can use which is tagged by class name,
 so adding some logging for debugging or to track the progress of tests is easy:
 
     self.logger.debug("End-to-end latency %d: %s", idx, line.strip())
     
 These types of tests can be difficult to debug, so err toward more rather than less logging.    
 
-Here is an example of a test that just tries to start a a Zookeeper cluster with 2 nodes, and a 
+Here is an example of a test that just starts a Zookeeper cluster with 2 nodes, and a 
 Kafka cluster with 3 nodes.
 
     class StartServicesTest(Test):
@@ -130,16 +130,6 @@ operations try to hide output (but provide it to you if you need to extract
 some subset of it) and *checks status codes for errors* so any operations that
 fail cause an obvious failure of the entire test.
 
-Contribute
-----------
-
-- Source Code: https://github.com/confluentinc/ducktape
-- Issue Tracker: https://github.com/confluentinc/ducktape/issues
-
-License
--------
-The project is licensed under the Apache 2 license.
-
 Developer Install
 -----------------
 If you are are a ducktape developer, consider using the develop command instead of install. This allows you to make code changes without constantly reinstalling ducktape (see http://stackoverflow.com/questions/19048732/python-setup-py-develop-vs-install for more information)
@@ -163,3 +153,13 @@ Alternatively, if you've installed pytest (`sudo pip install pytest`) you can ru
 it directly on the `tests` directory`:
 
     py.test tests
+    
+Contribute
+----------
+
+- Source Code: https://github.com/confluentinc/ducktape
+- Issue Tracker: https://github.com/confluentinc/ducktape/issues
+
+License
+-------
+The project is licensed under the Apache 2 license.
