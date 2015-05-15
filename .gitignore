@@ -11,4 +11,4 @@ dist/
 
 # ducktape
 .ducktape
-*-test-results
+*results
