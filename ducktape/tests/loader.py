@@ -27,12 +27,13 @@ class LoaderException(Exception):
 class TestLoader(object):
     """Class used to discover and load tests."""
     DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
+    DEFAULT_TEST_METHOD_PATTERN = "(^test.*)|(.*test$)"
 
     def __init__(self, session_context):
         self.logger = session_context.logger
 
     def parse_discovery_symbol(self, discovery_symbol):
-        """Parse command-line argument into a tuple (directory, module.py, class_name).
+        """Parse command-line argument into a tuple (directory, module.py, class_name, method_name).
 
         :raise LoaderException if it can't be parsed
         """
@@ -47,18 +48,30 @@ class TestLoader(object):
                 module, cls_name = parts
             else:
                 raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
+
+            # If the part after :: contains a dot, use it to split into class + method
+            parts = cls_name.split('.')
+            if len(parts) == 1:
+                method_name = ""
+            elif len(parts) == 2:
+                cls_name, method_name = parts
+            else:
+                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
         else:
-            module, cls_name = base, ""
+            module, cls_name, method_name = base, "", ""
 
-        return tuple([directory, module, cls_name])
+        return (directory, module, cls_name, method_name)
 
 
-    def discover(self, test_discovery_symbols, pattern=DEFAULT_TEST_FILE_PATTERN):
-        """Recurse through packages in file hierarchy starting at base_dir, and return a list of all found test classes.
+    def discover(self, test_discovery_symbols, file_pattern=DEFAULT_TEST_FILE_PATTERN,
+                 method_pattern=DEFAULT_TEST_METHOD_PATTERN):
+        """Recurse through packages in file hierarchy starting at base_dir, and return a list of all found test methods
+        in test classes.
 
         - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
           (i.e. it has no subclasses).
+        - Discover test methods within each test class. A test method is a method containing 'test' in its name
 
         :type test_discovery_symbols: list
         :type pattern: str
@@ -67,7 +80,7 @@ class TestLoader(object):
         test_classes = []
         assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
         for symbol in test_discovery_symbols:
-            directory, module_name, cls_name = self.parse_discovery_symbol(symbol)
+            directory, module_name, cls_name, method_name = self.parse_discovery_symbol(symbol)
 
             # Check validity
             path = os.path.join(directory, module_name)
@@ -77,7 +90,7 @@ class TestLoader(object):
             if os.path.isfile(path):
                 test_files = [os.path.abspath(path)]
             else:
-                test_files = self.find_test_files(path, pattern)
+                test_files = self.find_test_files(path, file_pattern)
             test_modules = self.import_modules(test_files)
 
             # pull test_classes out of test_modules
@@ -91,17 +104,25 @@ class TestLoader(object):
             if len(cls_name) > 0:
                 # We only want to run a specific test class
                 tests_from_symbol = [test for test in tests_from_symbol if test.__name__ == cls_name]
-                if len(tests_from_symbol) == 0:
-                    raise LoaderException("Could not find any tests corresponding to the symbol " + symbol)
-
-                if len(tests_from_symbol) > 1:
-                    raise LoaderException("Somehow there are multiple tests corresponding to the symbol " + symbol)
 
             self.logger.debug("Discovered these test classes: " + str(tests_from_symbol))
             test_classes.extend(tests_from_symbol)
 
-        self.logger.debug("Discovered these tests: " + str(test_classes))
-        return test_classes
+        # pull test_methods out of test_classes
+        test_methods = []
+        for test_class in test_classes:
+            for field_name in dir(test_class):
+                field = getattr(test_class, field_name)
+                if re.match(method_pattern, field_name) and callable(field):
+                    test_methods.append(field)
+        if method_name:
+            test_methods = [method for method in test_methods if method.__name__ == method_name]
+
+        if not test_methods:
+            raise LoaderException("Could not find any tests corresponding to the symbol " + symbol)
+
+        self.logger.debug("Discovered these tests: " + str(test_methods))
+        return test_methods
 
     def find_test_files(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):
         """Return a list of files underneath base_dir that look like test files.

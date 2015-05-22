@@ -35,10 +35,6 @@ class Test(TemplateRenderer):
         self.test_context = test_context
         self.logger = test_context.logger
 
-    def who_am_i(self):
-        """Human-readable name for help with logging."""
-        return self.__module__.split(".")[-1] + "." + self.__class__.__name__
-
     def min_cluster_size(self):
         """Heuristic for guessing whether there are enough nodes in the cluster to run this test.
 
@@ -131,6 +127,8 @@ class TestContext(Logger):
         self.results_dir = self.session_context.results_dir
         if self.cls is not None:
             self.results_dir = os.path.join(self.results_dir, self.cls.__name__)
+        if self.function is not None:
+            self.results_dir = os.path.join(self.results_dir, self.function.__name__)
         mkdir_p(self.results_dir)
 
         self._logger_configured = False
@@ -140,6 +138,18 @@ class TestContext(Logger):
     def test_id(self):
         name_components = [self.session_context.session_id,
                            self.module,
+                           self.cls.__name__ if self.cls is not None else None,
+                           self.function.__name__ if self.function is not None else None]
+
+        return ".".join(filter(lambda x: x is not None, name_components))
+
+    @property
+    def test_name(self):
+        """
+        The fully-qualified name of the test. This is similar to test_id, but does not include the session ID. It
+        includes the module, class, and method name.
+        """
+        name_components = [self.module,
                            self.cls.__name__ if self.cls is not None else None,
                            self.function.__name__ if self.function is not None else None]
 
