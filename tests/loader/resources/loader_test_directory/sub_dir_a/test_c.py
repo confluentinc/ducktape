@@ -17,9 +17,10 @@ from ducktape.tests.test import Test
 
 class TestC(Test):
     """Loader should discover this."""
-    pass
-
+    def test_c(self):
+        pass
 
 class TestInvisible(object):
     """Loader should not discover this."""
-    pass
+    def test_invisible(self):
+        pass

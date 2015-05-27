@@ -26,10 +26,11 @@ Use
 ---
 ducktape discovers and runs tests in every path provided. 
 
-    ducktape <relative_path_to_testdirectory>        # e.g. ducktape dir/tests
-    ducktape <relative_path_to_file>                 # e.g. ducktape dir/tests/my_test.py
-    ducktape <path_to_test>[::SomeTestClass]         # e.g. ducktape dir/tests/my_test.py::TestA
-    ducktape [<test_path1> [<test_path2> ...]]       # e.g. ducktape dir/tests/my_test.py dir/tests/my_other_test.py::OtherTest
+    ducktape <relative_path_to_testdirectory>              # e.g. ducktape dir/tests
+    ducktape <relative_path_to_file>                       # e.g. ducktape dir/tests/my_test.py
+    ducktape <path_to_test>[::SomeTestClass]               # e.g. ducktape dir/tests/my_test.py::TestA
+    ducktape <path_to_test>[::SomeTestClass[.test_method]  # e.g. ducktape dir/tests/my_test.py::TestA.test_a
+    ducktape [<test_path1> [<test_path2> ...]]             # e.g. ducktape dir/tests/my_test.py dir/tests/my_other_test.py::OtherTest
 
 Use the `--collect-only` flag to discover tests without running any:
 
@@ -47,15 +48,16 @@ structured like so:
     session_log.info
     session_log.debug
     
-    <test_name>
-        test_log.info
-        test_log.debug
+    <test_class_name>
+        <test_method_name>
+            test_log.info
+            test_log.debug
         
-        <service_1>
-            <node_1>
-                some_logs
-            <node_2>
-                some_logs
+            <service_1>
+                <node_1>
+                    some_logs
+                <node_2>
+                    some_logs
     ...
 ```
 
@@ -64,17 +66,22 @@ To see an example of the output structure, go to http://testing.confluent.io/con
 Write ducktape Tests
 --------------------
 
-Subclass ducktape.tests.test.Test and implement a `run` method. Typically, a test will 
+Subclass ducktape.tests.test.Test and implement as many `test` methods as you
+want. The name of each test method must start or end with `test`,
+e.g. `test_functionality` or `example_test`. Typically, a test will 
 start a few services, collect and/or validate some data, and then finish.
 
-If `run` finishes with no exceptions, the test is recorded as successful, otherwise it is recorded as a failure.
+If the test method finishes with no exceptions, the test is recorded as successful, otherwise it is recorded as a failure.
 
 The `test` base class sets up logger you can use which is tagged by class name,
 so adding some logging for debugging or to track the progress of tests is easy:
 
     self.logger.debug("End-to-end latency %d: %s", idx, line.strip())
     
-These types of tests can be difficult to debug, so err toward more rather than less logging.    
+These types of tests can be difficult to debug, so err toward more rather than
+less logging. However, keep in mind that logs are collected a multiple log
+levels, and only higher log levels are displayed to the console while the test
+runs. Make sure you log at the appropriate level.
 
 Here is an example of a test that just starts a Zookeeper cluster with 2 nodes, and a 
 Kafka cluster with 3 nodes.
@@ -86,7 +93,7 @@ Kafka cluster with 3 nodes.
             self.zk = ZookeeperService(test_context, num_nodes=2)
             self.kafka = KafkaService(test_context, num_nodes=3, self.zk)
 
-        def run(self):
+        def test_services_start(self):
             self.zk.start()
             self.kafka.start()
 
