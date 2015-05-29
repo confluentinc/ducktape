@@ -92,8 +92,8 @@ class SerialTestRunner(TestRunner):
             finally:
 
                 if not self.session_context.no_teardown:
-                    self.log(logging.INFO, test, "tearing down")
-                    self.teardown_single_test(test)
+                    self.log(logging.INFO, "tearing down")
+                    self.teardown_single_test()
 
                 result.stop_time = time.time()
                 self.results.append(result)
