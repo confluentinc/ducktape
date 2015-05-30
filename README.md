@@ -36,6 +36,21 @@ Use the `--collect-only` flag to discover tests without running any:
 
     ducktape <path_to_testfile_or_directory> --collect-only
 
+Configuration
+-------------
+
+To see a complete listing of options run:
+
+    ducktape --help
+
+You can configure options in three locations: on the command line (highest priority), in a user configuration file in
+`~/.ducktape/config`, and in a project-specific configuration `<project_dir>/.ducktape/config` (lowest priority).
+Configuration files use the same syntax as command line arguments and may split arguments across multiple lines, e.g.:
+
+    --debug
+    --exit-first
+    --cluster=ducktape.cluster.json.JsonCluster
+
 Test Output
 -----------
 Test results go in `results/<session_id>`. `<session_id>` looks like `<date>--<test_number>`. For example, `results/2015-03-28--002`
