@@ -30,7 +30,7 @@ def parse_args():
     """Parse in command-line and config file options.
 
     Command line arguments have the highest priority, then user configs specified in ~/.ducktape/config, and finally
-    project configs specified in <ducktape_metadata_dir>/config.
+    project configs specified in <ducktape_dir>/config.
 
     :rtype: argparse.Namespace
     """
@@ -46,7 +46,7 @@ def parse_args():
     parser.add_argument("--exit-first", action="store_true", help="exit after first failure")
 
     project_configs = []
-    project_config_file = os.path.join(ConsoleConfig.METADATA_DIR, 'config')
+    project_config_file = ConsoleConfig.PROJECT_CONFIG_FILE
     if os.path.exists(project_config_file):
         project_configs = list(itertools.chain(*[line.split() for line in open(project_config_file).readlines()]))
 
