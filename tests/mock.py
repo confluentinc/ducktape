@@ -21,3 +21,4 @@ class MockArgs(object):
         self.collect_only = False
         self.debug = False
         self.exit_first = False
+        self.no_teardown = False

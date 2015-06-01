@@ -36,7 +36,10 @@ def parse_args():
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout")
     parser.add_argument("--exit-first", action="store_true", help="exit after first failure")
-    parser.add_argument("--no-teardown", action="store_true", help="do not stop and clean services when test finishes")
+    parser.add_argument("--no-teardown", action="store_true",
+                        help="don't kill running processes or remove log files when a test has finished running. " +
+                             "This is primarily useful for test developers who want to interact with running " +
+                             "services after a test has run. ")
 
     args = parser.parse_args()
     return args

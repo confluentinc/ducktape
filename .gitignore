@@ -10,5 +10,5 @@ dist/
 .DS_Store
 
 # ducktape
-.ducktape
-*results
+.ducktape/
+*results/
