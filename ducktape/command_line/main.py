@@ -39,8 +39,10 @@ def parse_args():
                         help='one or more space-delimited strings indicating where to search for tests')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout")
-    parser.add_argument("--cluster", action="store", default="ducktape.cluster.vagrant.VagrantCluster",
-                        help="Cluster class to use to allocate nodes for tests")
+    parser.add_argument("--config-file", action="store", default=ConsoleConfig.PROJECT_CONFIG_FILE,
+                        help="path to project-specific configuration file")
+    parser.add_argument("--cluster", action="store", default=ConsoleConfig.CLUSTER_TYPE,
+                        help="cluster class to use to allocate nodes for tests")
     parser.add_argument("--exit-first", action="store_true", help="exit after first failure")
 
     project_configs = []
@@ -49,7 +51,7 @@ def parse_args():
         project_configs = list(itertools.chain(*[line.split() for line in open(project_config_file).readlines()]))
 
     user_configs = []
-    user_config_file = os.path.expanduser('~/.ducktape/config')
+    user_config_file = os.path.expanduser(ConsoleConfig.USER_CONFIG_FILE)
     if os.path.exists(user_config_file):
         user_configs = list(itertools.chain(*[line.split() for line in open(user_config_file).readlines()]))
 
