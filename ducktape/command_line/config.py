@@ -26,7 +26,7 @@ class ConsoleConfig(object):
     PROJECT_CONFIG_FILE = os.path.join(DUCKTAPE_DIR, "config")
 
     # Default path to the user-specific config file
-    USER_CONFIG_FILE = '~/.ducktape/config'
+    USER_CONFIG_FILE = os.path.join('~', DUCKTAPE_DIR, 'config')
 
     # Default cluster implementation
     CLUSTER_TYPE = "ducktape.cluster.vagrant.VagrantCluster"
