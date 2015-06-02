@@ -16,8 +16,20 @@ import os
 
 
 class ConsoleConfig(object):
+    # Directory for project-specific ducktape configs and runtime data
+    DUCKTAPE_DIR = ".ducktape"
+
     # Store various bookkeeping data here
-    METADATA_DIR = ".ducktape"
+    METADATA_DIR = os.path.join(DUCKTAPE_DIR, "metadata")
+
+    # Default path, relative to current project directory, to the project's ducktape config file
+    PROJECT_CONFIG_FILE = os.path.join(DUCKTAPE_DIR, "config")
+
+    # Default path to the user-specific config file
+    USER_CONFIG_FILE = os.path.join('~', DUCKTAPE_DIR, 'config')
+
+    # Default cluster implementation
+    CLUSTER_TYPE = "ducktape.cluster.vagrant.VagrantCluster"
 
     # Track the last-used session_id here
     SESSION_ID_FILE = os.path.join(METADATA_DIR, "session_id")
