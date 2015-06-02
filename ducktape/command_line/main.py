@@ -113,6 +113,8 @@ def main():
 
     setup_results_directory(results_dir, session_id)
     session_context = SessionContext(session_id, results_dir, cluster=None, args=args)
+    for k,v in vars(args).iteritems():
+        session_context.logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run
     extend_import_paths(args.test_path)
