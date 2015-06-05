@@ -67,12 +67,16 @@ class SerialTestRunner(TestRunner):
     def run_all_tests(self):
 
         self.results.start_time = time.time()
-        for test in self.tests:
+        self.log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
+        self.log(logging.INFO, "running %d tests..." % len(self.tests))
+
+        for test_num, test in enumerate(self.tests, 1):
             # Create single testable unit and corresponding test result object
             self.current_test_context, self.current_test = create_test_case(test, self.session_context)
             result = TestResult(self.current_test_context, self.current_test_context.test_name)
 
             # Run the test unit
+            self.log(logging.INFO, "running test %d of %d" % (test_num, len(self.tests)))
             try:
                 self.log(logging.INFO, "setting up")
                 self.setup_single_test()
@@ -90,8 +94,11 @@ class SerialTestRunner(TestRunner):
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
             finally:
-                self.log(logging.INFO, "tearing down")
-                self.teardown_single_test()
+
+                if not self.session_context.no_teardown:
+                    self.log(logging.INFO, "tearing down")
+                    self.teardown_single_test()
+
                 result.stop_time = time.time()
                 self.results.append(result)
                 self.current_test_context, self.current_test = None, None
@@ -156,9 +163,13 @@ class SerialTestRunner(TestRunner):
 
     def log(self, log_level, msg):
         """Log to the service log and the test log of the given test."""
-        msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, msg)
-        self.logger.log(log_level, msg)
-        self.current_test.logger.log(log_level, msg)
+        if self.current_test is None:
+            msg = "%s: %s" % (self.who_am_i(), msg)
+            self.logger.log(log_level, msg)
+        else:
+            msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, msg)
+            self.logger.log(log_level, msg)
+            self.current_test.logger.log(log_level, msg)
 
 
 

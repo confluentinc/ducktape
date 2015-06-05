@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
 
-class MockArgs(object):
-    """A mock command-line argument object"""
 
-    def __init__(self):
-        self.test_path = []
-        self.collect_only = False
-        self.debug = False
-        self.exit_first = False
-        self.no_teardown = False
+def wait_until(condition, timeout_sec, backoff_sec=.1):
+    """Block until condition evaluates as true or timeout expires, whichever comes first.
+
+    return True if condition becomes true within the timeout window, otherwise False
+    """
+    start = time.time()
+    stop = start + timeout_sec
+    while time.time() < stop:
+        if condition():
+            return True
+        else:
+            time.sleep(backoff_sec)
+
+    return False

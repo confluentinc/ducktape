@@ -95,7 +95,12 @@ class Test(TemplateRenderer):
                              'message': e.message})
 
     def mark_for_collect(self, service, log_name=None):
-        self.test_context.log_collect[(log_name, service)] = True
+        if log_name is None:
+            # Mark every log for collection
+            for log_name in service.logs:
+                self.test_context.log_collect[(log_name, service)] = True
+        else:
+            self.test_context.log_collect[(log_name, service)] = True
 
     def mark_no_collect(self, service, log_name=None):
         self.test_context.log_collect[(log_name, service)] = False

@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, subprocess, tempfile, time
 from ducktape.utils.http_utils import HttpMixin
+from ducktape.utils.util import wait_until
+
+import os
+import signal
+import subprocess
+import tempfile
 
 
 class RemoteAccount(HttpMixin):
@@ -35,21 +40,21 @@ class RemoteAccount(HttpMixin):
         return self.hostname == "localhost" and self.user is None and self.ssh_args is None
 
     def wait_for_http_service(self, port, headers, timeout=20, path='/'):
+        """Wait until this service node is available/awake."""
         url = "http://%s:%s%s" % (self.externally_routable_ip, str(port), path)
 
-        stop = time.time() + timeout
-        awake = False
-        while time.time() < stop:
-            try:
-                self.http_request(url, "GET", "", headers)
-                awake = True
-                break
-            except:
-                time.sleep(.25)
-                pass
+        awake = wait_until(lambda: self._can_ping_url(url, headers), timeout_sec=timeout, backoff_sec=.25)
         if not awake:
             raise Exception("Timed out trying to contact service on %s. " % url +
                             "Either the service failed to start, or there is a problem with the url.")
+
+    def _can_ping_url(self, url, headers):
+        """See if we can successfully issue a GET request to the given url."""
+        try:
+            self.http_request(url, "GET", "", headers)
+            return True
+        except:
+            return False
 
     def ssh_command(self, cmd):
         r = "ssh "
@@ -64,28 +69,42 @@ class RemoteAccount(HttpMixin):
     def ssh(self, cmd, allow_fail=False):
         return self._ssh_quiet(self.ssh_command(cmd), allow_fail)
 
-    def ssh_capture(self, cmd, allow_fail=False):
+    def ssh_capture(self, cmd, allow_fail=False, callback=None):
         '''Runs the command via SSH and captures the output, yielding lines of the output.'''
         ssh_cmd = self.ssh_command(cmd)
         proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         for line in iter(proc.stdout.readline, ''):
-            yield line
+            if callback is None:
+                yield line
+            else:
+                yield callback(line)
         proc.communicate()
         if proc.returncode != 0 and not allow_fail:
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
 
+    def alive(self, pid):
+        """Return True if and only if process with given pid is alive."""
+        try:
+            self.ssh("kill -0 %s" % str(pid), allow_fail=False)
+            return True
+        except:
+            return False
+
+    def signal(self, pid, sig, allow_fail=False):
+        cmd = "kill -%s %s" % (str(sig), str(pid))
+        self.ssh(cmd, allow_fail=allow_fail)
+
     def kill_process(self, process_grep_str, clean_shutdown=True, allow_fail=False):
         cmd = """ps ax | grep -i """ + process_grep_str + """ | grep java | grep -v grep | awk '{print $1}'"""
-        pids = list(self.ssh_capture(cmd, allow_fail=True))
+        pids = [pid for pid in self.ssh_capture(cmd, allow_fail=True)]
 
         if clean_shutdown:
-            kill = "kill "
+            sig = signal.SIGTERM
         else:
-            kill = "kill -9 "
+            sig = signal.SIGKILL
 
         for pid in pids:
-            cmd = kill + pid
-            self.ssh(cmd, allow_fail)
+            self.signal(pid, sig, allow_fail=allow_fail)
 
     def scp_from_command(self, src, dest, recursive=False):
         if self.user:
@@ -156,8 +175,10 @@ class RemoteAccount(HttpMixin):
         os.remove(local_name)
 
     def _ssh_quiet(self, cmd, allow_fail=False):
-        """Runs the command on the remote host using SSH. If it succeeds, there is no
-        output; if it fails the output is printed and the CalledProcessError is re-raised."""
+        """Runs the command on the remote host using SSH and blocks until the remote command finishes.
+
+        If it succeeds, there is no output; if it fails the output is printed and the CalledProcessError is re-raised.
+        """
         try:
             self.logger.debug("Trying to run remote command: " + cmd)
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)

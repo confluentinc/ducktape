@@ -39,6 +39,7 @@ class SessionContext(Logger):
         self.args = args
         self.debug = args.debug
         self.exit_first = args.exit_first
+        self.no_teardown = args.no_teardown
 
         self._logger_configured = False
         self.configure_logger()

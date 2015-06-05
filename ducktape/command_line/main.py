@@ -44,6 +44,10 @@ def parse_args():
     parser.add_argument("--cluster", action="store", default=ConsoleConfig.CLUSTER_TYPE,
                         help="cluster class to use to allocate nodes for tests")
     parser.add_argument("--exit-first", action="store_true", help="exit after first failure")
+    parser.add_argument("--no-teardown", action="store_true",
+                        help="don't kill running processes or remove log files when a test has finished running. " +
+                             "This is primarily useful for test developers who want to interact with running " +
+                             "services after a test has run. ")
 
     project_configs = []
     project_config_file = ConsoleConfig.PROJECT_CONFIG_FILE
@@ -120,13 +124,15 @@ def main():
     extend_import_paths(args.test_path)
     loader = TestLoader(session_context)
     try:
-        test_classes = loader.discover(args.test_path)
+        tests = loader.discover(args.test_path)
     except LoaderException as e:
         print "Failed while trying to discover tests: {}".format(e)
         sys.exit(1)
 
     if args.collect_only:
-        print test_classes
+        print "Collected %d tests:" % len(tests)
+        for test in tests:
+            print "    " + str(test)
         sys.exit(0)
 
     # Initializing the cluster is slow, so do so only if
@@ -141,7 +147,7 @@ def main():
         sys.exit(1)
 
     # Run the tests
-    runner = SerialTestRunner(session_context, test_classes)
+    runner = SerialTestRunner(session_context, tests)
     test_results = runner.run_all_tests()
 
     # Report results
