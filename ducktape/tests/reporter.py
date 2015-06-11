@@ -18,6 +18,9 @@ import shutil
 import pkg_resources
 
 
+SEPARATOR_LENGTH = 100
+
+
 def pass_fail(success):
     """Convenient helper. Converts boolean to PASS/FAIL."""
     return "PASS" if success else "FAIL"
@@ -46,11 +49,11 @@ class SingleTestReporter(object):
     def header_string(self):
         """Header lines of the report"""
         header_lines = [
-            "=========================================================================================",
+            "=" * SEPARATOR_LENGTH,
             "test_id:    %s" % self.result.test_context.test_id,
             "run time:   %s" % format_time(self.result.run_time),
             "status:     %s" % pass_fail(self.result.success),
-            "========================================================================================="
+            "=" * SEPARATOR_LENGTH
         ]
 
         return "\n".join(header_lines)
@@ -58,20 +61,14 @@ class SingleTestReporter(object):
     def result_string(self):
         """Stringify a single result."""
         result = self.result
-        result_lines = [
-            pass_fail(result.success) + ":     " + result.test_name,
-            "run time: %s" % format_time(result.run_time)
-            ]
-
-        if not result.success:
-            # Add summary if the test failed
-            result_lines.append("\n")
-            result_lines.append("    " + result.summary)
+        result_lines = []
 
         if result.data is not None:
             result_lines.append(json.dumps(result.data))
 
-        result_lines.append("-----------------------------------------------------------------------------------------")
+        if len(result_lines) > 0:
+            result_lines.append("-" * SEPARATOR_LENGTH)
+
         return "\n".join(result_lines)
 
     def report_string(self):
@@ -117,13 +114,13 @@ class SimpleSummaryReporter(SummaryReporter):
     def header_string(self):
         """Header lines of the report"""
         header_lines = [
-            "=========================================================================================",
+            "=" * SEPARATOR_LENGTH,
             "session_id: %s" % self.results.session_context.session_id,
             "run time:   %s" % format_time(self.results.run_time),
             "tests run:  %d" % len(self.results),
             "passed:     %d" % self.results.num_passed(),
             "failed:     %d" % self.results.num_failed(),
-            "========================================================================================="
+            "=" * SEPARATOR_LENGTH
         ]
 
         return "\n".join(header_lines)
@@ -144,7 +141,7 @@ class SimpleSummaryReporter(SummaryReporter):
         if result.data is not None:
             result_lines.append(json.dumps(result.data))
 
-        result_lines.append("-----------------------------------------------------------------------------------------")
+        result_lines.append("-" * SEPARATOR_LENGTH)
         return "\n".join(result_lines)
 
     def report_string(self):
