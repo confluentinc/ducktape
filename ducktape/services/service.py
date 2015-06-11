@@ -16,6 +16,7 @@
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.template import TemplateRenderer
 
+
 class Service(TemplateRenderer):
     """Service classes know how to deploy a service onto a set of nodes and then clean up after themselves.
 
@@ -56,6 +57,7 @@ class Service(TemplateRenderer):
         self.logger = context.logger
         self.context = context
         self.allocated = False
+        self.nodes = []
 
         # Every time a service instance is created, it registers itself with its
         # context object. This makes it possible for external mechanisms to clean up

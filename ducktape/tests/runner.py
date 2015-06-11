@@ -15,6 +15,8 @@
 
 from ducktape.tests.result import TestResult, TestResults
 from ducktape.tests.test import TestContext
+from ducktape.tests.reporter import SingleTestFileReporter
+from ducktape.tests.reporter import SingleTestStdoutReporter
 
 import logging
 import time
@@ -101,6 +103,12 @@ class SerialTestRunner(TestRunner):
 
                 result.stop_time = time.time()
                 self.results.append(result)
+
+                test_reporter = SingleTestFileReporter(result)
+                test_reporter.report()
+                test_reporter = SingleTestStdoutReporter(result)
+                test_reporter.report()
+
                 self.current_test_context, self.current_test = None, None
 
             if self.stop_testing:

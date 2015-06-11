@@ -18,41 +18,108 @@ import shutil
 import pkg_resources
 
 
-class TestReporter(object):
+def pass_fail(success):
+    """Convenient helper. Converts boolean to PASS/FAIL."""
+    return "PASS" if success else "FAIL"
+
+
+def format_time(t):
+    """Return human-readable interval of time.
+    Assumes t is in units of seconds.
+    """
+    minutes = int(t / 60)
+    seconds = t % 60
+
+    r = ""
+    if minutes > 0:
+        r += "%d minute%s " % (minutes, "" if minutes == 1 else "s")
+    r += "%.3f seconds" % seconds
+    return r
+
+
+class SingleTestReporter(object):
+    """Helper class for creating a view of results from a single test."""
+
+    def __init__(self, result):
+        self.result = result
+
+    def header_string(self):
+        """Header lines of the report"""
+        header_lines = [
+            "=========================================================================================",
+            "test_id:    %s" % self.result.test_context.test_id,
+            "run time:   %s" % format_time(self.result.run_time),
+            "status:     %s" % pass_fail(self.result.success),
+            "========================================================================================="
+        ]
+
+        return "\n".join(header_lines)
+
+    def result_string(self):
+        """Stringify a single result."""
+        result = self.result
+        result_lines = [
+            pass_fail(result.success) + ":     " + result.test_name,
+            "run time: %s" % format_time(result.run_time)
+            ]
+
+        if not result.success:
+            # Add summary if the test failed
+            result_lines.append("\n")
+            result_lines.append("    " + result.summary)
+
+        if result.data is not None:
+            result_lines.append(json.dumps(result.data))
+
+        result_lines.append("-----------------------------------------------------------------------------------------")
+        return "\n".join(result_lines)
+
+    def report_string(self):
+        """Get the whole report string."""
+        report_lines = [
+            self.header_string(),
+            self.result_string()]
+
+        return "\n".join(report_lines)
+
+
+class SingleTestStdoutReporter(SingleTestReporter):
+    def report(self):
+        print self.report_string()
+
+
+class SingleTestFileReporter(SingleTestReporter):
+
+    def report(self):
+        report_file = os.path.join(self.result.test_context.results_dir, "report.txt")
+        with open(report_file, "w") as fp:
+            fp.write(self.report_string())
+
+        # write collected data
+        if self.result.data is not None and len(self.result.data) > 0:
+            data_file = os.path.join(self.result.test_context.results_dir, "data.json")
+            with open(data_file, "w") as fp:
+                fp.write(json.dumps(self.result.data))
+
+
+class SummaryReporter(object):
     def __init__(self, results):
         """
         :type results: ducktape.tests.result.TestResults
         """
         self.results = results
 
-    def pass_fail(self, success):
-        """Convenient helper. Converts boolean to PASS/FAIL."""
-        return "PASS" if success else "FAIL"
-
-    def format_time(self, t):
-        """Return human-readable interval of time.
-        Assumes t is in units of seconds.
-        """
-        minutes = int(t / 60)
-        seconds = t % 60
-
-        r = ""
-        if minutes > 0:
-            r += "%d minute%s " % (minutes, "" if minutes == 1 else "s")
-        r += "%.3f seconds" % seconds
-        return r
-
     def report(self):
-        raise NotImplementedError("method report must be implemented by subclasses of TestReporter")
+        raise NotImplementedError("method report must be implemented by subclasses of SummaryReporter")
 
 
-class SimpleReporter(TestReporter):
+class SimpleSummaryReporter(SummaryReporter):
     def header_string(self):
         """Header lines of the report"""
         header_lines = [
             "=========================================================================================",
             "session_id: %s" % self.results.session_context.session_id,
-            "run time:   %s" % self.format_time(self.results.run_time),
+            "run time:   %s" % format_time(self.results.run_time),
             "tests run:  %d" % len(self.results),
             "passed:     %d" % self.results.num_passed(),
             "failed:     %d" % self.results.num_failed(),
@@ -65,8 +132,8 @@ class SimpleReporter(TestReporter):
         """Stringify a single result."""
 
         result_lines = [
-            self.pass_fail(result.success) + ":     " + result.test_name,
-            "run time: %s" % self.format_time(result.run_time)
+            pass_fail(result.success) + ":     " + result.test_name,
+            "run time: %s" % format_time(result.run_time)
             ]
 
         if not result.success:
@@ -91,19 +158,20 @@ class SimpleReporter(TestReporter):
         return "\n".join(report_lines)
 
 
-class SimpleFileReporter(SimpleReporter):
+class SimpleFileSummaryReporter(SimpleSummaryReporter):
     def report(self):
-        report_file = os.path.join(self.results.session_context.results_dir, "summary")
+        report_file = os.path.join(self.results.session_context.results_dir, "report.txt")
         with open(report_file, "w") as fp:
             fp.write(self.report_string())
 
 
-class SimpleStdoutReporter(SimpleReporter):
+class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
     def report(self):
+
         print self.report_string()
 
 
-class HTMLReporter(TestReporter):
+class HTMLSummaryReporter(SummaryReporter):
 
     def format_result(self, result):
         if result.success:

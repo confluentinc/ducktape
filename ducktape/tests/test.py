@@ -129,15 +129,21 @@ class TestContext(Logger):
         # dict for toggling service log collection on/off
         self.log_collect = {}
 
-        self.results_dir = self.session_context.results_dir
-        if self.cls is not None:
-            self.results_dir = os.path.join(self.results_dir, self.cls.__name__)
-        if self.function is not None:
-            self.results_dir = os.path.join(self.results_dir, self.function.__name__)
+        # Individual test results go here
         mkdir_p(self.results_dir)
 
         self._logger_configured = False
         self.configure_logger()
+
+
+    @property
+    def results_dir(self):
+        d = self.session_context.results_dir
+        if self.cls is not None:
+            d = os.path.join(d, self.cls.__name__)
+        if self.function is not None:
+            d = os.path.join(d, self.function.__name__)
+        return d
 
     @property
     def test_id(self):

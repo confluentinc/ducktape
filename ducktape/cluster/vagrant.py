@@ -17,6 +17,7 @@ from .json import JsonCluster
 
 import subprocess
 
+
 class VagrantCluster(JsonCluster):
     """
     An implementation of Cluster that uses a set of VMs created by Vagrant. Because we need hostnames that can be
@@ -100,6 +101,3 @@ class VagrantCluster(JsonCluster):
         output = "".join(node_account.ssh_capture(cmd))
         return output.strip()
 
-
-
-Cluster._FACTORY["vagrant"] = VagrantCluster

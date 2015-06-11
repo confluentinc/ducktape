@@ -14,7 +14,7 @@
 
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.runner import SerialTestRunner
-from ducktape.tests.reporter import SimpleStdoutReporter, SimpleFileReporter, HTMLReporter
+from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, HTMLSummaryReporter
 from ducktape.tests.session import SessionContext
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.tests.session import generate_session_id, generate_results_dir
@@ -152,13 +152,13 @@ def main():
 
     # Report results
     # TODO command-line hook for type of reporter
-    reporter = SimpleStdoutReporter(test_results)
+    reporter = SimpleStdoutSummaryReporter(test_results)
     reporter.report()
-    reporter = SimpleFileReporter(test_results)
+    reporter = SimpleFileSummaryReporter(test_results)
     reporter.report()
 
     # Generate HTML reporter
-    reporter = HTMLReporter(test_results)
+    reporter = HTMLSummaryReporter(test_results)
     reporter.report()
 
     if not test_results.get_aggregate_success():
