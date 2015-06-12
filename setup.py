@@ -22,10 +22,9 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 setup(name="ducktape",
-      version="0.1",
+      version="0.2.0",
       description="Distributed system test tools",
-      author="Ewen Cheslack-Postava",
-      author_email='ewen@confluent.io',
+      author="Confluent",
       platforms=["any"], 
       entry_points={
         'console_scripts': ['ducktape=ducktape.command_line.main:main'],
