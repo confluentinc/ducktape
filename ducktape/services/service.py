@@ -102,11 +102,29 @@ class Service(TemplateRenderer):
 
         self.logger.debug(self.who_am_i() + ": killing processes and attempting to clean up before starting")
         for node in self.nodes:
-            # Added precaution - kill running processes
-            self._kill_running_processes(node)
-            self.force_clean_node(node)
-            self.stop_node(node)
-            self.clean_node(node)
+            # Added precaution - kill running processes, clean persistent files
+            # try/except for each step, since each of these steps may fail if there are no processes
+            # to kill or no files to remove
+
+            try:
+                self._kill_running_processes(node)
+            except:
+                pass
+
+            try:
+                self.force_clean_node(node)
+            except:
+                pass
+
+            try:
+                self.stop_node(node)
+            except:
+                pass
+
+            try:
+                self.clean_node(node)
+            except:
+                pass
 
         for node in self.nodes:
             self.logger.debug("%s: starting node" % self.who_am_i(node))
