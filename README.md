@@ -62,11 +62,16 @@ structured like so:
 <session_id> 
     session_log.info
     session_log.debug
+    report.txt   # Summary report of all tests run in this session
+    report.html  # Open this to see summary report in a browser
+    report.css
     
     <test_class_name>
         <test_method_name>
             test_log.info
             test_log.debug
+            report.txt   # Report on this single test
+            [data.json]  # Present if the test returns data
         
             <service_1>
                 <node_1>

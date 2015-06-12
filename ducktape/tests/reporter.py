@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.utils.terminal_size import get_terminal_size
+
 import json
 import os
 import shutil
 import pkg_resources
 
 
-SEPARATOR_LENGTH = 100
+DEFAULT_SEPARATOR_WIDTH = 100
 
 
 def pass_fail(success):
@@ -40,54 +42,40 @@ def format_time(t):
     return r
 
 
-class SingleTestReporter(object):
+class SingleResultReporter(object):
     """Helper class for creating a view of results from a single test."""
 
     def __init__(self, result):
         self.result = result
-
-    def header_string(self):
-        """Header lines of the report"""
-        header_lines = [
-            "=" * SEPARATOR_LENGTH,
-            "test_id:    %s" % self.result.test_context.test_id,
-            "run time:   %s" % format_time(self.result.run_time),
-            "status:     %s" % pass_fail(self.result.success),
-            "=" * SEPARATOR_LENGTH
-        ]
-
-        return "\n".join(header_lines)
+        self.width = get_terminal_size()[0]
 
     def result_string(self):
-        """Stringify a single result."""
-        result = self.result
-        result_lines = []
+        """Stringify single result"""
+        result_lines = [
+            "test_id:    %s" % self.result.test_context.test_id,
+            "status:     %s" % pass_fail(self.result.success),
+            "run time:   %s" % format_time(self.result.run_time),
+        ]
 
-        if result.data is not None:
-            result_lines.append(json.dumps(result.data))
-
-        if len(result_lines) > 0:
-            result_lines.append("-" * SEPARATOR_LENGTH)
+        if self.result.data is not None:
+            result_lines.append(json.dumps(self.result.data))
 
         return "\n".join(result_lines)
 
     def report_string(self):
         """Get the whole report string."""
-        report_lines = [
-            self.header_string(),
-            self.result_string()]
-
-        return "\n".join(report_lines)
+        return "\n".join(["=" * self.width,
+                          self.result_string()])
 
 
-class SingleTestStdoutReporter(SingleTestReporter):
+class SingleResultStdoutReporter(SingleResultReporter):
     def report(self):
         print self.report_string()
 
 
-class SingleTestFileReporter(SingleTestReporter):
-
+class SingleResultFileReporter(SingleResultReporter):
     def report(self):
+        self.width = DEFAULT_SEPARATOR_WIDTH
         report_file = os.path.join(self.result.test_context.results_dir, "report.txt")
         with open(report_file, "w") as fp:
             fp.write(self.report_string())
@@ -101,10 +89,8 @@ class SingleTestFileReporter(SingleTestReporter):
 
 class SummaryReporter(object):
     def __init__(self, results):
-        """
-        :type results: ducktape.tests.result.TestResults
-        """
         self.results = results
+        self.width = get_terminal_size()[0]
 
     def report(self):
         raise NotImplementedError("method report must be implemented by subclasses of SummaryReporter")
@@ -114,35 +100,17 @@ class SimpleSummaryReporter(SummaryReporter):
     def header_string(self):
         """Header lines of the report"""
         header_lines = [
-            "=" * SEPARATOR_LENGTH,
+            "=" * self.width,
+            "SESSION REPORT (ALL TESTS)",
             "session_id: %s" % self.results.session_context.session_id,
             "run time:   %s" % format_time(self.results.run_time),
             "tests run:  %d" % len(self.results),
             "passed:     %d" % self.results.num_passed(),
             "failed:     %d" % self.results.num_failed(),
-            "=" * SEPARATOR_LENGTH
+            "=" * self.width
         ]
 
         return "\n".join(header_lines)
-
-    def result_string(self, result):
-        """Stringify a single result."""
-
-        result_lines = [
-            pass_fail(result.success) + ":     " + result.test_name,
-            "run time: %s" % format_time(result.run_time)
-            ]
-
-        if not result.success:
-            # Add summary if the test failed
-            result_lines.append("\n")
-            result_lines.append("    " + result.summary)
-
-        if result.data is not None:
-            result_lines.append(json.dumps(result.data))
-
-        result_lines.append("-" * SEPARATOR_LENGTH)
-        return "\n".join(result_lines)
 
     def report_string(self):
         """Get the whole report string."""
@@ -150,13 +118,14 @@ class SimpleSummaryReporter(SummaryReporter):
             self.header_string()]
 
         report_lines.extend(
-            [self.result_string(result) for result in self.results])
+            [SingleResultReporter(result).result_string() + "\n" + "-" * self.width for result in self.results])
 
         return "\n".join(report_lines)
 
 
 class SimpleFileSummaryReporter(SimpleSummaryReporter):
     def report(self):
+        self.width = DEFAULT_SEPARATOR_WIDTH
         report_file = os.path.join(self.results.session_context.results_dir, "report.txt")
         with open(report_file, "w") as fp:
             fp.write(self.report_string())
@@ -164,7 +133,6 @@ class SimpleFileSummaryReporter(SimpleSummaryReporter):
 
 class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
     def report(self):
-
         print self.report_string()
 
 
