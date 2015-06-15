@@ -43,3 +43,7 @@ class ConsoleConfig(object):
     # Log this to indicate a test is misbehaving to help end user find which test is at fault
     BAD_TEST_MESSAGE = "BAD_TEST"
 
+    # ducktape version
+    DUCKTAPE_VERSION = "0.2.0"
+
+

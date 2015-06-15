@@ -19,6 +19,7 @@ from ducktape.tests.session import SessionContext
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.utils.util import ducktape_version
 
 import argparse
 import os
@@ -35,7 +36,7 @@ def parse_args():
     :rtype: argparse.Namespace
     """
     parser = argparse.ArgumentParser(description="Discover and run your tests")
-    parser.add_argument('test_path', metavar='test_path', type=str, nargs='+',
+    parser.add_argument('test_path', metavar='test_path', type=str, nargs='*', default=os.getcwd(),
                         help='one or more space-delimited strings indicating where to search for tests')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout")
@@ -48,6 +49,7 @@ def parse_args():
                         help="don't kill running processes or remove log files when a test has finished running. " +
                              "This is primarily useful for test developers who want to interact with running " +
                              "services after a test has run. ")
+    parser.add_argument("--version", action="store_true", help="display version")
 
     project_configs = []
     project_config_file = ConsoleConfig.PROJECT_CONFIG_FILE
@@ -109,6 +111,9 @@ def main():
         os.makedirs(ConsoleConfig.METADATA_DIR)
 
     args = parse_args()
+    if args.version:
+        print ducktape_version()
+        sys.exit(0)
 
     # Generate a shared 'global' identifier for this test run and create the directory
     # in which all test results will be stored

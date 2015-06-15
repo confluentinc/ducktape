@@ -2,6 +2,7 @@ from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
 import sys
 
+from ducktape.utils.util import ducktape_version
 
 class PyTest(TestCommand):
     user_options = [('pytest-args=', 'a', "Arguments to pass to py.test")]
@@ -22,7 +23,7 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 setup(name="ducktape",
-      version="0.2.0",
+      version=ducktape_version(),
       description="Distributed system test tools",
       author="Confluent",
       platforms=["any"], 
