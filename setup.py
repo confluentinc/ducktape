@@ -1,8 +1,16 @@
 from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
+import re
 import sys
 
-from ducktape.utils.util import ducktape_version
+version = ''
+with open('ducktape/__init__.py', 'r') as fd:
+    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
+                        fd.read(), re.MULTILINE).group(1)
+
+if not version:
+    raise RuntimeError('Cannot find version information')
+
 
 class PyTest(TestCommand):
     user_options = [('pytest-args=', 'a', "Arguments to pass to py.test")]
@@ -23,7 +31,7 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 setup(name="ducktape",
-      version=ducktape_version(),
+      version=version,
       description="Distributed system test tools",
       author="Confluent",
       platforms=["any"], 

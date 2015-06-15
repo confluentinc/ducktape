@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.command_line.config import ConsoleConfig
+from ducktape import __version__ as __ducktape_version__
 
 import time
 
@@ -35,4 +35,4 @@ def wait_until(condition, timeout_sec, backoff_sec=.1):
 
 def ducktape_version():
     """Return string representation of current ducktape version."""
-    return ConsoleConfig.DUCKTAPE_VERSION
+    return __ducktape_version__

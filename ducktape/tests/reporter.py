@@ -57,6 +57,11 @@ class SingleResultReporter(object):
             "run time:   %s" % format_time(self.result.run_time),
         ]
 
+        if not self.result.success:
+           # Add summary if the test failed
+            result_lines.append("\n")
+            result_lines.append("    " + self.result.summary)
+
         if self.result.data is not None:
             result_lines.append(json.dumps(self.result.data))
 
