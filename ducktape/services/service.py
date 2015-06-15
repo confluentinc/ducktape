@@ -107,16 +107,6 @@ class Service(TemplateRenderer):
             # to kill or no files to remove
 
             try:
-                self._kill_running_processes(node)
-            except:
-                pass
-
-            try:
-                self.force_clean_node(node)
-            except:
-                pass
-
-            try:
                 self.stop_node(node)
             except:
                 pass
@@ -163,44 +153,10 @@ class Service(TemplateRenderer):
             self.logger.info("%s: cleaning node" % self.who_am_i(node))
             self.clean_node(node)
 
-    def force_clean_node(self, node):
-        self.logger.info("%s: recklessly cleaning leftover files on node" % self.who_am_i(node))
-        if node is None:
-            self.logger.warn("Called force clean on a non-existent node.")
-        else:
-            node.account.ssh("rm -rf /mnt/*", allow_fail=True)
-
     def clean_node(self, node):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
         self.logger.warn("%s: clean_node has not been overriden. " % self.who_am_i(),
                          "This may be fine if the service leaves no persistent state.")
-
-    def check_clean(self):
-        """Check that there is no leftover persistent state.
-
-        This is an imperfect check, but can provide early warning for service developers.
-        """
-        self.logger.debug("%s: checking that there are no stray files left by this or other services" % self.who_am_i())
-        clean = True
-        for node in self.nodes:
-            clean = clean and self.check_clean_node(node)
-        return clean
-
-    def check_clean_node(self, node):
-        """Rule-of-thumb to verify that the service properly cleaned up after itself.
-
-        /mnt is the defacto standard for where to place files, so simply check that this is empty.
-        """
-        self.logger.debug("%s: checking for cleanliness" % self.who_am_i(node))
-        lines = [line.strip() for line in node.account.ssh_capture("for f in `ls /mnt`; do echo `pwd`/$f; done") if len(line.strip()) > 0]
-        if len(lines) == 0:
-            self.logger.debug("%s: appears clean", self.who_am_i(node))
-            return True
-        else:
-            self.logger.debug("%s: unclean!!", self.who_am_i(node))
-            self.logger.debug("Found these files: %s. %s or another service may not have properly cleaned up after itself.",
-                              lines, self.who_am_i())
-            return False
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
@@ -232,13 +188,6 @@ class Service(TemplateRenderer):
             if self.get_node(idx) == node:
                 return idx
         return -1
-
-    def _kill_running_processes(self, node):
-        """
-        Helper that tries to kill off all running Java processes to make sure a node
-        is in a clean state.
-        """
-        node.account.kill_process("java", clean_shutdown=False)
 
     @staticmethod
     def run_parallel(*args):
