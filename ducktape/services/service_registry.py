@@ -45,8 +45,6 @@ class ServiceRegistry(list):
         for service in self:
             try:
                 service.clean()
-                if not service.check_clean():
-                    service.logger.warn("%s cleanup may be incomplete" % service.who_am_i())
             except BaseException as e:
                 if isinstance(e, KeyboardInterrupt):
                     keyboard_interrupt = e
