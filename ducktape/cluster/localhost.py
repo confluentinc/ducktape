@@ -16,12 +16,13 @@ from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
 import sys
 
+
 class LocalhostCluster(Cluster):
-    '''
+    """
     A "cluster" that runs entirely on localhost using default credentials. This doesn't require any user
     configuration and is equivalent to the old defaults in cluster_config.json. There are no constraints
     on the resources available.
-    '''
+    """
 
     def __init__(self, *args, **kwargs):
         # Use a very large number, but fixed value so accounting for # of available nodes works
@@ -36,5 +37,3 @@ class LocalhostCluster(Cluster):
 
     def free_single(self, slot):
         self._available += 1
-
-Cluster._FACTORY["localhost"] = LocalhostCluster

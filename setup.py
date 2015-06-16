@@ -1,6 +1,15 @@
 from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
+import re
 import sys
+
+version = ''
+with open('ducktape/__init__.py', 'r') as fd:
+    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
+                        fd.read(), re.MULTILINE).group(1)
+
+if not version:
+    raise RuntimeError('Cannot find version information')
 
 
 class PyTest(TestCommand):
@@ -22,10 +31,9 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 setup(name="ducktape",
-      version="0.1",
+      version=version,
       description="Distributed system test tools",
-      author="Ewen Cheslack-Postava",
-      author_email='ewen@confluent.io',
+      author="Confluent",
       platforms=["any"], 
       entry_points={
         'console_scripts': ['ducktape=ducktape.command_line.main:main'],

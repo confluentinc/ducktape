@@ -34,12 +34,6 @@ class Cluster(object):
     homogeneous.
     """
 
-    _FACTORY = {}
-
-    @classmethod
-    def create(cls, type, *args, **kwargs):
-        return cls._FACTORY[type](*args, **kwargs)
-
     def request(self, nslots):
         """Request the specified number of slots, which will be reserved until they are freed by the caller."""
         raise NotImplementedError()

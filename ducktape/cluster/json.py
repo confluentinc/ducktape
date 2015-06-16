@@ -60,4 +60,3 @@ class JsonCluster(Cluster):
         self.in_use_nodes.remove(slot.slot_id)
         self.available_nodes.append(slot.account)
 
-Cluster._FACTORY["json"]      = JsonCluster

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import time
 
 
@@ -32,11 +33,25 @@ class TestResult(object):
         self.test_name = test_name
         self.success = success
         self.summary = summary
-        self.data = data
+        self._data = None
 
         # For tracking run time
         self.start_time = -1
         self.stop_time = -1
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, d):
+        try:
+            json.dumps(d)  # Check that d is JSON-serializable
+            self._data = d
+        except TypeError as e:
+            self.test_context.logger.error("Data returned from %s should be JSON-serializable but is not." %
+                                           self.test_context.test_name)
+            raise e
 
     @property
     def run_time(self):

@@ -14,17 +14,19 @@
 
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.runner import SerialTestRunner
-from ducktape.tests.reporter import SimpleStdoutReporter, SimpleFileReporter, HTMLReporter
+from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, HTMLSummaryReporter
 from ducktape.tests.session import SessionContext
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.utils.util import ducktape_version
 
 import argparse
 import os
 import sys
 import importlib
 import itertools
+
 
 def parse_args():
     """Parse in command-line and config file options.
@@ -35,7 +37,7 @@ def parse_args():
     :rtype: argparse.Namespace
     """
     parser = argparse.ArgumentParser(description="Discover and run your tests")
-    parser.add_argument('test_path', metavar='test_path', type=str, nargs='+',
+    parser.add_argument('test_path', metavar='test_path', type=str, nargs='*', default=os.getcwd(),
                         help='one or more space-delimited strings indicating where to search for tests')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout")
@@ -48,6 +50,7 @@ def parse_args():
                         help="don't kill running processes or remove log files when a test has finished running. " +
                              "This is primarily useful for test developers who want to interact with running " +
                              "services after a test has run. ")
+    parser.add_argument("--version", action="store_true", help="display version")
 
     project_configs = []
     project_config_file = ConsoleConfig.PROJECT_CONFIG_FILE
@@ -109,6 +112,9 @@ def main():
         os.makedirs(ConsoleConfig.METADATA_DIR)
 
     args = parse_args()
+    if args.version:
+        print ducktape_version()
+        sys.exit(0)
 
     # Generate a shared 'global' identifier for this test run and create the directory
     # in which all test results will be stored
@@ -152,13 +158,13 @@ def main():
 
     # Report results
     # TODO command-line hook for type of reporter
-    reporter = SimpleStdoutReporter(test_results)
+    reporter = SimpleStdoutSummaryReporter(test_results)
     reporter.report()
-    reporter = SimpleFileReporter(test_results)
+    reporter = SimpleFileSummaryReporter(test_results)
     reporter.report()
 
     # Generate HTML reporter
-    reporter = HTMLReporter(test_results)
+    reporter = HTMLSummaryReporter(test_results)
     reporter.report()
 
     if not test_results.get_aggregate_success():
