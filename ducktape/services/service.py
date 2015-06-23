@@ -171,8 +171,7 @@ class Service(TemplateRenderer):
 
     def clean_node(self, node):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
-        self.logger.warn("%s: clean_node has not been overriden. " % self.who_am_i(),
-                         "This may be fine if the service leaves no persistent state.")
+        self.logger.warn("%s: %s.clean_node has not been overriden. This may be fine if the service leaves no persistent state." % (self.who_am_i(), type(self)))
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
