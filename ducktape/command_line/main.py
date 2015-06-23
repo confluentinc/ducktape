@@ -147,6 +147,10 @@ def main():
             print "    " + str(test)
         sys.exit(0)
 
+    if len(tests) == 0:
+        print >>sys.stderr, 'No test classes found, see logs in %s for more details or run again with -d option' % results_dir
+        sys.exit(1)
+
     # Initializing the cluster is slow, so do so only if
     # tests are sure to be run
     try:
