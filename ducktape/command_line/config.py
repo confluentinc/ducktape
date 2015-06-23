@@ -38,7 +38,7 @@ class ConsoleConfig(object):
     RESULTS_ROOT_DIRECTORY = "./results"
 
     SESSION_LOG_FORMATTER = '[%(levelname)s:%(asctime)s]: %(message)s'
-    TEST_LOG_FORMATTER = '[%(levelname)-5s - %(asctime)s - %(module)s - %(funcName)s - lineno:%(lineno)s]: %(message)s'
+    TEST_LOG_FORMATTER = '[%(levelname)-5s %(asctime)s - %(module)s:%(lineno)s %(funcName)s]: %(message)s\033[0m'
 
     # Log this to indicate a test is misbehaving to help end user find which test is at fault
     BAD_TEST_MESSAGE = "BAD_TEST"
