@@ -82,7 +82,7 @@ class SerialTestRunner(TestRunner):
                 self.log(logging.INFO, "PASS")
 
             except BaseException as e:
-                self.log(logging.INFO, "FAIL")
+                self.log(logging.ERROR, "FAIL")
                 result.success = False
                 result.summary += e.message + "\n" + traceback.format_exc(limit=16)
 
