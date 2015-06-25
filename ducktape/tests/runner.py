@@ -78,13 +78,13 @@ class SerialTestRunner(TestRunner):
             result = TestResult(self.current_test_context, self.current_test_context.test_name)
 
             # Run the test unit
+            result.start_time = time.time()
             self.log(logging.INFO, "running test %d of %d" % (test_num, len(self.tests)))
             try:
                 self.log(logging.INFO, "setting up")
                 self.setup_single_test()
 
                 self.log(logging.INFO, "running")
-                result.start_time = time.time()
                 result.data = self.run_single_test()
                 self.log(logging.INFO, "PASS")
 
