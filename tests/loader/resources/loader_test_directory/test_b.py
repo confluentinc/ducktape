@@ -14,6 +14,8 @@
 
 from ducktape.tests.test import Test
 
+NUM_TESTS = 3
+
 
 class TestB(Test):
     """Loader should discover this."""

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test
+from ducktape.decorate import parametrized
 
 import importlib
 import inspect
@@ -62,7 +63,6 @@ class TestLoader(object):
 
         return (directory, module, cls_name, method_name)
 
-
     def discover(self, test_discovery_symbols, file_pattern=DEFAULT_TEST_FILE_PATTERN,
                  method_pattern=DEFAULT_TEST_METHOD_PATTERN):
         """Recurse through packages in file hierarchy starting at base_dir, and return a list of all found test methods
@@ -77,9 +77,10 @@ class TestLoader(object):
         :type pattern: str
         :rtype: list
         """
-        test_classes = []
         assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
+        all_test_methods = []
         for symbol in test_discovery_symbols:
+            test_classes = []
             directory, module_name, cls_name, method_name = self.parse_discovery_symbol(symbol)
 
             # Check validity
@@ -108,21 +109,21 @@ class TestLoader(object):
             self.logger.debug("Discovered these test classes: " + str(tests_from_symbol))
             test_classes.extend(tests_from_symbol)
 
-        # pull test_methods out of test_classes
-        test_methods = []
-        for test_class in test_classes:
-            for field_name in dir(test_class):
-                field = getattr(test_class, field_name)
-                if re.match(method_pattern, field_name) and callable(field):
-                    test_methods.append(field)
-        if method_name:
-            test_methods = [method for method in test_methods if method.__name__ == method_name]
+            # pull test_methods out of test_classes
+            test_methods = []
+            for test_class in test_classes:
+                test_methods.extend(self.get_test_methods(test_class, method_pattern))
+            # filter by method name if specified
+            if method_name:
+                test_methods = [method for method in test_methods if method.__name__ == method_name]
 
-        if not test_methods:
-            raise LoaderException("Could not find any tests corresponding to the symbol " + symbol)
+            if not test_methods:
+                raise LoaderException("Could not find any tests corresponding to the symbol " + symbol)
 
-        self.logger.debug("Discovered these tests: " + str(test_methods))
-        return test_methods
+            all_test_methods.extend(test_methods)
+
+        self.logger.debug("Discovered these tests: " + str(all_test_methods))
+        return all_test_methods
 
     def find_test_files(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):
         """Return a list of files underneath base_dir that look like test files.
@@ -178,6 +179,24 @@ class TestLoader(object):
                     path_pieces = path_pieces[1:]
 
         return module_list
+
+    def get_test_methods(self, test_class, pattern):
+        """Pull test methods from test_class, expanding any parametrized tests in the process."""
+        test_methods = []
+        for field_name in dir(test_class):
+            field = getattr(test_class, field_name)
+            if re.match(pattern, field_name) and callable(field):
+
+                if parametrized(field):
+
+                    method_generator = field()
+
+                    for method in method_generator:
+                        test_methods.append(method)
+                else:
+                    test_methods.append(field)
+
+        return test_methods
 
     def get_test_classes(self, module):
         """Return list of all test classes in the module object.

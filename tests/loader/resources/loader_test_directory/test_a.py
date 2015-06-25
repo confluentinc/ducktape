@@ -13,6 +13,9 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test
+from ducktape.decorate import parametrize_method
+
+NUM_TESTS = 4
 
 
 class TestA(Test):
@@ -23,4 +26,13 @@ class TestA(Test):
 class TestInvisible(object):
     """Loader should not discover this."""
     def test_invisible(self):
+        pass
+
+class TestParametrized(Test):
+    """Loader should discover this and register as three tests"""
+    @parametrize_method(variables="x,y", variable_assignments=(
+            (1, 2),
+            ('a', 'b'),
+            ({}, [])))
+    def test_thing(self, x, y):
         pass
