@@ -17,17 +17,16 @@ import functools
 
 PARAMETRIZED = "PARAMETRIZED"
 INJECTED = "INJECTED"
+MATRIX = "MATRIX"
 
 _marked_functions = {}
 
 
-def mark_function(fun, mark):
-    """Attach a tag indicating that fun has been marked with the given mark.
+def mark_as(fun, mark):
+    """Attach a tag indicating that fun has been marked with the given mark_as.
 
     This allows us to determine
     """
-    print "Marking %s as %s" % (str(fun), mark)
-
     if fun in _marked_functions:
         _marked_functions[fun].add(mark)
     else:
@@ -43,54 +42,145 @@ def marked(f, mark):
 
     return mark in _marked_functions[f]
 
+def is_multi(f):
+    return marked(f, PARAMETRIZED) or marked(f, MATRIX)
+
 
 def parametrized(f):
-    return f.__name__ == "test_generator"
-    # return marked(f, PARAMETRIZED)
+    return marked(f, PARAMETRIZED)
 
 
 def injected(f):
     return marked(f, INJECTED)
 
 
-def parametrize(variables="", variable_assignments=()):
-    """Function decorator used to parametrize its arguments.
+class TestGenerator():
+    def __init__(self, wrapped, kwargs_list):
+        self.kwargs_pointer = 0
+        self.f_pointer = 0
+        self.kwargs_list = kwargs_list
+        self.wrapped = wrapped
 
-    Example::
-        @parametrize(variables="x, y, z", variable_assignments=((1, 2, 3), ("x", "y", "z")))
-        def g(x, y, z):
-            print "x = %s, y = %s, z = %s" % (x, y, z)
+    @property
+    def test_method(self):
+        if is_multi(self.wrapped):
+            return self.wrapped.test_method
+        else:
+            return self.wrapped
 
-        # g is a function marked as parametrized
-        # calling g will now return a generator object:
-        for f in g():
-            f()
+    def __len__(self):
+        return len(self.kwargs_list)
 
-        # output:
-        # x = 1, y = 2, z = 3
-        # x = x, y = y, z = z
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.kwargs_pointer < len(self):
+            current_func = inject(**self.kwargs_list[self.kwargs_pointer])(self.test_method)
+            self.kwargs_pointer += 1
+            return current_func
+        else:
+            if is_multi(self.wrapped) and self.f_pointer < len(self.wrapped):
+                self.f_pointer += 1
+                return self.wrapped.next()
+            else:
+                raise StopIteration
+
+
+class MatrixTestGenerator():
+    def __init__(self, wrapped, kwargs_list):
+        self.kwargs_pointer = 0
+        self._top_level_kwargs_list = kwargs_list
+        self._kwargs_list = None
+        self.wrapped = wrapped
+
+    @property
+    def kwargs_list(self):
+        if self._kwargs_list is None:
+            if is_multi(self.wrapped):
+                self._kwargs_list = []
+                for sub_kwargs in self.wrapped.kwargs_list:
+                    for kwargs in self._top_level_kwargs_list:
+                        current_kwargs = kwargs.copy()
+                        current_kwargs.update(sub_kwargs)
+                        self._kwargs_list.append(current_kwargs)
+            else:
+                self._kwargs_list = self._top_level_kwargs_list
+
+        return self._kwargs_list
+
+    @property
+    def test_method(self):
+        if is_multi(self.wrapped):
+            return self.wrapped.test_method
+        else:
+            return self.wrapped
+
+    def __len__(self):
+        return len(self.kwargs_list)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.kwargs_pointer < len(self):
+            current_kwargs = self.kwargs_list[self.kwargs_pointer]
+            self.kwargs_pointer += 1
+            return inject(**current_kwargs)(self.test_method)
+        else:
+            raise StopIteration
+
+
+def i_to_indices(i, vars, values):
+    assert len(vars) == len(values)
+
+    indices = [0] * len(vars)
+    for j in range(len(vars)):
+        indices[j] = i % len(values[j])
+        i /= len(values[j])
+        if i == 0:
+            break
+
+    return indices
+
+
+def matrix(**kwargs):
     """
-    def parametrizer(f):
-        def test_generator():
-            for param_list in variable_assignments:
-                yield inject(variables=variables, vals=param_list)(f)
+    Note: ordering won't be guaranteed.
+    """
+    vars = []
+    values = []
+    for v in kwargs:
+        vars.append(v)
+        values.append(kwargs[v])
 
-        print "Things in test_generator:", dir(test_generator)
-        mark_function(test_generator, PARAMETRIZED)
-        return test_generator
+    if len(vars) > 0:
+        num_params = 1
+        for v in vars:
+            num_params *= len(kwargs[v])
+
+    def parametrizer(f):
+        kwargs_list = []
+
+        for i in range(num_params):
+            indices = i_to_indices(i, vars, values)
+            kwargs_list.append(
+                {vars[j]: values[j][indices[j]] for j in range(len(indices))})
+
+
+        wrapped = MatrixTestGenerator(f, kwargs_list)
+        mark_as(wrapped, MATRIX)
+        return wrapped
     return parametrizer
 
 
-
-
-
-def parametrize_method(variables="", variable_assignments=()):
+def parametrize(**kwargs):
     """Function decorator used to parametrize its arguments.
 
     Example::
-        @parametrize(variables="x, y, z", variable_assignments=(
-                                            (1, 2, 3),
-                                            (10, 11, 12)))
+        @parametrize(x=[1,  2,  3],
+                     y=[10, 10, 12],
+                     z=[-1, -2, -3])
         def g(x, y, z):
             print "x = %s, y = %s, z = %s" % (x, y, z)
 
@@ -100,29 +190,24 @@ def parametrize_method(variables="", variable_assignments=()):
             f()
 
         # output:
-        # x = 1, y = 2, z = 3
-        # x = x, y = y, z = z
+        # x = 1, y = 10, z = -1
+        # x = 2, y = 10, z = -2
+        # x = 3, y = 12, z = -3
     """
-    v = variables.split(",")
-    v = [x.strip() for x in v]
+    vars = kwargs.keys()
+    if len(vars) > 0:
+        num_params = len(kwargs[vars[0]])
+        for param_list in kwargs.values():
+            assert len(param_list) == num_params, "params: %s, num_params: %s" % (param_list, num_params)
 
     def parametrizer(f):
+        kwargs_list = []
+        for i in range(num_params):
+            kwargs_list.append({v: kwargs[v][i] for v in vars})
 
-        @staticmethod
-        def test_generator():
-            for param_list in variable_assignments:
-                assert len(v) == len(param_list), \
-                    "Number of variables did not match the number of values to be assigned in this parametrized function. " \
-                    "variables=%s, variable_assignments=%s, fn=%s" % (str(variables), str(param_list), str(f))
-
-                kwargs = {}
-                for i in range(len(v)):
-                    kwargs[v[i]] = param_list[i]
-
-                yield inject(**kwargs)(f)
-
-        mark_function(test_generator, PARAMETRIZED)
-        return test_generator
+        wrapped = TestGenerator(f, kwargs_list)
+        mark_as(wrapped, PARAMETRIZED)
+        return wrapped
     return parametrizer
 
 
@@ -135,7 +220,7 @@ def inject(**kwargs):
             kwargs.update(w_kwargs)
             return f(*w_args, **kwargs)
 
-        mark_function(wrapped, INJECTED)
+        mark_as(wrapped, INJECTED)
         wrapped.kwargs = kwargs
         return wrapped
     return injector
@@ -143,43 +228,25 @@ def inject(**kwargs):
 
 def main():
 
-    @inject(x="a", y=5, z=30)
-    def f(x, y, z):
-        return "x=%s, y=%s, z=%s" % (x, y, z)
-
-    print f.__name__
-    print f()
-
-    class C(object):
-        def __init__(self):
-            self.a = 20
-
-        @inject(x=30)
-        def f(self, x):
-            return self.a + x
-
-    c = C()
-    print c.f()
-    print c.f(x=10)  # can still override
-
-
-
-    # @parametrize(variables="x, y, z", variable_assignments=(
-    #         (1, 2, 3),
-    #         ("x", "y", "z"),
-    #         ([1], "a", 500)))
-    # def g(x, y, z):
-    #     print "x = %s, y = %s, z = %s" % (x, y, z)
+    # @inject(x="a", y=5, z=30)
+    # def f(x, y, z):
+    #     return "x=%s, y=%s, z=%s" % (x, y, z)
     #
-
-
-
-
+    # print f.__name__
+    # print f()
     #
-    # for fun in g():
-    #     print fun.__name__
-    #     print fun.injected
-    #     fun()
+    # class C(object):
+    #     def __init__(self):
+    #         self.a = 20
+    #
+    #     @inject(x=30)
+    #     def f(self, x):
+    #         return self.a + x
+    #
+    # c = C()
+    # print c.f()
+    # print c.f(x=10)  # can still override
+    #
 
 
     class A(object):
@@ -189,19 +256,32 @@ def main():
             print x * x
             return x * x
 
-        @parametrize_method(variables="x", variable_assignments=((10,), (20,)))
+        @parametrize(x=[2, 4, 6])
+        @parametrize(x=[-1, -3])
         def g(self, x):
             print "original method: self=%s, x=%s" % (str(self), str(x))
             return x * x
 
-    # f = A.f
-    # a = A()
-    # print f(a)
-    #
-    # print parametrized(A.g)
-    # gen = A.g()
-    # for fun in gen:
-    #     print fun(A())
+        @matrix(x=[1, 3, 5], y=[1, 2], z=[-1, 1])
+        def m(self, x, y, z):
+            return [x, y, z]
+
+        @matrix(x=[-1, 1])
+        @matrix(y=[2, 3])
+        @matrix(z=[0, 10])
+        def m2(self, x, y, z):
+            return [x, y, z]
+    gen = A.g
+    for fun in gen:
+        print fun(A())
+
+    print "Trying @matrix. A.m has %d functions" % len(A.m)
+    for fun in A.m:
+        print fun(A())
+
+    print "Trying @matrix. A.m2 has %d functions" % len(A.m2)
+    for fun in A.m2:
+        print fun(A())
 
 
 if __name__ == "__main__":
