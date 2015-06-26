@@ -13,18 +13,36 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test
+from ducktape.decorate import matrix
+from ducktape.decorate import parametrize
 
-NUM_TESTS = 1
+NUM_TESTS = 15
 
 
-class TestA(Test):
-    """Loader should discover this."""
-    def test_a(self):
+class TestMatrix(Test):
+    """8 tests here"""
+    @matrix(x=[1, 2], y=["I'm", " a ", "test ", "matrix!"])
+    def test_thing(self, x, y):
         pass
 
 
-class TestInvisible(object):
-    """Loader should not discover this."""
-    def test_invisible(self):
+class TestStackedMatrix(Test):
+    """4 tests"""
+    @matrix(x=[1, 2])
+    @matrix(y=[-1, 0])
+    def test_thing(self, x, y):
+        pass
+
+
+class TestParametrized(Test):
+    @parametrize(x=10)
+    def test_single_decorator(self, x=1, y="hi"):
+        """1 test"""
+        pass
+
+    @parametrize(x=1, y=2)
+    @parametrize(x="abc", y=[])
+    def test_thing(self, x, y):
+        """2 tests"""
         pass
 

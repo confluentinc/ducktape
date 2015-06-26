@@ -17,6 +17,7 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
+from ducktape.decorate import injected
 
 import logging
 import os
@@ -114,16 +115,16 @@ class Test(TemplateRenderer):
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module=None, cls=None, function=None, config=None):
+    def __init__(self, session_context, module=None, cls=None, function=None, injected_args=None):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
         self.module = module
         self.cls = cls
         self.function = function
-        self.config = config
+        self.injected_args = injected_args
+
         self.session_context = session_context
-        self.cluster = session_context.cluster
         self.services = ServiceRegistry()
 
         # dict for toggling service log collection on/off
@@ -135,6 +136,22 @@ class TestContext(Logger):
         self._logger_configured = False
         self.configure_logger()
 
+    def __repr__(self):
+        return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
+               (self.module, self.cls_name, self.function_name, str(self.injected_args))
+
+    @property
+    def cls_name(self):
+        return "" if self.cls is None else self.cls.__name__
+
+    @property
+    def function_name(self):
+        return "" if self.function is None else self.function.__name__
+
+
+    @property
+    def cluster(self):
+        return self.session_context.cluster
 
     @property
     def results_dir(self):
@@ -143,14 +160,18 @@ class TestContext(Logger):
             d = os.path.join(d, self.cls.__name__)
         if self.function is not None:
             d = os.path.join(d, self.function.__name__)
+
+        if self.injected_args is not None:
+            # The function has arguments injected; append these to the id
+            parameters = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
+            d = os.path.join(d, parameters)
+
         return d
 
     @property
     def test_id(self):
         name_components = [self.session_context.session_id,
-                           self.module,
-                           self.cls.__name__ if self.cls is not None else None,
-                           self.function.__name__ if self.function is not None else None]
+                           self.test_name]
 
         return ".".join(filter(lambda x: x is not None, name_components))
 
@@ -163,6 +184,10 @@ class TestContext(Logger):
         name_components = [self.module,
                            self.cls.__name__ if self.cls is not None else None,
                            self.function.__name__ if self.function is not None else None]
+
+        if self.injected_args is not None:
+            # The function has arguments injected; append these to the id
+            name_components.extend(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
 
         return ".".join(filter(lambda x: x is not None, name_components))
 

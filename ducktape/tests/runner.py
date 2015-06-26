@@ -42,17 +42,14 @@ class TestRunner(object):
         raise NotImplementedError()
 
 
-def create_test_case(test, session_context):
-    """Create test context object and instantiate test class.
-
-    :type test_class: ducktape.tests.test.Test.__class__
-    :type session_context: ducktape.tests.session.SessionContext
-    :rtype test_class
-    """
-
-    test_class = test.im_class
-    test_context = TestContext(session_context, test_class.__module__, test_class, test, config=None)
-    return (test_context, test_class(test_context))
+# def create_test_case(test_context):
+#     """Create test context object and instantiate test class.
+#
+#     :type test_class: ducktape.tests.test.Test.__class__
+#     :type session_context: ducktape.tests.session.SessionContext
+#     :rtype test_class
+#     """
+#     return (test_context, test_context.cls(test_context))
 
 
 class SerialTestRunner(TestRunner):
@@ -72,9 +69,10 @@ class SerialTestRunner(TestRunner):
         self.log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
         self.log(logging.INFO, "running %d tests..." % len(self.tests))
 
-        for test_num, test in enumerate(self.tests, 1):
+        for test_num, test_context in enumerate(self.tests, 1):
             # Create single testable unit and corresponding test result object
-            self.current_test_context, self.current_test = create_test_case(test, self.session_context)
+            self.current_test_context = test_context
+            self.current_test = test_context.cls(test_context)
             result = TestResult(self.current_test_context, self.current_test_context.test_name)
 
             # Run the test unit
@@ -129,7 +127,11 @@ class SerialTestRunner(TestRunner):
         self.current_test.setUp()
 
     def run_single_test(self):
-        """Run the test!"""
+        """Run the test!
+
+        We expect current_test_context.function to be a function or unbound method which takes an
+        instantiated test object as its argument.
+        """
         return self.current_test_context.function(self.current_test)
 
     def teardown_single_test(self):

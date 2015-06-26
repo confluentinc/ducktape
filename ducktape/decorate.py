@@ -18,15 +18,13 @@ import functools
 PARAMETRIZED = "PARAMETRIZED"
 INJECTED = "INJECTED"
 MATRIX = "MATRIX"
+MARKS = {PARAMETRIZED, INJECTED, MATRIX}
 
 _marked_functions = {}
 
 
 def mark_as(fun, mark):
-    """Attach a tag indicating that fun has been marked with the given mark_as.
-
-    This allows us to determine
-    """
+    """Attach a tag indicating that fun has been marked with the given mark"""
     if fun in _marked_functions:
         _marked_functions[fun].add(mark)
     else:
@@ -37,12 +35,18 @@ def marked(f, mark):
     if f is None:
         return False
 
-    if f not in _marked_functions:
+    try:
+        if f not in _marked_functions:
+            return False
+    except TypeError:
+        # this check throws TypeError if f is not a hashable object
         return False
 
     return mark in _marked_functions[f]
 
-def is_multi(f):
+
+def _expandable(f):
+    """Return True iff f 'expands' into many test functions."""
     return marked(f, PARAMETRIZED) or marked(f, MATRIX)
 
 
@@ -55,66 +59,24 @@ def injected(f):
 
 
 class TestGenerator():
+    """Helper class used with @matrix and @parametrize decorators."""
+
     def __init__(self, wrapped, kwargs_list):
         self.kwargs_pointer = 0
-        self.f_pointer = 0
+        self.wrapped = wrapped
         self.kwargs_list = kwargs_list
-        self.wrapped = wrapped
 
     @property
     def test_method(self):
-        if is_multi(self.wrapped):
+        """Gives access to """
+        if _expandable(self.wrapped):
             return self.wrapped.test_method
         else:
             return self.wrapped
 
-    def __len__(self):
-        return len(self.kwargs_list)
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if self.kwargs_pointer < len(self):
-            current_func = inject(**self.kwargs_list[self.kwargs_pointer])(self.test_method)
-            self.kwargs_pointer += 1
-            return current_func
-        else:
-            if is_multi(self.wrapped) and self.f_pointer < len(self.wrapped):
-                self.f_pointer += 1
-                return self.wrapped.next()
-            else:
-                raise StopIteration
-
-
-class MatrixTestGenerator():
-    def __init__(self, wrapped, kwargs_list):
-        self.kwargs_pointer = 0
-        self._top_level_kwargs_list = kwargs_list
-        self._kwargs_list = None
-        self.wrapped = wrapped
-
     @property
-    def kwargs_list(self):
-        if self._kwargs_list is None:
-            if is_multi(self.wrapped):
-                self._kwargs_list = []
-                for sub_kwargs in self.wrapped.kwargs_list:
-                    for kwargs in self._top_level_kwargs_list:
-                        current_kwargs = kwargs.copy()
-                        current_kwargs.update(sub_kwargs)
-                        self._kwargs_list.append(current_kwargs)
-            else:
-                self._kwargs_list = self._top_level_kwargs_list
-
-        return self._kwargs_list
-
-    @property
-    def test_method(self):
-        if is_multi(self.wrapped):
-            return self.wrapped.test_method
-        else:
-            return self.wrapped
+    def __name__(self):
+        return self.test_method.__name__
 
     def __len__(self):
         return len(self.kwargs_list)
@@ -126,13 +88,15 @@ class MatrixTestGenerator():
         if self.kwargs_pointer < len(self):
             current_kwargs = self.kwargs_list[self.kwargs_pointer]
             self.kwargs_pointer += 1
-            return inject(**current_kwargs)(self.test_method)
+            return _inject(**current_kwargs)(self.test_method)
         else:
             raise StopIteration
 
 
 def i_to_indices(i, vars, values):
     assert len(vars) == len(values)
+    num_matrix_elements = reduce(lambda x, y: x * len(y), values, 1)
+    assert 0 <= i < num_matrix_elements
 
     indices = [0] * len(vars)
     for j in range(len(vars)):
@@ -145,19 +109,15 @@ def i_to_indices(i, vars, values):
 
 
 def matrix(**kwargs):
-    """
-    Note: ordering won't be guaranteed.
-    """
     vars = []
     values = []
     for v in kwargs:
         vars.append(v)
         values.append(kwargs[v])
 
+    num_params = 0
     if len(vars) > 0:
-        num_params = 1
-        for v in vars:
-            num_params *= len(kwargs[v])
+        num_params = reduce(lambda x, y: x * len(y), values, 1)
 
     def parametrizer(f):
         kwargs_list = []
@@ -167,8 +127,17 @@ def matrix(**kwargs):
             kwargs_list.append(
                 {vars[j]: values[j][indices[j]] for j in range(len(indices))})
 
+        if _expandable(f):
+            all_kwargs_list = []
+            for sub_kwargs in f.kwargs_list:
+                for kwargs in kwargs_list:
+                    current_kwargs = kwargs.copy()
+                    current_kwargs.update(sub_kwargs)
+                    all_kwargs_list.append(current_kwargs)
+        else:
+            all_kwargs_list = kwargs_list
 
-        wrapped = MatrixTestGenerator(f, kwargs_list)
+        wrapped = TestGenerator(f, all_kwargs_list)
         mark_as(wrapped, MATRIX)
         return wrapped
     return parametrizer
@@ -178,32 +147,25 @@ def parametrize(**kwargs):
     """Function decorator used to parametrize its arguments.
 
     Example::
-        @parametrize(x=[1,  2,  3],
-                     y=[10, 10, 12],
-                     z=[-1, -2, -3])
+
+        # decorating g with @parametrize transforms it into an iterable object.
+        # Iterating yields the original g with the specified arguments injected.
+        @parametrize(x=1, y=2 z=-1)
+        @parametrize(x=3, y=4, z=5)
         def g(x, y, z):
             print "x = %s, y = %s, z = %s" % (x, y, z)
 
-        # g is a function marked as parametrized
-        # calling g will now return a generator object:
-        for f in g():
+        for f in g:
             f()
 
         # output:
-        # x = 1, y = 10, z = -1
-        # x = 2, y = 10, z = -2
-        # x = 3, y = 12, z = -3
+        # x = 1, y = 2, z = -1
+        # x = 3, y = 4, z = 5
     """
-    vars = kwargs.keys()
-    if len(vars) > 0:
-        num_params = len(kwargs[vars[0]])
-        for param_list in kwargs.values():
-            assert len(param_list) == num_params, "params: %s, num_params: %s" % (param_list, num_params)
-
     def parametrizer(f):
-        kwargs_list = []
-        for i in range(num_params):
-            kwargs_list.append({v: kwargs[v][i] for v in vars})
+        kwargs_list = [kwargs]
+        if _expandable(f):
+            kwargs_list.extend(f.kwargs_list)
 
         wrapped = TestGenerator(f, kwargs_list)
         mark_as(wrapped, PARAMETRIZED)
@@ -211,10 +173,14 @@ def parametrize(**kwargs):
     return parametrizer
 
 
-def inject(**kwargs):
-    """Inject variables into the arguments of a function or method."""
+def _inject(**kwargs):
+    """Inject variables into the arguments of a function or method.
+    Essentially replaces the default values of the function.
+    """
 
     def injector(f):
+        assert callable(f)
+
         @functools.wraps(f)
         def wrapped(*w_args, **w_kwargs):
             kwargs.update(w_kwargs)
@@ -228,36 +194,36 @@ def inject(**kwargs):
 
 def main():
 
-    # @inject(x="a", y=5, z=30)
-    # def f(x, y, z):
-    #     return "x=%s, y=%s, z=%s" % (x, y, z)
-    #
-    # print f.__name__
-    # print f()
-    #
-    # class C(object):
-    #     def __init__(self):
-    #         self.a = 20
-    #
-    #     @inject(x=30)
-    #     def f(self, x):
-    #         return self.a + x
-    #
-    # c = C()
-    # print c.f()
-    # print c.f(x=10)  # can still override
-    #
+    @_inject(x="a", y=5, z=30)
+    def f(x, y, z):
+        return "x=%s, y=%s, z=%s" % (x, y, z)
 
+    print f.__name__
+    print f()
+
+    class C(object):
+        def __init__(self):
+            self.a = 20
+
+        @_inject(x=30)
+        def f(self, x):
+            return self.a + x
+
+    c = C()
+    print c.f()
+    print c.f(x=10)  # can still override
 
     class A(object):
-        @inject(variables="x", vals=[10])
+        @_inject(variables="x", vals=[10])
         def f(self, x):
             print "original method: self=%s, x=%s" % (str(self), str(x))
             print x * x
             return x * x
 
-        @parametrize(x=[2, 4, 6])
-        @parametrize(x=[-1, -3])
+        @parametrize(x=2)
+        @parametrize(x=4)
+        @parametrize(x=6)
+        @parametrize(x=-1)
         def g(self, x):
             print "original method: self=%s, x=%s" % (str(self), str(x))
             return x * x
