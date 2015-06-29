@@ -16,7 +16,7 @@ TBD
 Install
 -------
 
-    git clone git@github.com:confluentinc/ducktape.git
+    git clone https://github.com/confluentinc/ducktape.git
     cd ducktape
     python setup.py install
     
