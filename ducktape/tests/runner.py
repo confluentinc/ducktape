@@ -14,7 +14,6 @@
 
 
 from ducktape.tests.result import TestResult, TestResults
-from ducktape.tests.test import TestContext
 from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.tests.reporter import SingleResultStdoutReporter
 
@@ -40,16 +39,6 @@ class TestRunner(object):
 
     def run_all_tests(self):
         raise NotImplementedError()
-
-
-# def create_test_case(test_context):
-#     """Create test context object and instantiate test class.
-#
-#     :type test_class: ducktape.tests.test.Test.__class__
-#     :type session_context: ducktape.tests.session.SessionContext
-#     :rtype test_class
-#     """
-#     return (test_context, test_context.cls(test_context))
 
 
 class SerialTestRunner(TestRunner):

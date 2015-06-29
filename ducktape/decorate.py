@@ -68,7 +68,7 @@ class TestGenerator():
 
     @property
     def test_method(self):
-        """Gives access to """
+        """Gives access to original method."""
         if _expandable(self.wrapped):
             return self.wrapped.test_method
         else:
@@ -93,15 +93,23 @@ class TestGenerator():
             raise StopIteration
 
 
-def i_to_indices(i, vars, values):
-    assert len(vars) == len(values)
+def i_to_indices(i, values):
+    """Helper method used by matrix decorator which maps an index to a list of indices.
+
+    n = len(values)
+    0 <= index < len(values[0]) * ... * len(values[n])
+
+    index -> [i_0, ..., i_n] where 0 <= i_k < len(values[k])
+    """
     num_matrix_elements = reduce(lambda x, y: x * len(y), values, 1)
     assert 0 <= i < num_matrix_elements
 
-    indices = [0] * len(vars)
-    for j in range(len(vars)):
-        indices[j] = i % len(values[j])
-        i /= len(values[j])
+    indices = [0] * len(values)
+    for j in range(len(values)):
+        length_of_j = len(values[j])
+
+        indices[j] = i % length_of_j
+        i /= length_of_j
         if i == 0:
             break
 
@@ -109,6 +117,33 @@ def i_to_indices(i, vars, values):
 
 
 def matrix(**kwargs):
+    """Function decorator used to parametrize its with a matrix of values.
+    Decorating a function or method with @matrix "transforms" it into an iterable object.
+
+    Iterating yields the original function with the specified arguments injected, but there are
+    no ordering guarantees.
+
+    Example::
+
+        @matrix(x=[1, 2], y=[-1, -2])
+        def g(x, y):
+            print "x = %s, y = %s" % (x, y)
+
+        for f in g:
+            f()
+
+        # output:
+        # x = 1, y = -1
+        # x = 1, y = -2
+        # x = 2, y = -1
+        # x = 2, y = -2
+
+        # This is equivalent to the above example:
+        @matrix(x=[1, 2])
+        @matrix(y=[-1, -2])
+        def g(x, y):
+            print "x = %s, y = %s" % (x, y)
+    """
     vars = []
     values = []
     for v in kwargs:
@@ -120,10 +155,11 @@ def matrix(**kwargs):
         num_params = reduce(lambda x, y: x * len(y), values, 1)
 
     def parametrizer(f):
+
         kwargs_list = []
 
         for i in range(num_params):
-            indices = i_to_indices(i, vars, values)
+            indices = i_to_indices(i, values)
             kwargs_list.append(
                 {vars[j]: values[j][indices[j]] for j in range(len(indices))})
 
@@ -145,11 +181,12 @@ def matrix(**kwargs):
 
 def parametrize(**kwargs):
     """Function decorator used to parametrize its arguments.
+    Decorating a function or method with @parametrize "transforms" it into an iterable object.
+
+    Iterating yields the original function with the specified arguments injected.
 
     Example::
 
-        # decorating g with @parametrize transforms it into an iterable object.
-        # Iterating yields the original g with the specified arguments injected.
         @parametrize(x=1, y=2 z=-1)
         @parametrize(x=3, y=4, z=5)
         def g(x, y, z):
