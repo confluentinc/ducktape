@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test
+from ducktape.tests.test import Test, TestContext
+from ducktape.mark import parametrized
 
 import importlib
 import inspect
@@ -24,16 +25,42 @@ class LoaderException(Exception):
     pass
 
 
+DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
+DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
+
+
+class TestInfo(object):
+    """Helper class used to wrap discovered test information"""
+    def __init__(self, module=None, cls=None, function=None, injected_args=None):
+        self.module = module
+        self.cls = cls
+        self.function = function
+        self.injected_args = injected_args
+
+    @property
+    def module_name(self):
+        return "" if self.module is None else self.module.__name__
+
+    @property
+    def cls_name(self):
+        return "" if self.cls is None else self.cls.__name__
+
+    @property
+    def function_name(self):
+        return "" if self.function is None else self.function.__name__
+
+
 class TestLoader(object):
     """Class used to discover and load tests."""
-    DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
-    DEFAULT_TEST_METHOD_PATTERN = "(^test.*)|(.*test$)"
 
     def __init__(self, session_context):
+        self.session_context = session_context
         self.logger = session_context.logger
+        self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
+        self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
 
     def parse_discovery_symbol(self, discovery_symbol):
-        """Parse command-line argument into a tuple (directory, module.py, class_name, method_name).
+        """Parse command-line argument into a tuple (directory, module.py, cls_name, function_name).
 
         :raise LoaderException if it can't be parsed
         """
@@ -60,11 +87,9 @@ class TestLoader(object):
         else:
             module, cls_name, method_name = base, "", ""
 
-        return (directory, module, cls_name, method_name)
+        return directory, module, cls_name, method_name
 
-
-    def discover(self, test_discovery_symbols, file_pattern=DEFAULT_TEST_FILE_PATTERN,
-                 method_pattern=DEFAULT_TEST_METHOD_PATTERN):
+    def discover(self, test_discovery_symbols):
         """Recurse through packages in file hierarchy starting at base_dir, and return a list of all found test methods
         in test classes.
 
@@ -77,73 +102,37 @@ class TestLoader(object):
         :type pattern: str
         :rtype: list
         """
-        test_classes = []
         assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
+        test_info_list = []
         for symbol in test_discovery_symbols:
             directory, module_name, cls_name, method_name = self.parse_discovery_symbol(symbol)
 
-            # Check validity
+            # Check validity of path
             path = os.path.join(directory, module_name)
             if not os.path.exists(path):
                 raise LoaderException("Path {} does not exist".format(path))
 
+            # Recursively search path for test modules
             if os.path.isfile(path):
                 test_files = [os.path.abspath(path)]
             else:
-                test_files = self.find_test_files(path, file_pattern)
-            test_modules = self.import_modules(test_files)
+                test_files = self.find_test_files(path)
+            modules = self.import_modules(test_files)
 
-            # pull test_classes out of test_modules
-            tests_from_symbol = []
-            for module in test_modules:
-                try:
-                    tests_from_symbol.extend(self.get_test_classes(module))
-                except Exception as e:
-                    self.logger.debug("Error getting test classes from module: " + e.message)
-
+            # Find all tests in discovered modules and filter out any that don't match the discovery symbol
+            for m in modules:
+                test_info_list.extend(self.expand_module(TestInfo(module=m)))
             if len(cls_name) > 0:
-                # We only want to run a specific test class
-                tests_from_symbol = [test for test in tests_from_symbol if test.__name__ == cls_name]
+                test_info_list = filter(lambda t: t.cls_name == cls_name, test_info_list)
+            if len(method_name) > 0:
+                test_info_list = filter(lambda t: t.function_name == method_name, test_info_list)
 
-            self.logger.debug("Discovered these test classes: " + str(tests_from_symbol))
-            test_classes.extend(tests_from_symbol)
+            if len(test_info_list) == 0:
+                raise LoaderException("Didn't find any tests for symble %s." % symbol)
 
-        # pull test_methods out of test_classes
-        test_methods = []
-        for test_class in test_classes:
-            for field_name in dir(test_class):
-                field = getattr(test_class, field_name)
-                if re.match(method_pattern, field_name) and callable(field):
-                    test_methods.append(field)
-        if method_name:
-            test_methods = [method for method in test_methods if method.__name__ == method_name]
-
-        if not test_methods:
-            raise LoaderException("Could not find any tests corresponding to the symbol " + symbol)
-
-        self.logger.debug("Discovered these tests: " + str(test_methods))
-        return test_methods
-
-    def find_test_files(self, base_dir, pattern=DEFAULT_TEST_FILE_PATTERN):
-        """Return a list of files underneath base_dir that look like test files.
-        The returned file names are absolute paths to the files in question.
-
-        :type base_dir: str
-        :type pattern: str
-        :rtype: list
-        """
-        test_files = []
-
-        for pwd, dirs, files in os.walk(base_dir):
-            if "__init__.py" not in files:
-                # Not a package - ignore this directory
-                continue
-            for f in files:
-                file_path = os.path.abspath(os.path.join(pwd, f))
-                if self.is_test_file(file_path, pattern):
-                    test_files.append(file_path)
-
-        return test_files
+        self.logger.debug("Discovered these tests: " + str(test_info_list))
+        return [TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
+                for t in test_info_list]
 
     def import_modules(self, file_list):
         """Attempt to import modules in the file list.
@@ -152,7 +141,7 @@ class TestLoader(object):
         Return all imported modules.
 
         :type file_list: list
-        :rtype: list
+        :return list of imported modules
         """
         module_list = []
 
@@ -179,17 +168,84 @@ class TestLoader(object):
 
         return module_list
 
-    def get_test_classes(self, module):
-        """Return list of all test classes in the module object.
-        """
-        module_objects = module.__dict__.values()
-        return [c for c in module_objects if self.is_test_class(c)]
+    def expand_module(self, t_info):
+        """Return a list of TestInfo objects, one object for every 'testable unit' in t_info.module"""
 
-    def is_test_file(self, file_name, pattern=DEFAULT_TEST_FILE_PATTERN):
+        test_info_list = []
+        module = t_info.module
+        module_objects = module.__dict__.values()
+        test_classes = [c for c in module_objects if self.is_test_class(c)]
+
+        for cls in test_classes:
+            test_info_list.extend(self.expand_class(TestInfo(module=module, cls=cls)))
+
+        return test_info_list
+
+    def expand_class(self, t_info):
+        """Return a list of TestInfo objects, one object for each method in t_info.cls"""
+        test_methods = []
+        for f_name in dir(t_info.cls):
+            f = getattr(t_info.cls, f_name)
+            if self.is_test_function(f):
+                test_methods.append(f)
+
+        test_info_list = []
+        for f in test_methods:
+            t = TestInfo(module=t_info.module, cls=t_info.cls, function=f)
+
+            if parametrized(f):
+                test_info_list.extend(self.expand_function(t))
+            else:
+                test_info_list.append(t)
+
+        return test_info_list
+
+    def expand_function(self, t_info):
+        """Assume t_info.function is marked with @parametrize etc."""
+        assert parametrized(t_info.function)
+
+        test_info_list = []
+        for f in t_info.function:
+            test_info_list.append(
+                TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=f.kwargs))
+
+        return test_info_list
+
+    def find_test_files(self, base_dir):
+        """Return a list of files underneath base_dir that look like test files.
+        The returned file names are absolute paths to the files in question.
+
+        :type base_dir: str
+        :type pattern: str
+        :rtype: list
+        """
+        test_files = []
+
+        for pwd, dirs, files in os.walk(base_dir):
+            if "__init__.py" not in files:
+                # Not a package - ignore this directory
+                continue
+            for f in files:
+                file_path = os.path.abspath(os.path.join(pwd, f))
+                if self.is_test_file(file_path):
+                    test_files.append(file_path)
+
+        return test_files
+
+    def is_test_file(self, file_name):
         """By default, a test file looks like test_*.py or *_test.py"""
-        return re.match(pattern, os.path.basename(file_name)) is not None
+        return re.match(self.test_file_pattern, os.path.basename(file_name)) is not None
 
     def is_test_class(self, obj):
-        """An object is a test class if it's a leafy subclass of Test.
-        """
+        """An object is a test class if it's a leafy subclass of Test."""
         return inspect.isclass(obj) and issubclass(obj, Test) and len(obj.__subclasses__()) == 0
+
+    def is_test_function(self, function):
+        """A test function looks like a test and is callable (or expandable)."""
+        if function is None:
+            return False
+
+        if not parametrized(function) and not callable(function):
+            return False
+
+        return re.match(self.test_function_pattern, function.__name__) is not None

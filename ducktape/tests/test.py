@@ -20,6 +20,7 @@ from ducktape.template import TemplateRenderer
 
 import logging
 import os
+import re
 import sys
 
 
@@ -112,18 +113,32 @@ class Test(TemplateRenderer):
         return val
 
 
+def _escape_pathname(s):
+    """Remove fishy characters, replace most with dots"""
+    # Remove all whitespace completely
+    s = re.sub("\s+", "", s)
+
+    # Replace bad characters with dots
+    blacklist = "[^\.\-=_\w\d]+"
+    s = re.sub(blacklist, ".", s)
+
+    # Multiple dots -> single dot (and no leading or trailing dot)
+    s = re.sub("[\.]+", ".", s)
+    return re.sub("^\.|\.$", "", s)
+
+
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module=None, cls=None, function=None, config=None):
+    def __init__(self, session_context, module=None, cls=None, function=None, injected_args=None):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
         self.module = module
         self.cls = cls
         self.function = function
-        self.config = config
+        self.injected_args = injected_args
+
         self.session_context = session_context
-        self.cluster = session_context.cluster
         self.services = ServiceRegistry()
 
         # dict for toggling service log collection on/off
@@ -135,23 +150,51 @@ class TestContext(Logger):
         self._logger_configured = False
         self.configure_logger()
 
+    def __repr__(self):
+        return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
+               (self.module, self.cls_name, self.function_name, str(self.injected_args))
+
+    @property
+    def module_name(self):
+        return "" if self.module is None else self.module
+
+    @property
+    def cls_name(self):
+        return "" if self.cls is None else self.cls.__name__
+
+    @property
+    def function_name(self):
+        return "" if self.function is None else self.function.__name__
+
+    @property
+    def injected_args_name(self):
+        if self.injected_args is None:
+            return ""
+        else:
+            params = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
+            return _escape_pathname(params)
+
+    @property
+    def cluster(self):
+        return self.session_context.cluster
 
     @property
     def results_dir(self):
         d = self.session_context.results_dir
+
         if self.cls is not None:
             d = os.path.join(d, self.cls.__name__)
         if self.function is not None:
             d = os.path.join(d, self.function.__name__)
+        if self.injected_args is not None:
+            d = os.path.join(d, self.injected_args_name)
+
         return d
 
     @property
     def test_id(self):
         name_components = [self.session_context.session_id,
-                           self.module,
-                           self.cls.__name__ if self.cls is not None else None,
-                           self.function.__name__ if self.function is not None else None]
-
+                           self.test_name]
         return ".".join(filter(lambda x: x is not None, name_components))
 
     @property
@@ -160,11 +203,12 @@ class TestContext(Logger):
         The fully-qualified name of the test. This is similar to test_id, but does not include the session ID. It
         includes the module, class, and method name.
         """
-        name_components = [self.module,
-                           self.cls.__name__ if self.cls is not None else None,
-                           self.function.__name__ if self.function is not None else None]
+        name_components = [self.module_name,
+                           self.cls_name,
+                           self.function_name,
+                           self.injected_args_name]
 
-        return ".".join(filter(lambda x: x is not None, name_components))
+        return ".".join(filter(lambda x: x is not None and len(x) > 0, name_components))
 
     @property
     def logger_name(self):

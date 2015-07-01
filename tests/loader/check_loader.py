@@ -21,11 +21,39 @@ import os
 import os.path
 import tempfile
 import pytest
+import re
 
 
 def discover_dir():
     """Return the absolute path to the directory to use with discovery tests."""
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "loader_test_directory")
+
+
+def num_tests_in_file(fpath):
+    """Count expected number of tests in the file.
+    Search for NUM_TESTS = N
+
+    return N if pattern is present else 0
+    """
+    with open(fpath, 'r') as fd:
+        match = re.search(r'^NUM_TESTS\s*=\s*(\d+)', fd.read(), re.MULTILINE)
+
+        if not match:
+            return 0
+        return int(match.group(1))
+
+
+def num_tests_in_dir(dpath):
+    """Walk through directory subtree and count up expected number of tests that TestLoader should find."""
+    assert os.path.exists(dpath)
+    assert os.path.isdir(dpath)
+
+    num_tests = 0
+    for pwd, dirs, files in os.walk(dpath):
+        for f in files:
+            file_path = os.path.abspath(os.path.join(pwd, f))
+            num_tests += num_tests_in_file(file_path)
+    return num_tests
 
 
 class CheckTestLoader(object):
@@ -39,24 +67,26 @@ class CheckTestLoader(object):
         """Check discovery on a directory."""
         loader = TestLoader(self.SESSION_CONTEXT)
         tests = loader.discover([discover_dir()])
-        assert len(tests) == 5
+        assert len(tests) == num_tests_in_dir(discover_dir())
 
     def check_test_loader_with_file(self):
         """Check discovery on a file. """
         loader = TestLoader(self.SESSION_CONTEXT)
-        tests = loader.discover([os.path.join(discover_dir(), "test_a.py")])
-        assert len(tests) == 1
+        module_path = os.path.join(discover_dir(), "test_a.py")
+
+        tests = loader.discover([module_path])
+        assert len(tests) == num_tests_in_file(module_path)
 
     def check_test_loader_multiple_files(self):
         loader = TestLoader(self.SESSION_CONTEXT)
-        tests = loader.discover([
-            os.path.join(discover_dir(), "test_a.py"),
-            os.path.join(discover_dir(), "test_b.py")
-        ])
-        assert len(tests) == 4
+        file_a = os.path.join(discover_dir(), "test_a.py")
+        file_b = os.path.join(discover_dir(), "test_b.py")
+
+        tests = loader.discover([file_a, file_b])
+        assert len(tests) == num_tests_in_file(file_a) + num_tests_in_file(file_b)
 
     def check_test_loader_with_nonexistent_file(self):
-        """Check discovery on a starting path that doesn't exist throws an"""
+        """Check discovery on a non-existent path should throw LoaderException"""
         with pytest.raises(LoaderException):
             loader = TestLoader(self.SESSION_CONTEXT)
             tests = loader.discover([os.path.join(discover_dir(), "file_that_does_not_exist.py")])

@@ -12,30 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test
-
-NUM_TESTS = 3
+from ducktape.tests.test import _escape_pathname
 
 
-class TestB(Test):
-    """Loader should discover this."""
-    def test_b(self):
-        pass
+class CheckEscapePathname(object):
 
-class TestBB(Test):
-    """Loader should discover this with 2 tests."""
-    test_not_callable = 3
+    def check_illegal_path(self):
+        path = "\\/.a=2,   b=x/y/z"
+        assert _escape_pathname(path) == "a=2.b=x.y.z"
 
-    def test_bb_one(self):
-        pass
+    def check_negative(self):
+        # it's better if negative numbers are preserved
+        path = "x= -2, y=-50"
+        assert _escape_pathname(path) == "x=-2.y=-50"
 
-    def bb_two_test(self):
-        pass
-
-    def other_method(self):
-        pass
-
-class TestInvisible(object):
-    """Loader should not discover this."""
-    def test_invisible(self):
-        pass
+    def check_many_dots(self):
+        path = "..a.....b.c...d."
+        assert _escape_pathname(path) == "a.b.c.d"
