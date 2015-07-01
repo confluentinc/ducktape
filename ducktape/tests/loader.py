@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test, TestContext
-from ducktape.decorate import _expandable
+from ducktape.mark import parametrized
 
 import importlib
 import inspect
@@ -193,7 +193,7 @@ class TestLoader(object):
         for f in test_methods:
             t = TestInfo(module=t_info.module, cls=t_info.cls, function=f)
 
-            if _expandable(f):
+            if parametrized(f):
                 test_info_list.extend(self.expand_function(t))
             else:
                 test_info_list.append(t)
@@ -202,7 +202,7 @@ class TestLoader(object):
 
     def expand_function(self, t_info):
         """Assume t_info.function is marked with @parametrize etc."""
-        assert _expandable(t_info.function)
+        assert parametrized(t_info.function)
 
         test_info_list = []
         for f in t_info.function:
@@ -245,7 +245,7 @@ class TestLoader(object):
         if function is None:
             return False
 
-        if not _expandable(function) and not callable(function):
+        if not parametrized(function) and not callable(function):
             return False
 
         return re.match(self.test_function_pattern, function.__name__) is not None

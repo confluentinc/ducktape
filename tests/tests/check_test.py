@@ -12,17 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import urllib2
+from ducktape.tests.test import _escape_pathname
 
 
-class HttpMixin(object):
-    def http_request(self, url, method, data="", headers=None):
-        if url[0:7].lower() != "http://":
-            url = "http://%s" % url
+class CheckEscapePathname(object):
 
-        if hasattr(self, 'logger') and self.logger is not None:
-            self.logger.debug("Sending http request. Url: %s, Data: %s, Headers: %s" % (url, str(data), str(headers)))
+    def check_illegal_path(self):
+        path = "\\/.a=2,   b=x/y/z"
+        assert _escape_pathname(path) == "a=2.b=x.y.z"
 
-        req = urllib2.Request(url, data, headers)
-        req.get_method = lambda: method
-        return urllib2.urlopen(req)
+    def check_negative(self):
+        # it's better if negative numbers are preserved
+        path = "x= -2, y=-50"
+        assert _escape_pathname(path) == "x=-2.y=-50"
+
+    def check_many_dots(self):
+        path = "..a.....b.c...d."
+        assert _escape_pathname(path) == "a.b.c.d"

@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.decorate import parametrize
-from ducktape.decorate import parametrized
-from ducktape.decorate import _expandable
-from ducktape.decorate import matrix
+from ducktape.mark import parametrize
+from ducktape.mark import parametrized
+from ducktape.mark import matrix
 
 
 class CheckParametrize(object):
@@ -25,7 +24,7 @@ class CheckParametrize(object):
             return x, y, z
 
         assert parametrized(function)
-        assert _expandable(function)
+        assert parametrized(function)
         assert len(function) == 1
 
         all_f = [f for f in function]
@@ -40,7 +39,6 @@ class CheckParametrize(object):
                 return x, y, z
 
         assert parametrized(C.function)
-        assert _expandable(C.function)
         assert len(C.function) == 1
 
         all_f = [f for f in C.function]
@@ -57,7 +55,6 @@ class CheckParametrize(object):
             return x, y, z
 
         assert parametrized(function)
-        assert _expandable(function)
         assert len(function) == 4
 
         all_f = [f for f in function]
@@ -83,7 +80,6 @@ class CheckParametrize(object):
                 return x, y, z
 
         assert parametrized(C.function)
-        assert _expandable(C.function)
         assert len(C.function) == 4
 
         all_f = [func for func in C.function]
@@ -108,7 +104,7 @@ class CheckMatrix(object):
         def function(x=1, y=2, z=3):
             return x, y, z
 
-        assert _expandable(function)
+        assert parametrized(function)
         assert len(function) == 4
 
         all_f = [f for f in function]
@@ -130,7 +126,7 @@ class CheckMatrix(object):
             def function(self, x=1, y=2, z=3):
                 return x, y, z
 
-        assert _expandable(C.function)
+        assert parametrized(C.function)
         assert len(C.function) == 4
 
         all_f = [f for f in C.function]
@@ -151,7 +147,7 @@ class CheckMatrix(object):
         def function(x=1, y=2, z=3):
             return x, y, z
 
-        assert _expandable(function)
+        assert parametrized(function)
         assert len(function) == 4
 
         all_f = [f for f in function]
@@ -173,7 +169,7 @@ class CheckMatrix(object):
             def function(self, x=1, y=2, z=3):
                 return x, y, z
 
-        assert _expandable(C.function)
+        assert parametrized(C.function)
         assert len(C.function) == 4
 
         all_f = [f for f in C.function]

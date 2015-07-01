@@ -16,46 +16,31 @@
 import functools
 
 PARAMETRIZED = "PARAMETRIZED"
-INJECTED = "INJECTED"
 MATRIX = "MATRIX"
-MARKS = {PARAMETRIZED, INJECTED, MATRIX}
-
-_marked_functions = {}
+MARKS = {PARAMETRIZED, MATRIX}
 
 
 def mark_as(fun, mark):
     """Attach a tag indicating that fun has been marked with the given mark"""
-    if fun in _marked_functions:
-        _marked_functions[fun].add(mark)
+    if hasattr(fun, "marks"):
+        fun.marks.add(mark)
     else:
-        _marked_functions[fun] = {mark}
+        fun.__dict__["marks"] = {mark}
 
 
 def marked(f, mark):
     if f is None:
         return False
 
-    try:
-        if f not in _marked_functions:
-            return False
-    except TypeError:
-        # this check throws TypeError if f is not a hashable object
+    if not hasattr(f, "marks"):
         return False
 
-    return mark in _marked_functions[f]
-
-
-def _expandable(f):
-    """Return True iff f 'expands' into many test functions."""
-    return marked(f, PARAMETRIZED) or marked(f, MATRIX)
+    return mark in f.marks
 
 
 def parametrized(f):
-    return marked(f, PARAMETRIZED)
-
-
-def injected(f):
-    return marked(f, INJECTED)
+    """@matrix and @parametrize effectively parametrize the decorated method."""
+    return marked(f, PARAMETRIZED) or marked(f, MATRIX)
 
 
 class TestGenerator():
@@ -69,7 +54,7 @@ class TestGenerator():
     @property
     def test_method(self):
         """Gives access to original method."""
-        if _expandable(self.wrapped):
+        if parametrized(self.wrapped):
             return self.wrapped.test_method
         else:
             return self.wrapped
@@ -82,18 +67,15 @@ class TestGenerator():
         return len(self.kwargs_list)
 
     def __iter__(self):
-        return self
+        return self.test_generator()
 
-    def next(self):
-        if self.kwargs_pointer < len(self):
-            current_kwargs = self.kwargs_list[self.kwargs_pointer]
-            self.kwargs_pointer += 1
-            return _inject(**current_kwargs)(self.test_method)
-        else:
-            raise StopIteration
+    def test_generator(self):
+        """Generator function used to make this class iterable."""
+        for kw in self.kwargs_list:
+            yield _inject(**kw)(self.test_method)
 
 
-def i_to_indices(i, values):
+def _i_to_indices(i, values):
     """Helper method used by matrix decorator which maps an index to a list of indices.
 
     n = len(values)
@@ -117,7 +99,7 @@ def i_to_indices(i, values):
 
 
 def matrix(**kwargs):
-    """Function decorator used to parametrize its with a matrix of values.
+    """Function decorator used to parametrize with a matrix of values.
     Decorating a function or method with @matrix "transforms" it into an iterable object.
 
     Iterating yields the original function with the specified arguments injected, but there are
@@ -159,11 +141,11 @@ def matrix(**kwargs):
         kwargs_list = []
 
         for i in range(num_params):
-            indices = i_to_indices(i, values)
+            indices = _i_to_indices(i, values)
             kwargs_list.append(
                 {vars[j]: values[j][indices[j]] for j in range(len(indices))})
 
-        if _expandable(f):
+        if parametrized(f):
             all_kwargs_list = []
             for sub_kwargs in f.kwargs_list:
                 for kwargs in kwargs_list:
@@ -201,7 +183,7 @@ def parametrize(**kwargs):
     """
     def parametrizer(f):
         kwargs_list = [kwargs]
-        if _expandable(f):
+        if parametrized(f):
             kwargs_list.extend(f.kwargs_list)
 
         wrapped = TestGenerator(f, kwargs_list)
@@ -210,20 +192,28 @@ def parametrize(**kwargs):
     return parametrizer
 
 
-def _inject(**kwargs):
+def _inject(*args, **kwargs):
     """Inject variables into the arguments of a function or method.
-    Essentially replaces the default values of the function.
+    This is almost identical to decorating with functools.partial, except we also propagate the wrapped
+    function's __name__.
     """
 
     def injector(f):
         assert callable(f)
 
         @functools.wraps(f)
-        def wrapped(*w_args, **w_kwargs):
-            kwargs.update(w_kwargs)
-            return f(*w_args, **kwargs)
+        def wrapper(*w_args, **w_kwargs):
+            return functools.partial(f, *args, **kwargs)(*w_args, **w_kwargs)
 
-        mark_as(wrapped, INJECTED)
-        wrapped.kwargs = kwargs
-        return wrapped
+        wrapper.args = args
+        wrapper.kwargs = kwargs
+        wrapper.function = f
+
+        return wrapper
     return injector
+
+# Aliases for those who prefer British spelling
+parameterize = parametrize
+parameterized = parametrized
+
+

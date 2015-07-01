@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test
-from ducktape.decorate import matrix
-from ducktape.decorate import parametrize
+from ducktape.mark import matrix
+from ducktape.mark import parametrize
 
 NUM_TESTS = 15
 
