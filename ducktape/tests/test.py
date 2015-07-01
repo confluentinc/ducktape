@@ -208,7 +208,7 @@ class TestContext(Logger):
                            self.function_name,
                            self.injected_args_name]
 
-        return ".".join(filter(lambda x: len(x) > 0 and x is not None,  name_components))
+        return ".".join(filter(lambda x: x is not None and len(x) > 0, name_components))
 
     @property
     def logger_name(self):
