@@ -38,14 +38,19 @@ class JsonCluster(Cluster):
         self.in_use_nodes = set()
         self.id_source = 1
 
+    def __len__(self):
+        return len(self.available_nodes) + len(self.in_use_nodes)
+
     def num_available_nodes(self):
         return len(self.available_nodes)
 
     def request(self, nslots):
         if nslots > self.num_available_nodes():
-            raise RuntimeError(
-                "There aren't enough available nodes to satisfy the resource request. Your test has almost " +
-                "certainly incorrectly implemented its min_cluster_size() method.")
+            err_msg = "There aren't enough available nodes to satisfy the resource request. " \
+                "Cluster size: %d, Requested: %d, Available: %d. " % \
+                      (len(self), nslots, self.num_available_nodes())
+            err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
+            raise RuntimeError(err_msg)
 
         result = []
         for i in range(nslots):

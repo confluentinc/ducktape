@@ -34,6 +34,12 @@ class Cluster(object):
     homogeneous.
     """
 
+    def __len__(self):
+        """Size of this cluster object. I.e. number of 'nodes' in the cluster.
+        In some implementations this may be float('infinity').
+        """
+        raise NotImplementedError()
+
     def request(self, nslots):
         """Request the specified number of slots, which will be reserved until they are freed by the caller."""
         raise NotImplementedError()

@@ -32,9 +32,15 @@ class Test(TemplateRenderer):
         :type test_context: ducktape.tests.test.TestContext
         """
         super(Test, self).__init__(*args, **kwargs)
-        self.cluster = test_context.session_context.cluster
         self.test_context = test_context
-        self.logger = test_context.logger
+
+    @property
+    def cluster(self):
+        return self.test_context.session_context.cluster
+
+    @property
+    def logger(self):
+        return self.test_context.logger
 
     def min_cluster_size(self):
         """Heuristic for guessing whether there are enough nodes in the cluster to run this test.

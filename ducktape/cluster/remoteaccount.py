@@ -28,11 +28,15 @@ class RemoteAccount(HttpMixin):
         self.ssh_args = ssh_args
         self.ssh_hostname = ssh_hostname
         self.externally_routable_ip = None
-
         self.logger = logger
 
-    def set_logger(self, logger):
-        self.logger = logger
+    def __repr__(self):
+        r = ["hostname: %s" % self.hostname,
+             "" if self.user is None else self.user,
+             "" if self.ssh_args is None else self.ssh_args,
+             "" if self.ssh_hostname is None else self.ssh_hostname]
+
+        return "<RemoteAccount: " + ", ".join(r) + ">"
 
     @property
     def local(self):

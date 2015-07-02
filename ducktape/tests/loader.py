@@ -55,9 +55,12 @@ class TestLoader(object):
 
     def __init__(self, session_context):
         self.session_context = session_context
-        self.logger = session_context.logger
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
+
+    @property
+    def logger(self):
+        return self.session_context.logger
 
     def parse_discovery_symbol(self, discovery_symbol):
         """Parse command-line argument into a tuple (directory, module.py, cls_name, function_name).

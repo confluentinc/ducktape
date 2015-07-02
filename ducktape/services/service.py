@@ -53,8 +53,6 @@ class Service(TemplateRenderer):
         """
         super(Service, self).__init__(*args, **kwargs)
         self.num_nodes = num_nodes
-        self.cluster = context.cluster
-        self.logger = context.logger
         self.context = context
         self.allocated = False
         self.nodes = []
@@ -64,6 +62,19 @@ class Service(TemplateRenderer):
         # after the service if something goes wrong.
         if hasattr(self.context, "services"):
             self.context.services.append(self)
+
+    def __repr__(self):
+        d = "num_nodes: %d, allocated: %s, nodes: %s" % (self.num_nodes, self.allocated, self.nodes)
+
+        return "<%s: %s>" % (self.who_am_i(), str(d))
+
+    @property
+    def logger(self):
+        return self.context.logger
+
+    @property
+    def cluster(self):
+        return self.context.cluster
 
     def who_am_i(self, node=None):
         """Human-readable identifier useful for log messages."""
@@ -78,7 +89,14 @@ class Service(TemplateRenderer):
             raise Exception("Requesting nodes for a service that has already been allocated nodes.")
 
         self.logger.debug("Requesting nodes from the cluster.")
-        self.nodes = self.cluster.request(self.num_nodes)
+
+        try:
+            self.nodes = self.cluster.request(self.num_nodes)
+        except RuntimeError as e:
+            if hasattr(self.context, "services"):
+                msg = e.message + " Currently registered services: " + str(self.context.services)
+                self.logger.debug("Currently registered services: " + str(self.context.services))
+            raise RuntimeError(msg)
 
         for idx, node in enumerate(self.nodes, 1):
             # Remote accounts utilities should log where this service logs
@@ -89,7 +107,7 @@ class Service(TemplateRenderer):
                     "logger was not None on service start. There may be a concurrency issue, " +
                     "or some service which isn't properly cleaning up after itself. " +
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
-            node.account.set_logger(self.logger)
+            node.account.logger = self.logger
 
         self.allocated = True
 
@@ -162,7 +180,7 @@ class Service(TemplateRenderer):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
         for node in self.nodes:
             self.logger.info("%s: freeing node" % self.who_am_i(node))
-            node.account.set_logger(None)
+            node.account.logger = None
             self.free_node(node)
 
     def free_node(self, node):
