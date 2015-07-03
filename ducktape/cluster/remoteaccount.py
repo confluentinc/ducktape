@@ -32,9 +32,9 @@ class RemoteAccount(HttpMixin):
 
     def __repr__(self):
         r = ["hostname: %s" % self.hostname,
-             "" if self.user is None else self.user,
-             "" if self.ssh_args is None else self.ssh_args,
-             "" if self.ssh_hostname is None else self.ssh_hostname]
+             "user: %s" % ("" if self.user is None else self.user),
+             "ssh_hostname: %s" % ("" if self.ssh_hostname is None else self.ssh_hostname),
+             "ssh_args: %s" % ("" if self.ssh_args is None else self.ssh_args)]
 
         return "<RemoteAccount: " + ", ".join(r) + ">"
 

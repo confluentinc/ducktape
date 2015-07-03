@@ -64,9 +64,8 @@ class Service(TemplateRenderer):
             self.context.services.append(self)
 
     def __repr__(self):
-        d = "num_nodes: %d, allocated: %s, nodes: %s" % (self.num_nodes, self.allocated, self.nodes)
-
-        return "<%s: %s>" % (self.who_am_i(), str(d))
+        return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, allocated: %s, nodes: %s" %
+                             (self.num_nodes, self.allocated, [n.account.hostname for n in self.nodes]))
 
     @property
     def logger(self):
