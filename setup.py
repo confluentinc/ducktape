@@ -43,6 +43,6 @@ setup(name="ducktape",
       packages=find_packages(),
       package_data={'ducktape': ['templates/report/*']},
       install_requires=['jinja2', 'requests'],
-      tests_require=['pytest', 'jinja2', 'requests'],
+      tests_require=['pytest'],
       cmdclass={'test': PyTest},
       )
