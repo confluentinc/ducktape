@@ -30,8 +30,6 @@ class PyTest(TestCommand):
         errno = pytest.main(self.pytest_args)
         sys.exit(errno)
 
-requires = ['jinja2', 'requests']
-
 setup(name="ducktape",
       version=version,
       description="Distributed system test tools",
