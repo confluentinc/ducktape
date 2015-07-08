@@ -31,16 +31,27 @@ class CheckJsonCluster(object):
     def cluster_hostnames(nodes):
         return set([node.account.hostname for node in nodes])
 
+    def check_cluster_size(self):
+        cluster = JsonCluster({"nodes": []})
+        assert len(cluster) == 0
+
+        n = 10
+        cluster = JsonCluster({"nodes":[{"hostname": "localhost%d" % x} for x in range(n)]})
+        assert len(cluster) == n
+
     def check_allocate_free(self):
         cluster = JsonCluster({"nodes":[{"hostname": "localhost1"}, {"hostname": "localhost2"}, {"hostname": "localhost3"}]})
+        assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 3)
 
         nodes = cluster.request(1)
         nodes_hostnames = self.cluster_hostnames(nodes)
+        assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 2)
 
         nodes2 = cluster.request(2)
         nodes2_hostnames = self.cluster_hostnames(nodes2)
+        assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 0)
 
         assert(nodes_hostnames.isdisjoint(nodes2_hostnames))

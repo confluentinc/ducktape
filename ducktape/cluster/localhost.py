@@ -28,6 +28,9 @@ class LocalhostCluster(Cluster):
         # Use a very large number, but fixed value so accounting for # of available nodes works
         self._available = sys.maxint
 
+    def __len__(self):
+        return sys.maxint
+
     def request(self, nslots):
         self._available -= nslots
         return [ClusterSlot(self, RemoteAccount("localhost")) for i in range(nslots)]

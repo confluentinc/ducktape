@@ -19,7 +19,7 @@ class ClusterSlot(object):
     def __init__(self, parent, account, **kwargs):
         self.parent = parent
         self.account = account
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             setattr(self, k, v)
 
     def free(self):
@@ -33,6 +33,10 @@ class Cluster(object):
     simple right now: the only "resource" right now is a generic VM and it is assumed everything is approximately
     homogeneous.
     """
+
+    def __len__(self):
+        """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
+        raise NotImplementedError()
 
     def request(self, nslots):
         """Request the specified number of slots, which will be reserved until they are freed by the caller."""

@@ -14,12 +14,18 @@
 
 from ducktape.cluster.localhost import LocalhostCluster
 
+import sys
+
 class CheckLocalhostCluster(object):
     def setup_method(self, method):
         self.cluster = LocalhostCluster()
 
+    def check_size(self):
+        len(self.cluster) >= 2 ** 31 - 1
+
     def check_request_free(self):
         available = self.cluster.num_available_nodes()
+        initial_size = len(self.cluster)
 
         # Should be able to allocate arbitrarily many nodes
         slots = self.cluster.request(100)
@@ -30,6 +36,7 @@ class CheckLocalhostCluster(object):
             assert(slot.account.ssh_args == None)
 
         assert(self.cluster.num_available_nodes() == (available - 100))
+        assert len(self.cluster) == initial_size  # This shouldn't change
 
         self.cluster.free(slots)
 

@@ -28,10 +28,16 @@ class TestRunner(object):
         self.tests = tests
         self.session_context = session_context
         self.results = TestResults(self.session_context)
-        self.cluster = session_context.cluster
-        self.logger = session_context.logger
 
         self.logger.debug("Instantiating " + self.who_am_i())
+
+    @property
+    def cluster(self):
+        return self.session_context.cluster
+
+    @property
+    def logger(self):
+        return self.session_context.logger
 
     def who_am_i(self):
         """Human-readable name helpful for logging."""
@@ -83,7 +89,6 @@ class SerialTestRunner(TestRunner):
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
             finally:
-
                 if not self.session_context.no_teardown:
                     self.log(logging.INFO, "tearing down")
                     self.teardown_single_test()
@@ -108,10 +113,11 @@ class SerialTestRunner(TestRunner):
         """start services etc"""
 
         self.log(logging.DEBUG, "Checking if there are enough nodes...")
-        if self.current_test.min_cluster_size() > self.cluster.num_available_nodes():
+        if self.current_test.min_cluster_size() > len(self.cluster):
             raise RuntimeError(
-                "There are not enough nodes available in the cluster to run this test. Needed: %d, Available: %d" %
-                (self.current_test.min_cluster_size(), self.cluster.num_available_nodes()))
+                "There are not enough nodes available in the cluster to run this test. "
+                "Cluster size: %d, Need at least: %d. Services currently registered: %s" %
+                (len(self.cluster), self.current_test.min_cluster_size(), self.current_test_context.services))
 
         self.current_test.setUp()
 
