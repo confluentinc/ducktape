@@ -47,6 +47,7 @@ Host worker2
 
 
         cluster = VagrantCluster()
+        assert len(cluster) == 2
         assert(cluster.num_available_nodes() == 2)
         node1, node2 = cluster.request(2)
 

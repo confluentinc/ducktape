@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.tests.session import SessionContext
+
+import os
+import tempfile
+
 
 class MockArgs(object):
     """A mock command-line argument object"""
@@ -22,3 +27,12 @@ class MockArgs(object):
         self.debug = False
         self.exit_first = False
         self.no_teardown = False
+
+
+def session_context(cluster=None, args=MockArgs()):
+    """Return a SessionContext object."""
+
+    tmp = tempfile.mkdtemp()
+    session_dir = os.path.join(tmp, "test_dir")
+    os.mkdir(session_dir)
+    return SessionContext("test_session", session_dir, cluster=cluster, args=args)

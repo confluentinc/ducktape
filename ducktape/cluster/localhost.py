@@ -29,7 +29,7 @@ class LocalhostCluster(Cluster):
         self._available = sys.maxint
 
     def __len__(self):
-        return float("infinity")
+        return sys.maxint
 
     def request(self, nslots):
         self._available -= nslots

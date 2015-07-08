@@ -30,13 +30,12 @@ class RemoteAccount(HttpMixin):
         self.externally_routable_ip = None
         self.logger = logger
 
-    def __repr__(self):
-        r = ["hostname: %s" % self.hostname,
-             "user: %s" % ("" if self.user is None else self.user),
-             "ssh_hostname: %s" % ("" if self.ssh_hostname is None else self.ssh_hostname),
-             "ssh_args: %s" % ("" if self.ssh_args is None else self.ssh_args)]
-
-        return "<RemoteAccount: " + ", ".join(r) + ">"
+    def __str__(self):
+        r = ""
+        if self.user:
+            r += self.user + "@"
+        r += self.hostname
+        return r
 
     @property
     def local(self):
@@ -194,10 +193,4 @@ class RemoteAccount(HttpMixin):
                 return
             raise e
 
-    def __str__(self):
-        r = ""
-        if self.user:
-            r += self.user + "@"
-        r += self.hostname
-        return r
 

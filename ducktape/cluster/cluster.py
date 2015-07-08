@@ -22,9 +22,6 @@ class ClusterSlot(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __repr__(self):
-        return "<ClusterSlot: account: " + str(self.account) + ">"
-
     def free(self):
         self.parent.free(self)
 
@@ -38,9 +35,7 @@ class Cluster(object):
     """
 
     def __len__(self):
-        """Size of this cluster object. I.e. number of 'nodes' in the cluster.
-        In some implementations this may be float('infinity').
-        """
+        """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         raise NotImplementedError()
 
     def request(self, nslots):

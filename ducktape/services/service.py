@@ -94,7 +94,6 @@ class Service(TemplateRenderer):
         except RuntimeError as e:
             if hasattr(self.context, "services"):
                 msg = e.message + " Currently registered services: " + str(self.context.services)
-                self.logger.debug("Currently registered services: " + str(self.context.services))
             raise RuntimeError(msg)
 
         for idx, node in enumerate(self.nodes, 1):

@@ -13,13 +13,11 @@
 # limitations under the License.
 
 from ducktape.tests.loader import TestLoader, LoaderException
-from ducktape.tests.session import SessionContext
 
-from tests.mock import MockArgs
+import tests.ducktape_mock
 
 import os
 import os.path
-import tempfile
 import pytest
 import re
 
@@ -58,10 +56,7 @@ def num_tests_in_dir(dpath):
 
 class CheckTestLoader(object):
     def setup_method(self, method):
-        tmp = tempfile.mkdtemp()
-        session_dir = os.path.join(tmp, "test_dir")
-        os.mkdir(session_dir)
-        self.SESSION_CONTEXT = SessionContext("test_session", session_dir, None, MockArgs())
+        self.SESSION_CONTEXT = tests.ducktape_mock.session_context()
 
     def check_test_loader_with_directory(self):
         """Check discovery on a directory."""
