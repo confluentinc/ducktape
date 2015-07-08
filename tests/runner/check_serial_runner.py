@@ -19,8 +19,6 @@ import tests.ducktape_mock
 
 from mock import MagicMock, Mock
 
-import pytest
-
 
 class CheckSerialRunner(object):
 
@@ -35,14 +33,26 @@ class CheckSerialRunner(object):
         runner.log = Mock()
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
-        runner.run_all_tests()
+        results = runner.run_all_tests()
+        assert len(results) == 1
+        assert results.num_failed() == 1
+        assert results.num_passed() == 0
 
-        # Check that setup of TestThingy raises error
-        runner.current_test = TestThingy(test_context)
-        runner.current_test_context = test_context
-        with pytest.raises(RuntimeError):
-            # The cluster should be too small to setup the test
-            runner.setup_single_test()
+    def check_simple_run(self):
+        """Check expected behavior when running a single test."""
+        mock_cluster = MagicMock()
+        mock_cluster.__len__.return_value = 100000  # big enough to run the test!
+        session_context = tests.ducktape_mock.session_context(mock_cluster)
+
+        test_context = TestContext(session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
+        runner = SerialTestRunner(session_context, [test_context])
+        runner.log = Mock()
+
+        results = runner.run_all_tests()
+        assert len(results) == 1
+        assert results.num_failed() == 0
+        assert results.num_passed() == 1
+        assert results[0].data == {"data": 3.14159}
 
 
 class TestThingy(Test):
