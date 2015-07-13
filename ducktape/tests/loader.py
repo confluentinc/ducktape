@@ -133,9 +133,10 @@ class TestLoader(object):
             if len(test_info_list) == 0:
                 raise LoaderException("Didn't find any tests for symble %s." % symbol)
 
-        self.logger.debug("Discovered these tests: " + str(test_info_list))
-        return [TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
-                for t in test_info_list]
+        test_list = [TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
+                     for t in test_info_list]
+        self.logger.debug("Discovered these tests: " + str(test_list))
+        return test_list
 
     def import_modules(self, file_list):
         """Attempt to import modules in the file list.
@@ -154,20 +155,22 @@ class TestLoader(object):
 
             # Try all possible module imports for given file
             path_pieces = f[:-3].split("/")  # Strip off '.py' before splitting
+            success = False
             while len(path_pieces) > 0:
                 module_name = '.'.join(path_pieces)
                 # Try to import the current file as a module
                 try:
                     module_list.append(importlib.import_module(module_name))
                     self.logger.debug("Successfully imported " + module_name)
+                    success = True
                     break  # no need to keep trying
                 except Exception as e:
-                    self.logger.debug("Could not import " + module_name + ": " + e.message)
-                    self.logger.debug(
-                        "   But it's ok: at most one import should work per module, so import failures are expected.")
                     continue
                 finally:
                     path_pieces = path_pieces[1:]
+
+            if not success:
+                self.logger.debug("Unable to import %s" % f)
 
         return module_list
 
