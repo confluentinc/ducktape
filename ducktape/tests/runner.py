@@ -84,7 +84,7 @@ class SerialTestRunner(TestRunner):
             except BaseException as e:
                 self.log(logging.ERROR, "FAIL")
                 result.success = False
-                result.summary += e.message + "\n" + traceback.format_exc(limit=16)
+                result.summary += str(e.message) + "\n" + str(traceback.format_exc(limit=16))
 
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
