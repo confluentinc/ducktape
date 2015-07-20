@@ -117,6 +117,30 @@ class SimpleSummaryReporter(SummaryReporter):
 
         return "\n".join(header_lines)
 
+    def result_string(self, result):
+        """Stringify a single result."""
+
+        result_lines = [
+            self.pass_fail(result.success) + ":     " + result.test_name,
+            "run time: %s" % self.format_time(result.run_time)
+            ]
+
+        if not result.success:
+            # Add summary if the test failed
+            result_lines.append("\n")
+            result_lines.append("    " + result.summary)
+
+        if result.data is not None:
+            if type(result.data) in [str, unicode]:
+                # Result is a string blob
+                result_lines.append(result.data)
+            else:
+                # Result is a dict
+                result_lines.append(json.dumps(result.data))
+
+        result_lines.append("-----------------------------------------------------------------------------------------")
+        return "\n".join(result_lines)
+
     def report_string(self):
         """Get the whole report string."""
         report_lines = [
@@ -167,8 +191,14 @@ class HTMLSummaryReporter(SummaryReporter):
             "description": result.description,
             "run_time": format_time(result.run_time),
             "data": "" if result.data is None else json.dumps(result.data, sort_keys=True, indent=2, separators=(',', ': ')),
-            "test_log": self.test_results_dir(result)
+            "test_log": self.test_results_dir(result),
+            "actions": list()
         }
+
+        if type(result.data) == dict and 'actions' in result.data:
+            # Populate 'actions' field if results contains test action reports.
+            result_json['actions'] = result.data['actions']
+
         return result_json
 
     def test_results_dir(self, result):
