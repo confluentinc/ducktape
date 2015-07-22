@@ -26,6 +26,7 @@ import os
 import sys
 import importlib
 import itertools
+import traceback
 
 
 def parse_args():
@@ -150,6 +151,7 @@ def main():
         session_context.cluster = cluster_class()
     except:
         print "Failed to load cluster: ", str(sys.exc_info()[0])
+        print traceback.format_exc(limit=16)
         sys.exit(1)
 
     # Run the tests
