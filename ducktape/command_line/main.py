@@ -91,13 +91,13 @@ def setup_results_directory(results_root, new_results_dir):
     """Make directory in which results will be stored"""
     if os.path.exists(new_results_dir):
         raise Exception(
-            "A test results directory with session id %s already exists. Exiting without overwriting...")
+            "A file or directory at %s already exists. Exiting without overwriting." % new_results_dir)
     mkdir_p(new_results_dir)
 
+    # Create or update symlink "latest" which points to the new test results directory
     latest_test_dir = os.path.join(results_root, "latest")
     if os.path.islink(latest_test_dir):
         os.unlink(latest_test_dir)
-
     os.symlink(new_results_dir, latest_test_dir)
 
 
