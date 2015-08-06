@@ -87,17 +87,18 @@ def extend_import_paths(paths):
         sys.path.append(dir)
 
 
-def setup_results_directory(results_dir, session_id):
+def setup_results_directory(results_root, new_results_dir):
     """Make directory in which results will be stored"""
-    if os.path.isdir(results_dir):
+    if os.path.exists(new_results_dir):
         raise Exception(
-            "A test results directory with session id %s already exists. Exiting without overwriting..." % session_id)
-    mkdir_p(results_dir)
-    latest_test_dir = os.path.join(ConsoleConfig.RESULTS_ROOT_DIRECTORY, "latest")
+            "A file or directory at %s already exists. Exiting without overwriting." % new_results_dir)
+    mkdir_p(new_results_dir)
 
-    if os.path.exists(latest_test_dir):
+    # Create or update symlink "latest" which points to the new test results directory
+    latest_test_dir = os.path.join(results_root, "latest")
+    if os.path.islink(latest_test_dir):
         os.unlink(latest_test_dir)
-    os.symlink(results_dir, latest_test_dir)
+    os.symlink(new_results_dir, latest_test_dir)
 
 
 def main():
@@ -122,7 +123,7 @@ def main():
     session_id = generate_session_id(ConsoleConfig.SESSION_ID_FILE)
     results_dir = generate_results_dir(session_id)
 
-    setup_results_directory(results_dir, session_id)
+    setup_results_directory(ConsoleConfig.RESULTS_ROOT_DIRECTORY, results_dir)
     session_context = SessionContext(session_id, results_dir, cluster=None, args=args)
     for k, v in vars(args).iteritems():
         session_context.logger.debug("Configuration: %s=%s", k, v)
