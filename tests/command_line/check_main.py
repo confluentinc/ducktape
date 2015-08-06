@@ -37,7 +37,6 @@ class CheckSetupResultsDirectory(object):
     def check_creation(self):
         """Check results and symlink from scratch"""
         assert not os.path.exists(self.results_dir)
-        print self.results_dir
         setup_results_directory(self.results_root, self.results_dir)
         self.validate_directories()
 
