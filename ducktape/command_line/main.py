@@ -125,7 +125,7 @@ def main():
     # Generate a shared 'global' identifier for this test run and create the directory
     # in which all test results will be stored
     session_id = generate_session_id(ConsoleConfig.SESSION_ID_FILE)
-    results_dir = generate_results_dir(session_id)
+    results_dir = generate_results_dir(args.results_root, session_id)
 
     setup_results_directory(args.results_root, results_dir)
     session_context = SessionContext(session_id, results_dir, cluster=None, args=args)
