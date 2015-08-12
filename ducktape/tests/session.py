@@ -129,12 +129,12 @@ def generate_session_id(session_id_file):
     return session_id
 
 
-def generate_results_dir(session_id):
+def generate_results_dir(results_root, session_id):
     """Results from a single run of ducktape are assigned a session_id and put together in this directory.
 
     :type session_id: str
     :rtype: str
     """
-    return os.path.join(os.path.abspath(ConsoleConfig.RESULTS_ROOT_DIRECTORY), session_id)
+    return os.path.join(os.path.abspath(results_root), session_id)
 
 
