@@ -46,6 +46,10 @@ def parse_args():
                         help="path to project-specific configuration file")
     parser.add_argument("--cluster", action="store", default=ConsoleConfig.CLUSTER_TYPE,
                         help="cluster class to use to allocate nodes for tests")
+    parser.add_argument("--results-root", action="store", default=ConsoleConfig.RESULTS_ROOT_DIRECTORY,
+                        help="path to custom root results directory. Running ducktape with this root " +
+                             "specified will result in new test results being stored in a subdirectory of " +
+                             "this root directory.")
     parser.add_argument("--exit-first", action="store_true", help="exit after first failure")
     parser.add_argument("--no-teardown", action="store_true",
                         help="don't kill running processes or remove log files when a test has finished running. " +
@@ -109,21 +113,21 @@ def main():
         Run tests
         Report a summary of all results
     """
-    # Make .ducktape directory where metadata such as the last used session_id is stored
-    if not os.path.isdir(ConsoleConfig.METADATA_DIR):
-        os.makedirs(ConsoleConfig.METADATA_DIR)
-
     args = parse_args()
     if args.version:
         print ducktape_version()
         sys.exit(0)
 
+    # Make .ducktape directory where metadata such as the last used session_id is stored
+    if not os.path.isdir(ConsoleConfig.METADATA_DIR):
+        os.makedirs(ConsoleConfig.METADATA_DIR)
+
     # Generate a shared 'global' identifier for this test run and create the directory
     # in which all test results will be stored
     session_id = generate_session_id(ConsoleConfig.SESSION_ID_FILE)
-    results_dir = generate_results_dir(session_id)
+    results_dir = generate_results_dir(args.results_root, session_id)
 
-    setup_results_directory(ConsoleConfig.RESULTS_ROOT_DIRECTORY, results_dir)
+    setup_results_directory(args.results_root, results_dir)
     session_context = SessionContext(session_id, results_dir, cluster=None, args=args)
     for k, v in vars(args).iteritems():
         session_context.logger.debug("Configuration: %s=%s", k, v)
