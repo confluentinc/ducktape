@@ -113,14 +113,14 @@ def main():
         Run tests
         Report a summary of all results
     """
-    # Make .ducktape directory where metadata such as the last used session_id is stored
-    if not os.path.isdir(ConsoleConfig.METADATA_DIR):
-        os.makedirs(ConsoleConfig.METADATA_DIR)
-
     args = parse_args()
     if args.version:
         print ducktape_version()
         sys.exit(0)
+
+    # Make .ducktape directory where metadata such as the last used session_id is stored
+    if not os.path.isdir(ConsoleConfig.METADATA_DIR):
+        os.makedirs(ConsoleConfig.METADATA_DIR)
 
     # Generate a shared 'global' identifier for this test run and create the directory
     # in which all test results will be stored
