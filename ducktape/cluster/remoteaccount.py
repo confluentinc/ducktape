@@ -70,6 +70,12 @@ class RemoteAccount(HttpMixin):
         return r
 
     def ssh(self, cmd, allow_fail=False):
+        """
+        Run the specified command on the remote host. If allow_fail is False and
+        the command returns a non-zero exit status, throws
+        subprocess.CalledProcessError. If allow_fail is True, returns the exit
+        status of the command.
+        """
         return self._ssh_quiet(self.ssh_command(cmd), allow_fail)
 
     def ssh_capture(self, cmd, allow_fail=False, callback=None):
