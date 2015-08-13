@@ -17,20 +17,21 @@ from ducktape import __version__ as __ducktape_version__
 import time
 
 
-def wait_until(condition, timeout_sec, backoff_sec=.1):
+def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg=""):
     """Block until condition evaluates as true or timeout expires, whichever comes first.
 
-    return True if condition becomes true within the timeout window, otherwise False
+    return silently if condition becomes true within the timeout window, otherwise raise Exception with the given
+    error message.
     """
     start = time.time()
     stop = start + timeout_sec
     while time.time() < stop:
         if condition():
-            return True
+            return
         else:
             time.sleep(backoff_sec)
 
-    return False
+    raise Exception(err_msg)
 
 
 def ducktape_version():
