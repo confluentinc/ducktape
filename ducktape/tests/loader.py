@@ -154,7 +154,7 @@ class TestLoader(object):
                 raise Exception("Expected absolute path ending in '.py' but got " + f)
 
             # Try all possible module imports for given file
-            path_pieces = f[:-3].split("/")  # Strip off '.py' before splitting
+            path_pieces = filter(lambda x: len(x) > 0, f[:-3].split("/"))  # Strip off '.py' before splitting
             success = False
             while len(path_pieces) > 0:
                 module_name = '.'.join(path_pieces)
@@ -165,7 +165,8 @@ class TestLoader(object):
                     success = True
                     break  # no need to keep trying
                 except Exception as e:
-                    continue
+                    if not isinstance(e, ImportError):
+                        self.logger.error("Failed to import %s, which may indicate a broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
                 finally:
                     path_pieces = path_pieces[1:]
 
