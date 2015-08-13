@@ -30,7 +30,7 @@ class CheckUtils(object):
         start = time.time()
 
         try:
-            wait_until(lambda: time.time() > start + 5, timeout_sec=.5, backoff_sec=.1)
+            wait_until(lambda: time.time() > start + 5, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
             raise Exception("This should have timed out")
-        except:
-            return
+        except Exception as e:
+            assert e.message == "Hello world"
