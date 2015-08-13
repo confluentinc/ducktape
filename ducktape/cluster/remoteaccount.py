@@ -180,17 +180,21 @@ class RemoteAccount(HttpMixin):
     def _ssh_quiet(self, cmd, allow_fail=False):
         """Runs the command on the remote host using SSH and blocks until the remote command finishes.
 
-        If it succeeds, there is no output; if it fails the output is printed and the CalledProcessError is re-raised.
+        If it succeeds, there is no output; if it fails the output is printed
+        and the CalledProcessError is re-raised. If allow_fail is True, the
+        CalledProcess error will not be re-raised and the exit status of the
+        process will be returned instead.
         """
         try:
             self.logger.debug("Trying to run remote command: " + cmd)
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+            return 0
         except subprocess.CalledProcessError as e:
             self.logger.warn("Error running remote command: " + cmd)
             self.logger.warn(e.output)
 
             if allow_fail:
-                return
+                return e.returncode
             raise e
 
 
