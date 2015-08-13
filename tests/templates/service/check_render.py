@@ -31,6 +31,9 @@ class CheckTemplateRenderingService(object):
     def check_overload(self):
         self.new_instance().render_overload()
 
+    def check_class_template(self):
+        self.new_instance().render_class_template()
+
     def check_file_template(self):
         self.new_instance().render_file_template()
 
@@ -42,6 +45,9 @@ class TemplateRenderingService(Service):
     NO_VARIABLE = "fixed content"
     SIMPLE_VARIABLE = "Hello {{name}}!"
     OVERLOAD_VARIABLES = "{{normal}} {{overload}}"
+
+    CLASS_CONSTANT_TEMPLATE = "{{ CLASS_CONSTANT }}"
+    CLASS_CONSTANT = "constant"
 
     def __init__(self):
         super(TemplateRenderingService, self).__init__(DummyContext(), 1)
@@ -58,6 +64,11 @@ class TemplateRenderingService(Service):
     def render_overload(self):
         self.normal = "normal"
         assert self.render_template(self.OVERLOAD_VARIABLES, overload='overloaded') == "normal overloaded"
+
+    def render_class_template(self):
+        assert self.render_template(self.CLASS_CONSTANT_TEMPLATE) == self.CLASS_CONSTANT
+        self.CLASS_CONSTANT = "instance override"
+        assert self.render_template(self.CLASS_CONSTANT_TEMPLATE) == "instance override"
 
     def render_file_template(self):
         self.name = "world"
