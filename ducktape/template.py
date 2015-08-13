@@ -27,7 +27,9 @@ class TemplateRenderer(object):
         :return: the rendered template
         """
         if not hasattr(template, 'render'): template = Template(template)
-        return template.render(self.__dict__, **kwargs)
+        ctx = dict(self.__class__.__dict__)
+        ctx.update(self.__dict__)
+        return template.render(ctx, **kwargs)
 
     def render(self, path, **kwargs):
         """
