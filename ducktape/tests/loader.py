@@ -154,7 +154,7 @@ class TestLoader(object):
                 raise Exception("Expected absolute path ending in '.py' but got " + f)
 
             # Try all possible module imports for given file
-            path_pieces = f[:-3].split("/")  # Strip off '.py' before splitting
+            path_pieces = filter(lambda x: len(x) > 0, f[:-3].split("/"))  # Strip off '.py' before splitting
             success = False
             while len(path_pieces) > 0:
                 module_name = '.'.join(path_pieces)
@@ -165,7 +165,22 @@ class TestLoader(object):
                     success = True
                     break  # no need to keep trying
                 except Exception as e:
-                    continue
+                    # When importing, exceptions can occur if a) the module
+                    # doesn't exist, e.g. we have the wrong path to the
+                    # module/there aren't __init__.py files, etc, resulting in
+                    # an ImportError or b) the module is valid, but there was
+                    # some other error when parsing/executing the module, which
+                    # can result in a variety of errors (e.g. IndentationError,
+                    # TypeError, etc). Because of the way we are searching for
+                    # valid modules in this loop, where we expect some of the
+                    # module names we construct to fail to import, we ignore
+                    # ImportError here, but log everything else as an
+                    # error. This does mean we fail to log a subset of import
+                    # errors that we should: if the module is valid but itself
+                    # triggers an ImportError (e.g. typo in an import line),
+                    # that error will be swallowed.
+                    if not isinstance(e, ImportError):
+                        self.logger.error("Failed to import %s, which may indicate a broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
                 finally:
                     path_pieces = path_pieces[1:]
 
