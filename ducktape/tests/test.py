@@ -174,6 +174,9 @@ class TestContext(Logger):
 
     @property
     def description(self):
+        """Description of the test, needed in particular for reporting.
+        If the function has a docstring, return that, otherwise return the class docstring or "".
+        """
         if self.function.__doc__:
             return self.function.__doc__
         else:
