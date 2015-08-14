@@ -173,6 +173,16 @@ class TestContext(Logger):
         return "" if self.function is None else self.function.__name__
 
     @property
+    def description(self):
+        if self.function.__doc__:
+            return self.function.__doc__
+        else:
+            if self.cls.__doc__ is not None:
+                return self.cls.__doc__
+            else:
+                return ""
+
+    @property
     def injected_args_name(self):
         if self.injected_args is None:
             return ""

@@ -152,7 +152,9 @@ class HTMLSummaryReporter(SummaryReporter):
         result_json = {
             "test_name": result.test_name,
             "test_result": test_result,
-            "summary": result.summary,
+            "description": result.description,
+            "run_time": format_time(result.run_time),
+            "data": json.dumps(result.data, sort_keys=True, indent=2, separators=(',', ': ')),
             "test_log": self.test_results_dir(result)
         }
         return result_json
@@ -185,7 +187,7 @@ class HTMLSummaryReporter(SummaryReporter):
             'num_tests': num_tests,
             'num_passes': self.results.num_passed(),
             'num_failures': self.results.num_failed(),
-            'run_time': self.results.run_time,
+            'run_time': format_time(self.results.run_time),
             'session': self.results.session_context.session_id,
             'tests': result_string
         }
