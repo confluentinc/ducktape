@@ -143,6 +143,18 @@ class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
 
 class HTMLSummaryReporter(SummaryReporter):
 
+    def format_test_name(self, result):
+        lines = ["Module: " + result.test_context.module_name,
+                 "Class:  " + result.test_context.cls_name,
+                 "Method: " + result.test_context.function_name]
+
+        if result.test_context.injected_args is not None:
+            lines.append("Arguments:")
+            lines.append(
+                json.dumps(result.test_context.injected_args, sort_keys=True, indent=2, separators=(',', ': ')))
+
+        return "\n".join(lines)
+
     def format_result(self, result):
         if result.success:
             test_result = 'pass'
@@ -150,9 +162,11 @@ class HTMLSummaryReporter(SummaryReporter):
             test_result = 'fail'
 
         result_json = {
-            "test_name": result.test_name,
+            "test_name": self.format_test_name(result),
             "test_result": test_result,
-            "summary": result.summary,
+            "description": result.description,
+            "run_time": format_time(result.run_time),
+            "data": "" if result.data is None else json.dumps(result.data, sort_keys=True, indent=2, separators=(',', ': ')),
             "test_log": self.test_results_dir(result)
         }
         return result_json
@@ -185,7 +199,7 @@ class HTMLSummaryReporter(SummaryReporter):
             'num_tests': num_tests,
             'num_passes': self.results.num_passed(),
             'num_failures': self.results.num_failed(),
-            'run_time': self.results.run_time,
+            'run_time': format_time(self.results.run_time),
             'session': self.results.session_context.session_id,
             'tests': result_string
         }

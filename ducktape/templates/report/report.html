@@ -65,9 +65,11 @@
           var className = this.props.test.test_result + "Class"
           return (
             <tr className={className}>
-              <td colSpan='5' align='center'>{this.props.test.test_name}</td>
-              <td colSpan='5' align='center'>{this.props.test.test_result}</td>
-              <td colSpan='5' align='center'><a href={this.props.test.test_log}>Detail</a></td>
+              <td colSpan='5' align='center'><pre>{this.props.test.test_name}</pre></td>
+              <td colSpan='5' align='center'><pre>{this.props.test.description}</pre></td>
+              <td colSpan='5' align='center'><pre>{this.props.test.run_time}</pre></td>
+              <td colSpan='5' align='center'><pre>{this.props.test.data}</pre></td>
+              <td colSpan='5' align='center'><pre><a href={this.props.test.test_log}>Detail</a></pre></td>
             </tr>
           );
         }
@@ -80,7 +82,9 @@
               <thead>
                 <tr id="header_row">
                   <th colSpan='5' align='center'>Test</th>
-                  <th colSpan='5' align='center'>Result</th>
+                  <th colSpan='5' align='center'>Description</th>
+                  <th colSpan='5' align='center'>Time</th>
+                  <th colSpan='5' align='center'>Data</th>
                   <th colSpan='5' align='center'>Detail</th>
                 </tr>
               </thead>

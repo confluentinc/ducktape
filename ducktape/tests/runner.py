@@ -68,7 +68,7 @@ class SerialTestRunner(TestRunner):
             # Create single testable unit and corresponding test result object
             self.current_test_context = test_context
             self.current_test = test_context.cls(test_context)
-            result = TestResult(self.current_test_context, self.current_test_context.test_name)
+            result = TestResult(self.current_test_context)
 
             # Run the test unit
             result.start_time = time.time()
