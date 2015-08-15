@@ -68,12 +68,12 @@ class BackgroundThreadService(Service):
 
     def stop(self):
         if self.worker_threads is not None:
-            self.logger.warn(
+            self.logger.debug(
                 "At least one worker thread is still running - this might occur if self.stop() is called " +
                 "before self.wait(). This could happen if wait() was omitted intentionally , or if an Exception triggered "
                 "teardown logic before wait() was reached.")
 
-            self.logger.warn("%s" % str(self.worker_threads))
+            self.logger.debug("%s" % str(self.worker_threads))
 
         super(BackgroundThreadService, self).stop()
 

@@ -253,12 +253,15 @@ class TestContext(Logger):
         self.logger.addHandler(info_fh)
         self.logger.addHandler(debug_fh)
 
-        # If debug flag is set, pipe verbose test logging to stdout
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setFormatter(formatter)
         if self.session_context.debug:
-            ch = logging.StreamHandler(sys.stdout)
+            # If debug flag is set, pipe verbose test logging to stdout
             ch.setLevel(logging.DEBUG)
-            ch.setFormatter(formatter)
-            self.logger.addHandler(ch)
+        else:
+            # default - pipe warning level logging to stdout
+            ch.setLevel(logging.WARNING)
+        self.logger.addHandler(ch)
 
         self._logger_configured = True
 
