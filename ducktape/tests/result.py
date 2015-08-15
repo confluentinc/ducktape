@@ -39,10 +39,6 @@ class TestResult(object):
         self.stop_time = -1
 
     @property
-    def test_name(self):
-        return repr(self.test_context)
-
-    @property
     def data(self):
         return self._data
 

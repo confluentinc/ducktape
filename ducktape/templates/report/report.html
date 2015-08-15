@@ -65,11 +65,11 @@
           var className = this.props.test.test_result + "Class"
           return (
             <tr className={className}>
-              <td colSpan='5' align='center'>{this.props.test.test_name}</td>
-              <td colSpan='5' align='center'>{this.props.test.description}</td>
-              <td colSpan='5' align='center'>{this.props.test.run_time}</td>
+              <td colSpan='5' align='center'><pre>{this.props.test.test_name}</pre></td>
+              <td colSpan='5' align='center'><pre>{this.props.test.description}</pre></td>
+              <td colSpan='5' align='center'><pre>{this.props.test.run_time}</pre></td>
               <td colSpan='5' align='center'><pre>{this.props.test.data}</pre></td>
-              <td colSpan='5' align='center'><a href={this.props.test.test_log}>Detail</a></td>
+              <td colSpan='5' align='center'><pre><a href={this.props.test.test_log}>Detail</a></pre></td>
             </tr>
           );
         }
