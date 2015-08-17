@@ -196,8 +196,10 @@ class RemoteAccount(HttpMixin):
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
             return 0
         except subprocess.CalledProcessError as e:
-            self.logger.warn("Error running remote command: " + cmd)
-            self.logger.warn(e.output)
+            # Depending on the user, failure of remote commands may be part of normal usage patterns (e.g. if used in
+            # a "wait_until" loop). So, log it, but don't make it too scary.
+            self.logger.info("Error running remote command: " + cmd)
+            self.logger.info(e.output)
 
             if allow_fail:
                 return e.returncode
