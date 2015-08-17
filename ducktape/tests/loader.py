@@ -131,7 +131,7 @@ class TestLoader(object):
                 test_info_list = filter(lambda t: t.function_name == method_name, test_info_list)
 
             if len(test_info_list) == 0:
-                raise LoaderException("Didn't find any tests for symble %s." % symbol)
+                raise LoaderException("Didn't find any tests for symbol %s." % symbol)
 
         test_list = [TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
                      for t in test_info_list]

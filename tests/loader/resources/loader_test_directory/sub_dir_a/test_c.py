@@ -19,7 +19,7 @@ NUM_TESTS = 1
 
 class TestC(Test):
     """Loader should discover this."""
-    def test_c(self):
+    def test(self):
         pass
 
 class TestInvisible(object):
