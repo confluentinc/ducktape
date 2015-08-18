@@ -81,8 +81,10 @@
           return (
             <tr className={className}>
               <td colSpan='5' align='center' title={this.props.action.desc}>&#8627; {this.props.action.fullname}</td>
-              <td colSpan='5' align='center'>{this.props.action.status}</td>
+	      <td colSpan='5' align='center'>{this.props.action.desc}</td>
               <td colSpan='5' align='center'>{this.props.action.duration}s</td>
+	      <td colSpan='5' align='center'>{this.props.action.status}</td>
+	      <td colSpan='5' align='center'></td>
             </tr>
           );
         }
@@ -96,6 +98,8 @@
             <tr className={className}>
 	      <td colSpan='5' align='center' className={textClassName}>
 		{this.props.info.reason.replace(/(?:\r\n|\r\n)/g, '<br>')}</td>
+	      <td colSpan='5' align='center'></td>
+	      <td colSpan='5' align='center'></td>
             <td colSpan='5' align='center'>{this.props.info.restype}</td>
 	    <td colSpan='5' align='center'>{this.props.info.loc}</td>
             </tr>
