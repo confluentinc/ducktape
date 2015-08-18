@@ -190,7 +190,7 @@ class HTMLSummaryReporter(SummaryReporter):
             "test_result": test_result,
             "description": result.description,
             "run_time": format_time(result.run_time),
-            "data": "" if result.data is None else json.dumps(result.data, sort_keys=True, indent=2, separators=(',', ': ')),
+            "data": "",
             "test_log": self.test_results_dir(result),
             "actions": list()
         }
@@ -198,6 +198,8 @@ class HTMLSummaryReporter(SummaryReporter):
         if type(result.data) == dict and 'actions' in result.data:
             # Populate 'actions' field if results contains test action reports.
             result_json['actions'] = result.data['actions']
+        else:
+            result_json['data'] = "" if result.data is None else json.dumps(result.data, sort_keys=True, indent=2, separators=(',', ': ')),
 
         return result_json
 
