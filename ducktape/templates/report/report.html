@@ -92,11 +92,11 @@
 
       var ActionInfoRow = React.createClass({
         render: function() {
-            var className = "ActionInfoClass";
-	    var textClassName = this.props.info.restype + "ActionInfoTextClass";
+	    var ClassName = this.props.info.restype + "ActionInfoTextClass";
+	    var textClassName = "monospaced";
           return (
-            <tr className={className}>
-	      <td colSpan='5' align='center' className={textClassName}>
+            <tr className={ClassName}>
+	      <td colSpan='5' align='center' className={textClassName}>&nbsp;&nbsp;
 		{this.props.info.reason.replace(/(?:\r\n|\r\n)/g, '<br>')}</td>
 	      <td colSpan='5' align='center'></td>
 	      <td colSpan='5' align='center'></td>

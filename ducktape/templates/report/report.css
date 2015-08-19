@@ -88,54 +88,35 @@ h2 {
 
 .ActionInfoTextClass {
     background-color: white;
-    font-family: monospace;
-    xfont-size: 0.950em;
-    text-indent: 20px;
 }
 
 .passActionInfoTextClass {
     background-color: #d9f2d9;
-    font-family: monospace;
-    xfont-size: 0.950em;
-    text-indent: 20px;
 }
 
 .failActionInfoTextClass {
     background-color: #f0d1b2;
-    font-family: monospace;
-    xfont-size: 0.950em;
-    text-indent: 20px;
 }
 
 .dnsActionInfoTextClass {
     background-color: #f0d1b2;
-    font-family: monospace;
-    xfont-size: 0.950em;
-    text-indent: 20px;
 }
 
 .dnfActionInfoTextClass {
     background-color: #f0d1b2;
-    font-family: monospace;
-    xfont-size: 0.950em;
-    text-indent: 20px;
 }
 
 .warnActionInfoTextClass {
     background-color: #f0d1b2;
-    font-family: monospace;
-    xfont-size: 0.950em;
-    text-indent: 20px;
 }
 
 .partialActionInfoTextClass {
     background-color: #f0d1b2;
-    font-family: monospace;
-    xfont-size: 0.950em;
-    text-indent: 20px;
 }
 
-
+.monospaced {
+    font-family: monospace;
+}
 
 
 .testcase { 
