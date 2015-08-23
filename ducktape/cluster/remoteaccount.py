@@ -19,7 +19,7 @@ import os
 import signal
 import subprocess
 import tempfile
-
+from contextlib import contextmanager
 
 class RemoteAccount(HttpMixin):
     def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, logger=None):
@@ -90,6 +90,17 @@ class RemoteAccount(HttpMixin):
         proc.communicate()
         if proc.returncode != 0 and not allow_fail:
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
+
+    def ssh_output(self, cmd, allow_fail=False):
+        '''Runs the command via SSH and captures the output, returning it as a string.'''
+        ssh_cmd = self.ssh_command(cmd)
+        proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        (stdoutdata, stderrdata) = proc.communicate()
+        if proc.returncode != 0 and not allow_fail:
+            raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
+        self.logger.debug("Ran cmd " + ssh_cmd + " -> " + str(stdoutdata))
+        return stdoutdata
+
 
     def alive(self, pid):
         """Return True if and only if process with given pid is alive."""
@@ -204,5 +215,47 @@ class RemoteAccount(HttpMixin):
             if allow_fail:
                 return e.returncode
             raise e
+
+    @contextmanager
+    def monitor_log(self, log):
+        """
+        Context manager that returns an object that helps you wait for events to
+        occur in a log. This checks the size of the log at the beginning of the
+        block and makes a helper object available with convenience methods for
+        checking or waiting for a pattern to appear in the log. This will commonly
+        be used to start a process, then wait for a log message indicating the
+        process is in a ready state.
+
+        See LogMonitor for more usage information.
+        """
+        try:
+            offset = int(self.ssh_output("wc -c %s" % log).split()[0])
+        except subprocess.CalledProcessError:
+            offset = 0
+        yield LogMonitor(self, log, offset)
+
+class LogMonitor(object):
+    """
+    Helper class returned by monitor_log. Should be used as:
+
+    with remote_account.monitor_log("/path/to/log") as monitor:
+        remote_account.ssh("/command/to/start")
+        monitor.wait_until("pattern.*to.*grep.*for", timeout_sec=5)
+
+    to run the command and then wait for the pattern to appear in the log.
+    """
+
+    def __init__(self, acct, log, offset):
+        self.acct = acct
+        self.log = log
+        self.offset = offset
+
+    def wait_until(self, pattern, **kwargs):
+        """
+        Wait until the specified pattern is found in the log, after the initial
+        offset recorded when the LogMonitor was created. Additional keyword args
+        are passed directly to ducktape.utils.util.wait_until
+        """
+        return wait_until(lambda: self.acct.ssh("tail -c +%d %s | grep '%s'" % (self.offset+1, self.log, pattern), allow_fail=True) == 0, **kwargs)
 
 
