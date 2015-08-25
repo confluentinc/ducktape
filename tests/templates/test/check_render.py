@@ -19,6 +19,7 @@ from tests.ducktape_mock import MockArgs
 
 import tempfile
 
+
 class CheckTemplateRenderingTest(object):
     """
     Minimal test to verify template rendering functionality
@@ -40,6 +41,7 @@ class CheckTemplateRenderingTest(object):
         test = self.setup()
         test.name = "world"
         assert "Sample world" == test.render("sample")
+
 
 class TemplateRenderingTest(Test):
     pass

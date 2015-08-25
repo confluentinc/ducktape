@@ -15,6 +15,7 @@
 from ducktape import __version__ as __ducktape_version__
 from ducktape.errors import TimeoutError
 
+import importlib
 import time
 
 
@@ -33,6 +34,15 @@ def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg=""):
             time.sleep(backoff_sec)
 
     raise TimeoutError(err_msg)
+
+
+def package_is_installed(package_name):
+    """Return true iff package can be successfully imported."""
+    try:
+        importlib.import_module(package_name)
+        return True
+    except:
+        return False
 
 
 def ducktape_version():
