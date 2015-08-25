@@ -48,7 +48,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   ## Cluster definition
   (1..num_workers).each { |i|
-    name = "worker" + i.to_s
+    name = "ducktape" + i.to_s
     config.vm.define name do |worker|
       worker.vm.hostname = name
       worker.vm.network :private_network, ip: "192.168.50." + (150 + i).to_s
