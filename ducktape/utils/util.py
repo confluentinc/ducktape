@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape import __version__ as __ducktape_version__
+from ducktape.errors import TimeoutError
 
 import time
 
@@ -31,7 +32,7 @@ def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg=""):
         else:
             time.sleep(backoff_sec)
 
-    raise Exception(err_msg)
+    raise TimeoutError(err_msg)
 
 
 def ducktape_version():
