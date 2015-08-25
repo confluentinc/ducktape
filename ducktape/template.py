@@ -52,7 +52,8 @@ class TemplateRenderer(object):
 
     def render(self, path, **kwargs):
         """
-        Render a template loaded from a file, searching ./templates
+        Render a template loaded from a file.
+        template files referenced in file f should be in a sibling directory of f called "templates".
 
         :param path: path, relative to the search paths, to the template file
         :param kwargs:
