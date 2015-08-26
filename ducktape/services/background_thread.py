@@ -13,8 +13,10 @@
 # limitations under the License.
 
 from ducktape.services.service import Service
+from ducktape.errors import TimeoutError
 
 import threading
+import time
 import traceback
 
 
@@ -54,12 +56,26 @@ class BackgroundThreadService(Service):
         worker.start()
         self.worker_threads.append(worker)
 
-    def wait(self):
+    def wait(self, timeout_sec=600):
+        """Wait no more than timeout_sec for all worker threads to finish.
+
+        raise TimeoutException if all worker threads do not finish within timeout_sec
+        """
         super(BackgroundThreadService, self).wait()
+
+        start = time.time()
+        end = start + timeout_sec
         for idx, worker in enumerate(self.worker_threads, 1):
-            self.logger.debug("Waiting for worker thread %s finish", worker.name)
-            worker.join()
-        self.worker_threads = None
+
+            if end > time.time():
+                self.logger.debug("Waiting for worker thread %s finish", worker.name)
+                current_timeout = end - time.time()
+                worker.join(current_timeout)
+
+        alive_workers = [worker.name for worker in self.worker_threads if worker.is_alive()]
+        if len(alive_workers) > 0:
+            raise TimeoutError("Timed out waiting %s seconds for background threads to finish. " % str(timeout_sec) +
+                                "These threads are still alive: " + str(alive_workers))
 
         # Propagate exceptions thrown in background threads
         with self.lock:
@@ -67,11 +83,10 @@ class BackgroundThreadService(Service):
                 raise Exception(str(self.worker_errors))
 
     def stop(self):
-        if self.worker_threads is not None:
+        alive_workers = [worker for worker in self.worker_threads if worker.is_alive()]
+        if len(alive_workers) > 0:
             self.logger.debug(
-                "At least one worker thread is still running - this might occur if self.stop() is called " +
-                "before self.wait(). This could happen if wait() was omitted intentionally , or if an Exception triggered "
-                "teardown logic before wait() was reached.")
+                "Called stop with at least one worker thread is still running: " + str(alive_workers))
 
             self.logger.debug("%s" % str(self.worker_threads))
 
