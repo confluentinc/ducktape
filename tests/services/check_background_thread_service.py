@@ -13,19 +13,27 @@
 # limitations under the License.
 
 from ducktape.services.background_thread import BackgroundThreadService
-from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
+from tests.ducktape_mock import test_context, MockNode
 import time
 
 
-class BackgroundThreadTestService(BackgroundThreadService):
+class DummyService(BackgroundThreadService):
     """Single node service that sleeps for self.run_time_sec seconds in a background thread."""
 
     def __init__(self, context, run_time_sec):
-        """"""
-        super(BackgroundThreadTestService, self).__init__(context, 1)
+        super(DummyService, self).__init__(context, 1)
         self.running = False
         self.run_time_sec = run_time_sec
+
+    def who_am_i(self, node=None):
+        return "DummyService"
+
+    def idx(self, node):
+        return 1
+
+    def allocate_nodes(self):
+        self.nodes = [MockNode()]
 
     def _worker(self, idx, node):
         self.running = True
@@ -41,15 +49,14 @@ class BackgroundThreadTestService(BackgroundThreadService):
         self.running = False
 
 
-class BackgroundThreadTest(Test):
+class CheckBackgroundThreadService(object):
 
-    def __init__(self, test_context):
-        super(BackgroundThreadTest, self).__init__(test_context)
-        self.service = None
+    def setup_method(self, method):
+        self.context = test_context()
 
-    def test_service_timeout(self):
+    def check_service_timeout(self):
         """Test that wait(timeout_sec) raise a TimeoutError in approximately the expected time."""
-        self.service = BackgroundThreadTestService(self.test_context, float('inf'))
+        self.service = DummyService(self.context, float('inf'))
         self.service.start()
         start = time.time()
         timeout_sec = .1
@@ -66,11 +73,11 @@ class BackgroundThreadTest(Test):
                 "Correctly threw timeout error, but timeout doesn't match closely with expected timeout. " + \
                 "(expected timeout, actual timeout): (%s, %s)" % (str(timeout_sec), str(actual_timeout))
 
-    def test_no_timeout(self):
-        """Run an instance of BackgroundThreadTestService with a short run_time_sec. It should stop without
+    def check_no_timeout(self):
+        """Run an instance of DummyService with a short run_time_sec. It should stop without
         timing out."""
 
-        self.service = BackgroundThreadTestService(self.test_context, run_time_sec=.1)
+        self.service = DummyService(self.context, run_time_sec=.1)
         self.service.start()
         self.service.wait(timeout_sec=.5)
 

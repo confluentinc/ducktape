@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape.tests.session import SessionContext
+from ducktape.tests.test import TestContext
 
 import os
 import tempfile
@@ -30,9 +31,26 @@ class MockArgs(object):
 
 
 def session_context(cluster=None, args=MockArgs()):
-    """Return a SessionContext object."""
+    """Return a SessionContext object"""
 
     tmp = tempfile.mkdtemp()
     session_dir = os.path.join(tmp, "test_dir")
     os.mkdir(session_dir)
     return SessionContext("test_session", session_dir, cluster=cluster, args=args)
+
+
+def test_context():
+    """Return a TestContext object"""
+    return TestContext(session_context())
+
+
+class MockNode(object):
+    """Mock cluster node"""
+    def __init__(self):
+        self.account = MockAccount()
+
+
+class MockAccount(object):
+    """Mock node.account object"""
+    def __init__(self):
+        self.hostname = "mock"
