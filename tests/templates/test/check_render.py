@@ -14,10 +14,13 @@
 
 from ducktape.tests.test import Test, TestContext
 from ducktape.tests.session import SessionContext
+from ducktape.template import TemplateRenderer
 
 from tests.ducktape_mock import MockArgs
 
+import os
 import tempfile
+
 
 class CheckTemplateRenderingTest(object):
     """
@@ -40,6 +43,23 @@ class CheckTemplateRenderingTest(object):
         test = self.setup()
         test.name = "world"
         assert "Sample world" == test.render("sample")
+
+
+class CheckPackageSearchPath(object):
+    """
+    Simple check on extracting package and search path based on module name.
+    """
+    def check_package_search_path(self):
+        package, path = TemplateRenderer._package_search_path("a.b.c")
+        # search path should be b/templates since templates is by convention a sibling of c
+        assert package == "a" and path == os.path.join("b", "templates")
+
+        package, path = TemplateRenderer._package_search_path("hi")
+        assert package == "hi" and path == "templates"
+
+        package, path = TemplateRenderer._package_search_path("")
+        assert package == "" and path == "templates"
+
 
 class TemplateRenderingTest(Test):
     pass
