@@ -24,11 +24,8 @@ class HttpMixin(object):
         if hasattr(self, 'logger') and self.logger is not None:
             self.logger.debug("Sending http request. Url: %s, Data: %s, Headers: %s" % (url, str(data), str(headers)))
 
-        print "Constructing request"
-        print url, data, headers
         req = urllib2.Request(url, data, headers)
         req.get_method = lambda: method
-        print "Request:", req.__dict__
         try:
             # The timeout parameter in urllib2.urlopen has strange behavior, and
             # seems to raise errors when set to a number. Using an opener works however.
