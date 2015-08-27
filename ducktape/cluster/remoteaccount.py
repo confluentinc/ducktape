@@ -46,15 +46,14 @@ class RemoteAccount(HttpMixin):
         """Wait until this service node is available/awake."""
         url = "http://%s:%s%s" % (self.externally_routable_ip, str(port), path)
 
-        awake = wait_until(lambda: self._can_ping_url(url, headers), timeout_sec=timeout, backoff_sec=.25)
-        if not awake:
-            raise Exception("Timed out trying to contact service on %s. " % url +
-                            "Either the service failed to start, or there is a problem with the url.")
+        err_msg = "Timed out trying to contact service on %s. " % url + \
+                            "Either the service failed to start, or there is a problem with the url."
+        wait_until(lambda: self._can_ping_url(url, headers), timeout_sec=timeout, backoff_sec=.25, err_msg=err_msg)
 
     def _can_ping_url(self, url, headers):
         """See if we can successfully issue a GET request to the given url."""
         try:
-            self.http_request(url, "GET", "", headers)
+            self.http_request(url, "GET", "", headers, timeout=.1)
             return True
         except:
             return False
@@ -100,7 +99,6 @@ class RemoteAccount(HttpMixin):
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
         self.logger.debug("Ran cmd " + ssh_cmd + " -> " + str(stdoutdata))
         return stdoutdata
-
 
     def alive(self, pid):
         """Return True if and only if process with given pid is alive."""
