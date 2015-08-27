@@ -14,28 +14,14 @@
 
 from ducktape.errors import TimeoutError
 from tests.ducktape_mock import MockAccount
+from tests.test_utils import find_available_port
 
 from threading import Thread
 
 import SimpleHTTPServer
-import socket
 import SocketServer
 import threading
 import time
-
-
-def find_available_port(min_port=8000, max_port=9000):
-    """Return first available port in the range [min_port, max_port], inclusive."""
-    for p in range(min_port, max_port + 1):
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.bind(("localhost", p))
-            s.close()
-            return p
-        except socket.error:
-            pass
-
-    raise Exception("No available port found in range [%d, %d]" % (min_port, max_port))
 
 
 class SimpleServer(object):
@@ -73,7 +59,7 @@ class SimpleServer(object):
 
 
 class CheckRemoteAccount(object):
-    def setup_method(self, method):
+    def setup(self):
         self.server = SimpleServer()
         self.account = MockAccount()
 
@@ -93,11 +79,9 @@ class CheckRemoteAccount(object):
             self.account.wait_for_http_service(port=self.server.port, headers={}, timeout=timeout, path='/')
             raise Exception("Should have timed out waiting for server to start")
         except TimeoutError:
-            # expected behavior
+            # expected behavior. Now check that we're reasonably close to the expected timeout
             actual_timeout = time.time() - start
-
             assert abs(actual_timeout - timeout) / timeout < .5
-            pass
 
-    def teardown_method(self, method):
+    def teardown(self):
         self.server.stop()
