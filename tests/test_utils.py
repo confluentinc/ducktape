@@ -16,7 +16,12 @@ import socket
 
 
 def find_available_port(min_port=8000, max_port=9000):
-    """Return first available port in the range [min_port, max_port], inclusive."""
+    """Return first available port in the range [min_port, max_port], inclusive.
+
+    Note that this actually isn't a 100% reliable way of getting a port, but it's probably good enough -- once
+    you close a socket you cannot be sure of its availability. This was the source of a bunch of issues in
+    the Apache Kafka unit tests.
+    """
     for p in range(min_port, max_port + 1):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

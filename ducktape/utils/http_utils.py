@@ -26,16 +26,13 @@ class HttpMixin(object):
 
         req = urllib2.Request(url, data, headers)
         req.get_method = lambda: method
-        try:
-            # The timeout parameter in urllib2.urlopen has strange behavior, and
-            # seems to raise errors when set to a number. Using an opener works however.
-            opener = urllib2.build_opener()
-            if timeout is None:
-                response = opener.open(req)
-            else:
-                response = opener.open(req, timeout=timeout)
+        # The timeout parameter in urllib2.urlopen has strange behavior, and
+        # seems to raise errors when set to a number. Using an opener works however.
+        opener = urllib2.build_opener()
+        if timeout is None:
+            response = opener.open(req)
+        else:
+            response = opener.open(req, timeout=timeout)
 
-            return response
+        return response
 
-        except Exception as e:
-            raise e

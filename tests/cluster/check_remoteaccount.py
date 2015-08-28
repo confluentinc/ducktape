@@ -37,9 +37,7 @@ class SimpleServer(object):
     def start(self, delay_sec=0.0):
         """Run the server after specified delay"""
         def run():
-            end_delay = time.time() + delay_sec
-            while time.time() < end_delay and not self.close_signal.is_set():
-                self.close_signal.wait(end_delay - time.time())
+            self.close_signal.wait(delay_sec)
 
             if not self.close_signal.is_set():
                 self.server_started = True
@@ -71,7 +69,7 @@ class CheckRemoteAccount(object):
     def check_wait_for_http_timeout(self):
         """Check waiting with timeout"""
 
-        timeout = .25
+        timeout = 1
         start = time.time()
         self.server.start(delay_sec=5)
 
