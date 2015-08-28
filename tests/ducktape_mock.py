@@ -14,6 +14,7 @@
 
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
+from ducktape.cluster.remoteaccount import RemoteAccount
 
 import os
 import tempfile
@@ -50,7 +51,8 @@ class MockNode(object):
         self.account = MockAccount()
 
 
-class MockAccount(object):
+class MockAccount(RemoteAccount):
     """Mock node.account object"""
-    def __init__(self):
-        self.hostname = "mock"
+    def __init__(self, hostname="localhost", user=None, ssh_args=None, ssh_hostname=None, logger=None):
+        super(MockAccount, self).__init__(hostname, user, ssh_args, ssh_hostname, logger)
+        self.externally_routable_ip = "localhost"

@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import socket
 import urllib2
 
 
 class HttpMixin(object):
-    def http_request(self, url, method, data="", headers=None):
+    def http_request(self, url, method, data="", headers=None, timeout=None):
         if url[0:7].lower() != "http://":
             url = "http://%s" % url
 
@@ -25,4 +26,13 @@ class HttpMixin(object):
 
         req = urllib2.Request(url, data, headers)
         req.get_method = lambda: method
-        return urllib2.urlopen(req)
+        # The timeout parameter in urllib2.urlopen has strange behavior, and
+        # seems to raise errors when set to a number. Using an opener works however.
+        opener = urllib2.build_opener()
+        if timeout is None:
+            response = opener.open(req)
+        else:
+            response = opener.open(req, timeout=timeout)
+
+        return response
+
