@@ -250,6 +250,15 @@ class TestContext(Logger):
         info_fh.setFormatter(formatter)
         debug_fh.setFormatter(formatter)
 
+        if self.session_context.debug:
+            # Colorize output if debugging is enabled
+            # FIXME: Might want to check for terminal capability too.
+            logging.addLevelName(logging.CRITICAL, "\033[41;33mCRIT ")
+            logging.addLevelName(logging.ERROR,    "\033[41;37mERROR")
+            logging.addLevelName(logging.WARNING,  "\033[33mWARN ")
+            logging.addLevelName(logging.INFO,     "\033[34mINFO ")
+            logging.addLevelName(logging.DEBUG,    "\033[39mDEBUG")
+
         self.logger.addHandler(info_fh)
         self.logger.addHandler(debug_fh)
 

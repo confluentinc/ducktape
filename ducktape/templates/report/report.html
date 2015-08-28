@@ -73,7 +73,40 @@
             </tr>
           );
         }
+	    });
+
+      var ActionRow = React.createClass({
+        render: function() {
+          var className = this.props.action.status + "ActionClass"
+          return (
+            <tr className={className}>
+              <td colSpan='5' align='center' title={this.props.action.desc}>&#8627; {this.props.action.fullname}</td>
+	      <td colSpan='5' align='center'>{this.props.action.desc}</td>
+              <td colSpan='5' align='center'>{this.props.action.duration}s</td>
+	      <td colSpan='5' align='center'>{this.props.action.status}</td>
+	      <td colSpan='5' align='center'></td>
+            </tr>
+          );
+        }
       });
+
+      var ActionInfoRow = React.createClass({
+        render: function() {
+	    var ClassName = this.props.info.restype + "ActionInfoTextClass";
+	    var textClassName = "monospaced";
+          return (
+            <tr className={ClassName}>
+	      <td colSpan='5' align='center' className={textClassName}>&nbsp;&nbsp;
+		{this.props.info.reason.replace(/(?:\r\n|\r\n)/g, '<br>')}</td>
+	      <td colSpan='5' align='center'></td>
+	      <td colSpan='5' align='center'></td>
+            <td colSpan='5' align='center'>{this.props.info.restype}</td>
+	    <td colSpan='5' align='center'>{this.props.info.loc}</td>
+            </tr>
+          );
+        }
+      });
+
 
       var TestTable = React.createClass({
         render: function() {
@@ -90,10 +123,25 @@
               </thead>
               <tbody>
                 {this.props.tests.map(function(test) {
-                  var className = test.test_result + "Class";
-                  return (
-                    <TestRow test={test} /> 
-                  );
+		      var className = test.test_result + "Class";
+		      r = [
+		      <TestRow test={test} />
+		      ];
+		      r2 = test.actions.map(function(action) {
+		        var className = action.status + "ActionClass";
+		        r3 = [
+		          <ActionRow action={action} />
+			  ];
+		        r3.push.apply(r3, action.results.map(function(info) {
+			  var className = "ActionInfoClass";
+			  return (
+			    <ActionInfoRow info={info} />
+			  );
+			  }));
+			  return r3;
+			});
+		      r.push.apply(r, r2);
+		      return r;
                 }, this)}
               </tbody>
             </table>

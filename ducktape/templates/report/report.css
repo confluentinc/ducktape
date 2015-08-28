@@ -67,6 +67,58 @@ h2 {
 .failClass { 
     background-color: #c60; 
 }
+
+.passActionClass { 
+    background-color: #D9F2D9;
+    xtext-indent: 5px;
+}
+.failActionClass { 
+    background-color: #F0D1B2;
+    xtext-indent: 5px;
+}
+.dnfActionClass { 
+    background-color: #F0D1B2;
+    xtext-indent: 5px;
+}
+
+
+.ActionInfoClass {
+    background-color: #D9F2D9;
+}
+
+.ActionInfoTextClass {
+    background-color: white;
+}
+
+.passActionInfoTextClass {
+    background-color: #d9f2d9;
+}
+
+.failActionInfoTextClass {
+    background-color: #f0d1b2;
+}
+
+.dnsActionInfoTextClass {
+    background-color: #f0d1b2;
+}
+
+.dnfActionInfoTextClass {
+    background-color: #f0d1b2;
+}
+
+.warnActionInfoTextClass {
+    background-color: #f0d1b2;
+}
+
+.partialActionInfoTextClass {
+    background-color: #f0d1b2;
+}
+
+.monospaced {
+    font-family: monospace;
+}
+
+
 .testcase { 
     margin-left: 2em;
 }

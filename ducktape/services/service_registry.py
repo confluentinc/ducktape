@@ -16,7 +16,7 @@ from ducktape.services.service import Service
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 from collections import OrderedDict
-
+import traceback
 import os
 
 
@@ -35,6 +35,7 @@ class ServiceRegistry(list):
                 if isinstance(e, KeyboardInterrupt):
                     keyboard_interrupt = e
                 service.logger.warn("Error stopping service %s: %s" % (service, e.message))
+                service.logger.warn(traceback.format_exc())
 
         if keyboard_interrupt is not None:
             raise keyboard_interrupt
@@ -49,6 +50,7 @@ class ServiceRegistry(list):
                 if isinstance(e, KeyboardInterrupt):
                     keyboard_interrupt = e
                 service.logger.warn("Error cleaning service %s: %s" % (service, e.message))
+                service.logger.warn(traceback.format_exc())
 
         if keyboard_interrupt is not None:
             raise keyboard_interrupt
