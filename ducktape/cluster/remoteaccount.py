@@ -53,7 +53,7 @@ class RemoteAccount(HttpMixin):
     def _can_ping_url(self, url, headers):
         """See if we can successfully issue a GET request to the given url."""
         try:
-            self.http_request(url, "GET", "", headers, timeout=.25)
+            self.http_request(url, "GET", "", headers, timeout=.75)
             return True
         except:
             return False

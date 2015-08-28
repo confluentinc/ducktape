@@ -78,8 +78,10 @@ class CheckRemoteAccount(object):
             raise Exception("Should have timed out waiting for server to start")
         except TimeoutError:
             # expected behavior. Now check that we're reasonably close to the expected timeout
+            # This is a fairly loose check since there are various internal timeouts that can affect the overall
+            # timing
             actual_timeout = time.time() - start
-            assert abs(actual_timeout - timeout) / timeout < .5
+            assert abs(actual_timeout - timeout) / timeout < 1
 
     def teardown(self):
         self.server.stop()
