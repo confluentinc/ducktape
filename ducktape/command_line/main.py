@@ -57,19 +57,29 @@ def parse_args():
                              "services after a test has run. ")
     parser.add_argument("--version", action="store_true", help="display version")
 
+    parser_arguments = []
+
+    # The order of concatenation ensures overrides are handled properly -- for action=store arguments, the later options
+    # will override earlier instances
     project_configs = []
     project_config_file = ConsoleConfig.PROJECT_CONFIG_FILE
     if os.path.exists(project_config_file):
         project_configs = list(itertools.chain(*[line.split() for line in open(project_config_file).readlines()]))
+    parser_arguments.extend(project_configs)
 
     user_configs = []
     user_config_file = os.path.expanduser(ConsoleConfig.USER_CONFIG_FILE)
     if os.path.exists(user_config_file):
         user_configs = list(itertools.chain(*[line.split() for line in open(user_config_file).readlines()]))
+    parser_arguments.extend(user_configs)
 
-    # The order of concatenation ensures overrides are handled properly -- for action=store arguments, the later options
-    # will override earlier instances
-    args = parser.parse_args(project_configs + user_configs + sys.argv[1:])
+    if len(sys.argv[1:]) == 0:
+        # Show help if there are no command-line arguments
+        parser_arguments.append('-h')
+    else:
+        parser_arguments.extend(sys.argv[1:])
+
+    args = parser.parse_args(parser_arguments)
     return args
 
 
