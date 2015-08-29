@@ -207,8 +207,8 @@ class RemoteAccount(HttpMixin):
         except subprocess.CalledProcessError as e:
             # Depending on the user, failure of remote commands may be part of normal usage patterns (e.g. if used in
             # a "wait_until" loop). So, log it, but don't make it too scary.
-            self.logger.info("Error running remote command: " + cmd)
-            self.logger.info(e.output)
+            self.logger.debug("Error running remote command: " + cmd)
+            self.logger.debug(e.output)
 
             if allow_fail:
                 return e.returncode
@@ -255,5 +255,3 @@ class LogMonitor(object):
         are passed directly to ducktape.utils.util.wait_until
         """
         return wait_until(lambda: self.acct.ssh("tail -c +%d %s | grep '%s'" % (self.offset+1, self.log, pattern), allow_fail=True) == 0, **kwargs)
-
-
