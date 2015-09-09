@@ -24,13 +24,13 @@ Install
 
 Use
 ---
-ducktape discovers and runs tests in every path provided. 
+ducktape discovers and runs tests in the path provided. 
 
     ducktape <relative_path_to_testdirectory>              # e.g. ducktape dir/tests
     ducktape <relative_path_to_file>                       # e.g. ducktape dir/tests/my_test.py
     ducktape <path_to_test>[::SomeTestClass]               # e.g. ducktape dir/tests/my_test.py::TestA
     ducktape <path_to_test>[::SomeTestClass[.test_method]  # e.g. ducktape dir/tests/my_test.py::TestA.test_a
-    ducktape [<test_path1> [<test_path2> ...]]             # e.g. ducktape dir/tests/my_test.py dir/tests/my_other_test.py::OtherTest
+dir/tests/my_other_test.py::OtherTest
 
 Use the `--collect-only` flag to discover tests without running any:
 
