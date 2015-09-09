@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape.cluster.vagrant import VagrantCluster
+from ducktape.cluster.cluster import ClusterSlot
 
 class CheckVagrantCluster(object):
     two_hosts = """Host worker1
@@ -49,7 +50,7 @@ Host worker2
         cluster = VagrantCluster()
         assert len(cluster) == 2
         assert(cluster.num_available_nodes() == 2)
-        node1, node2 = cluster.request(2)
+        node1, node2 = [ClusterSlot(cluster, account) for account in cluster.request(2)]
 
         assert(node1.account.hostname == "worker1")
         assert(node1.account.user == "vagrant")

@@ -55,13 +55,15 @@ class JsonCluster(Cluster):
         result = []
         for i in range(nslots):
             node = self.available_nodes.popleft()
-            result.append(ClusterSlot(self, node, slot_id=self.id_source))
-            self.in_use_nodes.add(self.id_source)
+            node.id = self.id_source
+            result.append(node)
+            self.in_use_nodes.add(node.id)
             self.id_source += 1
         return result
 
     def free_single(self, slot):
         assert(slot.slot_id in self.in_use_nodes)
         self.in_use_nodes.remove(slot.slot_id)
+        slot.account.id = None
         self.available_nodes.append(slot.account)
 

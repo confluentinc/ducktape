@@ -15,6 +15,7 @@
 
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.template import TemplateRenderer
+from ducktape.cluster.cluster import ClusterSlot
 
 
 class Service(TemplateRenderer):
@@ -55,7 +56,7 @@ class Service(TemplateRenderer):
         self.num_nodes = num_nodes
         self.context = context
         self.allocated = False
-        self.nodes = []
+        self.nodes = [ClusterSlot(self.context.cluster, account=None) for i in range(num_nodes)]
 
         # Every time a service instance is created, it registers itself with its
         # context object. This makes it possible for external mechanisms to clean up
@@ -65,7 +66,7 @@ class Service(TemplateRenderer):
 
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, allocated: %s, nodes: %s" %
-                             (self.num_nodes, self.allocated, [n.account.hostname for n in self.nodes]))
+                             (self.num_nodes, self.allocated, [str(n) for n in self.nodes]))
 
     @property
     def logger(self):
@@ -90,7 +91,11 @@ class Service(TemplateRenderer):
         self.logger.debug("Requesting nodes from the cluster.")
 
         try:
-            self.nodes = self.cluster.request(self.num_nodes)
+            remote_accounts = self.cluster.request(self.num_nodes)
+            assert len(self.nodes) == len(remote_accounts)
+            for cluster_slot, account in zip(self.nodes, remote_accounts):
+                cluster_slot.account = account
+
         except RuntimeError as e:
             if hasattr(self.context, "services"):
                 msg = e.message + " Currently registered services: " + str(self.context.services)

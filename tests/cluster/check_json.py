@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from ducktape.cluster.json import JsonCluster
+from ducktape.cluster.cluster import ClusterSlot
 import pytest
+
 
 class CheckJsonCluster(object):
     single_node_cluster_json = {"nodes": [{"hostname": "localhost"}]}
@@ -44,12 +46,12 @@ class CheckJsonCluster(object):
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 3)
 
-        nodes = cluster.request(1)
+        nodes = [ClusterSlot(cluster, account) for account in cluster.request(1)]
         nodes_hostnames = self.cluster_hostnames(nodes)
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 2)
 
-        nodes2 = cluster.request(2)
+        nodes2 = [ClusterSlot(cluster, account) for account in cluster.request(2)]
         nodes2_hostnames = self.cluster_hostnames(nodes2)
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 0)
@@ -64,14 +66,16 @@ class CheckJsonCluster(object):
 
     def check_parsing(self):
         # Checks that RemoteAccounts are generated correctly from input JSON
-        node = JsonCluster({"nodes":[{"hostname": "hostname"}]}).request(1)[0]
+        cluster = JsonCluster({"nodes":[{"hostname": "hostname"}]})
+        node = [ClusterSlot(cluster, account) for account in cluster.request(1)][0]
         assert(node.account.hostname == "hostname")
         assert(node.account.user == None)
         assert(node.account.ssh_args == None)
 
-        node = JsonCluster({"nodes":[{"hostname": "hostname",
+        cluster = JsonCluster({"nodes":[{"hostname": "hostname",
                                       "user": "user",
-                                      "ssh_args": "ssh_args"}]}).request(1)[0]
+                                      "ssh_args": "ssh_args"}]})
+        node = [ClusterSlot(cluster, account) for account in cluster.request(1)][0]
         assert(node.account.hostname == "hostname")
         assert(node.account.user == "user")
         assert(node.account.ssh_args == "ssh_args")
