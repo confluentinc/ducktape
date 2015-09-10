@@ -27,6 +27,7 @@ class ClusterSlot(object):
 
     def free(self):
         self.parent.free(self)
+        self.account = None
 
 
 class Cluster(object):
