@@ -36,7 +36,6 @@ class JsonCluster(Cluster):
             raise ValueError("JSON cluster definition invalid", e)
         self.available_nodes = collections.deque(init_nodes)
         self.in_use_nodes = set()
-        self.id_source = 1
 
     def __len__(self):
         return len(self.available_nodes) + len(self.in_use_nodes)
@@ -55,15 +54,12 @@ class JsonCluster(Cluster):
         result = []
         for i in range(nslots):
             node = self.available_nodes.popleft()
-            node.id = self.id_source
             result.append(node)
-            self.in_use_nodes.add(node.id)
-            self.id_source += 1
+            self.in_use_nodes.add(node)
         return result
 
     def free_single(self, slot):
-        assert(slot.slot_id in self.in_use_nodes)
-        self.in_use_nodes.remove(slot.slot_id)
-        slot.account.id = None
+        assert(slot.account in self.in_use_nodes)
+        self.in_use_nodes.remove(slot.account)
         self.available_nodes.append(slot.account)
 

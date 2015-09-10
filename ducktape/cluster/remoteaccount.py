@@ -23,14 +23,13 @@ from contextlib import contextmanager
 
 
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, logger=None, id=None):
+    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, logger=None):
         self.hostname = hostname
         self.user = user
         self.ssh_args = ssh_args
         self.ssh_hostname = ssh_hostname
         self.externally_routable_ip = None
         self.logger = logger
-        self._id = id
 
     def __str__(self):
         r = ""
@@ -38,14 +37,6 @@ class RemoteAccount(HttpMixin):
             r += self.user + "@"
         r += self.hostname
         return r
-
-    @property
-    def id(self):
-        return self._id
-
-    @id.setter
-    def id(self, id_value):
-        self._id = id_value
 
     @property
     def local(self):

@@ -25,13 +25,6 @@ class ClusterSlot(object):
     def __str__(self):
         return "<ClusterSlot: %s>" % str(self.account)
 
-    @property
-    def slot_id(self):
-        if self.account is None:
-            return None
-        else:
-            return self.account.id
-
     def free(self):
         self.parent.free(self)
 
