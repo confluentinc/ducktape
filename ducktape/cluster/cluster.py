@@ -22,8 +22,12 @@ class ClusterSlot(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    def __str__(self):
+        return "<ClusterSlot: %s>" % str(self.account)
+
     def free(self):
         self.parent.free(self)
+        self.account = None
 
 
 class Cluster(object):
