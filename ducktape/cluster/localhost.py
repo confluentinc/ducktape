@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .cluster import Cluster, ClusterSlot
+from .cluster import Cluster
 from .remoteaccount import RemoteAccount
 import sys
 
@@ -33,7 +33,7 @@ class LocalhostCluster(Cluster):
 
     def request(self, nslots):
         self._available -= nslots
-        return [ClusterSlot(self, RemoteAccount("localhost")) for i in range(nslots)]
+        return [RemoteAccount("localhost") for i in range(nslots)]
 
     def num_available_nodes(self):
         return self._available
