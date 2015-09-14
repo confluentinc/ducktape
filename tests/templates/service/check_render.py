@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape.services.service import Service
+from tests.ducktape_mock import test_context
 
 class CheckTemplateRenderingService(object):
     """
@@ -37,9 +38,6 @@ class CheckTemplateRenderingService(object):
     def check_file_template(self):
         self.new_instance().render_file_template()
 
-class DummyContext(object):
-    logger = None
-    cluster = None
 
 class TemplateRenderingService(Service):
     NO_VARIABLE = "fixed content"
@@ -50,7 +48,7 @@ class TemplateRenderingService(Service):
     CLASS_CONSTANT = "constant"
 
     def __init__(self):
-        super(TemplateRenderingService, self).__init__(DummyContext(), 1)
+        super(TemplateRenderingService, self).__init__(test_context(), 1)
 
     def render_simple(self):
         "Test that a trivial template works"

@@ -54,8 +54,6 @@ class Service(TemplateRenderer):
         super(Service, self).__init__(*args, **kwargs)
         self.num_nodes = num_nodes
         self.context = context
-        self.allocated = False
-        self.nodes = []
 
         # Every time a service instance is created, it registers itself with its
         # context object. This makes it possible for external mechanisms to clean up
@@ -63,9 +61,12 @@ class Service(TemplateRenderer):
         if hasattr(self.context, "services"):
             self.context.services.append(self)
 
+        self.nodes = []
+        self.allocate_nodes()
+
     def __repr__(self):
-        return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, allocated: %s, nodes: %s" %
-                             (self.num_nodes, self.allocated, [n.account.hostname for n in self.nodes]))
+        return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
+                             (self.num_nodes, [n.account.hostname for n in self.nodes]))
 
     @property
     def logger(self):
@@ -74,6 +75,10 @@ class Service(TemplateRenderer):
     @property
     def cluster(self):
         return self.context.cluster
+
+    @property
+    def allocated(self):
+        return len(self.nodes) > 0
 
     def who_am_i(self, node=None):
         """Human-readable identifier useful for log messages."""
@@ -107,14 +112,9 @@ class Service(TemplateRenderer):
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.logger = self.logger
 
-        self.allocated = True
-
     def start(self):
         """Start the service on all nodes."""
         self.logger.info("%s: starting service" % self.who_am_i())
-
-        if not self.allocated:
-            self.allocate_nodes()
 
         self.logger.debug(self.who_am_i() + ": killing processes and attempting to clean up before starting")
         for node in self.nodes:
@@ -184,6 +184,7 @@ class Service(TemplateRenderer):
     def free_node(self, node):
         """Release this node back to the cluster that owns it."""
         node.free()
+        self.nodes.remove(node)
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""

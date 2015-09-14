@@ -15,6 +15,8 @@
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
 from ducktape.cluster.remoteaccount import RemoteAccount
+from mock import MagicMock
+
 
 import os
 import tempfile
@@ -31,7 +33,11 @@ class MockArgs(object):
         self.no_teardown = False
 
 
-def session_context(cluster=None, args=MockArgs()):
+def mock_cluster():
+    return MagicMock()
+
+
+def session_context(cluster=mock_cluster(), args=MockArgs()):
     """Return a SessionContext object"""
 
     tmp = tempfile.mkdtemp()
