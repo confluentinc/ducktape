@@ -108,7 +108,9 @@ def setup_results_directory(results_root, new_results_dir):
             "A file or directory at %s already exists. Exiting without overwriting." % new_results_dir)
     mkdir_p(new_results_dir)
 
-    # Create or update symlink "latest" which points to the new test results directory
+
+def update_latest_symlink(results_root, new_results_dir):
+    """Create or update symlink "latest" which points to the new test results directory"""
     latest_test_dir = os.path.join(results_root, "latest")
     if os.path.islink(latest_test_dir):
         os.unlink(latest_test_dir)
@@ -184,5 +186,6 @@ def main():
     reporter = HTMLSummaryReporter(test_results)
     reporter.report()
 
+    update_latest_symlink(args.results_root, results_dir)
     if not test_results.get_aggregate_success():
         sys.exit(1)
