@@ -14,6 +14,7 @@
 
 from ducktape.tests.test import TestContext, Test
 from ducktape.tests.runner import SerialTestRunner
+from ducktape.cluster.localhost import LocalhostCluster
 
 import tests.ducktape_mock
 
@@ -26,6 +27,7 @@ class CheckSerialRunner(object):
         """The test runner should behave sensibly when the cluster is too small to run a given test."""
         mock_cluster = MagicMock()
         mock_cluster.__len__.return_value = 1
+        mock_cluster.num_available_nodes = lambda: 1
         session_context = tests.ducktape_mock.session_context(mock_cluster)
 
         test_context = TestContext(session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
@@ -40,8 +42,7 @@ class CheckSerialRunner(object):
 
     def check_simple_run(self):
         """Check expected behavior when running a single test."""
-        mock_cluster = MagicMock()
-        mock_cluster.__len__.return_value = 100000  # big enough to run the test!
+        mock_cluster = LocalhostCluster()
         session_context = tests.ducktape_mock.session_context(mock_cluster)
 
         test_context = TestContext(session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
