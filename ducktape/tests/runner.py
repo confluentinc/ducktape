@@ -65,14 +65,23 @@ class SerialTestRunner(TestRunner):
         self.log(logging.INFO, "running %d tests..." % len(self.tests))
 
         for test_num, test_context in enumerate(self.tests, 1):
+            if len(self.cluster) != self.cluster.num_available_nodes():
+                # Sanity check - are we leaking cluster nodes?
+                raise RuntimeError(
+                    "Expected all nodes to be available. Instead, %d of %d are available" %
+                    (self.cluster.num_available_nodes(), len(self.cluster)))
+
             # Create single testable unit and corresponding test result object
             self.current_test_context = test_context
+
+            # Instantiate test
             self.current_test = test_context.cls(test_context)
             result = TestResult(self.current_test_context)
 
             # Run the test unit
             result.start_time = time.time()
-            self.log(logging.INFO, "running test %d of %d" % (test_num, len(self.tests)))
+            self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
+
             try:
                 self.log(logging.INFO, "setting up")
                 self.setup_single_test()
