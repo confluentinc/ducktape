@@ -92,13 +92,14 @@ class Service(TemplateRenderer):
         if self.allocated:
             raise Exception("Requesting nodes for a service that has already been allocated nodes.")
 
-        self.logger.debug("Requesting nodes from the cluster.")
+        self.logger.debug("Requesting %d nodes from the cluster." % self.num_nodes)
 
         try:
             self.nodes = self.cluster.request(self.num_nodes)
         except RuntimeError as e:
+            msg = ""
             if hasattr(self.context, "services"):
-                msg = e.message + " Currently registered services: " + str(self.context.services)
+                msg += str(e.message) + " Currently registered services: " + str(self.context.services)
             raise RuntimeError(msg)
 
         for idx, node in enumerate(self.nodes, 1):
@@ -111,6 +112,8 @@ class Service(TemplateRenderer):
                     "or some service which isn't properly cleaning up after itself. " +
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.logger = self.logger
+
+        self.logger.debug("Successfully allocated %d nodes to %s" % (self.num_nodes, self.who_am_i()))
 
     def start(self):
         """Start the service on all nodes."""
@@ -181,10 +184,11 @@ class Service(TemplateRenderer):
             node.account.logger = None
             self.free_node(node)
 
+        self.nodes = []
+
     def free_node(self, node):
         """Release this node back to the cluster that owns it."""
         node.free()
-        self.nodes.remove(node)
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""
