@@ -14,8 +14,8 @@
 
 from ducktape.utils.terminal_size import get_terminal_size
 
+import json
 import os
-import pprint
 import shutil
 import pkg_resources
 
@@ -63,7 +63,7 @@ class SingleResultReporter(object):
             result_lines.append("    " + self.result.summary)
 
         if self.result.data is not None:
-            result_lines.append(pprint.pformat(self.result.data))
+            result_lines.append(json.dumps(self.result.data))
 
         return "\n".join(result_lines)
 
@@ -89,7 +89,7 @@ class SingleResultFileReporter(SingleResultReporter):
         if self.result.data is not None and len(self.result.data) > 0:
             data_file = os.path.join(self.result.test_context.results_dir, "data.json")
             with open(data_file, "w") as fp:
-                fp.write(pprint.pformat(self.result.data))
+                fp.write(json.dumps(self.result.data))
 
 
 class SummaryReporter(object):
@@ -150,7 +150,8 @@ class HTMLSummaryReporter(SummaryReporter):
 
         if result.test_context.injected_args is not None:
             lines.append("Arguments:")
-            lines.append(pprint.pformat(result.test_context.injected_args))
+            lines.append(
+                json.dumps(result.test_context.injected_args, sort_keys=True, indent=2, separators=(',', ': ')))
 
         return "\n".join(lines)
 
@@ -165,7 +166,7 @@ class HTMLSummaryReporter(SummaryReporter):
             "test_result": test_result,
             "description": result.description,
             "run_time": format_time(result.run_time),
-            "data": "" if result.data is None else pprint.pformat(result.data),
+            "data": "" if result.data is None else json.dumps(result.data, sort_keys=True, indent=2, separators=(',', ': ')),
             "test_log": self.test_results_dir(result)
         }
         return result_json
@@ -191,7 +192,7 @@ class HTMLSummaryReporter(SummaryReporter):
         for result in self.results:
             if result.success:
                 num_passes += 1
-            result_string += pprint.pformat(self.format_result(result))
+            result_string += json.dumps(self.format_result(result))
             result_string += ","
 
         args = {

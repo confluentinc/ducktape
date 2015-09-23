@@ -97,9 +97,9 @@ class Service(TemplateRenderer):
         try:
             self.nodes = self.cluster.request(self.num_nodes)
         except RuntimeError as e:
-            msg = ""
+            msg = str(e.message)
             if hasattr(self.context, "services"):
-                msg += str(e.message) + " Currently registered services: " + str(self.context.services)
+                msg += " Currently registered services: " + str(self.context.services)
             raise RuntimeError(msg)
 
         for idx, node in enumerate(self.nodes, 1):
@@ -182,13 +182,9 @@ class Service(TemplateRenderer):
         for node in self.nodes:
             self.logger.info("%s: freeing node" % self.who_am_i(node))
             node.account.logger = None
-            self.free_node(node)
+            node.free()
 
         self.nodes = []
-
-    def free_node(self, node):
-        """Release this node back to the cluster that owns it."""
-        node.free()
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""
