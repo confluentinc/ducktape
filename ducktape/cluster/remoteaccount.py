@@ -81,14 +81,18 @@ class RemoteAccount(HttpMixin):
         '''Runs the command via SSH and captures the output, yielding lines of the output.'''
         ssh_cmd = self.ssh_command(cmd)
         proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        for line in iter(proc.stdout.readline, ''):
-            if callback is None:
-                yield line
-            else:
-                yield callback(line)
-        proc.communicate()
-        if proc.returncode != 0 and not allow_fail:
-            raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
+
+        def output_generator():
+            for line in iter(proc.stdout.readline, ''):
+                if callback is None:
+                    yield line
+                else:
+                    yield callback(line)
+            proc.communicate()
+            if proc.returncode != 0 and not allow_fail:
+                raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
+
+        return output_generator()
 
     def ssh_output(self, cmd, allow_fail=False):
         '''Runs the command via SSH and captures the output, returning it as a string.'''
