@@ -36,9 +36,6 @@ class TestInfo(object):
         self.module = module
         self.cls = cls
         self.function = function
-
-        # A non-None value here means the loader will override the injected_args in any discovered test,
-        # whether or not it is parametrized
         self.injected_args = injected_args
 
     @property
@@ -59,9 +56,12 @@ class TestLoader(object):
 
     def __init__(self, session_context, test_parameters=None):
         self.session_context = session_context
-        self.test_parameters = test_parameters
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
+
+        # A non-None value here means the loader will override the injected_args
+        # in any discovered test, whether or not it is parametrized
+        self.test_parameters = test_parameters
 
     @property
     def logger(self):
