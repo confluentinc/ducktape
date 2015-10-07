@@ -22,6 +22,7 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
 
 import argparse
+import json
 import os
 import sys
 import importlib
@@ -56,6 +57,7 @@ def parse_args():
                              "This is primarily useful for test developers who want to interact with running " +
                              "services after a test has run. ")
     parser.add_argument("--version", action="store_true", help="display version")
+    parser.add_argument("--inject", action="store", help="Inject these arguments into the specified test. Use JSON to format.")
 
     parser_arguments = []
 
@@ -130,6 +132,16 @@ def main():
         print ducktape_version()
         sys.exit(0)
 
+    injected_args = None
+    if args.inject:
+        try:
+            injected = args.inject
+            injected = injected.replace("'", "\"")
+            injected_args = json.loads(injected)
+        except ValueError as e:
+            print "Injected args are not valid json: " + str(e.message)
+            sys.exit(1)
+
     # Make .ducktape directory where metadata such as the last used session_id is stored
     if not os.path.isdir(ConsoleConfig.METADATA_DIR):
         os.makedirs(ConsoleConfig.METADATA_DIR)
@@ -146,7 +158,7 @@ def main():
 
     # Discover and load tests to be run
     extend_import_paths(args.test_path)
-    loader = TestLoader(session_context)
+    loader = TestLoader(session_context, injected_args)
     try:
         tests = loader.discover(args.test_path)
     except LoaderException as e:
