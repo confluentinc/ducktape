@@ -16,25 +16,24 @@ TBD
 Install
 -------
 
-    git clone https://github.com/confluentinc/ducktape.git
-    cd ducktape
-    python setup.py install
+    pip install ducktape
     
-(ducktape will be pip installable soon)
-
 Use
 ---
 ducktape discovers and runs tests in the path provided. 
 
-    ducktape <relative_path_to_testdirectory>              # e.g. ducktape dir/tests
-    ducktape <relative_path_to_file>                       # e.g. ducktape dir/tests/my_test.py
-    ducktape <path_to_test>[::SomeTestClass]               # e.g. ducktape dir/tests/my_test.py::TestA
-    ducktape <path_to_test>[::SomeTestClass[.test_method]  # e.g. ducktape dir/tests/my_test.py::TestA.test_a
-dir/tests/my_other_test.py::OtherTest
+    ducktape <relative_path_to_testdirectory>               # e.g. ducktape dir/tests
+    ducktape <relative_path_to_file>                        # e.g. ducktape dir/tests/my_test.py
+    ducktape <path_to_test>[::SomeTestClass]                # e.g. ducktape dir/tests/my_test.py::TestA
+    ducktape <path_to_test>[::SomeTestClass[.test_method]]  # e.g. ducktape dir/tests/my_test.py::TestA.test_a
 
 Use the `--collect-only` flag to discover tests without running any:
 
     ducktape <path_to_testfile_or_directory> --collect-only
+
+Use the `--parameters` flag followed by a JSON string to specify which parameters to use when running the discovered test:
+
+    ducktape path/to/test.py::TestClass.test_method --parameters '{"x": 1, "y": 20}'
 
 Configuration
 -------------

@@ -22,6 +22,7 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
 
 import argparse
+import json
 import os
 import sys
 import importlib
@@ -39,13 +40,13 @@ def parse_args():
     """
     parser = argparse.ArgumentParser(description="Discover and run your tests")
     parser.add_argument('test_path', metavar='test_path', type=str, nargs='*', default=os.getcwd(),
-                        help='one or more space-delimited strings indicating where to search for tests')
-    parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run")
-    parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout")
+                        help='one or more space-delimited strings indicating where to search for tests.')
+    parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run.")
+    parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout.")
     parser.add_argument("--config-file", action="store", default=ConsoleConfig.PROJECT_CONFIG_FILE,
-                        help="path to project-specific configuration file")
+                        help="path to project-specific configuration file.")
     parser.add_argument("--cluster", action="store", default=ConsoleConfig.CLUSTER_TYPE,
-                        help="cluster class to use to allocate nodes for tests")
+                        help="cluster class to use to allocate nodes for tests.")
     parser.add_argument("--results-root", action="store", default=ConsoleConfig.RESULTS_ROOT_DIRECTORY,
                         help="path to custom root results directory. Running ducktape with this root " +
                              "specified will result in new test results being stored in a subdirectory of " +
@@ -56,6 +57,8 @@ def parse_args():
                              "This is primarily useful for test developers who want to interact with running " +
                              "services after a test has run. ")
     parser.add_argument("--version", action="store_true", help="display version")
+    parser.add_argument("--parameters", action="store",
+                        help="inject these arguments into the specified test(s). Specify parameters as a JSON string.")
 
     parser_arguments = []
 
@@ -130,6 +133,14 @@ def main():
         print ducktape_version()
         sys.exit(0)
 
+    parameters = None
+    if args.parameters:
+        try:
+            parameters = json.loads(args.parameters)
+        except ValueError as e:
+            print "parameters are not valid json: " + str(e.message)
+            sys.exit(1)
+
     # Make .ducktape directory where metadata such as the last used session_id is stored
     if not os.path.isdir(ConsoleConfig.METADATA_DIR):
         os.makedirs(ConsoleConfig.METADATA_DIR)
@@ -146,7 +157,7 @@ def main():
 
     # Discover and load tests to be run
     extend_import_paths(args.test_path)
-    loader = TestLoader(session_context)
+    loader = TestLoader(session_context, parameters)
     try:
         tests = loader.discover(args.test_path)
     except LoaderException as e:

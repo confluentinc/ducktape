@@ -96,7 +96,20 @@ class CheckTestLoader(object):
         tests = loader.discover([os.path.join(discover_dir(), "test_b.py")])
         assert len(tests) == 3
 
+    def check_test_loader_with_injected_args(self):
+        """When the --injected command-line option is used, the loader behaves a little bit differently:
 
+        each test method annotated with @parametrize or @matrix should only expand to a single discovered test,
+        and the injected args should be those passed in from command-line.
+        """
+        parameters = {"x": 1, "y": -1}
+        loader = TestLoader(self.SESSION_CONTEXT, test_parameters=parameters)
 
+        file = os.path.join(discover_dir(), "test_decorated.py")
+        tests = loader.discover([file])
+        assert len(tests) == 4
+
+        for t in tests:
+            assert t.injected_args == parameters
 
 

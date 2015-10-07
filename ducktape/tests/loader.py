@@ -14,6 +14,7 @@
 
 from ducktape.tests.test import Test, TestContext
 from ducktape.mark import parametrized
+from ducktape.mark._parametrize import _inject
 
 import importlib
 import inspect
@@ -53,10 +54,14 @@ class TestInfo(object):
 class TestLoader(object):
     """Class used to discover and load tests."""
 
-    def __init__(self, session_context):
+    def __init__(self, session_context, test_parameters=None):
         self.session_context = session_context
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
+
+        # A non-None value here means the loader will override the injected_args
+        # in any discovered test, whether or not it is parametrized
+        self.test_parameters = test_parameters
 
     @property
     def logger(self):
@@ -132,6 +137,7 @@ class TestLoader(object):
 
             if len(test_info_list) == 0:
                 raise LoaderException("Didn't find any tests for symbol %s." % symbol)
+
 
         test_list = [TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
                      for t in test_info_list]
@@ -211,12 +217,18 @@ class TestLoader(object):
                 test_methods.append(f)
 
         test_info_list = []
+
         for f in test_methods:
             t = TestInfo(module=t_info.module, cls=t_info.cls, function=f)
 
             if parametrized(f):
                 test_info_list.extend(self.expand_function(t))
+            elif self.test_parameters is None:
+                    test_info_list.append(t)
             else:
+                # Override injected_args for the ordinary test method, and _inject these parameters into the method
+                t.function =_inject(**self.test_parameters)(t.function)
+                t.injected_args = self.test_parameters
                 test_info_list.append(t)
 
         return test_info_list
@@ -226,9 +238,16 @@ class TestLoader(object):
         assert parametrized(t_info.function)
 
         test_info_list = []
-        for f in t_info.function:
+        if self.test_parameters is None:
+            for f in t_info.function:
+                test_info_list.append(
+                    TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=f.kwargs))
+        else:
+            # override the injected_args field, _inject the overriden values into the annotated test method,
+            # and instead of expanding the parametrized test into multiple tests, only expand it into a single test
+            f =_inject(**self.test_parameters)(t_info.function.test_method)
             test_info_list.append(
-                TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=f.kwargs))
+                TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=self.test_parameters))
 
         return test_info_list
 
