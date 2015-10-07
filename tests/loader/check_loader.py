@@ -102,14 +102,14 @@ class CheckTestLoader(object):
         each test method annotated with @parametrize or @matrix should only expand to a single discovered test,
         and the injected args should be those passed in from command-line.
         """
-        injected = {"x": 1, "y": -1}
-        loader = TestLoader(self.SESSION_CONTEXT, injected_args=injected)
+        parameters = {"x": 1, "y": -1}
+        loader = TestLoader(self.SESSION_CONTEXT, test_parameters=parameters)
 
         file = os.path.join(discover_dir(), "test_decorated.py")
         tests = loader.discover([file])
         assert len(tests) == 4
 
         for t in tests:
-            assert t.injected_args == injected
+            assert t.injected_args == parameters
 
 

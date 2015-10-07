@@ -57,9 +57,9 @@ class TestInfo(object):
 class TestLoader(object):
     """Class used to discover and load tests."""
 
-    def __init__(self, session_context, injected_args=None):
+    def __init__(self, session_context, test_parameters=None):
         self.session_context = session_context
-        self.injected_args = injected_args
+        self.test_parameters = test_parameters
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
 
@@ -223,12 +223,12 @@ class TestLoader(object):
 
             if parametrized(f):
                 test_info_list.extend(self.expand_function(t))
-            elif self.injected_args is None:
+            elif self.test_parameters is None:
                     test_info_list.append(t)
             else:
-                # Override injected_args for the ordinary test method, and _inject these arguments into the method
-                t.function =_inject(**self.injected_args)(t.function)
-                t.injected_args = self.injected_args
+                # Override injected_args for the ordinary test method, and _inject these parameters into the method
+                t.function =_inject(**self.test_parameters)(t.function)
+                t.injected_args = self.test_parameters
                 test_info_list.append(t)
 
         return test_info_list
@@ -238,16 +238,16 @@ class TestLoader(object):
         assert parametrized(t_info.function)
 
         test_info_list = []
-        if self.injected_args is None:
+        if self.test_parameters is None:
             for f in t_info.function:
                 test_info_list.append(
                     TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=f.kwargs))
         else:
             # override the injected_args field, _inject the overriden values into the annotated test method,
             # and instead of expanding the parametrized test into multiple tests, only expand it into a single test
-            f =_inject(**self.injected_args)(t_info.function.test_method)
+            f =_inject(**self.test_parameters)(t_info.function.test_method)
             test_info_list.append(
-                TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=self.injected_args))
+                TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=self.test_parameters))
 
         return test_info_list
 
