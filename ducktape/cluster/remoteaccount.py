@@ -92,7 +92,7 @@ class RemoteAccount(HttpMixin):
             if proc.returncode != 0 and not allow_fail:
                 raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
 
-        return output_generator()
+        return iter_wrapper(output_generator())
 
     def ssh_output(self, cmd, allow_fail=False):
         '''Runs the command via SSH and captures the output, returning it as a string.'''
@@ -235,6 +235,29 @@ class RemoteAccount(HttpMixin):
         except subprocess.CalledProcessError:
             offset = 0
         yield LogMonitor(self, log, offset)
+
+
+class iter_wrapper(object):
+    """
+    Helper class that wraps around an iterable object to provide has_next() in addition to next()
+
+    """
+    def __init__(self, iter_obj):
+        self.iter_obj = iter_obj
+        self.sentinel = object()
+        self.cached = self.sentinel
+
+    def next(self):
+        if self.cached is self.sentinel:
+            return next(self.iter_obj)
+        next_obj = self.cached
+        self.cached = self.sentinel
+        return next_obj
+
+    def has_next(self):
+        if self.cached is self.sentinel:
+            self.cached = next(self.iter_obj, self.sentinel)
+        return self.cached is not self.sentinel
 
 class LogMonitor(object):
     """
