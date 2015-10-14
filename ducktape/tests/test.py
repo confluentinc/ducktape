@@ -135,6 +135,13 @@ def _escape_pathname(s):
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
+    _TEST_ID_DELIMITER = "~~"
+
+    @staticmethod
+    def from_test_context(test_context):
+        """Make a copy"""
+        return TestContext(test_context.session_context, test_context.module, test_context.cls, test_context.function, test_context.injected_args)
+
     def __init__(self, session_context, module=None, cls=None, function=None, injected_args=None):
         """
         :type session_context: ducktape.tests.session.SessionContext
@@ -211,12 +218,9 @@ class TestContext(Logger):
 
     @property
     def test_id(self):
-        name_components = [self.session_context.session_id,
-                           self.test_name]
-        return ".".join(filter(lambda x: x is not None, name_components))
-
-    @property
-    def test_name(self):
+        # name_components = [self.session_context.session_id,
+        #                    self.test_name]
+        # return ".".join(filter(lambda x: x is not None, name_components))
         """
         The fully-qualified name of the test. This is similar to test_id, but does not include the session ID. It
         includes the module, class, and method name.
@@ -226,11 +230,24 @@ class TestContext(Logger):
                            self.function_name,
                            self.injected_args_name]
 
-        return ".".join(filter(lambda x: x is not None and len(x) > 0, name_components))
+        return TestContext._TEST_ID_DELIMITER.join(filter(lambda x: x is not None and len(x) > 0, name_components))
+
+    # @property
+    # def test_name(self):
+    #     """
+    #     The fully-qualified name of the test. This is similar to test_id, but does not include the session ID. It
+    #     includes the module, class, and method name.
+    #     """
+    #     name_components = [self.module_name,
+    #                        self.cls_name,
+    #                        self.function_name,
+    #                        self.injected_args_name]
+    #
+    #     return ".".join(filter(lambda x: x is not None and len(x) > 0, name_components))
 
     @property
     def logger_name(self):
-        return self.test_id
+        return ".".join([self.session_context.session_id, self.test_id])
 
     def configure_logger(self):
         if self._logger_configured:
@@ -264,5 +281,6 @@ class TestContext(Logger):
         self.logger.addHandler(ch)
 
         self._logger_configured = True
+
 
 

@@ -14,6 +14,7 @@
 
 from ducktape.tests.logger import Logger
 from ducktape.command_line.config import ConsoleConfig
+from ducktape.tests.result_store import FileSystemResultStore
 
 import logging
 import os
@@ -40,6 +41,7 @@ class SessionContext(Logger):
         self.debug = args.debug
         self.exit_first = args.exit_first
         self.no_teardown = args.no_teardown
+        self.result_store = FileSystemResultStore(os.path.dirname(self.results_dir))
 
         self._logger_configured = False
         self.configure_logger()

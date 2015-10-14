@@ -13,8 +13,11 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test, TestContext
+from ducktape.tests.regression_test import RegressionTestContext
+from ducktape.mark import parametrized, has_regression, RegressionMark
 from ducktape.mark import parametrized
 from ducktape.mark._parametrize import _inject
+
 
 import importlib
 import inspect
@@ -32,11 +35,22 @@ DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 
 class TestInfo(object):
     """Helper class used to wrap discovered test information"""
-    def __init__(self, module=None, cls=None, function=None, injected_args=None):
+
+    @staticmethod
+    def from_test_info(t_info):
+        """Create a copy"""
+        return TestInfo(t_info.module, t_info.cls, t_info.function, t_info.injected_args, t_info.regression_variable_selector)
+
+    def __init__(self, module=None, cls=None, function=None, injected_args=None, regression_variable_selector=None):
         self.module = module
         self.cls = cls
         self.function = function
         self.injected_args = injected_args
+        self.regression_variable_selector = regression_variable_selector
+
+    def __str__(self):
+        pieces = [str(self.function), str(self.injected_args)[0:10] + "...}", str(self.regression_variable_selector)]
+        return "<" + ",".join(pieces) + ">"
 
     @property
     def module_name(self):
@@ -130,6 +144,7 @@ class TestLoader(object):
             # Find all tests in discovered modules and filter out any that don't match the discovery symbol
             for m in modules:
                 test_info_list.extend(self.expand_module(TestInfo(module=m)))
+
             if len(cls_name) > 0:
                 test_info_list = filter(lambda t: t.cls_name == cls_name, test_info_list)
             if len(method_name) > 0:
@@ -138,11 +153,19 @@ class TestLoader(object):
             if len(test_info_list) == 0:
                 raise LoaderException("Didn't find any tests for symbol %s." % symbol)
 
+        # Assemble the test context objects
+        test_context_list = []
+        for t in test_info_list:
+            if t.regression_variable_selector is None:
+                test_context_list.append(
+                    TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args))
+            else:
+                target_test_context = TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
+                test_context_list.append(
+                    RegressionTestContext(self.session_context, target_test_context, t.regression_variable_selector))
 
-        test_list = [TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
-                     for t in test_info_list]
-        self.logger.debug("Discovered these tests: " + str(test_list))
-        return test_list
+        self.logger.debug("Discovered these tests: " + str(test_context_list))
+        return test_context_list
 
     def import_modules(self, file_list):
         """Attempt to import modules in the file list.
@@ -177,15 +200,12 @@ class TestLoader(object):
                     # an ImportError or b) the module is valid, but there was
                     # some other error when parsing/executing the module, which
                     # can result in a variety of errors (e.g. IndentationError,
-                    # TypeError, etc). Because of the way we are searching for
-                    # valid modules in this loop, where we expect some of the
-                    # module names we construct to fail to import, we ignore
-                    # ImportError here, but log everything else as an
-                    # error. This does mean we fail to log a subset of import
-                    # errors that we should: if the module is valid but itself
-                    # triggers an ImportError (e.g. typo in an import line),
-                    # that error will be swallowed.
-                    if not isinstance(e, ImportError):
+                    # TypeError, etc)
+                    #
+                    # Log all errors except those caused by modules which don't exist
+
+                    module_does_not_exist = isinstance(e, ImportError) and re.search("No module named", str(e))
+                    if not module_does_not_exist:
                         self.logger.error("Failed to import %s, which may indicate a broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
                 finally:
                     path_pieces = path_pieces[1:]
@@ -222,7 +242,7 @@ class TestLoader(object):
             t = TestInfo(module=t_info.module, cls=t_info.cls, function=f)
 
             if parametrized(f):
-                test_info_list.extend(self.expand_function(t))
+                test_info_list.extend(self.expand_parametrized_function(t))
             elif self.test_parameters is None:
                     test_info_list.append(t)
             else:
@@ -230,13 +250,29 @@ class TestLoader(object):
                 t.function =_inject(**self.test_parameters)(t.function)
                 t.injected_args = self.test_parameters
                 test_info_list.append(t)
-
+                
+        test_info_list.extend(self.expand_regressions(test_info_list))
         return test_info_list
+    
+    def expand_regressions(self, t_info_list):
+        regression_list = []
+        
+        for t_info in t_info_list:
+            if has_regression(t_info.function):
+                for mark in t_info.function.marks:
+                    if isinstance(mark, RegressionMark):
+                        t_copy = TestInfo.from_test_info(t_info)
+                        t_copy.regression_variable_selector = mark.variable_selector
 
-    def expand_function(self, t_info):
+                        regression_list.append(t_copy)
+        return regression_list        
+
+    def expand_parametrized_function(self, t_info):
         """Assume t_info.function is marked with @parametrize etc."""
         assert parametrized(t_info.function)
 
+        test_info_list = []
+        
         test_info_list = []
         if self.test_parameters is None:
             for f in t_info.function:
@@ -246,6 +282,12 @@ class TestLoader(object):
             # override the injected_args field, _inject the overriden values into the annotated test method,
             # and instead of expanding the parametrized test into multiple tests, only expand it into a single test
             f =_inject(**self.test_parameters)(t_info.function.test_method)
+            test_info_list.append(
+                TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=self.test_parameters))
+
+        
+        
+        for f in t_info.function:
             test_info_list.append(
                 TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=self.test_parameters))
 
