@@ -68,7 +68,6 @@ class SerialTestRunner(TestRunner):
         self.tests.extend(regression_tests)
 
     def run_all_tests(self):
-        # self.session_test_data.start_time = time.time()
         self.session_context.start_time = time.time()
 
         self.log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
@@ -127,7 +126,6 @@ class SerialTestRunner(TestRunner):
             if self.stop_testing:
                 break
 
-        # self.session_test_data.stop_time = time.time()
         self.session_context.stop_time = time.time()
 
     def setup_single_test(self):

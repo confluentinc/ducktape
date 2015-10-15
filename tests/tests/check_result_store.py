@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tests import ducktape_mock
-from ducktape.tests.test import Test, TestContext, _escape_pathname
+
 from ducktape.tests.result_store import FileSystemResultStore
 
 import os
@@ -65,53 +64,3 @@ class CheckFileSystemResultStore(object):
         stored_datum = self.store.session_data(session_id=session_id)
 
         assert stored_datum == session_datum
-
-
-
-class CheckEscapePathname(object):
-
-    def check_illegal_path(self):
-        path = "\\/.a=2,   b=x/y/z"
-        assert _escape_pathname(path) == "a=2.b=x.y.z"
-
-    def check_negative(self):
-        # it's better if negative numbers are preserved
-        path = "x= -2, y=-50"
-        assert _escape_pathname(path) == "x=-2.y=-50"
-
-    def check_many_dots(self):
-        path = "..a.....b.c...d."
-        assert _escape_pathname(path) == "a.b.c.d"
-
-
-class CheckDescription(object):
-    """Check that pulling a description from a test works as expected."""
-    def check_from_function(self):
-        """If the function has a docstring, the description should come from the function"""
-        context = TestContext(ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_function_description)
-        assert context.description == "function description"
-
-    def check_from_class(self):
-        """If the test method has no docstring, description should come from the class docstring"""
-        context = TestContext(ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_class_description)
-        assert context.description == "class description"
-
-    def check_no_description(self):
-        """If nobody has a docstring, there shouldn't be an error, and description should be empty string"""
-        context = TestContext(ducktape_mock.session_context(), cls=DummyTestNoDescription, function=DummyTestNoDescription.test_this)
-        assert context.description == ""
-
-
-class DummyTest(Test):
-    """class description"""
-    def test_class_description(self):
-        pass
-
-    def test_function_description(self):
-        """function description"""
-        pass
-
-
-class DummyTestNoDescription(Test):
-    def test_this(self):
-        pass
