@@ -22,6 +22,11 @@ MARKS = {PARAMETRIZED, MATRIX}
 
 def mark_as(fun, mark):
     """Attach a tag indicating that fun has been marked with the given mark"""
+
+    if isinstance(fun, TestGenerator):
+        fun.mark_as(mark)
+        return
+
     if hasattr(fun, "marks"):
         fun.marks.add(mark)
     else:
@@ -50,6 +55,17 @@ class TestGenerator():
         self.kwargs_pointer = 0
         self.wrapped = wrapped
         self.kwargs_list = kwargs_list
+        self._marks = set()
+
+    def mark_as(self, mark):
+        self._marks.add(mark)
+
+    @property
+    def marks(self):
+        if hasattr(self.wrapped, "marks"):
+            return self._marks.union(self.wrapped.marks)
+        else:
+            return self._marks
 
     @property
     def test_method(self):

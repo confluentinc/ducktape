@@ -20,6 +20,7 @@ from ducktape.command_line.config import ConsoleConfig
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
+from ducktape.tests.result_store import FileSystemResultStore
 
 import argparse
 import json
@@ -59,6 +60,10 @@ def parse_args():
     parser.add_argument("--version", action="store_true", help="display version")
     parser.add_argument("--parameters", action="store",
                         help="inject these arguments into the specified test(s). Specify parameters as a JSON string.")
+
+
+    parser.add_argument("--report-only", action="store_true", help="generate report")
+    parser.add_argument("--session-id", action="store", help="generate report on this session id")
 
     parser_arguments = []
 
@@ -120,6 +125,17 @@ def update_latest_symlink(results_root, new_results_dir):
     os.symlink(new_results_dir, latest_test_dir)
 
 
+def generate_reports(session_id, result_store, result_dir):
+    reporter = SimpleStdoutSummaryReporter(session_id, result_store)
+    reporter.report()
+    reporter = SimpleFileSummaryReporter(session_id, result_store, result_dir)
+    reporter.report()
+
+    # Generate HTML reporter
+    reporter = HTMLSummaryReporter(session_id, result_store, result_dir)
+    reporter.report()
+
+
 def main():
     """Ducktape entry point. This contains top level logic for ducktape command-line program which does the following:
 
@@ -140,6 +156,10 @@ def main():
         except ValueError as e:
             print "parameters are not valid json: " + str(e.message)
             sys.exit(1)
+
+    if args.report_only:
+        generate_reports(args.session_id, args.results_root)
+        sys.exit(0)
 
     # Make .ducktape directory where metadata such as the last used session_id is stored
     if not os.path.isdir(ConsoleConfig.METADATA_DIR):
@@ -184,19 +204,14 @@ def main():
 
     # Run the tests
     runner = SerialTestRunner(session_context, tests)
-    test_results = runner.run_all_tests()
+    runner.run_all_tests()  # populates a thing with test results
 
     # Report results
     # TODO command-line hook for type of reporter
-    reporter = SimpleStdoutSummaryReporter(test_results)
-    reporter.report()
-    reporter = SimpleFileSummaryReporter(test_results)
-    reporter.report()
 
-    # Generate HTML reporter
-    reporter = HTMLSummaryReporter(test_results)
-    reporter.report()
-
+    result_store = FileSystemResultStore(args.results_root)
+    generate_reports(session_context.session_id, result_store, results_dir)
     update_latest_symlink(args.results_root, results_dir)
-    if not test_results.get_aggregate_success():
-        sys.exit(1)
+
+    # if not test_results.get_aggregate_success():
+    #     sys.exit(1)

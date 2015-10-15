@@ -42,7 +42,7 @@ setup(name="ducktape",
       url="http://github.com/confluentinc/ducktape",
       packages=find_packages(),
       package_data={'ducktape': ['templates/report/*']},
-      install_requires=['jinja2', 'requests'],
+      install_requires=['jinja2', 'requests', 'statistics'],
       tests_require=['pytest', 'mock'],
       cmdclass={'test': PyTest},
       )

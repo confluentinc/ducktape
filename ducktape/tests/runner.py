@@ -13,9 +13,11 @@
 # limitations under the License.
 
 
-from ducktape.tests.result import TestResult, TestResults
+from ducktape.tests.result import TestResult
 from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.tests.reporter import SingleResultStdoutReporter
+from ducktape.tests.result_store import create_test_datum, TestKey
+from ducktape.tests.regression_test import RegressionTest
 
 import logging
 import time
@@ -27,7 +29,8 @@ class TestRunner(object):
     def __init__(self, session_context, tests):
         self.tests = tests
         self.session_context = session_context
-        self.results = TestResults(self.session_context)
+        # self.session_test_data = object()
+        self.result_store = self.session_context.result_store
 
         self.logger.debug("Instantiating " + self.who_am_i())
 
@@ -58,9 +61,15 @@ class SerialTestRunner(TestRunner):
         self.current_test = None
         self.current_test_context = None
 
-    def run_all_tests(self):
+        # Move regression tests to the end of the queue
+        regression_tests = [t for t in self.tests if isinstance(t.cls, RegressionTest)]
+        normal_tests = [t for t in self.tests if not isinstance(t.cls, RegressionTest)]
+        self.tests = normal_tests
+        self.tests.extend(regression_tests)
 
-        self.results.start_time = time.time()
+    def run_all_tests(self):
+        self.session_context.start_time = time.time()
+
         self.log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
         self.log(logging.INFO, "running %d tests..." % len(self.tests))
 
@@ -103,11 +112,13 @@ class SerialTestRunner(TestRunner):
                     self.teardown_single_test()
 
                 result.stop_time = time.time()
-                self.results.append(result)
+                test_key = TestKey.from_test_context(self.current_test_context)
+                datum = create_test_datum(result)
+                self.result_store.put(self.session_context.session_id, test_key, datum)
 
-                test_reporter = SingleResultFileReporter(result)
+                test_reporter = SingleResultFileReporter(datum, self.current_test_context.results_dir)
                 test_reporter.report()
-                test_reporter = SingleResultStdoutReporter(result)
+                test_reporter = SingleResultStdoutReporter(datum)
                 test_reporter.report()
 
                 self.current_test_context, self.current_test = None, None
@@ -115,8 +126,7 @@ class SerialTestRunner(TestRunner):
             if self.stop_testing:
                 break
 
-        self.results.stop_time = time.time()
-        return self.results
+        self.session_context.stop_time = time.time()
 
     def setup_single_test(self):
         """start services etc"""
@@ -181,7 +191,7 @@ class SerialTestRunner(TestRunner):
             msg = "%s: %s" % (self.who_am_i(), msg)
             self.logger.log(log_level, msg)
         else:
-            msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, msg)
+            msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_id, msg)
             self.logger.log(log_level, msg)
             self.current_test.logger.log(log_level, msg)
 

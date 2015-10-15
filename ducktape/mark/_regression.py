@@ -12,6 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ._parametrize import parametrize, parameterize, matrix, parametrized, parameterized
-from ._regression import has_regression, RegressionMark, regression
+from ducktape.mark._parametrize import mark_as
 
+
+def has_regression(fun):
+    if hasattr(fun, "marks"):
+        for mark in fun.marks:
+            if isinstance(mark, RegressionMark):
+                return True
+    return False
+
+
+class Mark(object):
+    pass
+
+
+class RegressionMark(Mark):
+    def __init__(self, variable_selector):
+        self.variable_selector = variable_selector
+
+
+def regression(variable_selector):
+    """regression decorator"""
+    def regressionizer(f):
+        mark_as(f, RegressionMark(variable_selector))
+        return f
+
+    return regressionizer
