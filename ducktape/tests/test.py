@@ -18,6 +18,7 @@ from ducktape.command_line.config import ConsoleConfig
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
 
+import json
 import logging
 import os
 import re
@@ -138,6 +139,15 @@ class TestContext(Logger):
     _TEST_ID_DELIMITER = "~~"
 
     @staticmethod
+    def create_test_id(module_name, cls_name, function_name, injected_args):
+        name_components = [module_name,
+                           cls_name,
+                           function_name,
+                           json.dumps(injected_args, separators=(',', ':'))]
+
+        return TestContext._TEST_ID_DELIMITER.join(filter(lambda x: x is not None and len(x) > 0, name_components))
+
+    @staticmethod
     def from_test_context(test_context):
         """Make a copy"""
         return TestContext(test_context.session_context, test_context.module, test_context.cls, test_context.function, test_context.injected_args)
@@ -192,14 +202,6 @@ class TestContext(Logger):
             return ""
 
     @property
-    def injected_args_name(self):
-        if self.injected_args is None:
-            return ""
-        else:
-            params = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
-            return _escape_pathname(params)
-
-    @property
     def cluster(self):
         return self.session_context.cluster
 
@@ -212,38 +214,19 @@ class TestContext(Logger):
         if self.function is not None:
             d = os.path.join(d, self.function.__name__)
         if self.injected_args is not None:
-            d = os.path.join(d, self.injected_args_name)
+            params = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
+            d = os.path.join(d, _escape_pathname(params))
 
         return d
 
     @property
     def test_id(self):
-        # name_components = [self.session_context.session_id,
-        #                    self.test_name]
-        # return ".".join(filter(lambda x: x is not None, name_components))
         """
         The fully-qualified name of the test. This is similar to test_id, but does not include the session ID. It
         includes the module, class, and method name.
         """
-        name_components = [self.module_name,
-                           self.cls_name,
-                           self.function_name,
-                           self.injected_args_name]
 
-        return TestContext._TEST_ID_DELIMITER.join(filter(lambda x: x is not None and len(x) > 0, name_components))
-
-    # @property
-    # def test_name(self):
-    #     """
-    #     The fully-qualified name of the test. This is similar to test_id, but does not include the session ID. It
-    #     includes the module, class, and method name.
-    #     """
-    #     name_components = [self.module_name,
-    #                        self.cls_name,
-    #                        self.function_name,
-    #                        self.injected_args_name]
-    #
-    #     return ".".join(filter(lambda x: x is not None and len(x) > 0, name_components))
+        return TestContext.create_test_id(self.module_name, self.cls_name, self.function_name, self.injected_args)
 
     @property
     def logger_name(self):

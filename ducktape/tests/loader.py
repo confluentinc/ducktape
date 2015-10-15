@@ -13,9 +13,8 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test, TestContext
-from ducktape.tests.regression_test import RegressionTestContext
+from ducktape.tests.regression_test import DefaultRegressionTest
 from ducktape.mark import parametrized, has_regression, RegressionMark
-from ducktape.mark import parametrized
 from ducktape.mark._parametrize import _inject
 
 
@@ -162,7 +161,8 @@ class TestLoader(object):
             else:
                 target_test_context = TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
                 test_context_list.append(
-                    RegressionTestContext(self.session_context, target_test_context, t.regression_variable_selector))
+                    DefaultRegressionTest.create_test_context(
+                        self.session_context, target_test_context, t.regression_variable_selector))
 
         self.logger.debug("Discovered these tests: " + str(test_context_list))
         return test_context_list
@@ -272,8 +272,6 @@ class TestLoader(object):
         assert parametrized(t_info.function)
 
         test_info_list = []
-        
-        test_info_list = []
         if self.test_parameters is None:
             for f in t_info.function:
                 test_info_list.append(
@@ -282,12 +280,6 @@ class TestLoader(object):
             # override the injected_args field, _inject the overriden values into the annotated test method,
             # and instead of expanding the parametrized test into multiple tests, only expand it into a single test
             f =_inject(**self.test_parameters)(t_info.function.test_method)
-            test_info_list.append(
-                TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=self.test_parameters))
-
-        
-        
-        for f in t_info.function:
             test_info_list.append(
                 TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=self.test_parameters))
 

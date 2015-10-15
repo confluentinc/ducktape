@@ -17,7 +17,7 @@ from ducktape.tests.result import TestResult
 from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.tests.reporter import SingleResultStdoutReporter
 from ducktape.tests.result_store import create_test_datum, TestKey
-from ducktape.tests.regression_test import RegressionTestContext
+from ducktape.tests.regression_test import RegressionTest
 
 import logging
 import time
@@ -62,8 +62,8 @@ class SerialTestRunner(TestRunner):
         self.current_test_context = None
 
         # Move regression tests to the end of the queue
-        regression_tests = [t for t in self.tests if isinstance(t, RegressionTestContext)]
-        normal_tests = [t for t in self.tests if not isinstance(t, RegressionTestContext)]
+        regression_tests = [t for t in self.tests if isinstance(t.cls, RegressionTest)]
+        normal_tests = [t for t in self.tests if not isinstance(t.cls, RegressionTest)]
         self.tests = normal_tests
         self.tests.extend(regression_tests)
 

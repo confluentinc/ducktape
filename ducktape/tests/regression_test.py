@@ -14,16 +14,29 @@
 
 from ducktape.tests.test import Test, TestContext
 from ducktape.tests.result_store import TestKey
+from ducktape.mark._parametrize import _inject
 
 import json
 import statistics
 
 
 class RegressionTest(Test):
+    pass
 
+
+class DefaultRegressionTest(RegressionTest):
     """
     Only run if some test with matching TestKey gets run
     """
+
+    @classmethod
+    def create_test_context(cls, session_context, target_test_context, variable_selector):
+
+        injected_args = {"target_test_id": target_test_context.test_id, "variable_selector": variable_selector}
+        test_function =_inject(**injected_args)(cls.test)
+
+        return TestContext(session_context, module=DefaultRegressionTest.__module__, cls=cls, function=test_function,
+                           injected_args=injected_args)
 
     @staticmethod
     def fetch_variable(variable_selector, datum):
@@ -35,42 +48,17 @@ class RegressionTest(Test):
 
         return value
 
-    def __init__(self, regression_test_context):
-        super(RegressionTest, self).__init__(regression_test_context)
-        self.variable_selector = regression_test_context.variable_selector
-        self.target_test_context = regression_test_context.target_test_context
-        self.test_key = TestKey.from_test_context(self.target_test_context)
+    def __init__(self, test_context, *args, **kwargs):
+        super(DefaultRegressionTest, self).__init__(test_context, *args, **kwargs)
 
-    def test(self):
+    def test(self, target_test_id, variable_selector):
         # get data for up to 20? previous runs
         result_store = self.test_context.session_context.result_store
-        test_data = result_store.test_data(self.test_key)
-        print "-"*50
-        print test_data
-        print "-"*50
+        test_data = result_store.test_data(target_test_id)
 
-        test_data = [d for d in test_data if d["status"].lower() == "pass"]
-        test_data = [RegressionTest.fetch_variable(self.variable_selector, datum) for datum in test_data]
-
-        test_data = [d for d in test_data if d is not None]
+        test_data = [d for d in test_data if d["status"].lower() == "pass" and d is not None]
+        test_data = [DefaultRegressionTest.fetch_variable(variable_selector, datum) for datum in test_data]
 
         num_data_points = min(20, len(test_data))
         test_data = test_data[-num_data_points:]
         return test_data
-
-
-class RegressionTestContext(TestContext):
-    def __init__(self, session_context, target_test_context=None, variable_selector=[]):
-        self.target_test_context = target_test_context
-        self.variable_selector = variable_selector
-
-        super(RegressionTestContext, self).__init__(session_context, self.__module__, cls=RegressionTest, function=RegressionTest.test, injected_args={})
-
-    @property
-    def test_id(self):
-        tid = super(RegressionTestContext, self).test_id
-        parts = [
-            tid,
-            self.target_test_context.test_id,
-            json.dumps(self.variable_selector, separators=(',', ':'))]
-        return TestContext._TEST_ID_DELIMITER.join(parts)
