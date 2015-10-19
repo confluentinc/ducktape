@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape.utils.terminal_size import get_terminal_size
+from ducktape.tests.result import PASS, FAIL, IGNORE
 
 import json
 import os
@@ -21,11 +22,6 @@ import pkg_resources
 
 
 DEFAULT_SEPARATOR_WIDTH = 100
-
-
-def pass_fail(success):
-    """Convenient helper. Converts boolean to PASS/FAIL."""
-    return "PASS" if success else "FAIL"
 
 
 def format_time(t):
@@ -53,11 +49,11 @@ class SingleResultReporter(object):
         """Stringify single result"""
         result_lines = [
             "test_id:    %s" % self.result.test_context.test_id,
-            "status:     %s" % pass_fail(self.result.success),
+            "status:     %s" % str(self.result.test_status).upper(),
             "run time:   %s" % format_time(self.result.run_time),
         ]
 
-        if not self.result.success:
+        if self.result.test_status == FAIL:
            # Add summary if the test failed
             result_lines.append("\n")
             result_lines.append("    " + self.result.summary)
@@ -110,8 +106,9 @@ class SimpleSummaryReporter(SummaryReporter):
             "session_id: %s" % self.results.session_context.session_id,
             "run time:   %s" % format_time(self.results.run_time),
             "tests run:  %d" % len(self.results),
-            "passed:     %d" % self.results.num_passed(),
-            "failed:     %d" % self.results.num_failed(),
+            "passed:     %d" % self.results.num_passed,
+            "failed:     %d" % self.results.num_failed,
+            "ignored:    %d" % self.results.num_ignored,
             "=" * self.width
         ]
 
@@ -156,10 +153,7 @@ class HTMLSummaryReporter(SummaryReporter):
         return "\n".join(lines)
 
     def format_result(self, result):
-        if result.success:
-            test_result = 'pass'
-        else:
-            test_result = 'fail'
+        test_result = str(result.test_status).lower()
 
         result_json = {
             "test_name": self.format_test_name(result),
@@ -190,18 +184,20 @@ class HTMLSummaryReporter(SummaryReporter):
         num_passes = 0
         result_string = ""
         for result in self.results:
-            if result.success:
+            if result.test_status == PASS:
                 num_passes += 1
             result_string += json.dumps(self.format_result(result))
             result_string += ","
 
         args = {
             'num_tests': num_tests,
-            'num_passes': self.results.num_passed(),
-            'num_failures': self.results.num_failed(),
+            'num_passes': self.results.num_passed,
+            'num_failures': self.results.num_failed,
+            'num_ignored': self.results.num_ignored,
             'run_time': format_time(self.results.run_time),
             'session': self.results.session_context.session_id,
-            'tests': result_string
+            'tests': result_string,
+            'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE]])
         }
 
         html = template % args

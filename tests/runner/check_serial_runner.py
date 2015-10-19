@@ -37,8 +37,9 @@ class CheckSerialRunner(object):
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
         results = runner.run_all_tests()
         assert len(results) == 1
-        assert results.num_failed() == 1
-        assert results.num_passed() == 0
+        assert results.num_failed == 1
+        assert results.num_passed == 0
+        assert results.num_ignored == 0
 
     def check_simple_run(self):
         """Check expected behavior when running a single test."""
@@ -51,8 +52,9 @@ class CheckSerialRunner(object):
 
         results = runner.run_all_tests()
         assert len(results) == 1
-        assert results.num_failed() == 0
-        assert results.num_passed() == 1
+        assert results.num_failed == 0
+        assert results.num_passed == 1
+        assert results.num_ignored == 0
         assert results[0].data == {"data": 3.14159}
 
 

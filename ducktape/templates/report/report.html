@@ -8,8 +8,14 @@
   <body>
     <div id="heading"></div>
     <div id="summary_panel"></div>
+    <div id="color_key_panel"></div>
     <div id="test_panel"></div>
     <script type="text/jsx">
+      /* This small block makes it possible to use React dev tools in the Chrome browser */
+      if (typeof window !== 'undefined') {
+        window.React = React;
+      }
+
       var Heading = React.createClass({
         render: function() {
           return (
@@ -30,6 +36,7 @@
               <td colSpan='5' align='center'>{this.props.summary_prop.tests}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.passes}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.failures}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.ignored}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.run_time}</td>
             </tr>
           );
@@ -45,6 +52,7 @@
                   <th colSpan='5' align='center'>Tests</th>
                   <th colSpan='5' align='center'>Passes</th>
                   <th colSpan='5' align='center'>Failures</th>
+                  <th colSpan='5' align='center'>Ignored</th>
                   <th colSpan='5' align='center'>Time</th>
                 </tr>
               </thead>
@@ -62,7 +70,7 @@
       
       var TestRow = React.createClass({
         render: function() {
-          var className = this.props.test.test_result + "Class"
+          var className = this.props.test.test_result
           return (
             <tr className={className}>
               <td colSpan='5' align='center'><pre>{this.props.test.test_name}</pre></td>
@@ -90,7 +98,6 @@
               </thead>
               <tbody>
                 {this.props.tests.map(function(test) {
-                  var className = test.test_result + "Class";
                   return (
                     <TestRow test={test} /> 
                   );
@@ -98,6 +105,36 @@
               </tbody>
             </table>
           );
+        }
+      });
+
+      /* A key which shows how colors map to different test statuses. E.g. red -> fail, green -> pass, etc */
+      var ColorKeyTable = React.createClass({
+        render: function() {
+          return (
+            <table id="color_key_table">
+              <tbody>
+                {this.props.test_status_names.map(function(status_name) {
+                  return (
+                    <th colSpan='5' align='center' className={status_name}>{status_name}</th>
+                  );
+                }, this)}
+              </tbody>
+            </table>
+          );
+        }
+      });
+
+
+      ColorKeyPanel = React.createClass({
+        render: function() {
+          return (
+            <div>
+              <h3>Color Key</h3>
+              <ColorKeyTable test_status_names={this.props.test_status_names}/>
+            </div>
+          );
+
         }
       });
 
@@ -127,6 +164,7 @@
         "tests": %(num_tests)d,
         "passes": %(num_passes)d,
         "failures": %(num_failures)d,
+        "ignored": %(num_ignored)d,
         "run_time": '%(run_time)s'
       }];
       
@@ -134,9 +172,12 @@
         "session": '%(session)s'
       };
 
+      COLOR_KEYS=[%(test_status_names)s];
+
       TESTS=[%(tests)s];
 
       React.render(<Heading heading={HEADING}/>, document.getElementById('heading'));
+      React.render(<ColorKeyPanel test_status_names={COLOR_KEYS}/>, document.getElementById('color_key_panel'));
       React.render(<SummaryPanel summary_props={SUMMARY}/>, document.getElementById('summary_panel'));
       React.render(<TestPanel tests={TESTS}/>, document.getElementById('test_panel'));
     </script>

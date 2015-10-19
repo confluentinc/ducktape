@@ -135,7 +135,7 @@ def _escape_pathname(s):
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module=None, cls=None, function=None, injected_args=None):
+    def __init__(self, session_context, module=None, cls=None, function=None, injected_args=None, ignore=False):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
@@ -143,6 +143,7 @@ class TestContext(Logger):
         self.cls = cls
         self.function = function
         self.injected_args = injected_args
+        self.ignore = ignore  # Don't run this test if ignore is True
 
         self.session_context = session_context
         self.services = ServiceRegistry()
@@ -150,11 +151,7 @@ class TestContext(Logger):
         # dict for toggling service log collection on/off
         self.log_collect = {}
 
-        # Individual test results go here
-        mkdir_p(self.results_dir)
 
-        self._logger_configured = False
-        self.configure_logger()
 
     def __repr__(self):
         return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
@@ -233,10 +230,13 @@ class TestContext(Logger):
         return self.test_id
 
     def configure_logger(self):
+        """Set up the logger to log to stdout and files.
+        This creates a directory and a few files as a side-effect.
+        """
         if self._logger_configured:
             raise RuntimeError("test logger should only be configured once.")
 
-        self.logger.setLevel(logging.DEBUG)
+        self._logger.setLevel(logging.DEBUG)
         mkdir_p(self.results_dir)
 
         # Create info and debug level handlers to pipe to log files
@@ -250,8 +250,8 @@ class TestContext(Logger):
         info_fh.setFormatter(formatter)
         debug_fh.setFormatter(formatter)
 
-        self.logger.addHandler(info_fh)
-        self.logger.addHandler(debug_fh)
+        self._logger.addHandler(info_fh)
+        self._logger.addHandler(debug_fh)
 
         ch = logging.StreamHandler(sys.stdout)
         ch.setFormatter(formatter)
@@ -261,8 +261,6 @@ class TestContext(Logger):
         else:
             # default - pipe warning level logging to stdout
             ch.setLevel(logging.WARNING)
-        self.logger.addHandler(ch)
-
-        self._logger_configured = True
+        self._logger.addHandler(ch)
 
 

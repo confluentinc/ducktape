@@ -28,8 +28,7 @@ class TestMatrix(Test):
 
 class TestStackedMatrix(Test):
     """4 tests"""
-    @matrix(x=[1, 2])
-    @matrix(y=[-1, 0])
+    @matrix(x=[1, 2], y=[-1, 0])
     def test_thing(self, x, y):
         pass
 

@@ -13,8 +13,7 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test, TestContext
-from ducktape.mark import parametrized
-from ducktape.mark._parametrize import _inject
+from ducktape.mark import parametrized, MarkedFunctionExpander
 
 import importlib
 import inspect
@@ -28,27 +27,6 @@ class LoaderException(Exception):
 
 DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
 DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
-
-
-class TestInfo(object):
-    """Helper class used to wrap discovered test information"""
-    def __init__(self, module=None, cls=None, function=None, injected_args=None):
-        self.module = module
-        self.cls = cls
-        self.function = function
-        self.injected_args = injected_args
-
-    @property
-    def module_name(self):
-        return "" if self.module is None else self.module.__name__
-
-    @property
-    def cls_name(self):
-        return "" if self.cls is None else self.cls.__name__
-
-    @property
-    def function_name(self):
-        return "" if self.function is None else self.function.__name__
 
 
 class TestLoader(object):
@@ -107,11 +85,10 @@ class TestLoader(object):
         - Discover test methods within each test class. A test method is a method containing 'test' in its name
 
         :type test_discovery_symbols: list
-        :type pattern: str
         :rtype: list
         """
         assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
-        test_info_list = []
+        test_context_list = []
         for symbol in test_discovery_symbols:
             directory, module_name, cls_name, method_name = self.parse_discovery_symbol(symbol)
 
@@ -129,20 +106,17 @@ class TestLoader(object):
 
             # Find all tests in discovered modules and filter out any that don't match the discovery symbol
             for m in modules:
-                test_info_list.extend(self.expand_module(TestInfo(module=m)))
+                test_context_list.extend(self.expand_module(m))
             if len(cls_name) > 0:
-                test_info_list = filter(lambda t: t.cls_name == cls_name, test_info_list)
+                test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
             if len(method_name) > 0:
-                test_info_list = filter(lambda t: t.function_name == method_name, test_info_list)
+                test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
 
-            if len(test_info_list) == 0:
+            if len(test_context_list) == 0:
                 raise LoaderException("Didn't find any tests for symbol %s." % symbol)
 
-
-        test_list = [TestContext(self.session_context, t.module_name, t.cls, t.function, t.injected_args)
-                     for t in test_info_list]
-        self.logger.debug("Discovered these tests: " + str(test_list))
-        return test_list
+        self.logger.debug("Discovered these tests: " + str(test_context_list))
+        return test_context_list
 
     def import_modules(self, file_list):
         """Attempt to import modules in the file list.
@@ -161,14 +135,14 @@ class TestLoader(object):
 
             # Try all possible module imports for given file
             path_pieces = filter(lambda x: len(x) > 0, f[:-3].split("/"))  # Strip off '.py' before splitting
-            success = False
+            successful_import = False
             while len(path_pieces) > 0:
                 module_name = '.'.join(path_pieces)
                 # Try to import the current file as a module
                 try:
                     module_list.append(importlib.import_module(module_name))
                     self.logger.debug("Successfully imported " + module_name)
-                    success = True
+                    successful_import = True
                     break  # no need to keep trying
                 except Exception as e:
                     # When importing, exceptions can occur if a) the module
@@ -190,66 +164,40 @@ class TestLoader(object):
                 finally:
                     path_pieces = path_pieces[1:]
 
-            if not success:
+            if not successful_import:
                 self.logger.debug("Unable to import %s" % f)
 
         return module_list
 
-    def expand_module(self, t_info):
-        """Return a list of TestInfo objects, one object for every 'testable unit' in t_info.module"""
+    def expand_module(self, module):
+        """Return a list of TestContext objects, one object for every 'testable unit' in module"""
 
-        test_info_list = []
-        module = t_info.module
+        test_context_list = []
         module_objects = module.__dict__.values()
         test_classes = [c for c in module_objects if self.is_test_class(c)]
 
         for cls in test_classes:
-            test_info_list.extend(self.expand_class(TestInfo(module=module, cls=cls)))
+            test_context_list.extend(self.expand_class(TestContext(self.session_context, module=module.__name__, cls=cls)))
 
-        return test_info_list
+        return test_context_list
 
-    def expand_class(self, t_info):
-        """Return a list of TestInfo objects, one object for each method in t_info.cls"""
+    def expand_class(self, t_ctx):
+        """Return a list of TestContext objects, one object for each method in t_ctx.cls"""
         test_methods = []
-        for f_name in dir(t_info.cls):
-            f = getattr(t_info.cls, f_name)
+        for f_name in dir(t_ctx.cls):
+            f = getattr(t_ctx.cls, f_name)
             if self.is_test_function(f):
                 test_methods.append(f)
 
-        test_info_list = []
-
+        test_context_list = []
         for f in test_methods:
-            t = TestInfo(module=t_info.module, cls=t_info.cls, function=f)
+            t = TestContext(self.session_context, module=t_ctx.module, cls=t_ctx.cls, function=f)
+            test_context_list.extend(self.expand_function(t))
+        return test_context_list
 
-            if parametrized(f):
-                test_info_list.extend(self.expand_function(t))
-            elif self.test_parameters is None:
-                    test_info_list.append(t)
-            else:
-                # Override injected_args for the ordinary test method, and _inject these parameters into the method
-                t.function =_inject(**self.test_parameters)(t.function)
-                t.injected_args = self.test_parameters
-                test_info_list.append(t)
-
-        return test_info_list
-
-    def expand_function(self, t_info):
-        """Assume t_info.function is marked with @parametrize etc."""
-        assert parametrized(t_info.function)
-
-        test_info_list = []
-        if self.test_parameters is None:
-            for f in t_info.function:
-                test_info_list.append(
-                    TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=f.kwargs))
-        else:
-            # override the injected_args field, _inject the overriden values into the annotated test method,
-            # and instead of expanding the parametrized test into multiple tests, only expand it into a single test
-            f =_inject(**self.test_parameters)(t_info.function.test_method)
-            test_info_list.append(
-                TestInfo(module=t_info.module, cls=t_info.cls, function=f, injected_args=self.test_parameters))
-
-        return test_info_list
+    def expand_function(self, t_ctx):
+        expander = MarkedFunctionExpander(t_ctx.session_context, t_ctx.module, t_ctx.cls, t_ctx.function)
+        return expander.expand(self.test_parameters)
 
     def find_test_files(self, base_dir):
         """Return a list of files underneath base_dir that look like test files.
