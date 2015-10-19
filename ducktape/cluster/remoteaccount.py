@@ -92,7 +92,7 @@ class RemoteAccount(HttpMixin):
             if proc.returncode != 0 and not allow_fail:
                 raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
 
-        return iter_wrapper(output_generator())
+        return iter_wrapper(output_generator(), proc.stdout)
 
     def ssh_output(self, cmd, allow_fail=False):
         '''Runs the command via SSH and captures the output, returning it as a string.'''
@@ -240,12 +240,15 @@ class RemoteAccount(HttpMixin):
 class iter_wrapper(object):
     """
     Helper class that wraps around an iterable object to provide has_next() in addition to next()
-
     """
-    def __init__(self, iter_obj):
+    def __init__(self, iter_obj, descriptor=None):
         self.iter_obj = iter_obj
+        self.descriptor = descriptor
         self.sentinel = object()
         self.cached = self.sentinel
+
+    def __iter__(self):
+        return self
 
     def next(self):
         if self.cached is self.sentinel:
@@ -254,9 +257,12 @@ class iter_wrapper(object):
         self.cached = self.sentinel
         return next_obj
 
-    def has_next(self):
+    def has_next(self, timeout_sec=None):
+        assert timeout_sec == None or self.descriptor != None, "should have descriptor to enforce timeout"
+
         if self.cached is self.sentinel:
-            self.cached = next(self.iter_obj, self.sentinel)
+            if timeout_sec == None or select.select([self.descriptor], [], [], timeout_sec)[0]:
+                self.cached = next(self.iter_obj, self.sentinel)
         return self.cached is not self.sentinel
 
 class LogMonitor(object):
