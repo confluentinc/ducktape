@@ -16,6 +16,7 @@ from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 
 import os
+import select
 import signal
 import subprocess
 import tempfile
