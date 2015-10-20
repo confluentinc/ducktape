@@ -30,7 +30,7 @@ class CheckSerialRunner(object):
         mock_cluster.num_available_nodes = lambda: 1
         session_context = tests.ducktape_mock.session_context(mock_cluster)
 
-        test_context = TestContext(session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
+        test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
         runner = SerialTestRunner(session_context, [test_context])
         runner.log = Mock()
 
@@ -46,7 +46,7 @@ class CheckSerialRunner(object):
         mock_cluster = LocalhostCluster()
         session_context = tests.ducktape_mock.session_context(mock_cluster)
 
-        test_context = TestContext(session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
+        test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
         runner = SerialTestRunner(session_context, [test_context])
         runner.log = Mock()
 

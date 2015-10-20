@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.logger import Logger
-from ducktape.command_line.config import ConsoleConfig
-
 import logging
 import os
 import sys
 import time
+
+from ducktape.tests.logger import Logger
+from ducktape.command_line.config import ConsoleConfig
 
 
 class SessionContext(Logger):

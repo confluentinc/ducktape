@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.utils.terminal_size import get_terminal_size
-from ducktape.tests.result import PASS, FAIL, IGNORE
-
 import json
 import os
 import shutil
+
 import pkg_resources
+
+from ducktape.utils.terminal_size import get_terminal_size
+from ducktape.tests.result import PASS, FAIL, IGNORE
 
 
 DEFAULT_SEPARATOR_WIDTH = 100

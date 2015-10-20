@@ -23,7 +23,7 @@ class CheckIgnore(object):
             return x, y, z
 
         assert ignored(function)
-        context_list = MarkedFunctionExpander(None, function=function).expand()
+        context_list = MarkedFunctionExpander(function=function).expand()
         assert len(context_list) == 1
         assert context_list[0].ignore
 
@@ -34,7 +34,7 @@ class CheckIgnore(object):
                 return x, y, z
 
         assert ignored(C.function)
-        context_list = MarkedFunctionExpander(None, function=C.function).expand()
+        context_list = MarkedFunctionExpander(function=C.function, cls=C).expand()
         assert len(context_list) == 1
         assert context_list[0].ignore
 
@@ -48,7 +48,7 @@ class CheckIgnore(object):
             return x, y, z
 
         assert ignored(function)
-        context_list = MarkedFunctionExpander(None, function=function).expand()
+        context_list = MarkedFunctionExpander(function=function).expand()
         assert len(context_list) == 4
         for ctx in context_list:
             assert ctx.ignore
@@ -56,17 +56,17 @@ class CheckIgnore(object):
     def check_ignore_all_method(self):
         """Check @ignore() with no arguments used with various parametrizations on a method."""
         class C(object):
+            @ignore
             @parametrize(x=100, y=200, z=300)
             @parametrize(x=100, z=300)
             @parametrize(y=200)
             @matrix(x=[1, 2, 3])
             @parametrize()
-            @ignore  # ordering doesn't matter
             def function(self, x=1, y=2, z=3):
                 return x, y, z
 
         assert ignored(C.function)
-        context_list = MarkedFunctionExpander(None, function=C.function).expand()
+        context_list = MarkedFunctionExpander(function=C.function, cls=C).expand()
         assert len(context_list) == 7
         for ctx in context_list:
             assert ctx.ignore
@@ -101,7 +101,7 @@ class CheckIgnore(object):
                 return x, y, z
 
         assert ignored(C.function)
-        context_list = MarkedFunctionExpander(None, function=C.function).expand()
+        context_list = MarkedFunctionExpander(function=C.function, cls=C).expand()
         assert len(context_list) == 4
         for ctx in context_list:
             if ctx.injected_args == {"x": 100, "y": 200, "z": 300}:

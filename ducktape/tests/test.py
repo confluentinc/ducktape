@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import os
+import re
+import sys
+
 from ducktape.tests.logger import Logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.config import ConsoleConfig
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
-
-import copy
-import logging
-import os
-import re
-import sys
 
 
 class Test(TemplateRenderer):
@@ -136,28 +135,33 @@ def _escape_pathname(s):
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    def __init__(self, session_context, module=None, cls=None, function=None, injected_args=None, ignore=False):
+    # def __init__(self, session_context, module=None, cls=None, function=None, injected_args=None):
+    def __init__(self, **kwargs):
         """
-        :type session_context: ducktape.tests.session.SessionContext
+        :param session_context
+        :param module
+        :param cls
+        :param function
+        :param injected_args
         """
-        self.module = module
-        self.cls = cls
-        self.function = function
-        self.injected_args = injected_args
-        self.ignore = ignore  # Don't run this test if ignore is True
+        self.session_context = kwargs.get("session_context", None)
+        self.module = kwargs.get("module", None)
+        self.cls = kwargs.get("cls", None)
+        self.function = kwargs.get("function", None)
+        self.injected_args = kwargs.get("injected_args", None)
+        self.ignore = kwargs.get("ignore", False)
 
-        self.session_context = session_context
-        self.services = ServiceRegistry()
+        self.services = kwargs.get("services", ServiceRegistry())
 
         # dict for toggling service log collection on/off
-        self.log_collect = {}
+        self.log_collect = kwargs.get("log_collect", {})
 
     def __repr__(self):
         return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
                (self.module, self.cls_name, self.function_name, str(self.injected_args))
 
     def copy(self, **kwargs):
-        ctx_copy = TestContext(self.session_context, self.module, self.cls, self.function, self.injected_args, self.ignore)
+        ctx_copy = TestContext(**self.__dict__)
         ctx_copy.__dict__.update(**kwargs)
         return ctx_copy
 

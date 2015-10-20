@@ -70,18 +70,27 @@
       
       var TestRow = React.createClass({
         render: function() {
-          var className = this.props.test.test_result
+          var className = this.props.test.test_result;
+          var detailCol;
+          if (className !== "ignore") {
+            detailCol = <td colSpan='5' align='center'><pre><a href={this.props.test.test_log}>Detail</a></pre></td>
+          } else {
+            detailCol = <td colSpan='5' align='center'></td>
+          }
+
           return (
             <tr className={className}>
               <td colSpan='5' align='center'><pre>{this.props.test.test_name}</pre></td>
               <td colSpan='5' align='center'><pre>{this.props.test.description}</pre></td>
               <td colSpan='5' align='center'><pre>{this.props.test.run_time}</pre></td>
               <td colSpan='5' align='center'><pre>{this.props.test.data}</pre></td>
-              <td colSpan='5' align='center'><pre><a href={this.props.test.test_log}>Detail</a></pre></td>
+              {detailCol}
             </tr>
           );
         }
       });
+
+
 
       var TestTable = React.createClass({
         render: function() {

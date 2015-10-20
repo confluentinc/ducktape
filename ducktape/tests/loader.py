@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test, TestContext
-from ducktape.mark import parametrized, MarkedFunctionExpander
-
 import importlib
 import inspect
 import os
 import re
+
+from ducktape.tests.test import Test, TestContext
+from ducktape.mark import parametrized, MarkedFunctionExpander
 
 
 class LoaderException(Exception):
@@ -159,6 +159,7 @@ class TestLoader(object):
                     # errors that we should: if the module is valid but itself
                     # triggers an ImportError (e.g. typo in an import line),
                     # that error will be swallowed.
+
                     if not isinstance(e, ImportError):
                         self.logger.error("Failed to import %s, which may indicate a broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
                 finally:
@@ -177,7 +178,8 @@ class TestLoader(object):
         test_classes = [c for c in module_objects if self.is_test_class(c)]
 
         for cls in test_classes:
-            test_context_list.extend(self.expand_class(TestContext(self.session_context, module=module.__name__, cls=cls)))
+            test_context_list.extend(
+                self.expand_class(TestContext(session_context=self.session_context, module=module.__name__, cls=cls)))
 
         return test_context_list
 
@@ -191,7 +193,7 @@ class TestLoader(object):
 
         test_context_list = []
         for f in test_methods:
-            t = TestContext(self.session_context, module=t_ctx.module, cls=t_ctx.cls, function=f)
+            t = t_ctx.copy(function=f)
             test_context_list.extend(self.expand_function(t))
         return test_context_list
 

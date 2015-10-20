@@ -35,9 +35,7 @@ class Mark(object):
         """
         # Update fun.marks
         if hasattr(fun, "marks"):
-            # This ordering makes the ordering of marks match
-            # the way parametrize annotations are stacked
-            fun.marks.insert(0, mark)
+            fun.marks.append(mark)
         else:
             fun.__dict__["marks"] = [mark]
 
@@ -69,10 +67,8 @@ class Mark(object):
     def name(self):
         return "MARK"
 
-    def apply(self, seed_context, context_list, maps):
-        for m in maps:
-            context_list = map(m, context_list)
-        return seed_context, context_list, maps
+    def apply(self, seed_context, context_list):
+        raise NotImplementedError("Subclasses should implement apply")
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -83,6 +79,7 @@ class Mark(object):
 
 class Ignore(Mark):
     """Ignore a specific parametrization of test."""
+
     def __init__(self, **kwargs):
         # Ignore tests with injected_args matching self.injected_args
         self.injected_args = kwargs
@@ -91,14 +88,10 @@ class Ignore(Mark):
     def name(self):
         return "IGNORE"
 
-    def apply(self, seed_context, context_list, maps):
-        def ignore_mapper(ctx):
-            ignore = ctx.ignore or self.injected_args is None or self.injected_args == ctx.injected_args
-            ctx.ignore = ignore
-            return ctx
-
-        maps.append(ignore_mapper)
-        return super(Ignore, self).apply(seed_context, context_list, maps)
+    def apply(self, seed_context, context_list):
+        for ctx in context_list:
+            ctx.ignore = ctx.ignore or self.injected_args is None or self.injected_args == ctx.injected_args
+        return seed_context, context_list
 
     def __eq__(self, other):
         return super(Ignore, self).__eq__(other) and self.injected_args == other.injected_args
@@ -125,13 +118,14 @@ class Matrix(Mark):
 
     @property
     def name(self):
-        return "MARK"
+        return "MATRIX"
 
-    def apply(self, seed_context, context_list, maps):
+    def apply(self, seed_context, context_list):
         for injected_args in cartesian_product_dict(self.injected_args):
             injected_fun = _inject(**injected_args)(seed_context.function)
-            context_list.append(seed_context.copy(function=injected_fun, injected_args=injected_args))
-        return super(Matrix, self).apply(seed_context, context_list, maps)
+            context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=injected_args))
+
+        return seed_context, context_list
 
     def __eq__(self, other):
         return super(Matrix, self).__eq__(other) and self.injected_args == other.injected_args
@@ -146,10 +140,10 @@ class Parametrize(Mark):
     def name(self):
         return "PARAMETRIZE"
 
-    def apply(self, seed_context, context_list, maps):
+    def apply(self, seed_context, context_list):
         injected_fun = _inject(**self.injected_args)(seed_context.function)
-        context_list.append(seed_context.copy(function=injected_fun, injected_args=self.injected_args))
-        return super(Parametrize, self).apply(seed_context, context_list, maps)
+        context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=self.injected_args))
+        return seed_context, context_list
 
     def __eq__(self, other):
         return super(Parametrize, self).__eq__(other) and self.injected_args == other.injected_args
@@ -347,8 +341,7 @@ def _inject(*args, **kwargs):
 class MarkedFunctionExpander(object):
     """This class helps expand decorated/marked functions into a list of test context objects. """
     def __init__(self, session_context=None, module=None, cls=None, function=None):
-        self.seed_context = TestContext(session_context, module, cls, function)
-        self.maps = []
+        self.seed_context = TestContext(session_context=session_context, module=module, cls=cls, function=function)
 
         if parametrized(function):
             self.context_list = []
@@ -368,7 +361,7 @@ class MarkedFunctionExpander(object):
 
         if hasattr(f, "marks"):
             for m in f.marks:
-                self.seed_context, self.context_list, self.maps = m.apply(self.seed_context, self.context_list, self.maps)
+                self.seed_context, self.context_list = m.apply(self.seed_context, self.context_list)
 
         return self.context_list
 

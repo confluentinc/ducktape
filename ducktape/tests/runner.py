@@ -13,13 +13,13 @@
 # limitations under the License.
 
 
-from ducktape.tests.result import TestResult, TestResults, IGNORE, PASS, FAIL
-from ducktape.tests.reporter import SingleResultFileReporter, SingleResultStdoutReporter
-from ducktape.utils.local_filesystem_utils import mkdir_p
-
 import logging
 import time
 import traceback
+
+from ducktape.tests.result import TestResult, TestResults, IGNORE, PASS, FAIL
+from ducktape.tests.reporter import SingleResultFileReporter, SingleResultStdoutReporter
+from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
 class TestRunner(object):
@@ -71,7 +71,6 @@ class SerialTestRunner(TestRunner):
                     "Expected all nodes to be available. Instead, %d of %d are available" %
                     (self.cluster.num_available_nodes(), len(self.cluster)))
 
-            # Create single testable unit and corresponding test result object
             self.current_test_context = test_context
             result = TestResult(self.current_test_context)
 
@@ -84,18 +83,17 @@ class SerialTestRunner(TestRunner):
                 self.log(logging.INFO, "Ignoring, and moving to next test...")
                 continue
 
-
-            # Individual test results go here
+            # Results from this test, as well as logs will be dumped here
             mkdir_p(self.current_test_context.results_dir)
 
-            # Instantiate test
-            self.current_test = test_context.cls(test_context)
-
-            # Run the test unit
-            result.start_time = time.time()
-            self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
-
             try:
+                # Instantiate test
+                self.current_test = test_context.cls(test_context)
+
+                # Run the test unit
+                result.start_time = time.time()
+                self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
+
                 self.log(logging.INFO, "setting up")
                 self.setup_single_test()
 
