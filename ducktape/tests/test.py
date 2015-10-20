@@ -18,6 +18,7 @@ from ducktape.command_line.config import ConsoleConfig
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
 
+import copy
 import logging
 import os
 import re
@@ -151,11 +152,14 @@ class TestContext(Logger):
         # dict for toggling service log collection on/off
         self.log_collect = {}
 
-
-
     def __repr__(self):
         return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
                (self.module, self.cls_name, self.function_name, str(self.injected_args))
+
+    def copy(self, **kwargs):
+        ctx_copy = TestContext(self.session_context, self.module, self.cls, self.function, self.injected_args, self.ignore)
+        ctx_copy.__dict__.update(**kwargs)
+        return ctx_copy
 
     @property
     def module_name(self):

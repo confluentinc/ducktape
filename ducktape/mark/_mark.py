@@ -57,9 +57,22 @@ class Mark(object):
 
         return mark.name in f.mark_names
 
+    @staticmethod
+    def clear_marks(f):
+        if not hasattr(f, "marks"):
+            return
+
+        del f.__dict__["marks"]
+        del f.__dict__["mark_names"]
+
     @property
     def name(self):
         return "MARK"
+
+    def apply(self, seed_context, context_list, maps):
+        for m in maps:
+            context_list = map(m, context_list)
+        return seed_context, context_list, maps
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -77,6 +90,15 @@ class Ignore(Mark):
     @property
     def name(self):
         return "IGNORE"
+
+    def apply(self, seed_context, context_list, maps):
+        def ignore_mapper(ctx):
+            ignore = ctx.ignore or self.injected_args is None or self.injected_args == ctx.injected_args
+            ctx.ignore = ignore
+            return ctx
+
+        maps.append(ignore_mapper)
+        return super(Ignore, self).apply(seed_context, context_list, maps)
 
     def __eq__(self, other):
         return super(Ignore, self).__eq__(other) and self.injected_args == other.injected_args
@@ -105,6 +127,12 @@ class Matrix(Mark):
     def name(self):
         return "MARK"
 
+    def apply(self, seed_context, context_list, maps):
+        for injected_args in cartesian_product_dict(self.injected_args):
+            injected_fun = _inject(**injected_args)(seed_context.function)
+            context_list.append(seed_context.copy(function=injected_fun, injected_args=injected_args))
+        return super(Matrix, self).apply(seed_context, context_list, maps)
+
     def __eq__(self, other):
         return super(Matrix, self).__eq__(other) and self.injected_args == other.injected_args
 
@@ -118,6 +146,11 @@ class Parametrize(Mark):
     def name(self):
         return "PARAMETRIZE"
 
+    def apply(self, seed_context, context_list, maps):
+        injected_fun = _inject(**self.injected_args)(seed_context.function)
+        context_list.append(seed_context.copy(function=injected_fun, injected_args=self.injected_args))
+        return super(Parametrize, self).apply(seed_context, context_list, maps)
+
     def __eq__(self, other):
         return super(Parametrize, self).__eq__(other) and self.injected_args == other.injected_args
 
@@ -126,6 +159,21 @@ PARAMETRIZED = Parametrize()
 MATRIX = Matrix()
 IGNORE = Ignore()
 
+
+def _is_parametrize_mark(m):
+    return m.name == PARAMETRIZED.name or m.name == MATRIX.name
+
+
+def _strip_parametrize_marks(fun):
+    """Helper method - remove only parametrize and matrix markings"""
+    if not parametrized(fun):
+        return
+
+    marks = fun.marks
+    Mark.clear_marks(fun)
+    for m in marks:
+        if not _is_parametrize_mark(m):
+            Mark.mark(fun, m)
 
 def parametrized(f):
     """Is this function or object decorated with @parametrize or @matrix?"""
@@ -299,61 +347,28 @@ def _inject(*args, **kwargs):
 class MarkedFunctionExpander(object):
     """This class helps expand decorated/marked functions into a list of test context objects. """
     def __init__(self, session_context=None, module=None, cls=None, function=None):
-        self.session_context = session_context
-        self.module = module
-        self.cls = cls
-        self.function = function
+        self.seed_context = TestContext(session_context, module, cls, function)
+        self.maps = []
+
+        if parametrized(function):
+            self.context_list = []
+        else:
+            self.context_list = [self.seed_context]
 
     def expand(self, test_parameters=None):
         """Inspect self.function for marks, and expand into a list of test context objects useable by the test runner.
         """
-        f = self.function
-        if not hasattr(f, "marks"):
-            return [TestContext(self.session_context, self.module, self.cls, self.function)]
-
-        expanded = []
-        parametrize_marks = [m for m in f.marks if m.name == PARAMETRIZED.name]
-        matrix_marks = [m for m in f.marks if m.name == MATRIX.name]
-        ignore_marks = [m for m in f.marks if m.name == IGNORE.name]
-
-        ignore_list = [m.injected_args for m in ignore_marks]
-        ignore_all = None in ignore_list
+        f = self.seed_context.function
 
         if test_parameters is not None:
             # User has specified that they want to run tests with specific parameters
-            # Return a list consisting of a single test context object with the specified test_parameters whether
-            # or not the function has parametrize decorators
-            injected_fun = _inject(**test_parameters)(self.function)
-            context = TestContext(self.session_context, self.module, self.cls, injected_fun, test_parameters)
-            context.ignore = None in ignore_list or test_parameters in ignore_list
-            return [context]
+            # Strip existing parametrize and matrix marks, and parametrize it only with test_parameters
+            _strip_parametrize_marks(f)
+            Mark.mark(f, Parametrize(**test_parameters))
 
-        # unparametrized function is expanded into a list consisting of a single test context object
-        if len(parametrize_marks) == 0 and len(matrix_marks) == 0:
-            context = TestContext(self.session_context, self.module, self.cls, self.function)
-            context.ignore = ignore_all
-            return [context]
+        if hasattr(f, "marks"):
+            for m in f.marks:
+                self.seed_context, self.context_list, self.maps = m.apply(self.seed_context, self.context_list, self.maps)
 
-        # expand parametrize marks, adding "ignore" metadata where necessary
-        for m in parametrize_marks:
-            injected_fun = _inject(**m.injected_args)(self.function)
-
-            context = TestContext(self.session_context, self.module, self.cls, injected_fun, m.injected_args)
-            context.ignore = None in ignore_list or m.injected_args in ignore_list
-
-            expanded.append(context)
-
-        # expand matrix marks, adding "ignore" metadata where necessary
-        for m in matrix_marks:
-            args_to_expand = m.injected_args
-            expanded_dicts = cartesian_product_dict(args_to_expand)
-            for injected_args in expanded_dicts:
-                injected_fun = _inject(**injected_args)(self.function)
-
-                context = TestContext(self.session_context, self.module, self.cls, injected_fun, injected_args)
-                context.ignore = None in ignore_list or injected_args in ignore_list
-
-                expanded.append(context)
-
-        return expanded
+        return self.context_list
 
