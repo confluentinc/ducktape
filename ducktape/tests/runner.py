@@ -113,6 +113,12 @@ class SerialTestRunner(TestRunner):
                 if not self.session_context.no_teardown:
                     self.log(logging.INFO, "tearing down")
                     self.teardown_single_test()
+                else:
+                    # Collect logs even if no_teardown is specified
+                    try:
+                        self.current_test.copy_service_logs()
+                    except BaseException as e:
+                        self.log(logging.WARN, "Error copying service logs: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
                 result.stop_time = time.time()
                 self.results.append(result)
