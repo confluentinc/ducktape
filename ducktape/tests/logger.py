@@ -25,6 +25,14 @@ class Logger(object):
         """Read-only logger attribute."""
         if not hasattr(self, '_logger'):
             self._logger = logging.getLogger(self.logger_name)
+
+        if not hasattr(self, "_logger_configured"):
+            self.__dict__["_logger_configured"] = False
+
+        if not self._logger_configured:
+            self.configure_logger()
+            self._logger_configured = True
+
         return self._logger
 
     def configure_logger(self):

@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.logger import Logger
-from ducktape.command_line.config import ConsoleConfig
-
 import logging
 import os
 import sys
 import time
+
+from ducktape.tests.logger import Logger
+from ducktape.command_line.config import ConsoleConfig
 
 
 class SessionContext(Logger):
@@ -27,12 +27,6 @@ class SessionContext(Logger):
     """
 
     def __init__(self, session_id, results_dir, cluster, args):
-        """
-        :type session_id: str   Global session identifier
-        :type results_dir: str  All test results go here
-        :type cluster: ducktape.cluster.cluster.Cluster
-        :type args: Command-line arguments
-        """
         self.session_id = session_id
         self.results_dir = os.path.abspath(results_dir)
         self.cluster = cluster
@@ -41,25 +35,13 @@ class SessionContext(Logger):
         self.exit_first = args.exit_first
         self.no_teardown = args.no_teardown
 
-        self._logger_configured = False
-        self.configure_logger()
-
     @property
     def logger_name(self):
         return self.session_id + ".session_logger"
 
     def configure_logger(self):
-        """
-        :type session_context: ducktape.tests.session.SessionContext
-
-        This method should only be called once during instantiation.
-        TODO - config object is currently unused, but the idea here is that ultimately the user should be able to
-        configure handlers etc in the session_logger
-        """
-        if self._logger_configured:
-            raise RuntimeError("Session log handlers should only be set once.")
-
-        self.logger.setLevel(logging.DEBUG)
+        """Set up the logger to log to stdout and files. This creates a few files as a side-effect. """
+        self._logger.setLevel(logging.DEBUG)
 
         fh_info = logging.FileHandler(os.path.join(self.results_dir, "session_log.info"))
         fh_debug = logging.FileHandler(os.path.join(self.results_dir, "session_log.debug"))
@@ -77,11 +59,9 @@ class SessionContext(Logger):
         ch.setFormatter(formatter)
 
         # add the handlers to the logger
-        self.logger.addHandler(fh_info)
-        self.logger.addHandler(fh_debug)
-        self.logger.addHandler(ch)
-
-        self._logger_configured = True
+        self._logger.addHandler(fh_info)
+        self._logger.addHandler(fh_debug)
+        self._logger.addHandler(ch)
 
 
 def generate_session_id(session_id_file):

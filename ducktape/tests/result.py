@@ -16,23 +16,37 @@ import json
 import time
 
 
+class TestStatus(object):
+    def __init__(self, status):
+        self._status = str(status).lower()
+
+    def __eq__(self, other):
+        return str(self).lower() == str(other).lower()
+
+    def __str__(self):
+        return self._status
+
+PASS = TestStatus("pass")
+FAIL = TestStatus("fail")
+IGNORE = TestStatus("ignore")
+
+
 class TestResult(object):
     """Wrapper class for a single result returned by a single test."""
 
-    def __init__(self, test_context, success=True, summary="", data=None):
+    def __init__(self, test_context, test_status=PASS, summary="", data=None):
         """
-        :type test_context: ducktape.tests.tests.TestContext
-        :type test_name: str
-        :type success: bool
-        :type summary: str
-        :type data: dict
+        @param test_context  standard test context object
+        @param test_status   did the test pass or fail, etc?
+        @param summary       summary information
+        @param data          data returned by the test, e.g. throughput
         """
 
         self.test_context = test_context
         self.session_context = self.test_context.session_context
-        self.success = success
+        self.test_status = test_status
         self.summary = summary
-        self._data = None
+        self._data = data
 
         # For tracking run time
         self.start_time = -1
@@ -82,11 +96,17 @@ class TestResults(list):
         self.start_time = -1
         self.stop_time = -1
 
+    @property
     def num_passed(self):
-        return sum([1 for r in self if r.success])
+        return len([r for r in self if r.test_status == PASS])
 
+    @property
     def num_failed(self):
-        return sum([1 for r in self if not r.success])
+        return len([r for r in self if r.test_status == FAIL])
+
+    @property
+    def num_ignored(self):
+        return len([r for r in self if r.test_status == IGNORE])
 
     @property
     def run_time(self):
@@ -102,7 +122,7 @@ class TestResults(list):
         :rtype: bool
         """
         for result in self:
-            if not result.success:
+            if result.test_status == FAIL:
                 return False
         return True
 

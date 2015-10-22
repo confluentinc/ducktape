@@ -13,13 +13,13 @@
 # limitations under the License.
 
 
-from ducktape.tests.result import TestResult, TestResults
-from ducktape.tests.reporter import SingleResultFileReporter
-from ducktape.tests.reporter import SingleResultStdoutReporter
-
 import logging
 import time
 import traceback
+
+from ducktape.tests.result import TestResult, TestResults, IGNORE, PASS, FAIL
+from ducktape.tests.reporter import SingleResultFileReporter, SingleResultStdoutReporter
+from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
 class TestRunner(object):
@@ -71,28 +71,40 @@ class SerialTestRunner(TestRunner):
                     "Expected all nodes to be available. Instead, %d of %d are available" %
                     (self.cluster.num_available_nodes(), len(self.cluster)))
 
-            # Create single testable unit and corresponding test result object
             self.current_test_context = test_context
-
-            # Instantiate test
-            self.current_test = test_context.cls(test_context)
             result = TestResult(self.current_test_context)
 
-            # Run the test unit
-            result.start_time = time.time()
-            self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
+            if self.current_test_context.ignore:
+                # Skip running this test, but keep track of the fact that we ignored it
+                result.test_status = IGNORE
+                result.start_time = time.time()
+                result.stop_time = result.start_time
+                self.results.append(result)
+                self.log(logging.INFO, "Ignoring, and moving to next test...")
+                continue
+
+            # Results from this test, as well as logs will be dumped here
+            mkdir_p(self.current_test_context.results_dir)
 
             try:
+                # Instantiate test
+                self.current_test = test_context.cls(test_context)
+
+                # Run the test unit
+                result.start_time = time.time()
+                self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
+
                 self.log(logging.INFO, "setting up")
                 self.setup_single_test()
 
                 self.log(logging.INFO, "running")
                 result.data = self.run_single_test()
+                result.test_status = PASS
                 self.log(logging.INFO, "PASS")
 
             except BaseException as e:
                 self.log(logging.INFO, "FAIL")
-                result.success = False
+                result.test_status = FAIL
                 result.summary += str(e.message) + "\n" + traceback.format_exc(limit=16)
 
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)

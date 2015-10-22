@@ -97,7 +97,7 @@ class CheckTestLoader(object):
         assert len(tests) == 3
 
     def check_test_loader_with_injected_args(self):
-        """When the --injected command-line option is used, the loader behaves a little bit differently:
+        """When the --parameters command-line option is used, the loader behaves a little bit differently:
 
         each test method annotated with @parametrize or @matrix should only expand to a single discovered test,
         and the injected args should be those passed in from command-line.
