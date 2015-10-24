@@ -159,7 +159,7 @@ class TestContext(Logger):
         return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
                (self.module, self.cls_name, self.function_name, str(self.injected_args))
 
-    def copy_constructor(self, **kwargs):
+    def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object
         Note that this is not a true copy, since a fresh ServiceRegistry instance will be created.
         """

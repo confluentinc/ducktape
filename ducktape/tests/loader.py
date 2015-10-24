@@ -193,7 +193,7 @@ class TestLoader(object):
 
         test_context_list = []
         for f in test_methods:
-            t = t_ctx.copy_constructor(function=f)
+            t = t_ctx.copy(function=f)
             test_context_list.extend(self.expand_function(t))
         return test_context_list
 

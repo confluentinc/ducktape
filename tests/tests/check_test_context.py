@@ -35,7 +35,9 @@ class CheckTestContext(object):
         for ctx in ctx_list:
             # Constructing an instance of the test class causes a service to be registered with the test context
             ctx.cls(ctx)
-            assert len(ctx.services) == 1
+
+        # Ensure that each context.services object is a unique reference
+        assert len(set(id(ctx.services) for ctx in ctx_list)) == len(ctx_list)
 
 
 class DummyTest(Test):
