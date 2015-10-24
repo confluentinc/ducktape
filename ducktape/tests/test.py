@@ -135,7 +135,6 @@ def _escape_pathname(s):
 
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
-    # def __init__(self, session_context, module=None, cls=None, function=None, injected_args=None):
     def __init__(self, **kwargs):
         """
         :param session_context
@@ -151,16 +150,19 @@ class TestContext(Logger):
         self.injected_args = kwargs.get("injected_args", None)
         self.ignore = kwargs.get("ignore", False)
 
-        self.services = kwargs.get("services", ServiceRegistry())
+        self.services = ServiceRegistry()
 
         # dict for toggling service log collection on/off
-        self.log_collect = kwargs.get("log_collect", {})
+        self.log_collect = {}
 
     def __repr__(self):
         return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
                (self.module, self.cls_name, self.function_name, str(self.injected_args))
 
     def copy(self, **kwargs):
+        """Construct a new TestContext object from another TestContext object
+        Note that this is not a true copy, since a fresh ServiceRegistry instance will be created.
+        """
         ctx_copy = TestContext(**self.__dict__)
         ctx_copy.__dict__.update(**kwargs)
         return ctx_copy
