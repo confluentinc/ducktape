@@ -70,11 +70,6 @@ class SingleResultReporter(object):
                           self.result_string()])
 
 
-class SingleResultStdoutReporter(SingleResultReporter):
-    def report(self):
-        print self.report_string()
-
-
 class SingleResultFileReporter(SingleResultReporter):
     def report(self):
         self.width = DEFAULT_SEPARATOR_WIDTH
