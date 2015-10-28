@@ -110,15 +110,7 @@ class SerialTestRunner(TestRunner):
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
             finally:
-                if not self.session_context.no_teardown:
-                    self.log(logging.INFO, "tearing down")
-                    self.teardown_single_test()
-                else:
-                    # Collect logs even if no_teardown is specified
-                    try:
-                        self.current_test.copy_service_logs()
-                    except BaseException as e:
-                        self.log(logging.WARN, "Error copying service logs: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+                self.teardown_single_test(teardown_services=not self.session_context.no_teardown)
 
                 result.stop_time = time.time()
                 self.results.append(result)
@@ -156,32 +148,41 @@ class SerialTestRunner(TestRunner):
         """
         return self.current_test_context.function(self.current_test)
 
-    def teardown_single_test(self):
+    def teardown_single_test(self, teardown_services=True):
         """teardown method which stops services, gathers log data, removes persistent state, and releases cluster nodes.
 
         Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
         should stop if a keyboard interrupt is caught.
         """
+        if teardown_services:
+            self.log(logging.INFO, "tearing down")
+
         exceptions = []
         if hasattr(self.current_test_context, 'services'):
             services = self.current_test_context.services
-            try:
-                services.stop_all()
-            except BaseException as e:
-                exceptions.append(e)
-                self.log(logging.WARN, "Error stopping services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
+            # stop services
+            if teardown_services:
+                try:
+                    services.stop_all()
+                except BaseException as e:
+                    exceptions.append(e)
+                    self.log(logging.WARN, "Error stopping services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+
+            # always collect service logs
             try:
                 self.current_test.copy_service_logs()
             except BaseException as e:
                 exceptions.append(e)
                 self.log(logging.WARN, "Error copying service logs: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
-            try:
-                services.clean_all()
-            except BaseException as e:
-                exceptions.append(e)
-                self.log(logging.WARN, "Error cleaning services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+            # clean up stray processes and persistent state
+            if teardown_services:
+                try:
+                    services.clean_all()
+                except BaseException as e:
+                    exceptions.append(e)
+                    self.log(logging.WARN, "Error cleaning services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
         try:
             self.current_test.free_nodes()
