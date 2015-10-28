@@ -18,8 +18,9 @@ import time
 import traceback
 
 from ducktape.tests.result import TestResult, TestResults, IGNORE, PASS, FAIL
-from ducktape.tests.reporter import SingleResultFileReporter, SingleResultStdoutReporter
+from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.utils.terminal_size import get_terminal_size
 
 
 class TestRunner(object):
@@ -117,6 +118,10 @@ class SerialTestRunner(TestRunner):
 
                 self.log(logging.INFO, "Summary: %s" % str(result.summary))
                 self.log(logging.INFO, "Data: %s" % str(result.data))
+                if test_num < len(self.tests):
+                    terminal_width, y = get_terminal_size()
+                    print "~" * int(2 * terminal_width / 3)
+
                 test_reporter = SingleResultFileReporter(result)
                 test_reporter.report()
 
