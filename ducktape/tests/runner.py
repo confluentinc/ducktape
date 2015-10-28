@@ -106,7 +106,6 @@ class SerialTestRunner(TestRunner):
                 self.log(logging.INFO, "FAIL")
                 result.test_status = FAIL
                 result.summary += str(e.message) + "\n" + traceback.format_exc(limit=16)
-                self.current_test_context.logger.info(result.summary)
 
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
@@ -116,9 +115,9 @@ class SerialTestRunner(TestRunner):
                 result.stop_time = time.time()
                 self.results.append(result)
 
+                self.log(logging.INFO, "Summary: %s" % str(result.summary))
+                self.log(logging.INFO, "Data: %s" % str(result.data))
                 test_reporter = SingleResultFileReporter(result)
-                test_reporter.report()
-                test_reporter = SingleResultStdoutReporter(result)
                 test_reporter.report()
 
                 self.current_test_context, self.current_test = None, None
@@ -196,12 +195,13 @@ class SerialTestRunner(TestRunner):
             self.stop_testing = True
 
     def log(self, log_level, msg):
-        """Log to the service log and the test log of the given test."""
+        """Log to the service log and the test log of the current test."""
+
         if self.current_test is None:
-            msg = "%s: %s" % (self.who_am_i(), msg)
+            msg = "%s: %s" % (self.who_am_i(), str(msg))
             self.logger.log(log_level, msg)
         else:
-            msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, msg)
+            msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, str(msg))
             self.logger.log(log_level, msg)
             self.current_test.logger.log(log_level, msg)
 
