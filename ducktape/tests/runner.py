@@ -106,6 +106,7 @@ class SerialTestRunner(TestRunner):
                 self.log(logging.INFO, "FAIL")
                 result.test_status = FAIL
                 result.summary += str(e.message) + "\n" + traceback.format_exc(limit=16)
+                self.current_test_context.logger.info(result.summary)
 
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
