@@ -60,6 +60,8 @@ class RemoteAccount(HttpMixin):
             return False
 
     def ssh_command(self, cmd):
+        if not self.user and self.hostname == 'localhost' and not self.ssh_args:
+            return cmd
         r = "ssh "
         if self.user:
             r += self.user + "@"
