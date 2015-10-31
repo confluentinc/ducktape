@@ -48,7 +48,7 @@ def session_context(cluster=mock_cluster(), args=MockArgs()):
 
 def test_context(session_context=session_context()):
     """Return a TestContext object"""
-    return TestContext(session_context)
+    return TestContext(session_context=session_context)
 
 
 class MockNode(object):

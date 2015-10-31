@@ -30,7 +30,7 @@ class CheckTemplateRenderingTest(object):
     def setup(self):
         dir = tempfile.gettempdir()
         session_ctx = SessionContext("session_id", dir, None, MockArgs())
-        test_ctx = TestContext(session_ctx)
+        test_ctx = TestContext(session_context=session_ctx)
         return TemplateRenderingTest(test_ctx)
 
     def check_string_template(self):

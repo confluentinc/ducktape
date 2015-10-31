@@ -36,17 +36,17 @@ class CheckDescription(object):
     """Check that pulling a description from a test works as expected."""
     def check_from_function(self):
         """If the function has a docstring, the description should come from the function"""
-        context = TestContext(ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_function_description)
+        context = TestContext(session_context=ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_function_description)
         assert context.description == "function description"
 
     def check_from_class(self):
         """If the test method has no docstring, description should come from the class docstring"""
-        context = TestContext(ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_class_description)
+        context = TestContext(session_context=ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_class_description)
         assert context.description == "class description"
 
     def check_no_description(self):
         """If nobody has a docstring, there shouldn't be an error, and description should be empty string"""
-        context = TestContext(ducktape_mock.session_context(), cls=DummyTestNoDescription, function=DummyTestNoDescription.test_this)
+        context = TestContext(session_context=ducktape_mock.session_context(), cls=DummyTestNoDescription, function=DummyTestNoDescription.test_this)
         assert context.description == ""
 
 

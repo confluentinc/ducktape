@@ -12,5 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ._parametrize import parametrize, parameterize, matrix, parametrized, parameterized
-
+from ._mark import parametrize, matrix, ignore
+from ._mark import parametrized, ignored, MarkedFunctionExpander

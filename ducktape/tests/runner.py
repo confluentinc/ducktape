@@ -13,13 +13,14 @@
 # limitations under the License.
 
 
-from ducktape.tests.result import TestResult, TestResults
-from ducktape.tests.reporter import SingleResultFileReporter
-from ducktape.tests.reporter import SingleResultStdoutReporter
-
 import logging
 import time
 import traceback
+
+from ducktape.tests.result import TestResult, TestResults, IGNORE, PASS, FAIL
+from ducktape.tests.reporter import SingleResultFileReporter
+from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.utils.terminal_size import get_terminal_size
 
 
 class TestRunner(object):
@@ -71,43 +72,57 @@ class SerialTestRunner(TestRunner):
                     "Expected all nodes to be available. Instead, %d of %d are available" %
                     (self.cluster.num_available_nodes(), len(self.cluster)))
 
-            # Create single testable unit and corresponding test result object
             self.current_test_context = test_context
-
-            # Instantiate test
-            self.current_test = test_context.cls(test_context)
             result = TestResult(self.current_test_context)
 
-            # Run the test unit
-            result.start_time = time.time()
-            self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
+            if self.current_test_context.ignore:
+                # Skip running this test, but keep track of the fact that we ignored it
+                result.test_status = IGNORE
+                result.start_time = time.time()
+                result.stop_time = result.start_time
+                self.results.append(result)
+                self.log(logging.INFO, "Ignoring, and moving to next test...")
+                continue
+
+            # Results from this test, as well as logs will be dumped here
+            mkdir_p(self.current_test_context.results_dir)
 
             try:
+                # Instantiate test
+                self.current_test = test_context.cls(test_context)
+
+                # Run the test unit
+                result.start_time = time.time()
+                self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
+
                 self.log(logging.INFO, "setting up")
                 self.setup_single_test()
 
                 self.log(logging.INFO, "running")
                 result.data = self.run_single_test()
+                result.test_status = PASS
                 self.log(logging.INFO, "PASS")
 
             except BaseException as e:
                 self.log(logging.INFO, "FAIL")
-                result.success = False
+                result.test_status = FAIL
                 result.summary += str(e.message) + "\n" + traceback.format_exc(limit=16)
 
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
             finally:
-                if not self.session_context.no_teardown:
-                    self.log(logging.INFO, "tearing down")
-                    self.teardown_single_test()
+                self.teardown_single_test(teardown_services=not self.session_context.no_teardown)
 
                 result.stop_time = time.time()
                 self.results.append(result)
 
+                self.log(logging.INFO, "Summary: %s" % str(result.summary))
+                self.log(logging.INFO, "Data: %s" % str(result.data))
+                if test_num < len(self.tests):
+                    terminal_width, y = get_terminal_size()
+                    print "~" * int(2 * terminal_width / 3)
+
                 test_reporter = SingleResultFileReporter(result)
-                test_reporter.report()
-                test_reporter = SingleResultStdoutReporter(result)
                 test_reporter.report()
 
                 self.current_test_context, self.current_test = None, None
@@ -138,32 +153,41 @@ class SerialTestRunner(TestRunner):
         """
         return self.current_test_context.function(self.current_test)
 
-    def teardown_single_test(self):
+    def teardown_single_test(self, teardown_services=True):
         """teardown method which stops services, gathers log data, removes persistent state, and releases cluster nodes.
 
         Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
         should stop if a keyboard interrupt is caught.
         """
+        if teardown_services:
+            self.log(logging.INFO, "tearing down")
+
         exceptions = []
         if hasattr(self.current_test_context, 'services'):
             services = self.current_test_context.services
-            try:
-                services.stop_all()
-            except BaseException as e:
-                exceptions.append(e)
-                self.log(logging.WARN, "Error stopping services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
+            # stop services
+            if teardown_services:
+                try:
+                    services.stop_all()
+                except BaseException as e:
+                    exceptions.append(e)
+                    self.log(logging.WARN, "Error stopping services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+
+            # always collect service logs
             try:
                 self.current_test.copy_service_logs()
             except BaseException as e:
                 exceptions.append(e)
                 self.log(logging.WARN, "Error copying service logs: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
-            try:
-                services.clean_all()
-            except BaseException as e:
-                exceptions.append(e)
-                self.log(logging.WARN, "Error cleaning services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+            # clean up stray processes and persistent state
+            if teardown_services:
+                try:
+                    services.clean_all()
+                except BaseException as e:
+                    exceptions.append(e)
+                    self.log(logging.WARN, "Error cleaning services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
         try:
             self.current_test.free_nodes()
@@ -176,12 +200,13 @@ class SerialTestRunner(TestRunner):
             self.stop_testing = True
 
     def log(self, log_level, msg):
-        """Log to the service log and the test log of the given test."""
+        """Log to the service log and the test log of the current test."""
+
         if self.current_test is None:
-            msg = "%s: %s" % (self.who_am_i(), msg)
+            msg = "%s: %s" % (self.who_am_i(), str(msg))
             self.logger.log(log_level, msg)
         else:
-            msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, msg)
+            msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, str(msg))
             self.logger.log(log_level, msg)
             self.current_test.logger.log(log_level, msg)
 

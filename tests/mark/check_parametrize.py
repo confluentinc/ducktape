@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ducktape.mark import parametrize
-from ducktape.mark import parametrized
+from ducktape.mark._mark import parametrized, MarkedFunctionExpander
 from ducktape.mark import matrix
 
 
@@ -24,12 +24,13 @@ class CheckParametrize(object):
             return x, y, z
 
         assert parametrized(function)
-        assert parametrized(function)
-        assert len(function) == 1
+        injected_args_list = [m.injected_args for m in function.marks]
+        assert len(injected_args_list) == 1
+        assert injected_args_list[0] == {"x": 100, "z": 300}
 
-        all_f = [f for f in function]
-        assert all_f[0].__name__ == "function"
-        assert all_f[0].kwargs == {"x": 100, "z": 300}
+        context_list = MarkedFunctionExpander(function=function).expand()
+
+        all_f = [cxt.function for cxt in context_list]
         assert all_f[0]() == (100, 2, 300)
 
     def check_simple_method(self):
@@ -39,12 +40,13 @@ class CheckParametrize(object):
                 return x, y, z
 
         assert parametrized(C.function)
-        assert len(C.function) == 1
+        injected_args_list = [m.injected_args for m in C.function.marks]
+        assert len(injected_args_list) == 1
+        assert injected_args_list[0] == {"x": 100, "z": 300}
 
-        all_f = [f for f in C.function]
-        c = C()
-        assert all_f[0].kwargs == {"x": 100, "z": 300}
-        assert all_f[0](c) == (100, 2, 300)
+        context_list = MarkedFunctionExpander(None, function=C.function).expand()
+        all_f = [cxt.function for cxt in context_list]
+        assert all_f[0](C()) == (100, 2, 300)
 
     def check_stacked(self):
         @parametrize(x=100, y=200, z=300)
@@ -55,19 +57,14 @@ class CheckParametrize(object):
             return x, y, z
 
         assert parametrized(function)
-        assert len(function) == 4
+        injected_args_list = [m.injected_args for m in function.marks]
+        assert len(injected_args_list) == 4
 
-        all_f = [f for f in function]
-        assert all_f[0].kwargs == {"x": 100, "y": 200, "z": 300}
+        context_list = MarkedFunctionExpander(None, function=function).expand()
+        all_f = [cxt.function for cxt in context_list]
         assert all_f[0]() == (100, 200, 300)
-
-        assert all_f[1].kwargs == {"x": 100, "z": 300}
         assert all_f[1]() == (100, 2, 300)
-
-        assert all_f[2].kwargs == {"y": 200}
         assert all_f[2]() == (1, 200, 3)
-
-        assert all_f[3].kwargs == {}
         assert all_f[3]() == (1, 2, 3)
 
     def check_stacked_method(self):
@@ -80,20 +77,15 @@ class CheckParametrize(object):
                 return x, y, z
 
         assert parametrized(C.function)
-        assert len(C.function) == 4
+        injected_args_list = [m.injected_args for m in C.function.marks]
+        assert len(injected_args_list) == 4
 
-        all_f = [func for func in C.function]
+        context_list = MarkedFunctionExpander(None, function=C.function).expand()
+        all_f = [cxt.function for cxt in context_list]
         c = C()
-        assert all_f[0].kwargs == {"x": 100, "y": 200, "z": 300}
         assert all_f[0](c) == (100, 200, 300)
-
-        assert all_f[1].kwargs == {"x": 100, "z": 300}
         assert all_f[1](c) == (100, 2, 300)
-
-        assert all_f[2].kwargs == {"y": 200}
         assert all_f[2](c) == (1, 200, 3)
-
-        assert all_f[3].kwargs == {}
         assert all_f[3](c) == (1, 2, 3)
 
 
@@ -105,19 +97,16 @@ class CheckMatrix(object):
             return x, y, z
 
         assert parametrized(function)
-        assert len(function) == 4
+        injected_args_list = [m.injected_args for m in function.marks]
+        assert len(injected_args_list) == 1
 
-        all_f = [f for f in function]
-        all_kwargs = [f.kwargs for f in all_f]
-        assert all_f[0].__name__ == "function"
-        assert sorted(all_kwargs) == sorted([
-            {'x': 1, 'y': -1},
-            {'x': 1, 'y': -2},
-            {'x': 2, 'y': -1},
-            {'x': 2, 'y': -2}])
+        context_list = MarkedFunctionExpander(None, function=function).expand()
+        assert len(context_list) == 4
 
-        for f in all_f:
-            assert f() == (f.kwargs['x'], f.kwargs['y'], 3)
+        for ctx in context_list:
+            f = ctx.function
+            injected_args = ctx.injected_args
+            assert f() == (injected_args['x'], injected_args['y'], 3)
 
     def check_simple_method(self):
 
@@ -127,59 +116,55 @@ class CheckMatrix(object):
                 return x, y, z
 
         assert parametrized(C.function)
-        assert len(C.function) == 4
+        injected_args_list = [m.injected_args for m in C.function.marks]
+        assert len(injected_args_list) == 1
 
-        all_f = [f for f in C.function]
-        all_kwargs = [f.kwargs for f in all_f]
-        assert all_f[0].__name__ == "function"
-        assert sorted(all_kwargs) == sorted([
-            {'x': 1, 'y': -1},
-            {'x': 1, 'y': -2},
-            {'x': 2, 'y': -1},
-            {'x': 2, 'y': -2}])
+        context_list = MarkedFunctionExpander(None, function=C.function).expand()
+        assert len(context_list) == 4
 
-        for f in all_f:
-            assert f(C()) == (f.kwargs['x'], f.kwargs['y'], 3)
+        c = C()
+        for ctx in context_list:
+            f = ctx.function
+            injected_args = ctx.injected_args
+            assert f(c) == (injected_args['x'], injected_args['y'], 3)
 
     def check_stacked(self):
-        @matrix(x=[1, 2])
-        @matrix(y=[-1, -2])
+        @matrix(x=[1, 2], y=[0])
+        @matrix(x=[-1], z=[-10])
         def function(x=1, y=2, z=3):
             return x, y, z
 
         assert parametrized(function)
-        assert len(function) == 4
+        injected_args_list = [m.injected_args for m in function.marks]
+        assert len(injected_args_list) == 2
 
-        all_f = [f for f in function]
-        all_kwargs = [f.kwargs for f in all_f]
-        assert all_f[0].__name__ == "function"
-        assert sorted(all_kwargs) == sorted([
-            {'x': 1, 'y': -1},
-            {'x': 1, 'y': -2},
-            {'x': 2, 'y': -1},
-            {'x': 2, 'y': -2}])
+        context_list = MarkedFunctionExpander(None, function=function).expand()
+        assert len(context_list) == 3
 
-        for f in all_f:
-            assert f() == (f.kwargs['x'], f.kwargs['y'], 3)
+        expected_output = {(1, 0, 3), (2, 0, 3), (-1, 2, -10)}
+        output = set()
+        for c in context_list:
+            output.add(c.function())
+
+        assert output == expected_output
 
     def check_stacked_method(self):
         class C(object):
-            @matrix(x=[1, 2])
-            @matrix(y=[-1, -2])
+            @matrix(x=[1, 2], y=[0])
+            @matrix(x=[-1], z=[-10])
             def function(self, x=1, y=2, z=3):
                 return x, y, z
 
         assert parametrized(C.function)
-        assert len(C.function) == 4
+        injected_args_list = [m.injected_args for m in C.function.marks]
+        assert len(injected_args_list) == 2
 
-        all_f = [f for f in C.function]
-        all_kwargs = [f.kwargs for f in all_f]
-        assert all_f[0].__name__ == "function"
-        assert sorted(all_kwargs) == sorted([
-            {'x': 1, 'y': -1},
-            {'x': 1, 'y': -2},
-            {'x': 2, 'y': -1},
-            {'x': 2, 'y': -2}])
+        context_list = MarkedFunctionExpander(None, function=C.function).expand()
+        assert len(context_list) == 3
 
-        for f in all_f:
-            assert f(C()) == (f.kwargs['x'], f.kwargs['y'], 3)
+        expected_output = {(1, 0, 3), (2, 0, 3), (-1, 2, -10)}
+        output = set()
+        for ctx in context_list:
+            output.add(ctx.function(C()))
+
+        assert output == expected_output

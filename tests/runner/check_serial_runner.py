@@ -14,6 +14,7 @@
 
 from ducktape.tests.test import TestContext, Test
 from ducktape.tests.runner import SerialTestRunner
+from ducktape.mark import ignore, parametrize, MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 
 import tests.ducktape_mock
@@ -30,29 +31,35 @@ class CheckSerialRunner(object):
         mock_cluster.num_available_nodes = lambda: 1
         session_context = tests.ducktape_mock.session_context(mock_cluster)
 
-        test_context = TestContext(session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
+        test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
         runner = SerialTestRunner(session_context, [test_context])
         runner.log = Mock()
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
         results = runner.run_all_tests()
         assert len(results) == 1
-        assert results.num_failed() == 1
-        assert results.num_passed() == 0
+        assert results.num_failed == 1
+        assert results.num_passed == 0
+        assert results.num_ignored == 0
 
     def check_simple_run(self):
         """Check expected behavior when running a single test."""
         mock_cluster = LocalhostCluster()
         session_context = tests.ducktape_mock.session_context(mock_cluster)
 
-        test_context = TestContext(session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
-        runner = SerialTestRunner(session_context, [test_context])
+        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2]
+        ctx_list = []
+        for f in test_methods:
+            ctx_list.extend(MarkedFunctionExpander(session_context=session_context, cls=TestThingy, function=f).expand())
+
+        runner = SerialTestRunner(session_context, ctx_list)
         runner.log = Mock()
 
         results = runner.run_all_tests()
-        assert len(results) == 1
-        assert results.num_failed() == 0
-        assert results.num_passed() == 1
+        assert len(results) == 3
+        assert results.num_failed == 0
+        assert results.num_passed == 1
+        assert results.num_ignored == 2
         assert results[0].data == {"data": 3.14159}
 
 
@@ -65,3 +72,12 @@ class TestThingy(Test):
 
     def test_pi(self):
         return {"data": 3.14159}
+
+    @ignore
+    def test_ignore1(self):
+        pass
+
+    @ignore(x=5)
+    @parametrize(x=5)
+    def test_ignore2(self, x=2):
+        pass
