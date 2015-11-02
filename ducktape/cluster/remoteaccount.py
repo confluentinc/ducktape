@@ -60,7 +60,7 @@ class RemoteAccount(HttpMixin):
             return False
 
     def ssh_command(self, cmd):
-        if not self.user and self.hostname == 'localhost' and not self.ssh_args:
+        if self.local:
             return cmd
         r = "ssh "
         if self.user:
@@ -104,7 +104,8 @@ class RemoteAccount(HttpMixin):
         (stdoutdata, stderrdata) = proc.communicate()
         if proc.returncode != 0 and not allow_fail:
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
-        self.logger.debug("Ran cmd " + ssh_cmd + " -> " + str(stdoutdata))
+        if self.logger is not None:
+            self.logger.debug("Ran cmd " + ssh_cmd + " -> " + str(stdoutdata))
         return stdoutdata
 
     def alive(self, pid):
@@ -208,14 +209,16 @@ class RemoteAccount(HttpMixin):
         process will be returned instead.
         """
         try:
-            self.logger.debug("Trying to run remote command: " + cmd)
+            if self.logger is not None:
+                self.logger.debug("Trying to run remote command: " + cmd)
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
             return 0
         except subprocess.CalledProcessError as e:
             # Depending on the user, failure of remote commands may be part of normal usage patterns (e.g. if used in
             # a "wait_until" loop). So, log it, but don't make it too scary.
-            self.logger.debug("Error running remote command: " + cmd)
-            self.logger.debug(e.output)
+            if self.logger is not None:
+                self.logger.debug("Error running remote command: " + cmd)
+                self.logger.debug(e.output)
 
             if allow_fail:
                 return e.returncode
