@@ -16,6 +16,7 @@ from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 
 import os
+import select
 import signal
 import subprocess
 import tempfile
@@ -59,6 +60,8 @@ class RemoteAccount(HttpMixin):
             return False
 
     def ssh_command(self, cmd):
+        if self.local:
+            return cmd
         r = "ssh "
         if self.user:
             r += self.user + "@"
@@ -92,7 +95,7 @@ class RemoteAccount(HttpMixin):
             if proc.returncode != 0 and not allow_fail:
                 raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
 
-        return output_generator()
+        return iter_wrapper(output_generator(), proc.stdout)
 
     def ssh_output(self, cmd, allow_fail=False):
         '''Runs the command via SSH and captures the output, returning it as a string.'''
@@ -101,7 +104,8 @@ class RemoteAccount(HttpMixin):
         (stdoutdata, stderrdata) = proc.communicate()
         if proc.returncode != 0 and not allow_fail:
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
-        self.logger.debug("Ran cmd " + ssh_cmd + " -> " + str(stdoutdata))
+        if self.logger is not None:
+            self.logger.debug("Ran cmd " + ssh_cmd + " -> " + str(stdoutdata))
         return stdoutdata
 
     def alive(self, pid):
@@ -205,14 +209,16 @@ class RemoteAccount(HttpMixin):
         process will be returned instead.
         """
         try:
-            self.logger.debug("Trying to run remote command: " + cmd)
+            if self.logger is not None:
+                self.logger.debug("Trying to run remote command: " + cmd)
             subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
             return 0
         except subprocess.CalledProcessError as e:
             # Depending on the user, failure of remote commands may be part of normal usage patterns (e.g. if used in
             # a "wait_until" loop). So, log it, but don't make it too scary.
-            self.logger.debug("Error running remote command: " + cmd)
-            self.logger.debug(e.output)
+            if self.logger is not None:
+                self.logger.debug("Error running remote command: " + cmd)
+                self.logger.debug(e.output)
 
             if allow_fail:
                 return e.returncode
@@ -235,6 +241,42 @@ class RemoteAccount(HttpMixin):
         except subprocess.CalledProcessError:
             offset = 0
         yield LogMonitor(self, log, offset)
+
+
+class iter_wrapper(object):
+    """
+    Helper class that wraps around an iterable object to provide has_next() in addition to next()
+    """
+    def __init__(self, iter_obj, descriptor=None):
+        self.iter_obj = iter_obj
+        self.descriptor = descriptor
+        self.sentinel = object()
+        self.cached = self.sentinel
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.cached is self.sentinel:
+            return next(self.iter_obj)
+        next_obj = self.cached
+        self.cached = self.sentinel
+        return next_obj
+
+    def has_next(self, timeout_sec=None):
+        """Check if output is available and possibly wait for result if it is unknown.
+        1) If there is output, return true
+        2) If there is no output, return false
+        3) If it is unknown whether output is available
+           - If timeout_sec is not specified, return false
+           - Otherwise, wait for at most time_sec seconds before returning result
+        """
+        assert timeout_sec is None or self.descriptor is not None, "should have descriptor to enforce timeout"
+
+        if self.cached is self.sentinel:
+            if timeout_sec is None or select.select([self.descriptor], [], [], timeout_sec)[0]:
+                self.cached = next(self.iter_obj, self.sentinel)
+        return self.cached is not self.sentinel
 
 class LogMonitor(object):
     """

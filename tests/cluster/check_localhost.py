@@ -32,8 +32,8 @@ class CheckLocalhostCluster(object):
         assert(len(slots) == 100)
         for slot in slots:
             assert(slot.account.hostname == 'localhost')
-            assert(slot.account.user == None)
-            assert(slot.account.ssh_args == None)
+            assert(slot.account.user is None)
+            assert(slot.account.ssh_args is None)
 
         assert(self.cluster.num_available_nodes() == (available - 100))
         assert len(self.cluster) == initial_size  # This shouldn't change

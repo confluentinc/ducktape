@@ -66,8 +66,8 @@ class CheckJsonCluster(object):
         # Checks that RemoteAccounts are generated correctly from input JSON
         node = JsonCluster({"nodes":[{"hostname": "hostname"}]}).request(1)[0]
         assert(node.account.hostname == "hostname")
-        assert(node.account.user == None)
-        assert(node.account.ssh_args == None)
+        assert(node.account.user is None)
+        assert(node.account.ssh_args is None)
 
         node = JsonCluster({"nodes":[{"hostname": "hostname",
                                       "user": "user",
