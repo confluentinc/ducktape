@@ -264,10 +264,17 @@ class iter_wrapper(object):
         return next_obj
 
     def has_next(self, timeout_sec=None):
-        assert timeout_sec == None or self.descriptor != None, "should have descriptor to enforce timeout"
+        """Check if output is available and possibly wait for result if it is unknown.
+        1) If there is output, return true
+        2) If there is no output, return false
+        3) If it is unknown whether output is available
+           - If timeout_sec is not specified, return false
+           - Otherwise, wait for at most time_sec seconds before returning result
+        """
+        assert timeout_sec is None or self.descriptor is not None, "should have descriptor to enforce timeout"
 
         if self.cached is self.sentinel:
-            if timeout_sec == None or select.select([self.descriptor], [], [], timeout_sec)[0]:
+            if timeout_sec is None or select.select([self.descriptor], [], [], timeout_sec)[0]:
                 self.cached = next(self.iter_obj, self.sentinel)
         return self.cached is not self.sentinel
 
