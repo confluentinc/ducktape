@@ -23,11 +23,8 @@ class JsonCluster(Cluster):
     An implementation of Cluster that uses static settings specified in a cluster file.
     """
 
-    def __init__(self, cluster_json=None):
+    def __init__(self, cluster_json, *args, **kwargs):
         super(JsonCluster, self).__init__()
-        if cluster_json is None:
-            cluster_json_path = os.path.abspath(os.path.join(os.getcwd(), "cluster.json"))
-            cluster_json = json.load(open(cluster_json_path))
         try:
             init_nodes = [RemoteAccount(ninfo["hostname"], ninfo.get("user"), ninfo.get("ssh_args"),
                                         ssh_hostname=ninfo.get("ssh_hostname"))
