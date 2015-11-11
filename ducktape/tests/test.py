@@ -71,7 +71,7 @@ class Test(TemplateRenderer):
             if not hasattr(service, 'logs') or len(service.logs) == 0:
                 self.test_context.logger.debug("Won't collect service logs from %s - no logs to collect." %
                     service.__class__.__name__)
-                return
+                continue
 
             log_dirs = service.logs
             for node in service.nodes:
