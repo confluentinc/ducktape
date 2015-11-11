@@ -121,7 +121,7 @@ class RemoteAccount(HttpMixin):
         self.ssh(cmd, allow_fail=allow_fail)
 
     def kill_process(self, process_grep_str, clean_shutdown=True, allow_fail=False):
-        cmd = """ps ax | grep -i """ + process_grep_str + """ | grep java | grep -v grep | awk '{print $1}'"""
+        cmd = """ps ax | grep -i """ + process_grep_str + """ | grep -v grep | awk '{print $1}'"""
         pids = [pid for pid in self.ssh_capture(cmd, allow_fail=True)]
 
         if clean_shutdown:
