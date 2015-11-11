@@ -101,7 +101,7 @@ class VagrantCluster(JsonCluster):
         # Do not create a new file and cache cluster info in unit test
         try:
             json.dump(cluster_json, open(ConsoleConfig.CLUSTER_INFO_FILE, "w"))
-        except:
+        except IOError:
             pass
 
     def _vagrant_ssh_config(self):
