@@ -264,12 +264,14 @@ class iter_wrapper(object):
         return next_obj
 
     def has_next(self, timeout_sec=None):
-        """Check if output is available and possibly wait for result if it is unknown.
-        1) If there is output, return true
-        2) If there is no output, return false
+        """Check if output is available and possibly wait until the availability is known.
+        1) If there is output available, return true
+        2) If there is no output available (i.e. EOF), return false
         3) If it is unknown whether output is available
-           - If timeout_sec is not specified, return false
-           - Otherwise, wait for at most time_sec seconds before returning result
+           - If timeout_sec is not specified, wait indefinitely until the availability is known
+           - Otherwise, wait for at most time_sec seconds
+             - If availability is known before timeout, return the true/false as appropriate
+             - Otherwise, return false
         """
         assert timeout_sec is None or self.descriptor is not None, "should have descriptor to enforce timeout"
 
