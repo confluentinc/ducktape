@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from .json import JsonCluster
 from .cluster import Cluster, ClusterSlot
 from ducktape.command_line.config import ConsoleConfig
-
+import os
 import json
 import subprocess
 
@@ -29,17 +29,52 @@ class VagrantCluster(JsonCluster):
     """
 
     def __init__(self, *args, **kwargs):
-        hostname, ssh_hostname, username, flags = None, None, None, ""
-        nodes = []
+        is_read_from_file = False
 
-        if kwargs.get("use_cluster_info", False):
+        cluster_file = kwargs.get("cluster_file")
+        if cluster_file is not None:
             try:
-                cluster_json = json.load(open(ConsoleConfig.CLUSTER_INFO_FILE))
-                super(VagrantCluster, self).__init__(cluster_json)
-                return
-            except:
-                raise RuntimeError("Cannot load cluster info from json file " + ConsoleConfig.CLUSTER_INFO_FILE)
+                cluster_json = json.load(open(os.path.abspath(cluster_file)))
+                is_read_from_file = True
+            except IOError:
+                # It is OK if file is not found. Call vagrant ssh-info to read the cluster info.
+                pass
 
+        if not is_read_from_file:
+            cluster_json = {
+                "nodes": self._get_nodes_from_vagrant()
+            }
+
+        super(VagrantCluster, self).__init__(cluster_json)
+
+        # Load externally_routable_ip for each account
+        if is_read_from_file:
+            externally_routable_ip = cluster_json["externally_routable_ip"]
+            for node_account in self.available_nodes:
+                node_account.externally_routable_ip = externally_routable_ip[str(node_account)]
+        else:
+            # go through and find fully qualified domain name for each node
+            # this makes it possible to not require write access to /etc/hosts on the test driver machine
+            is_aws = self._is_aws()
+
+            externally_routable_ip = {}
+            for node_account in self.available_nodes:
+                node_account.externally_routable_ip = self._externally_routable_ip(is_aws, node_account)
+                externally_routable_ip[str(node_account)] = node_account.externally_routable_ip
+
+        # If cluster_file is specified, cache cluster to the file
+        if cluster_file is not None:
+            cluster_json["externally_routable_ip"] = externally_routable_ip
+            try:
+                json.dump(cluster_json, open(cluster_file, "w"))
+            except IOError:
+                # Do not create a new file and cache cluster info in unit test
+                pass
+
+
+    def _get_nodes_from_vagrant(self):
+        nodes = []
+        hostname, ssh_hostname, username, flags = None, None, None, ""
         # Parse ssh-config info on each running vagrant virtual machine into json
         (ssh_config_info, error) = self._vagrant_ssh_config()
         for line in ssh_config_info.split("\n"):
@@ -78,31 +113,7 @@ class VagrantCluster(JsonCluster):
                 username = val
             else:
                 flags += "-o '" + line + "' "
-
-        cluster_json = {
-            "nodes": nodes
-        }
-
-        super(VagrantCluster, self).__init__(cluster_json)
-
-        # go through and find fully qualified domain name for each node
-        # this makes it possible to not require write access to /etc/hosts on the test driver machine
-        is_aws = self._is_aws()
-
-        externally_routable_ip = {}
-        for node_account in self.available_nodes:
-            node_account.externally_routable_ip = self._externally_routable_ip(is_aws, node_account)
-            externally_routable_ip[str(node_account)] = node_account.externally_routable_ip
-
-        # cache cluster info by writing info to a local file in JSON format.
-        cluster_json["is_aws"] = is_aws
-        cluster_json["externally_routable_ip"] = externally_routable_ip
-
-        # Do not create a new file and cache cluster info in unit test
-        try:
-            json.dump(cluster_json, open(ConsoleConfig.CLUSTER_INFO_FILE, "w"))
-        except IOError:
-            pass
+        return nodes
 
     def _vagrant_ssh_config(self):
         return subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()

@@ -31,11 +31,11 @@ class ConsoleConfig(object):
     # Default cluster implementation
     CLUSTER_TYPE = "ducktape.cluster.vagrant.VagrantCluster"
 
+    # Default path, relative to current project directory, to the cluster file
+    CLUSTER_FILE = os.path.join(DUCKTAPE_DIR, "cluster.json")
+
     # Track the last-used session_id here
     SESSION_ID_FILE = os.path.join(METADATA_DIR, "session_id")
-
-    # Track the last-cached cluster information here
-    CLUSTER_INFO_FILE = os.path.join(DUCKTAPE_DIR, "cluster_info_cached.json")
 
     # Folders with test reports, logs, etc all are created in this directory
     RESULTS_ROOT_DIRECTORY = "./results"
