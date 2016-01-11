@@ -23,12 +23,12 @@ import tempfile
 from contextlib import contextmanager
 
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, logger=None):
+    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip = None, logger=None):
         self.hostname = hostname
         self.user = user
         self.ssh_args = ssh_args
         self.ssh_hostname = ssh_hostname
-        self.externally_routable_ip = None
+        self.externally_routable_ip = externally_routable_ip
         self.logger = logger
 
     def __str__(self):

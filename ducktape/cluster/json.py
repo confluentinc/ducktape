@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+
 from ducktape.command_line.config import ConsoleConfig
 from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
@@ -21,19 +23,25 @@ import collections, json, os, os.path
 class JsonCluster(Cluster):
     """
     An implementation of Cluster that uses static settings specified in a cluster file.
+
+    - If cluster_json is specified, use cluster info from it
+    - Otherwise
+      - If cluster_file is specified in the constructor's kwargs, read cluster info from the file specified by cluster_file
+      - Otherwise, read cluster info from the default file specified by ConsoleConfig.CLUSTER_FILE.
     """
 
     def __init__(self, cluster_json=None, *args, **kwargs):
         super(JsonCluster, self).__init__()
         if cluster_json is None:
-            # This is a directly instantiation of JsonCluster rather than from a subclass
+            # This is a directly instantiation of JsonCluster rather than from a subclass (e.g. VagrantCluster)
             cluster_file = kwargs.get("cluster_file")
             if cluster_file is None:
                 cluster_file = ConsoleConfig.CLUSTER_FILE
             cluster_json = json.load(open(os.path.abspath(cluster_file)))
         try:
             init_nodes = [RemoteAccount(ninfo["hostname"], ninfo.get("user"), ninfo.get("ssh_args"),
-                                        ssh_hostname=ninfo.get("ssh_hostname"))
+                                        ssh_hostname=ninfo.get("ssh_hostname"),
+                                        externally_routable_ip=ninfo.get("externally_routable_ip"))
                                         for ninfo in cluster_json["nodes"]]
         except BaseException as e:
             raise ValueError("JSON cluster definition invalid", e)

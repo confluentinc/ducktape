@@ -48,7 +48,8 @@ def parse_args():
     parser.add_argument("--cluster", action="store", default=ConsoleConfig.CLUSTER_TYPE,
                         help="cluster class to use to allocate nodes for tests.")
     parser.add_argument("--cluster-file", action="store", default=None,
-                        help="path to a json file which provides information needed to initialize a json cluster")
+                        help="path to a json file which provides information needed to initialize a json cluster. " +
+                             "The file is used to read/write cached cluster info if cluster is ducktape.cluster.vagrant.VagrantCluster")
     parser.add_argument("--results-root", action="store", default=ConsoleConfig.RESULTS_ROOT_DIRECTORY,
                         help="path to custom root results directory. Running ducktape with this root " +
                              "specified will result in new test results being stored in a subdirectory of " +
@@ -178,7 +179,7 @@ def main():
         (cluster_mod_name, cluster_class_name) = args.cluster.rsplit('.', 1)
         cluster_mod = importlib.import_module(cluster_mod_name)
         cluster_class = getattr(cluster_mod, cluster_class_name)
-        session_context.cluster = cluster_class(cluster_file = args.cluster_file)
+        session_context.cluster = cluster_class(cluster_file=args.cluster_file)
     except:
         print "Failed to load cluster: ", str(sys.exc_info()[0])
         print traceback.format_exc(limit=16)

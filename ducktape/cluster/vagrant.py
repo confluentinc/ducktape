@@ -26,6 +26,11 @@ class VagrantCluster(JsonCluster):
     """
     An implementation of Cluster that uses a set of VMs created by Vagrant. Because we need hostnames that can be
     advertised, this assumes that the Vagrant VM's name is a routeable hostname on all the hosts.
+
+    - If cluster_file is specified in the constructor's kwargs (i.e. passed via command line argument --cluster-file)
+      - If cluster_file exists on the filesystem, read cluster info from the file
+      - Otherwise, retrieve cluster info via "vagrant ssh-config" from vagrant and write cluster info to cluster_file
+    - Otherwise, retrieve cluster info via "vagrant ssh-config" from vagrant
     """
 
     def __init__(self, *args, **kwargs):
@@ -47,30 +52,19 @@ class VagrantCluster(JsonCluster):
 
         super(VagrantCluster, self).__init__(cluster_json)
 
-        # Load externally_routable_ip for each account
-        if is_read_from_file:
-            externally_routable_ip = cluster_json["externally_routable_ip"]
-            for node_account in self.available_nodes:
-                node_account.externally_routable_ip = externally_routable_ip[str(node_account)]
-        else:
+        is_aws = self._is_aws()
+        if not is_read_from_file:
             # go through and find fully qualified domain name for each node
             # this makes it possible to not require write access to /etc/hosts on the test driver machine
-            is_aws = self._is_aws()
-
             externally_routable_ip = {}
             for node_account in self.available_nodes:
                 node_account.externally_routable_ip = self._externally_routable_ip(is_aws, node_account)
                 externally_routable_ip[str(node_account)] = node_account.externally_routable_ip
 
-        # If cluster_file is specified, cache cluster to the file
-        if cluster_file is not None:
-            cluster_json["externally_routable_ip"] = externally_routable_ip
-            try:
-                json.dump(cluster_json, open(cluster_file, "w"))
-            except IOError:
-                # Do not create a new file and cache cluster info in unit test
-                pass
-
+            # If cluster_file is specified, cache cluster info in the file
+            if cluster_file is not None:
+                cluster_json["externally_routable_ip"] = externally_routable_ip
+                json.dump(cluster_json, open(cluster_file, "w"), indent=2, separators=(',', ': '), sort_keys=True)
 
     def _get_nodes_from_vagrant(self):
         nodes = []
