@@ -34,6 +34,7 @@ class VagrantCluster(JsonCluster):
     """
 
     def __init__(self, *args, **kwargs):
+        self.is_aws = self._is_aws()
         is_read_from_file = False
 
         cluster_file = kwargs.get("cluster_file")
@@ -52,19 +53,16 @@ class VagrantCluster(JsonCluster):
 
         super(VagrantCluster, self).__init__(cluster_json)
 
-        is_aws = self._is_aws()
-        if not is_read_from_file:
-            # go through and find fully qualified domain name for each node
-            # this makes it possible to not require write access to /etc/hosts on the test driver machine
-            externally_routable_ip = {}
-            for node_account in self.available_nodes:
-                node_account.externally_routable_ip = self._externally_routable_ip(is_aws, node_account)
-                externally_routable_ip[str(node_account)] = node_account.externally_routable_ip
-
-            # If cluster_file is specified, cache cluster info in the file
-            if cluster_file is not None:
-                cluster_json["externally_routable_ip"] = externally_routable_ip
-                json.dump(cluster_json, open(cluster_file, "w"), indent=2, separators=(',', ': '), sort_keys=True)
+        # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
+        if not is_read_from_file and cluster_file is not None:
+            nodes = [{"hostname": node_account.hostname,
+                      "ssh_hostname": node_account.ssh_hostname,
+                      "user": node_account.user,
+                      "ssh_args": node_account.ssh_args,
+                      "externally_routable_ip": node_account.externally_routable_ip}
+                      for node_account in self.available_nodes]
+            cluster_json["nodes"] = nodes
+            json.dump(cluster_json, open(cluster_file, "w"), indent=2, separators=(',', ': '), sort_keys=True)
 
     def _get_nodes_from_vagrant(self):
         nodes = []
@@ -121,8 +119,8 @@ class VagrantCluster(JsonCluster):
         output, _ = proc.communicate()
         return output.find("aws") >= 0
 
-    def _externally_routable_ip(self, is_aws, node_account):
-        if is_aws:
+    def _externally_routable_ip(self, node_account):
+        if self.is_aws:
             cmd = "/sbin/ifconfig eth0 "
         else:
             cmd = "/sbin/ifconfig eth1 "

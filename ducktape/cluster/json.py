@@ -38,14 +38,19 @@ class JsonCluster(Cluster):
             if cluster_file is None:
                 cluster_file = ConsoleConfig.CLUSTER_FILE
             cluster_json = json.load(open(os.path.abspath(cluster_file)))
+
         try:
-            init_nodes = [RemoteAccount(ninfo["hostname"], ninfo.get("user"), ninfo.get("ssh_args"),
-                                        ssh_hostname=ninfo.get("ssh_hostname"),
-                                        externally_routable_ip=ninfo.get("externally_routable_ip"))
-                                        for ninfo in cluster_json["nodes"]]
+            node_accounts = [RemoteAccount(ninfo["hostname"], ninfo.get("user"), ninfo.get("ssh_args"),
+                                           ssh_hostname=ninfo.get("ssh_hostname"),
+                                           externally_routable_ip=ninfo.get("externally_routable_ip"))
+                                           for ninfo in cluster_json["nodes"]]
+            for node_account in node_accounts:
+                if node_account.externally_routable_ip is None:
+                    node_account.externally_routable_ip = self._externally_routable_ip(node_account)
         except BaseException as e:
             raise ValueError("JSON cluster definition invalid", e)
-        self.available_nodes = collections.deque(init_nodes)
+
+        self.available_nodes = collections.deque(node_accounts)
         self.in_use_nodes = set()
         self.id_source = 1
 
@@ -76,3 +81,5 @@ class JsonCluster(Cluster):
         self.in_use_nodes.remove(slot.slot_id)
         self.available_nodes.append(slot.account)
 
+    def _externally_routable_ip(self, account):
+        return None
