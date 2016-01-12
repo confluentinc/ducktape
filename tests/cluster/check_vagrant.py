@@ -42,9 +42,8 @@ Host worker2
     def check_one_host_parsing(self, monkeypatch):
         self._vagrant_ssh_data = self.two_hosts
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self._vagrant_ssh_data, None))
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._is_aws", lambda vc: False)
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
-
 
         cluster = VagrantCluster()
         assert len(cluster) == 2
