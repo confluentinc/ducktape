@@ -49,6 +49,9 @@ Host worker2
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
 
     def check_one_host_parsing(self, monkeypatch):
+        """check the behavior of VagrantCluster when cluster_file is not specified. VagrantCluster should read
+        cluster information from _vagrant_ssh_config().
+        """
         self._set_monkeypatch_attr(monkeypatch)
 
         cluster = VagrantCluster()
@@ -67,6 +70,9 @@ Host worker2
         assert(node2.account.ssh_hostname == '127.0.0.2')
 
     def check_cluster_file_write(self, monkeypatch):
+        """check the behavior of VagrantCluster when cluster_file is specified but the file doesn't exist. VagrantCluster
+        should read cluster information from _vagrant_ssh_config() and write the information to cluster_file.
+        """
         self._set_monkeypatch_attr(monkeypatch)
         assert(not os.path.exists(self.cluster_file))
 
@@ -85,8 +91,13 @@ Host worker2
         assert(cluster_json_actual == cluster_json_expected)
 
     def check_cluster_file_read(self, monkeypatch):
+        """check the behavior of VagrantCluster when cluster_file is specified and the file exists. VagrantCluster should
+        read cluster information from cluster_file.
+        """
         self._set_monkeypatch_attr(monkeypatch)
 
+        # To verify that VagrantCluster reads cluster information from the cluster_file, the
+        # content in the file is intentionally made different from that returned by _vagrant_ssh_config().
         nodes = []
         nodes.append({
             "hostname": "worker2",
