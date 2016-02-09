@@ -43,11 +43,13 @@ Host worker2
 
     cluster_file = "cluster_file_temporary.json"
 
-    def check_one_host_parsing(self, monkeypatch):
-        self._vagrant_ssh_data = self.two_hosts
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self._vagrant_ssh_data, None))
+    def _set_monkeypatch_attr(self, monkeypatch):
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self.two_hosts, None))
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
+
+    def check_one_host_parsing(self, monkeypatch):
+        self._set_monkeypatch_attr(monkeypatch)
 
         cluster = VagrantCluster()
         assert len(cluster) == 2
@@ -65,15 +67,8 @@ Host worker2
         assert(node2.account.ssh_hostname == '127.0.0.2')
 
     def check_cluster_file_write(self, monkeypatch):
-        self._vagrant_ssh_data = self.two_hosts
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self._vagrant_ssh_data, None))
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
-        try:
-            open(os.path.abspath(self.cluster_file))
-            assert(False, "Cluster file should not exist")
-        except IOError:
-            pass
+        self._set_monkeypatch_attr(monkeypatch)
+        assert(not os.path.exists(self.cluster_file))
 
         cluster = VagrantCluster(cluster_file=self.cluster_file)
         cluster_json_expected = {}
@@ -90,10 +85,7 @@ Host worker2
         assert(cluster_json_actual == cluster_json_expected)
 
     def check_cluster_file_read(self, monkeypatch):
-        self._vagrant_ssh_data = self.two_hosts
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self._vagrant_ssh_data, None))
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
+        self._set_monkeypatch_attr(monkeypatch)
 
         nodes = []
         nodes.append({
