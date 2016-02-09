@@ -56,25 +56,25 @@ Host worker2
 
         cluster = VagrantCluster()
         assert len(cluster) == 2
-        assert(cluster.num_available_nodes() == 2)
+        assert cluster.num_available_nodes() == 2
         node1, node2 = cluster.request(2)
 
-        assert(node1.account.hostname == "worker1")
-        assert(node1.account.user == "vagrant")
-        assert(node1.account.ssh_args.strip() == "-o 'HostName 127.0.0.1' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker1/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'")
-        assert(node1.account.ssh_hostname == '127.0.0.1')
+        assert node1.account.hostname == "worker1"
+        assert node1.account.user == "vagrant"
+        assert node1.account.ssh_args.strip() == "-o 'HostName 127.0.0.1' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker1/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'"
+        assert node1.account.ssh_hostname == '127.0.0.1'
 
-        assert(node2.account.hostname == "worker2")
-        assert(node2.account.user == "vagrant")
-        assert(node2.account.ssh_args.strip() == "-o 'HostName 127.0.0.2' -o 'Port 2200' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker2/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'")
-        assert(node2.account.ssh_hostname == '127.0.0.2')
+        assert node2.account.hostname == "worker2"
+        assert node2.account.user == "vagrant"
+        assert node2.account.ssh_args.strip() == "-o 'HostName 127.0.0.2' -o 'Port 2200' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker2/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'"
+        assert node2.account.ssh_hostname == '127.0.0.2'
 
     def check_cluster_file_write(self, monkeypatch):
         """check the behavior of VagrantCluster when cluster_file is specified but the file doesn't exist. VagrantCluster
         should read cluster information from _vagrant_ssh_config() and write the information to cluster_file.
         """
         self._set_monkeypatch_attr(monkeypatch)
-        assert(not os.path.exists(self.cluster_file))
+        assert not os.path.exists(self.cluster_file)
 
         cluster = VagrantCluster(cluster_file=self.cluster_file)
         cluster_json_expected = {}
@@ -88,7 +88,7 @@ Host worker2
         cluster_json_actual = json.load(open(os.path.abspath(self.cluster_file)))
 
         os.remove(self.cluster_file)
-        assert(cluster_json_actual == cluster_json_expected)
+        assert cluster_json_actual == cluster_json_expected
 
     def check_cluster_file_read(self, monkeypatch):
         """check the behavior of VagrantCluster when cluster_file is specified and the file exists. VagrantCluster should
@@ -122,17 +122,17 @@ Host worker2
         os.remove(self.cluster_file)
 
         assert len(cluster) == 2
-        assert(cluster.num_available_nodes() == 2)
+        assert cluster.num_available_nodes() == 2
         node1, node2 = cluster.request(2)
 
-        assert(node1.account.hostname == "worker2")
-        assert(node1.account.user == "vagrant")
-        assert(node1.account.ssh_args.strip() == "-o 'HostName 127.0.0.2' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker2/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'")
-        assert(node1.account.ssh_hostname == '127.0.0.2')
+        assert node1.account.hostname == "worker2"
+        assert node1.account.user == "vagrant"
+        assert node1.account.ssh_args.strip() == "-o 'HostName 127.0.0.2' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker2/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'"
+        assert node1.account.ssh_hostname == '127.0.0.2'
 
-        assert(node2.account.hostname == "worker3")
-        assert(node2.account.user == "vagrant")
-        assert(node2.account.ssh_args.strip() == "-o 'HostName 127.0.0.3' -o 'Port 2223' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker3/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'")
-        assert(node2.account.ssh_hostname == '127.0.0.3')
+        assert node2.account.hostname == "worker3"
+        assert node2.account.user == "vagrant"
+        assert node2.account.ssh_args.strip() == "-o 'HostName 127.0.0.3' -o 'Port 2223' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker3/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'"
+        assert node2.account.ssh_hostname == '127.0.0.3'
 
 
