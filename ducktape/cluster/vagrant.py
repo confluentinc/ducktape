@@ -62,7 +62,7 @@ class VagrantCluster(JsonCluster):
                       "externally_routable_ip": node_account.externally_routable_ip}
                       for node_account in self.available_nodes]
             cluster_json["nodes"] = nodes
-            json.dump(cluster_json, open(cluster_file, "w"), indent=2, separators=(',', ': '), sort_keys=True)
+            json.dump(cluster_json, open(cluster_file, 'w+'), indent=2, separators=(',', ': '), sort_keys=True)
 
     def _get_nodes_from_vagrant(self):
         nodes = []

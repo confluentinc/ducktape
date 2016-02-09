@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from ducktape.cluster.vagrant import VagrantCluster
+import json
+import os
 
 class CheckVagrantCluster(object):
     two_hosts = """Host worker1
@@ -39,6 +41,8 @@ Host worker2
 
 """
 
+    cluster_file = "cluster_file_temporary.json"
+
     def check_one_host_parsing(self, monkeypatch):
         self._vagrant_ssh_data = self.two_hosts
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self._vagrant_ssh_data, None))
@@ -59,3 +63,73 @@ Host worker2
         assert(node2.account.user == "vagrant")
         assert(node2.account.ssh_args.strip() == "-o 'HostName 127.0.0.2' -o 'Port 2200' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker2/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'")
         assert(node2.account.ssh_hostname == '127.0.0.2')
+
+    def check_cluster_file_write(self, monkeypatch):
+        self._vagrant_ssh_data = self.two_hosts
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self._vagrant_ssh_data, None))
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
+        try:
+            open(os.path.abspath(self.cluster_file))
+            assert(False, "Cluster file should not exist")
+        except IOError:
+            pass
+
+        cluster = VagrantCluster(cluster_file=self.cluster_file)
+        cluster_json_expected = {}
+        nodes = [{"hostname": node_account.hostname,
+                  "ssh_hostname": node_account.ssh_hostname,
+                  "user": node_account.user,
+                  "ssh_args": node_account.ssh_args,
+                  "externally_routable_ip": node_account.externally_routable_ip}
+                  for node_account in cluster.available_nodes]
+        cluster_json_expected["nodes"] = nodes
+        cluster_json_actual = json.load(open(os.path.abspath(self.cluster_file)))
+
+        os.remove(self.cluster_file)
+        assert(cluster_json_actual == cluster_json_expected)
+
+    def check_cluster_file_read(self, monkeypatch):
+        self._vagrant_ssh_data = self.two_hosts
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self._vagrant_ssh_data, None))
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
+
+        nodes = []
+        nodes.append({
+            "hostname": "worker2",
+            "ssh_hostname": "127.0.0.2",
+            "user": "vagrant",
+            "ssh_args": "-o 'HostName 127.0.0.2' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker2/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'",
+            "externally_routable_ip": "127.0.0.2"
+        })
+        nodes.append({
+            "hostname": "worker3",
+            "ssh_hostname": "127.0.0.3",
+            "user": "vagrant",
+            "ssh_args": "-o 'HostName 127.0.0.3' -o 'Port 2223' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker3/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'",
+            "externally_routable_ip": "127.0.0.3"
+        })
+
+        cluster_json_expected = {}
+        cluster_json_expected["nodes"] = nodes
+        json.dump(cluster_json_expected, open(self.cluster_file, 'w+'), indent=2, separators=(',', ': '), sort_keys=True)
+
+        cluster = VagrantCluster(cluster_file=self.cluster_file)
+        os.remove(self.cluster_file)
+
+        assert len(cluster) == 2
+        assert(cluster.num_available_nodes() == 2)
+        node1, node2 = cluster.request(2)
+
+        assert(node1.account.hostname == "worker2")
+        assert(node1.account.user == "vagrant")
+        assert(node1.account.ssh_args.strip() == "-o 'HostName 127.0.0.2' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker2/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'")
+        assert(node1.account.ssh_hostname == '127.0.0.2')
+
+        assert(node2.account.hostname == "worker3")
+        assert(node2.account.user == "vagrant")
+        assert(node2.account.ssh_args.strip() == "-o 'HostName 127.0.0.3' -o 'Port 2223' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile /Users/foo/ducktape.git/.vagrant/machines/worker3/virtualbox/private_key' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL'")
+        assert(node2.account.ssh_hostname == '127.0.0.3')
+
+
