@@ -23,13 +23,14 @@ import tempfile
 from contextlib import contextmanager
 
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip = None, logger=None):
+    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip = None, logger=None, sudo_user=None):
         self.hostname = hostname
         self.user = user
         self.ssh_args = ssh_args
         self.ssh_hostname = ssh_hostname
         self.externally_routable_ip = externally_routable_ip
         self.logger = logger
+        self.sudo_user = sudo_user
 
     def __str__(self):
         r = ""
@@ -62,6 +63,8 @@ class RemoteAccount(HttpMixin):
     def ssh_command(self, cmd):
         if self.local:
             return cmd
+        if self.sudo_user is not None:
+            cmd = "sudo -u %s %s" % (self.sudo_user, cmd)
         r = "ssh "
         if self.user:
             r += self.user + "@"
@@ -69,6 +72,8 @@ class RemoteAccount(HttpMixin):
         if self.ssh_args:
             r += self.ssh_args + " "
         r += "'" + cmd.replace("'", "'\\''") + "'"
+        if self.logger is not None:
+            self.logger.debug("Execute ssh_command: %s" % r)
         return r
 
     def ssh(self, cmd, allow_fail=False):
