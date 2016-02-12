@@ -19,7 +19,7 @@ import sys
 
 from ducktape.tests.logger import Logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
-from ducktape.command_line.config import ConsoleConfig
+from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
 
@@ -256,7 +256,7 @@ class TestContext(Logger):
         info_fh.setLevel(logging.INFO)
         debug_fh.setLevel(logging.DEBUG)
 
-        formatter = logging.Formatter(ConsoleConfig.TEST_LOG_FORMATTER)
+        formatter = logging.Formatter(ConsoleDefaults.TEST_LOG_FORMATTER)
         info_fh.setFormatter(formatter)
         debug_fh.setFormatter(formatter)
 

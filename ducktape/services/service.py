@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from ducktape.command_line.config import ConsoleConfig
+from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.template import TemplateRenderer
 
 
@@ -106,7 +106,7 @@ class Service(TemplateRenderer):
             # Remote accounts utilities should log where this service logs
             if node.account.logger is not None:
                 # This log message help test-writer identify which test and/or service didn't clean up after itself
-                node.account.logger.critical(ConsoleConfig.BAD_TEST_MESSAGE)
+                node.account.logger.critical(ConsoleDefaults.BAD_TEST_MESSAGE)
                 raise RuntimeError(
                     "logger was not None on service start. There may be a concurrency issue, " +
                     "or some service which isn't properly cleaning up after itself. " +

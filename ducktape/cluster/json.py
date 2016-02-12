@@ -14,7 +14,7 @@
 
 from __future__ import absolute_import
 
-from ducktape.command_line.config import ConsoleConfig
+from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
 import collections, json, os, os.path
@@ -27,7 +27,7 @@ class JsonCluster(Cluster):
     - If cluster_json is specified, use cluster info from it
     - Otherwise
       - If cluster_file is specified in the constructor's kwargs, read cluster info from the file specified by cluster_file
-      - Otherwise, read cluster info from the default file specified by ConsoleConfig.CLUSTER_FILE.
+      - Otherwise, read cluster info from the default file specified by ConsoleDefaults.CLUSTER_FILE.
     """
 
     def __init__(self, cluster_json=None, *args, **kwargs):
@@ -36,7 +36,7 @@ class JsonCluster(Cluster):
             # This is a directly instantiation of JsonCluster rather than from a subclass (e.g. VagrantCluster)
             cluster_file = kwargs.get("cluster_file")
             if cluster_file is None:
-                cluster_file = ConsoleConfig.CLUSTER_FILE
+                cluster_file = ConsoleDefaults.CLUSTER_FILE
             cluster_json = json.load(open(os.path.abspath(cluster_file)))
 
         try:

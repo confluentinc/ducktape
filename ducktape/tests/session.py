@@ -18,7 +18,7 @@ import sys
 import time
 
 from ducktape.tests.logger import Logger
-from ducktape.command_line.config import ConsoleConfig
+from ducktape.command_line.defaults import ConsoleDefaults
 
 
 class SessionContext(Logger):
@@ -31,9 +31,9 @@ class SessionContext(Logger):
         self.results_dir = os.path.abspath(results_dir)
         self.cluster = cluster
         self.args = args
-        self.debug = args.debug
-        self.exit_first = args.exit_first
-        self.no_teardown = args.no_teardown
+        self.debug = args["debug"]
+        self.exit_first = args["exit_first"]
+        self.no_teardown = args["no_teardown"]
 
     @property
     def logger_name(self):
@@ -53,7 +53,7 @@ class SessionContext(Logger):
         ch.setLevel(logging.DEBUG if self.debug else logging.INFO)
 
         # create formatter and add it to the handlers
-        formatter = logging.Formatter(ConsoleConfig.SESSION_LOG_FORMATTER)
+        formatter = logging.Formatter(ConsoleDefaults.SESSION_LOG_FORMATTER)
         fh_info.setFormatter(formatter)
         fh_debug.setFormatter(formatter)
         ch.setFormatter(formatter)
