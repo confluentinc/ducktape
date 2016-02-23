@@ -47,7 +47,7 @@ def create_ducktape_parser():
     parser.add_argument("--version", action="store_true", help="display version")
     parser.add_argument("--parameters", action="store",
                         help="inject these arguments into the specified test(s). Specify parameters as a JSON string.")
-    parser.add_argument("--user-defined-globals", action="store",
+    parser.add_argument("--globals", action="store",
                         help="user-defined globals go here. "
                              "This can be a file containing a JSON object, or a string representing a JSON object.")
 

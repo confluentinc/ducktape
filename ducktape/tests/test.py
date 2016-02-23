@@ -168,6 +168,10 @@ class TestContext(Logger):
         return ctx_copy
 
     @property
+    def globals(self):
+        return self.session_context.globals
+
+    @property
     def module_name(self):
         return "" if self.module is None else self.module
 

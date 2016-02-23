@@ -21,10 +21,11 @@ from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.parse_args import parse_args
 
+import importlib
 import json
 import os
+import pysistence
 import sys
-import importlib
 import traceback
 
 
@@ -47,7 +48,7 @@ def extend_import_paths(paths):
 
 
 def get_user_defined_globals(globals_str):
-    """Parse user-defined globals into a dict using globals_str
+    """Parse user-defined globals into an immutable dict using globals_str
 
     :param globals_str Either a file, or a JSON string representing a JSON object
     :return dict containing user-defined global variables
@@ -68,6 +69,10 @@ def get_user_defined_globals(globals_str):
     if not isinstance(user_globals, dict):
         raise ValueError("User defined globals must be a JSON object which parses to a dict. "
                          "Instead found %s, which parsed to %s" % (str(user_globals), type(user_globals)))
+
+    # Use pysistence to create the immutable dict
+    user_globals = pysistence.make_dict(**user_globals)
+    return user_globals
 
 
 def setup_results_directory(new_results_dir):
@@ -104,9 +109,7 @@ def main():
             print "parameters are not valid json: " + str(e.message)
             sys.exit(1)
 
-    globals = None
-    if args_dict["user_defined_globals"]:
-        globals = get_user_defined_globals(args_dict["user_defined_globals"])
+    args_dict["globals"] = get_user_defined_globals(args_dict.get("globals"))
 
     # Make .ducktape directory where metadata such as the last used session_id is stored
     if not os.path.isdir(ConsoleDefaults.METADATA_DIR):
@@ -118,7 +121,7 @@ def main():
     results_dir = generate_results_dir(args_dict["results_root"], session_id)
     setup_results_directory(results_dir)
 
-    session_context = SessionContext(session_id=session_id, results_dir=results_dir, globals=globals, **args_dict)
+    session_context = SessionContext(session_id=session_id, results_dir=results_dir, **args_dict)
     for k, v in args_dict.iteritems():
         session_context.logger.debug("Configuration: %s=%s", k, v)
 

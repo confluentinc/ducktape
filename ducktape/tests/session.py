@@ -35,7 +35,12 @@ class SessionContext(Logger):
         self.debug = kwargs.get("debug", False)
         self.exit_first = kwargs.get("exit_first", False)
         self.no_teardown = kwargs.get("no_teardown", False)
-        self.globals = kwargs.get("globals")
+        self._globals = kwargs.get("globals")
+
+    @property
+    def globals(self):
+        """None, or an immutable dictionary containing user-defined global variables."""
+        return self._globals
 
     @property
     def logger_name(self):
