@@ -38,7 +38,7 @@ class CheckSetupResultsDirectory(object):
     def check_creation(self):
         """Check results and symlink from scratch"""
         assert not os.path.exists(self.results_dir)
-        setup_results_directory(self.results_root, self.results_dir)
+        setup_results_directory(self.results_dir)
         update_latest_symlink(self.results_root, self.results_dir)
         self.validate_directories()
 
@@ -51,13 +51,13 @@ class CheckSetupResultsDirectory(object):
         os.symlink(old_results, self.latest_symlink)
         assert os.path.islink(self.latest_symlink) and os.path.exists(self.latest_symlink)
 
-        setup_results_directory(self.results_root, self.results_dir)
+        setup_results_directory(self.results_dir)
         update_latest_symlink(self.results_root, self.results_dir)
         self.validate_directories()
 
         # Try again if symlink exists and points to nothing
         os.rmdir(self.results_dir)
         assert os.path.islink(self.latest_symlink) and not os.path.exists(self.latest_symlink)
-        setup_results_directory(self.results_root, self.results_dir)
+        setup_results_directory(self.results_dir)
         update_latest_symlink(self.results_root, self.results_dir)
         self.validate_directories()

@@ -26,14 +26,16 @@ class SessionContext(Logger):
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, session_id, results_dir, cluster, args):
-        self.session_id = session_id
-        self.results_dir = os.path.abspath(results_dir)
-        self.cluster = cluster
-        self.args = args
-        self.debug = args["debug"]
-        self.exit_first = args["exit_first"]
-        self.no_teardown = args["no_teardown"]
+    def __init__(self, **kwargs):
+        # session_id, results_dir, cluster, globals):
+        self.session_id = kwargs["session_id"]
+        self.results_dir = os.path.abspath(kwargs["results_dir"])
+        self.cluster = kwargs["cluster"]
+
+        self.debug = kwargs.get("debug", False)
+        self.exit_first = kwargs.get("exit_first", False)
+        self.no_teardown = kwargs.get("no_teardown", False)
+        self.globals = kwargs.get("globals")
 
     @property
     def logger_name(self):

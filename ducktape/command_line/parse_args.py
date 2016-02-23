@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.utils.util import ducktape_version
 
 import argparse
 import itertools
@@ -20,18 +21,13 @@ import os
 import sys
 
 
-def parse_args():
-    """Parse in command-line and config file options.
-
-    Command line arguments have the highest priority, then user configs specified in ~/.ducktape/config, and finally
-    project configs specified in <ducktape_dir>/config.
-    """
+def create_ducktape_parser():
     parser = argparse.ArgumentParser(description="Discover and run your tests")
     parser.add_argument('test_path', metavar='test_path', type=str, nargs='*', default=os.getcwd(),
                         help='one or more space-delimited strings indicating where to search for tests.')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run.")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout.")
-    parser.add_argument("--config-file", action="store", default=ConsoleDefaults.PROJECT_CONFIG_FILE,
+    parser.add_argument("--config-file", action="store", default=ConsoleDefaults.USER_CONFIG_FILE,
                         help="path to project-specific configuration file.")
     parser.add_argument("--cluster", action="store", default=ConsoleDefaults.CLUSTER_TYPE,
                         help="cluster class to use to allocate nodes for tests.")
@@ -55,23 +51,62 @@ def parse_args():
                         help="user-defined globals go here. "
                              "This can be a file containing a JSON object, or a string representing a JSON object.")
 
-    args_dict = {}
-    project_config_file = ConsoleDefaults.PROJECT_CONFIG_FILE
-    if os.path.exists(project_config_file):
-        project_configs = list(itertools.chain(*[line.split() for line in open(project_config_file).readlines()]))
-        args_dict.update(vars(parser.parse_args(project_configs)))
+    return parser
 
-    user_config_file = os.path.expanduser(ConsoleDefaults.USER_CONFIG_FILE)
-    if os.path.exists(user_config_file):
-        user_configs = list(itertools.chain(*[line.split() for line in open(user_config_file).readlines()]))
-        args_dict.update(vars(parser.parse_args(user_configs)))
 
-    if len(sys.argv) == 1:
-        # Show help if there are no command-line arguments
+def get_user_config_file(args):
+    """Helper function to check command line args to see if a config file is specified"""
+    parser = create_ducktape_parser()
+    config_file = vars(parser.parse_args(args))["config_file"]
+    assert config_file is not None
+    return os.path.expanduser(config_file)
+
+
+def config_file_to_args_list(config_file):
+    """Parse in contents of config file, and return a list of command-line options parseable by the ducktape parser.
+
+    Skip whitespace lines and lines prefixed by "#"
+    """
+    if config_file is None:
+        raise RuntimeError("config_file is None")
+
+    config_lines = [line for line in open(config_file).readlines()
+                    if (len(line.strip()) > 0 and line.lstrip()[0] != '#')]
+
+    return list(itertools.chain(*[line.split() for line in config_lines]))
+
+
+def parse_args(args):
+    """Parse in command-line and config file options.
+
+    Command line arguments have the highest priority, then user configs specified in ~/.ducktape/config, and finally
+    project configs specified in <ducktape_dir>/config.
+    """
+
+    parser = create_ducktape_parser()
+
+    if len(args) == 0:
+        # Show help if there are no arguments
         parser.print_help()
         sys.exit(0)
 
-    args_dict.update(vars(parser.parse_args(sys.argv[1:])))
-    return args_dict
+    # Collect arguments from project config file, user config file, and command line
+    # later arguments supersede earlier arguments
+    args_list = []
 
+    project_config_file = ConsoleDefaults.PROJECT_CONFIG_FILE
+    if os.path.exists(project_config_file):
+        args_list.extend(config_file_to_args_list(project_config_file))
 
+    user_config_file = get_user_config_file(args)
+    if os.path.exists(user_config_file):
+        args_list.extend(config_file_to_args_list(user_config_file))
+
+    args_list.extend(args)
+    parsed_args_dict = vars(parser.parse_args(args_list))
+
+    if parsed_args_dict["version"]:
+        print ducktape_version()
+        sys.exit(0)
+
+    return parsed_args_dict

@@ -22,28 +22,20 @@ import os
 import tempfile
 
 
-class MockArgs(object):
-    """A mock command-line argument object"""
-
-    def __init__(self):
-        self.test_path = []
-        self.collect_only = False
-        self.debug = False
-        self.exit_first = False
-        self.no_teardown = False
-
-
 def mock_cluster():
     return MagicMock()
 
 
-def session_context(cluster=mock_cluster(), args=MockArgs()):
+def session_context(cluster=mock_cluster(), **kwargs):
     """Return a SessionContext object"""
 
-    tmp = tempfile.mkdtemp()
-    session_dir = os.path.join(tmp, "test_dir")
-    os.mkdir(session_dir)
-    return SessionContext("test_session", session_dir, cluster=cluster, args=args)
+    if "results_dir" not in kwargs.keys():
+        tmp = tempfile.mkdtemp()
+        session_dir = os.path.join(tmp, "test_dir")
+        os.mkdir(session_dir)
+        kwargs["results_dir"] = session_dir
+
+    return SessionContext(session_id="test_session", cluster=cluster, **kwargs)
 
 
 def test_context(session_context=session_context()):
