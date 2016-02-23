@@ -65,7 +65,7 @@ def get_user_config_file(args):
 def config_file_to_args_list(config_file):
     """Parse in contents of config file, and return a list of command-line options parseable by the ducktape parser.
 
-    Skip whitespace lines and lines prefixed by "#"
+    Skip whitespace lines and comments (lines prefixed by "#")
     """
     if config_file is None:
         raise RuntimeError("config_file is None")

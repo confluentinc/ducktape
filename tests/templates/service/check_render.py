@@ -41,7 +41,7 @@ class CheckTemplateRenderingService(object):
 
 class TemplateRenderingService(Service):
     NO_VARIABLE = "fixed content"
-    SIMPLE_VARIABLE = "Hello {{name}}!"
+    SIMPLE_VARIABLE = "Hello {{a_field}}!"
     OVERLOAD_VARIABLES = "{{normal}} {{overload}}"
 
     CLASS_CONSTANT_TEMPLATE = "{{ CLASS_CONSTANT }}"
@@ -51,12 +51,12 @@ class TemplateRenderingService(Service):
         super(TemplateRenderingService, self).__init__(test_context(), 1)
 
     def render_simple(self):
-        "Test that a trivial template works"
+        """Test that a trivial template works"""
         assert self.render_template(self.NO_VARIABLE) == self.NO_VARIABLE
 
     def render_single_variable(self):
-        "Test that fields on the object are available to templates"
-        self.name = "world"
+        """Test that fields on the object are available to templates"""
+        self.a_field = "world"
         assert self.render_template(self.SIMPLE_VARIABLE) == "Hello world!"
 
     def render_overload(self):
@@ -69,5 +69,5 @@ class TemplateRenderingService(Service):
         assert self.render_template(self.CLASS_CONSTANT_TEMPLATE) == "instance override"
 
     def render_file_template(self):
-        self.name = "world"
+        self.a_field = "world"
         assert "Sample world" == self.render("sample")

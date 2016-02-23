@@ -70,7 +70,7 @@ class Test(TemplateRenderer):
         for service in self.test_context.services:
             if not hasattr(service, 'logs') or len(service.logs) == 0:
                 self.test_context.logger.debug("Won't collect service logs from %s - no logs to collect." %
-                    service.__class__.__name__)
+                    service.name)
                 continue
 
             log_dirs = service.logs
@@ -84,7 +84,7 @@ class Test(TemplateRenderer):
                 if len(node_logs) > 0:
                     # Create directory into which service logs will be copied
                     dest = os.path.join(
-                        self.test_context.results_dir, service.__class__.__name__, node.account.hostname)
+                        self.test_context.results_dir, service.name, node.account.hostname)
                     if not os.path.isdir(dest):
                         mkdir_p(dest)
 

@@ -23,8 +23,15 @@ class DummyService(Service):
     def __init__(self, context, num_nodes):
         super(DummyService, self).__init__(context, num_nodes)
 
-    def who_am_i(self, node=None):
-        return "DummyService"
+    def idx(self, node):
+        return 1
+
+
+class DifferentDummyService(Service):
+    """Another fake service class."""
+
+    def __init__(self, context, num_nodes):
+        super(DifferentDummyService, self).__init__(context, num_nodes)
 
     def idx(self, node):
         return 1
@@ -51,4 +58,17 @@ class CheckAllocateFree(object):
         self.service.free()
         assert self.cluster.num_available_nodes() == initial_cluster_size
 
+    def check_order(self):
+        """Check expected behavior with service._order method"""
+        self.dummy0 = DummyService(self.context, 4)
+        self.diffDummy0 = DifferentDummyService(self.context, 100)
+        self.dummy1 = DummyService(self.context, 1)
+        self.diffDummy1 = DifferentDummyService(self.context, 2)
+        self.diffDummy2 = DifferentDummyService(self.context, 5)
+
+        assert self.dummy0._order == 0
+        assert self.dummy1._order == 1
+        assert self.diffDummy0._order == 0
+        assert self.diffDummy1._order == 1
+        assert self.diffDummy2._order == 2
 

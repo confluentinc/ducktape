@@ -58,8 +58,7 @@ class Service(TemplateRenderer):
         # Every time a service instance is created, it registers itself with its
         # context object. This makes it possible for external mechanisms to clean up
         # after the service if something goes wrong.
-        if hasattr(self.context, "services"):
-            self.context.services.append(self)
+        self.context.services.append(self)
 
         self.nodes = []
         self.allocate_nodes()
@@ -69,23 +68,58 @@ class Service(TemplateRenderer):
                              (self.num_nodes, [n.account.hostname for n in self.nodes]))
 
     @property
+    def name(self):
+        """Human-readable identifier (almost certainly) unique within a test run."""
+        return self.__class__.__name__ + "-" + str(self.id)
+
+    @property
+    def id(self):
+        return "%d-%d" % (self._order, id(self))
+
+    @property
+    def _order(self):
+        """Index of this service instance with respect to other services of the same type registered with self.context.
+        When used with a test_context, this lets the user know
+
+        Example:
+            suppose the services registered with the same context looks like
+                context.services == [Zookeeper, Kafka, Zookeeper, Kafka, MirrorMaker]
+            then:
+                context.services[0]._order == 0  # "0th" Zookeeper instance
+                context.services[2]._order == 0  # "0th" Kafka instance
+                context.services[1]._order == 1  # "1st" Zookeeper instance
+                context.services[3]._order == 1  # "1st" Kafka instance
+                context.services[4]._order == 0  # "0th" MirrorMaker instance
+        """
+        if hasattr(self.context, "services"):
+            same_services = [s for s in self.context.services if type(s) == type(self)]
+            index = same_services.index(self)
+            assert index >= 0
+            return index
+        else:
+            return 0
+
+    @property
     def logger(self):
+        """The logger instance for this service."""
         return self.context.logger
 
     @property
     def cluster(self):
+        """The cluster object from which this service instance gets its nodes."""
         return self.context.cluster
 
     @property
     def allocated(self):
+        """Return True iff nodes have been allocated to this service instance."""
         return len(self.nodes) > 0
 
     def who_am_i(self, node=None):
         """Human-readable identifier useful for log messages."""
         if node is None:
-            return self.__class__.__name__
+            return self.name
         else:
-            return "%s node %d on %s" % (self.__class__.__name__, self.idx(node), node.account.hostname)
+            return "%s node %d on %s" % (self.name, self.idx(node), node.account.hostname)
 
     def allocate_nodes(self):
         """Request resources from the cluster."""
@@ -205,17 +239,4 @@ class Service(TemplateRenderer):
             if self.get_node(idx) == node:
                 return idx
         return -1
-
-    @staticmethod
-    def run_parallel(*args):
-        """Helper to run a set of services in parallel. This is useful if you want
-        multiple services of different types to run concurrently, e.g. a
-        producer + consumer pair.
-        """
-        for svc in args:
-            svc.start()
-        for svc in args:
-            svc.wait()
-        for svc in args:
-            svc.stop()
 
