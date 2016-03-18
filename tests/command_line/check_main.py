@@ -145,6 +145,10 @@ class CheckUserDefinedGlobals(object):
 
     def check_non_dict(self):
         """Valid JSON which does not parse as a dict should raise an Error"""
+
+        # Should be able to parse this as JSON
+        json.loads(valid_json_not_dict)
+        
         try:
             get_user_defined_globals(valid_json_not_dict)
             assert False, "non-dict is not allowed for user defined globals"
