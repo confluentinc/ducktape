@@ -61,6 +61,14 @@ class CheckParseArgs(object):
             assert e.code == 0
             assert re.search("[\d]+\.[\d]+\.[\d]+", captured.output) is not None
 
+    def check_empty_test_path(self):
+        """Check that default test_path is an array consisting of cwd."""
+        args = ["--collect-only"]
+        parsed = parse_args(args)
+        parsed_paths = [os.path.abspath(p) for p in parsed["test_path"]]
+
+        assert parsed_paths == [os.path.abspath('.')]
+
     def check_multiple_test_paths(self):
         """Check that parser properly handles multiple "test paths". It should capture a list of test paths. """
         paths = ["path1"]
