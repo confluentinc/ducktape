@@ -12,21 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.loader import TestLoader, LoaderException
-from ducktape.tests.runner import SerialTestRunner
-from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, HTMLSummaryReporter
-from ducktape.tests.session import SessionContext
-from ducktape.command_line.defaults import ConsoleDefaults
-from ducktape.tests.session import generate_session_id, generate_results_dir
-from ducktape.utils.local_filesystem_utils import mkdir_p
-from ducktape.command_line.parse_args import parse_args
-
 import importlib
 import json
 import os
-import pysistence
 import sys
 import traceback
+
+import pysistence
+
+from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.command_line.parse_args import parse_args
+from ducktape.tests.loader import TestLoader, LoaderException
+from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, HTMLSummaryReporter
+from ducktape.tests.runner import SerialTestRunner
+from ducktape.tests.session import SessionContext
+from ducktape.tests.session import generate_session_id, generate_results_dir
+from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
 def extend_import_paths(paths):
@@ -50,7 +51,9 @@ def extend_import_paths(paths):
 def get_user_defined_globals(globals_str):
     """Parse user-defined globals into an immutable dict using globals_str
 
-    :param globals_str Either a file, or a JSON string representing a JSON object
+    :param globals_str Either a file, in which case, attempt to open the file and parse the contents as JSON,
+        or a JSON string representing a JSON object. The parsed JSON must represent a collection of key-value pairs,
+        i.e. a python dict.
     :return dict containing user-defined global variables
     """
     if globals_str is None:
@@ -60,8 +63,8 @@ def get_user_defined_globals(globals_str):
         # First try parsing directly as json
         user_globals = json.loads(globals_str)
     except ValueError:
-        # The string is not JSON - try loading from file instead
-        user_globals = json.load(globals_str)
+        # The string is not JSON - try interpreting string as filename instead
+        user_globals = json.loads(open(globals_str, "r").read())
 
     assert user_globals is not None
 

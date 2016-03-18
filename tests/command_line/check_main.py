@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.command_line.main import get_user_defined_globals
 from ducktape.command_line.main import setup_results_directory
 from ducktape.command_line.main import update_latest_symlink
 
+import json
 import os
 import os.path
 import tempfile
 
 
 class CheckSetupResultsDirectory(object):
-    def setup_method(self, method):
+    def setup_method(self, _):
         self.results_root = tempfile.mkdtemp()
         self.results_dir = os.path.join(self.results_root, "results_directory")
         self.latest_symlink = os.path.join(self.results_root, "latest")
@@ -61,3 +63,91 @@ class CheckSetupResultsDirectory(object):
         setup_results_directory(self.results_dir)
         update_latest_symlink(self.results_root, self.results_dir)
         self.validate_directories()
+
+
+globals_json = """
+{
+    "x": 200
+}
+"""
+
+invalid_globals_json = """
+{
+    can't parse this!: ?right?
+}
+"""
+
+valid_json_not_dict = """
+[
+    {
+        "x": 200,
+        "y": 300
+    }
+]
+"""
+
+
+class CheckUserDefinedGlobals(object):
+    """Tests for the helper method which parses in user defined globals option"""
+
+    def check_immutable(self):
+        """Expect the user defined dict object to be immutable."""
+        global_dict = get_user_defined_globals(globals_json)
+        try:
+            global_dict["x"] = -1
+            global_dict["y"] = 3
+            assert False, "globals dict should be immutable"
+        except:
+            # expected
+            pass
+
+    def check_parseable_json_string(self):
+        globals_dict = get_user_defined_globals(globals_json)
+        assert globals_dict == json.loads(globals_json)
+
+    def check_unparseable(self):
+        """Check for expected error"""
+        try:
+            global_dict = get_user_defined_globals(invalid_globals_json)
+            assert False, "Should have failed to parse invalid JSON"
+        except:
+            # expected
+            pass
+
+    def check_parse_from_file(self):
+        """Validate that, given a filename of a file containing valid JSON, we correctly parse the file contents."""
+        _, fname = tempfile.mkstemp()
+        try:
+            with open(fname, "w") as fh:
+                fh.write(globals_json)
+
+            global_dict = get_user_defined_globals(fname)
+            assert global_dict == json.loads(globals_json)
+            assert global_dict["x"] == 200
+        finally:
+            os.remove(fname)
+
+    def check_bad_parse_from_file(self):
+        """Validate behavior when given file containing invalid JSON"""
+        _, fname = tempfile.mkstemp()
+        try:
+            with open(fname, "w") as fh:
+                # Write invalid JSON
+                fh.write(invalid_globals_json)
+
+            get_user_defined_globals(fname)
+            assert False, "function call failed to raise an error"
+        except:
+            # This should happen
+            pass
+        finally:
+            os.remove(fname)
+
+    def check_non_dict(self):
+        """Valid JSON which does not parse as a dict should raise an Error"""
+        try:
+            get_user_defined_globals(valid_json_not_dict)
+            assert False, "non-dict is not allowed for user defined globals"
+        except:
+            # expected
+            pass
