@@ -15,8 +15,6 @@
 from __future__ import absolute_import
 
 from .json import JsonCluster
-from .cluster import Cluster, ClusterSlot
-from ducktape.command_line.defaults import ConsoleDefaults
 import os
 import json
 import subprocess
