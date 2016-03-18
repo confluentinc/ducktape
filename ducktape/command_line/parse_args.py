@@ -55,7 +55,9 @@ def create_ducktape_parser():
 
 
 def get_user_config_file(args):
-    """Helper function to check command line args to see if a config file is specified"""
+    """Helper function to get specified (or default) user config file.
+    :return Filename which is the path to the config file.
+    """
     parser = create_ducktape_parser()
     config_file = vars(parser.parse_args(args))["config_file"]
     assert config_file is not None
@@ -70,6 +72,7 @@ def config_file_to_args_list(config_file):
     if config_file is None:
         raise RuntimeError("config_file is None")
 
+    # Read in configuration, but ignore empty lines and comments
     config_lines = [line for line in open(config_file).readlines()
                     if (len(line.strip()) > 0 and line.lstrip()[0] != '#')]
 
