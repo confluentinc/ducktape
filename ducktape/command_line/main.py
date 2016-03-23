@@ -56,8 +56,9 @@ def get_user_defined_globals(globals_str):
         i.e. a python dict.
     :return dict containing user-defined global variables
     """
+    empty_global = pysistence.make_dict()
     if globals_str is None:
-        return None
+        return empty_global
 
     try:
         # First try parsing directly as json
@@ -65,8 +66,6 @@ def get_user_defined_globals(globals_str):
     except ValueError:
         # The string is not JSON - try interpreting string as filename instead
         user_globals = json.loads(open(globals_str, "r").read())
-
-    assert user_globals is not None
 
     # Now check that the parsed JSON is a dictionary
     if not isinstance(user_globals, dict):
