@@ -240,3 +240,15 @@ class Service(TemplateRenderer):
                 return idx
         return -1
 
+    @staticmethod
+    def run_parallel(*args):
+        """Helper to run a set of services in parallel. This is useful if you want
+           multiple services of different types to run concurrently, e.g. a
+           producer + consumer pair.
+        """
+        for svc in args:
+            svc.start()
+        for svc in args:
+            svc.wait()
+        for svc in args:
+            svc.stop()
