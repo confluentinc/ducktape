@@ -19,6 +19,7 @@ from ducktape.command_line.main import update_latest_symlink
 import json
 import os
 import os.path
+import pytest
 import tempfile
 
 
@@ -93,26 +94,25 @@ class CheckUserDefinedGlobals(object):
     def check_immutable(self):
         """Expect the user defined dict object to be immutable."""
         global_dict = get_user_defined_globals(globals_json)
-        try:
+
+        with pytest.raises(NotImplementedError):
             global_dict["x"] = -1
+
+        with pytest.raises(NotImplementedError):
             global_dict["y"] = 3
-            assert False, "globals dict should be immutable"
-        except:
-            # expected
-            pass
 
     def check_parseable_json_string(self):
+        """Check if globals_json is parseable as JSON, we get back a dictionary view of parsed JSON."""
         globals_dict = get_user_defined_globals(globals_json)
         assert globals_dict == json.loads(globals_json)
 
     def check_unparseable(self):
-        """Check for expected error"""
-        try:
-            global_dict = get_user_defined_globals(invalid_globals_json)
-            assert False, "Should have failed to parse invalid JSON"
-        except:
-            # expected
-            pass
+        """If JSON string is unparseable, we should try to open a file using the JSON as a path, and
+        trigger an IOError when the path is not found.
+        """
+
+        with pytest.raises(IOError):
+            get_user_defined_globals(invalid_globals_json)
 
     def check_parse_from_file(self):
         """Validate that, given a filename of a file containing valid JSON, we correctly parse the file contents."""
@@ -135,23 +135,18 @@ class CheckUserDefinedGlobals(object):
                 # Write invalid JSON
                 fh.write(invalid_globals_json)
 
-            get_user_defined_globals(fname)
-            assert False, "function call failed to raise an error"
-        except:
-            # This should happen
-            pass
+            with pytest.raises(ValueError):
+                get_user_defined_globals(fname)
+
         finally:
             os.remove(fname)
 
     def check_non_dict(self):
-        """Valid JSON which does not parse as a dict should raise an Error"""
+        """Valid JSON which does not parse as a dict should raise a ValueError"""
 
         # Should be able to parse this as JSON
         json.loads(valid_json_not_dict)
-        
-        try:
+
+        with pytest.raises(ValueError):
             get_user_defined_globals(valid_json_not_dict)
-            assert False, "non-dict is not allowed for user defined globals"
-        except:
-            # expected
-            pass
+
