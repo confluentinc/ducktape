@@ -34,7 +34,7 @@ IGNORE = TestStatus("ignore")
 class TestResult(object):
     """Wrapper class for a single result returned by a single test."""
 
-    def __init__(self, test_context, test_status=PASS, summary="", data=None):
+    def __init__(self, test_context, test_status=PASS, summary="", data=None, start_time=-1, stop_time=-1):
         """
         @param test_context  standard test context object
         @param test_status   did the test pass or fail, etc?
@@ -49,8 +49,8 @@ class TestResult(object):
         self._data = data
 
         # For tracking run time
-        self.start_time = -1
-        self.stop_time = -1
+        self.start_time = start_time
+        self.stop_time = stop_time
 
     @property
     def data(self):
