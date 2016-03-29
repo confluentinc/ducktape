@@ -85,43 +85,41 @@ class SerialTestRunner(TestRunner):
             # Results from this test, as well as logs will be dumped here
             mkdir_p(self.current_test_context.results_dir)
 
-            result_info = {
-                "start_time": -1,
-                "stop_time": -1,
-                "test_status": PASS,
-                "summary": "",
-                "data": None
-            }
+            start_time = -1
+            stop_time = -1
+            test_status = PASS
+            summary = ""
+            data = None
 
             try:
                 # Instantiate test
                 self.current_test = test_context.cls(test_context)
 
                 # Run the test unit
-                result_info["start_time"] = time.time()
+                start_time = time.time()
                 self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
 
                 self.log(logging.INFO, "setting up")
                 self.setup_single_test()
 
                 self.log(logging.INFO, "running")
-                result_info["data"] = self.run_single_test()
-                result_info["test_status"] = PASS
+                data = self.run_single_test()
+                test_status = PASS
                 self.log(logging.INFO, "PASS")
 
             except BaseException as e:
                 self.log(logging.INFO, "FAIL")
-                result_info["test_status"] = FAIL
-                result_info["summary"] += str(e.message) + "\n" + traceback.format_exc(limit=16)
+                test_status = FAIL
+                summary += str(e.message) + "\n" + traceback.format_exc(limit=16)
 
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
             finally:
                 self.teardown_single_test(teardown_services=not self.session_context.no_teardown)
 
-                result_info["stop_time"] = time.time()
+                stop_time = time.time()
 
-                result = TestResult(self.current_test_context, **result_info)
+                result = TestResult(self.current_test_context, test_status, summary, data, start_time, stop_time)
                 self.results.append(result)
 
                 self.log(logging.INFO, "Summary: %s" % str(result.summary))
@@ -205,11 +203,7 @@ class SerialTestRunner(TestRunner):
 
         # Remove reference to services. This is important to prevent potential memory leaks if users write services
         # which themselves have references to large memory-intensive objects
-        try:
-            del self.current_test_context.services
-        except BaseException as e:
-            exceptions.append(e)
-            self.log(logging.WARN, "Error removing reference to services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+        del self.current_test_context.services
 
         if len([e for e in exceptions if isinstance(e, KeyboardInterrupt)]) > 0:
             # Signal no more tests if we caught a keyboard interrupt

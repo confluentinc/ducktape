@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import TestContext, Test
+from ducktape.tests.test import Test
 from ducktape.tests.runner import SerialTestRunner
 from ducktape.services.service import Service
-from ducktape.mark import ignore, parametrize, MarkedFunctionExpander
+from ducktape.mark import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 from ducktape.mark import matrix
 
@@ -23,9 +23,7 @@ from ducktape.mark import matrix
 import multiprocessing
 import os
 from memory_profiler import _get_memory
-import shutil
 import statistics
-import tempfile
 
 import tests.ducktape_mock
 
@@ -71,17 +69,15 @@ class InstrumentedSerialTestRunner(SerialTestRunner):
     before running each test.
     """
     def __init__(self, *args, **kwargs):
-        self.memory_data_file = kwargs.get("memory_data_file")
-        del kwargs["memory_data_file"]
+        self.queue = kwargs.get("queue")
+        del kwargs["queue"]
         super(InstrumentedSerialTestRunner, self).__init__(*args, **kwargs)
 
     def run_single_test(self):
-
         # write current memory usage to file before running the test
         pid = os.getpid()
         current_memory = _get_memory(pid)
-        with open(self.memory_data_file, "a+") as f:
-            f.write(str(current_memory) + "\n")
+        self.queue.put(current_memory)
 
         data = super(InstrumentedSerialTestRunner, self).run_single_test()
         return data
@@ -91,8 +87,6 @@ class CheckMemoryUsage(object):
     def setup_method(self, _):
         mock_cluster = LocalhostCluster()
         self.session_context = tests.ducktape_mock.session_context(mock_cluster)
-        self.tmp_dir = tempfile.mkdtemp()
-        self.tmp_file = os.path.join(self.tmp_dir, "tmp_file")
 
     def check_for_inter_test_memory_leak(self):
         """Until v0.3.10, ducktape had a serious source of potential memory leaks.
@@ -114,18 +108,30 @@ class CheckMemoryUsage(object):
             ctx_list.extend(MarkedFunctionExpander(session_context=self.session_context, cls=MemoryLeakTest, function=f).expand())
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
-        runner = InstrumentedSerialTestRunner(self.session_context, ctx_list, memory_data_file=self.tmp_file)
+        # Run all tests in another process
+        queue = multiprocessing.Queue()
+        runner = InstrumentedSerialTestRunner(self.session_context, ctx_list, queue=queue)
         runner.log = Mock()
 
-        # Run all tests in another process
         proc = multiprocessing.Process(target=runner.run_all_tests)
         proc.start()
         proc.join()
 
-        measurements = [float(line.strip()) for line in open(self.tmp_file, "r")]
+        measurements = []
+        while not queue.empty():
+            measurements.append(queue.get())
         self.validate_memory_measurements(measurements)
 
     def validate_memory_measurements(self, measurements):
+        """A rough heuristic to check that stair-case style memory leak is not present.
+
+        The idea is that when well-behaved, in this specific test, the maximum memory usage should be near the "middle".
+         Here we check that the maximum usage is within 5% of the median memory usage.
+
+        What is meant by stair-case? When the leak was present in its most blatant form,
+         each repetition of MemoryLeak.test_leak run by the test runner adds approximately a fixed amount of memory
+         without freeing much, resulting in a memory usage profile that looks like a staircase going up to the right.
+        """
         median_usage = statistics.median(measurements)
         max_usage = max(measurements)
 
@@ -135,5 +141,3 @@ class CheckMemoryUsage(object):
         relative_diff = (max_usage - median_usage) / median_usage
         assert relative_diff <= .05, "max usage exceeded median usage by too much; there may be a memory leak: %s" % usage_stats
 
-    def teardown_method(self, _):
-        shutil.rmtree(self.tmp_dir)
