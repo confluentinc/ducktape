@@ -73,13 +73,11 @@ class SerialTestRunner(TestRunner):
                     (self.cluster.num_available_nodes(), len(self.cluster)))
 
             self.current_test_context = test_context
-            result = TestResult(self.current_test_context)
 
             if self.current_test_context.ignore:
                 # Skip running this test, but keep track of the fact that we ignored it
-                result.test_status = IGNORE
-                result.start_time = time.time()
-                result.stop_time = result.start_time
+                result = TestResult(self.current_test_context,
+                                    test_status=IGNORE, start_time=time.time(), stop_time=time.time())
                 self.results.append(result)
                 self.log(logging.INFO, "Ignoring, and moving to next test...")
                 continue
@@ -87,33 +85,41 @@ class SerialTestRunner(TestRunner):
             # Results from this test, as well as logs will be dumped here
             mkdir_p(self.current_test_context.results_dir)
 
+            start_time = -1
+            stop_time = -1
+            test_status = PASS
+            summary = ""
+            data = None
+
             try:
                 # Instantiate test
                 self.current_test = test_context.cls(test_context)
 
                 # Run the test unit
-                result.start_time = time.time()
+                start_time = time.time()
                 self.log(logging.INFO, "test %d of %d" % (test_num, len(self.tests)))
 
                 self.log(logging.INFO, "setting up")
                 self.setup_single_test()
 
                 self.log(logging.INFO, "running")
-                result.data = self.run_single_test()
-                result.test_status = PASS
+                data = self.run_single_test()
+                test_status = PASS
                 self.log(logging.INFO, "PASS")
 
             except BaseException as e:
                 self.log(logging.INFO, "FAIL")
-                result.test_status = FAIL
-                result.summary += str(e.message) + "\n" + traceback.format_exc(limit=16)
+                test_status = FAIL
+                summary += str(e.message) + "\n" + traceback.format_exc(limit=16)
 
                 self.stop_testing = self.session_context.exit_first or isinstance(e, KeyboardInterrupt)
 
             finally:
                 self.teardown_single_test(teardown_services=not self.session_context.no_teardown)
 
-                result.stop_time = time.time()
+                stop_time = time.time()
+
+                result = TestResult(self.current_test_context, test_status, summary, data, start_time, stop_time)
                 self.results.append(result)
 
                 self.log(logging.INFO, "Summary: %s" % str(result.summary))
@@ -194,6 +200,10 @@ class SerialTestRunner(TestRunner):
         except BaseException as e:
             exceptions.append(e)
             self.log(logging.WARN, "Error freeing nodes: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+
+        # Remove reference to services. This is important to prevent potential memory leaks if users write services
+        # which themselves have references to large memory-intensive objects
+        del self.current_test_context.services
 
         if len([e for e in exceptions if isinstance(e, KeyboardInterrupt)]) > 0:
             # Signal no more tests if we caught a keyboard interrupt
