@@ -160,7 +160,9 @@ class TestLoader(object):
                     # triggers an ImportError (e.g. typo in an import line),
                     # that error will be swallowed.
 
-                    if not isinstance(e, ImportError):
+                    if isinstance(e, ImportError) and re.search("No module named", e.message) is not None:
+                        self.logger.debug("Failed to import %s. This is likely an artifact of the ducktape module loading process: %s: %s", module_name, e.__class__.__name__, e)
+                    else:
                         self.logger.error("Failed to import %s, which may indicate a broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
                 finally:
                     path_pieces = path_pieces[1:]
