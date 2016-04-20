@@ -145,22 +145,41 @@ class TestLoader(object):
                     successful_import = True
                     break  # no need to keep trying
                 except Exception as e:
-                    # When importing, exceptions can occur if a) the module
-                    # doesn't exist, e.g. we have the wrong path to the
-                    # module/there aren't __init__.py files, etc, resulting in
-                    # an ImportError or b) the module is valid, but there was
-                    # some other error when parsing/executing the module, which
-                    # can result in a variety of errors (e.g. IndentationError,
-                    # TypeError, etc). Because of the way we are searching for
-                    # valid modules in this loop, where we expect some of the
-                    # module names we construct to fail to import, we ignore
-                    # ImportError here, but log everything else as an
-                    # error. This does mean we fail to log a subset of import
-                    # errors that we should: if the module is valid but itself
-                    # triggers an ImportError (e.g. typo in an import line),
-                    # that error will be swallowed.
+                    # Because of the way we are searching for
+                    # valid modules in this loop, we expect some of the
+                    # module names we construct to fail to import.
+                    #
+                    # Therefore we check if the failure "looks normal", and log
+                    # expected failures only at debug level.
+                    #
+                    # Unexpected errors are aggressively logged, e.g. if the module
+                    # is valid but itself triggers an ImportError (e.g. typo in an
+                    # import line), or a SyntaxError.
 
-                    if isinstance(e, ImportError) and re.search("No module named", e.message) is not None:
+                    expected_error = False
+                    if isinstance(e, ImportError):
+                        match = re.search("No module named ([^\s]+)", e.message)
+
+                        if match is not None:
+                            missing_module = match.groups()[0]
+
+                            if missing_module == module_name:
+                                expected_error = True
+                            else:
+                                # The error is still an expected error if missing_module is a suffix of module_name.
+                                # This is because the error message may contain only a suffix
+                                # of the original module_name if leftmost chunk of module_name is a legitimate
+                                # module name, but the rightmost part doesn't exist.
+                                #
+                                # Check this by seeing if it is a "piecewise suffix" of module_name - i.e. if the parts
+                                # delimited by dots match. This is a little bit stricter than just checking for a suffix
+                                #
+                                # E.g. "fancy.cool_module" is a piecewise suffix of "my.fancy.cool_module",
+                                # but  "module" is not a piecewise suffix of "my.fancy.cool_module"
+                                missing_module_pieces = missing_module.split(".")
+                                expected_error = (missing_module_pieces == path_pieces[-len(missing_module_pieces):])
+
+                    if expected_error:
                         self.logger.debug("Failed to import %s. This is likely an artifact of the ducktape module loading process: %s: %s", module_name, e.__class__.__name__, e)
                     else:
                         self.logger.error("Failed to import %s, which may indicate a broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
