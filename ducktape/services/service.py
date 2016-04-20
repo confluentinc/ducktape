@@ -68,13 +68,9 @@ class Service(TemplateRenderer):
                              (self.num_nodes, [n.account.hostname for n in self.nodes]))
 
     @property
-    def name(self):
+    def service_id(self):
         """Human-readable identifier (almost certainly) unique within a test run."""
-        return self.__class__.__name__ + "-" + str(self.id)
-
-    @property
-    def id(self):
-        return "%d-%d" % (self._order, id(self))
+        return "%s-%d-%d" % (self.__class__.__name__, self._order, id(self))
 
     @property
     def _order(self):
@@ -117,9 +113,9 @@ class Service(TemplateRenderer):
     def who_am_i(self, node=None):
         """Human-readable identifier useful for log messages."""
         if node is None:
-            return self.name
+            return self.service_id
         else:
-            return "%s node %d on %s" % (self.name, self.idx(node), node.account.hostname)
+            return "%s node %d on %s" % (self.service_id, self.idx(node), node.account.hostname)
 
     def allocate_nodes(self):
         """Request resources from the cluster."""

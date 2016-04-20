@@ -46,9 +46,9 @@ class BackgroundThreadService(Service):
     def start_node(self, node):
         idx = self.idx(node)
 
-        self.logger.info("Running %s node %d on %s", self.name, idx, node.account.hostname)
+        self.logger.info("Running %s node %d on %s", self.service_id, idx, node.account.hostname)
         worker = threading.Thread(
-            name=self.name + "-worker-" + str(idx),
+            name=self.service_id + "-worker-" + str(idx),
             target=self._protected_worker,
             args=(idx, node)
         )
