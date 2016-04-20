@@ -56,21 +56,36 @@ def get_user_defined_globals(globals_str):
         i.e. a python dict.
     :return dict containing user-defined global variables
     """
-    empty_global = pysistence.make_dict()
     if globals_str is None:
-        return empty_global
+        return pysistence.make_dict()
 
-    try:
-        # First try parsing directly as json
-        user_globals = json.loads(globals_str)
-    except ValueError:
-        # The string is not JSON - try interpreting string as filename instead
+    from_file = False
+    if os.path.isfile(globals_str):
+        # The string appears to be a file, so try loading JSON from file
+        # This may raise an IOError if the file can't be read or a ValueError if the contents of the file
+        # cannot be parsed.
+        print "globals parameter appears to be a file. Attempting to load user defined globals from file %s..." % globals_str
         user_globals = json.loads(open(globals_str, "r").read())
+        from_file = True
+    else:
+        try:
+            # try parsing directly as json if it doesn't seem to be a file
+            user_globals = json.loads(globals_str)
+        except ValueError as ve:
+            message = ve.message
+            message += "\nglobals parameter %s is neither valid JSON nor a valid path to a JSON file." % globals_str
+            raise ValueError(message)
 
     # Now check that the parsed JSON is a dictionary
     if not isinstance(user_globals, dict):
-        raise ValueError("User defined globals must be a JSON object which parses to a dict. "
-                         "Instead found %s, which parsed to %s" % (str(user_globals), type(user_globals)))
+        if from_file:
+            message = "The JSON contained in file %s must parse to a dict. "
+        else:
+            message = "JSON string referred to by globals parameter must parse to a dict. "
+        message += "I.e. the contents of the JSON must be an object, not an array or primitive. "
+        message += "Instead found %s, which parsed to %s" % (str(user_globals), type(user_globals))
+
+        raise ValueError(message)
 
     # Use pysistence to create the immutable dict
     user_globals = pysistence.make_dict(**user_globals)
