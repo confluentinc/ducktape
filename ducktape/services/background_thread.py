@@ -24,7 +24,7 @@ class BackgroundThreadService(Service):
 
     def __init__(self, context, num_nodes):
         super(BackgroundThreadService, self).__init__(context, num_nodes)
-        self.worker_threads = []
+        self.worker_threads = {}
         self.worker_errors = {}
         self.lock = threading.RLock()
 
@@ -46,6 +46,9 @@ class BackgroundThreadService(Service):
     def start_node(self, node):
         idx = self.idx(node)
 
+        if idx in self.worker_threads and self.worker_threads[idx].is_alive():
+            raise "Cannot restart node since previous thread is still alive"
+
         self.logger.info("Running %s node %d on %s", self.service_id, idx, node.account.hostname)
         worker = threading.Thread(
             name=self.service_id + "-worker-" + str(idx),
@@ -54,7 +57,7 @@ class BackgroundThreadService(Service):
         )
         worker.daemon = True
         worker.start()
-        self.worker_threads.append(worker)
+        self.worker_threads[idx] = worker
 
     def wait(self, timeout_sec=600):
         """Wait no more than timeout_sec for all worker threads to finish.
@@ -65,14 +68,14 @@ class BackgroundThreadService(Service):
 
         start = time.time()
         end = start + timeout_sec
-        for idx, worker in enumerate(self.worker_threads, 1):
+        for idx, worker in self.worker_threads.iteritems():
 
             if end > time.time():
                 self.logger.debug("Waiting for worker thread %s finish", worker.name)
                 current_timeout = end - time.time()
                 worker.join(current_timeout)
 
-        alive_workers = [worker.name for worker in self.worker_threads if worker.is_alive()]
+        alive_workers = [worker.name for worker in self.worker_threads.itervalues() if worker.is_alive()]
         if len(alive_workers) > 0:
             raise TimeoutError("Timed out waiting %s seconds for background threads to finish. " % str(timeout_sec) +
                                 "These threads are still alive: " + str(alive_workers))
@@ -83,7 +86,7 @@ class BackgroundThreadService(Service):
                 raise Exception(str(self.worker_errors))
 
     def stop(self):
-        alive_workers = [worker for worker in self.worker_threads if worker.is_alive()]
+        alive_workers = [worker for worker in self.worker_threads.itervalues() if worker.is_alive()]
         if len(alive_workers) > 0:
             self.logger.debug(
                 "Called stop with at least one worker thread is still running: " + str(alive_workers))
@@ -92,10 +95,9 @@ class BackgroundThreadService(Service):
 
         super(BackgroundThreadService, self).stop()
 
-    def stop_node(self, node):
-        # do nothing
-        pass
+    def wait_node(self, node, timeout_sec=None):
+        idx = self.idx(node)
+        worker_thread = self.worker_threads[idx]
+        worker_thread.join(timeout_sec)
+        return not(worker_thread.is_alive())
 
-    def clean_node(self, node):
-        # do nothing
-        pass

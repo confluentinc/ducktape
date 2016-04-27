@@ -180,6 +180,12 @@ class Service(TemplateRenderer):
         """
         pass
 
+    def wait_node(self, node, timeout_sec=None):
+        """Wait for the service on the given node to finish. 
+        Return True if the node finished shutdown, False otherwise.
+        """
+        pass
+
     def stop(self):
         """Stop service processes on each node in this service.
         Subclasses must override stop_node.
@@ -204,8 +210,8 @@ class Service(TemplateRenderer):
 
     def clean_node(self, node):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
-        self.logger.warn("%s: clean_node has not been overriden. " % self.who_am_i(),
-                         "This may be fine if the service leaves no persistent state.")
+        self.logger.warn("%s: clean_node has not been overriden. This may be fine if the service leaves no persistent state."
+                         % self.who_am_i())
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
