@@ -64,7 +64,6 @@ def get_user_defined_globals(globals_str):
         # The string appears to be a file, so try loading JSON from file
         # This may raise an IOError if the file can't be read or a ValueError if the contents of the file
         # cannot be parsed.
-        print "globals parameter appears to be a file. Attempting to load user defined globals from file %s..." % globals_str
         user_globals = json.loads(open(globals_str, "r").read())
         from_file = True
     else:
