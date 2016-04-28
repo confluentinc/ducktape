@@ -15,7 +15,7 @@
 import os
 
 
-class ConsoleConfig(object):
+class ConsoleDefaults(object):
     # Directory for project-specific ducktape configs and runtime data
     DUCKTAPE_DIR = ".ducktape"
 

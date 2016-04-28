@@ -18,7 +18,7 @@ import sys
 import time
 
 from ducktape.tests.logger import Logger
-from ducktape.command_line.config import ConsoleConfig
+from ducktape.command_line.defaults import ConsoleDefaults
 
 
 class SessionContext(Logger):
@@ -26,14 +26,21 @@ class SessionContext(Logger):
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, session_id, results_dir, cluster, args):
-        self.session_id = session_id
-        self.results_dir = os.path.abspath(results_dir)
-        self.cluster = cluster
-        self.args = args
-        self.debug = args.debug
-        self.exit_first = args.exit_first
-        self.no_teardown = args.no_teardown
+    def __init__(self, **kwargs):
+        # session_id, results_dir, cluster, globals):
+        self.session_id = kwargs["session_id"]
+        self.results_dir = os.path.abspath(kwargs["results_dir"])
+        self.cluster = kwargs["cluster"]
+
+        self.debug = kwargs.get("debug", False)
+        self.exit_first = kwargs.get("exit_first", False)
+        self.no_teardown = kwargs.get("no_teardown", False)
+        self._globals = kwargs.get("globals")
+
+    @property
+    def globals(self):
+        """None, or an immutable dictionary containing user-defined global variables."""
+        return self._globals
 
     @property
     def logger_name(self):
@@ -53,7 +60,7 @@ class SessionContext(Logger):
         ch.setLevel(logging.DEBUG if self.debug else logging.INFO)
 
         # create formatter and add it to the handlers
-        formatter = logging.Formatter(ConsoleConfig.SESSION_LOG_FORMATTER)
+        formatter = logging.Formatter(ConsoleDefaults.SESSION_LOG_FORMATTER)
         fh_info.setFormatter(formatter)
         fh_debug.setFormatter(formatter)
         ch.setFormatter(formatter)

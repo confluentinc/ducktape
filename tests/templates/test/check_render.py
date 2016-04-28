@@ -13,10 +13,9 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test, TestContext
-from ducktape.tests.session import SessionContext
 from ducktape.template import TemplateRenderer
 
-from tests.ducktape_mock import MockArgs
+from tests.ducktape_mock import session_context
 
 import os
 import tempfile
@@ -29,7 +28,7 @@ class CheckTemplateRenderingTest(object):
 
     def setup(self):
         dir = tempfile.gettempdir()
-        session_ctx = SessionContext("session_id", dir, None, MockArgs())
+        session_ctx = session_context(results_dir=dir)
         test_ctx = TestContext(session_context=session_ctx)
         return TemplateRenderingTest(test_ctx)
 

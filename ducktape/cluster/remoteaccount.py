@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.utils.http_utils import HttpMixin
-from ducktape.utils.util import wait_until
-
 import os
 import select
 import signal
 import subprocess
 import tempfile
 from contextlib import contextmanager
+
+from ducktape.utils.http_utils import HttpMixin
+from ducktape.utils.util import wait_until
+
 
 class RemoteAccount(HttpMixin):
     def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip = None, logger=None):
