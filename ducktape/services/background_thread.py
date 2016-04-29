@@ -13,10 +13,8 @@
 # limitations under the License.
 
 from ducktape.services.service import Service
-from ducktape.errors import TimeoutError
 
 import threading
-import time
 import traceback
 
 
@@ -64,21 +62,7 @@ class BackgroundThreadService(Service):
 
         raise TimeoutException if all worker threads do not finish within timeout_sec
         """
-        super(BackgroundThreadService, self).wait()
-
-        start = time.time()
-        end = start + timeout_sec
-        for idx, worker in self.worker_threads.iteritems():
-
-            if end > time.time():
-                self.logger.debug("Waiting for worker thread %s finish", worker.name)
-                current_timeout = end - time.time()
-                worker.join(current_timeout)
-
-        alive_workers = [worker.name for worker in self.worker_threads.itervalues() if worker.is_alive()]
-        if len(alive_workers) > 0:
-            raise TimeoutError("Timed out waiting %s seconds for background threads to finish. " % str(timeout_sec) +
-                                "These threads are still alive: " + str(alive_workers))
+        super(BackgroundThreadService, self).wait(timeout_sec)
 
         # Propagate exceptions thrown in background threads
         with self.lock:
