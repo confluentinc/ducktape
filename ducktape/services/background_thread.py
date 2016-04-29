@@ -79,7 +79,7 @@ class BackgroundThreadService(Service):
 
         super(BackgroundThreadService, self).stop()
 
-    def wait_node(self, node, timeout_sec=None):
+    def wait_node(self, node, timeout_sec=600):
         idx = self.idx(node)
         worker_thread = self.worker_threads[idx]
         worker_thread.join(timeout_sec)

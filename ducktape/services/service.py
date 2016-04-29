@@ -181,7 +181,7 @@ class Service(TemplateRenderer):
         This only makes sense for tasks with a fixed amount of work to do. For services that generate
         output, it is only guaranteed to be available after this call returns.
         """
-        alive_nodes = [] # nodes still alive following completion of wait
+        unfinished_nodes = []
         start = time.time()
         end = start + timeout_sec
         for node in self.nodes:
@@ -189,13 +189,13 @@ class Service(TemplateRenderer):
             if end > now:
                 self.logger.debug("%s: waiting for node", self.who_am_i(node))
                 if not self.wait_node(node, end - now):
-                    alive_nodes.append(node)
+                    unfinished_nodes.append(node)
             else:
-                alive_nodes.append(node)
+                unfinished_nodes.append(node)
 
-        if alive_nodes:
-            raise TimeoutError("Timed out waiting %s seconds for background threads to finish. " % str(timeout_sec) +
-                               "These nodes are still alive: " + str(alive_nodes))
+        if unfinished_nodes:
+            raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec) +
+                               "These nodes are still alive: " + str(unfinished_nodes))
 
 
     def wait_node(self, node, timeout_sec=None):
