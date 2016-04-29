@@ -45,7 +45,7 @@ class BackgroundThreadService(Service):
         idx = self.idx(node)
 
         if idx in self.worker_threads and self.worker_threads[idx].is_alive():
-            raise "Cannot restart node since previous thread is still alive"
+            raise RuntimeError("Cannot restart node since previous thread is still alive")
 
         self.logger.info("Running %s node %d on %s", self.service_id, idx, node.account.hostname)
         worker = threading.Thread(
