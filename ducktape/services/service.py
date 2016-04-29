@@ -15,6 +15,9 @@
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.template import TemplateRenderer
+from ducktape.errors import TimeoutError
+
+import time
 
 
 class Service(TemplateRenderer):
@@ -173,12 +176,33 @@ class Service(TemplateRenderer):
         """Start service process(es) on the given node."""
         raise NotImplementedError("%s: subclasses must implement start_node." % self.who_am_i())
 
-    def wait(self):
+    def wait(self, timeout_sec=600):
         """Wait for the service to finish.
         This only makes sense for tasks with a fixed amount of work to do. For services that generate
         output, it is only guaranteed to be available after this call returns.
         """
-        pass
+        unfinished_nodes = []
+        start = time.time()
+        end = start + timeout_sec
+        for node in self.nodes:
+            now = time.time()
+            if end > now:
+                self.logger.debug("%s: waiting for node", self.who_am_i(node))
+                if not self.wait_node(node, end - now):
+                    unfinished_nodes.append(node)
+            else:
+                unfinished_nodes.append(node)
+
+        if unfinished_nodes:
+            raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec) +
+                               "These nodes are still alive: " + str(unfinished_nodes))
+
+
+    def wait_node(self, node, timeout_sec=None):
+        """Wait for the service on the given node to finish. 
+        Return True if the node finished shutdown, False otherwise.
+        """
+        raise NotImplementedError("%s: subclasses must implement wait_node." % self.who_am_i())
 
     def stop(self):
         """Stop service processes on each node in this service.
@@ -204,8 +228,8 @@ class Service(TemplateRenderer):
 
     def clean_node(self, node):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
-        self.logger.warn("%s: clean_node has not been overriden. " % self.who_am_i(),
-                         "This may be fine if the service leaves no persistent state.")
+        self.logger.warn("%s: clean_node has not been overriden. This may be fine if the service leaves no persistent state."
+                         % self.who_am_i())
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""

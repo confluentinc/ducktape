@@ -81,3 +81,10 @@ class CheckBackgroundThreadService(object):
         self.service.start()
         self.service.wait(timeout_sec=.5)
 
+    def check_wait_node(self):
+        self.service = DummyService(self.context, run_time_sec=float('inf'))
+        self.service.start()
+        node = self.service.nodes[0]
+        assert not(self.service.wait_node(node, timeout_sec=.1))
+        self.service.stop_node(node)
+        assert self.service.wait_node(node)
