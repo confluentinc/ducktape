@@ -106,7 +106,8 @@ class VagrantCluster(JsonCluster):
         return nodes
 
     def _vagrant_ssh_config(self):
-        return subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+        return subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                close_fds=True).communicate()
 
     @property
     def is_aws(self):
@@ -115,7 +116,8 @@ class VagrantCluster(JsonCluster):
         Return true if they are running on aws.
         """
         if self._is_aws is None:
-            proc = subprocess.Popen("vagrant status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            proc = subprocess.Popen("vagrant status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    close_fds=True)
             output, _ = proc.communicate()
             self._is_aws = output.find("aws") >= 0
         return self._is_aws
