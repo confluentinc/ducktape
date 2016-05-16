@@ -84,7 +84,7 @@ class RemoteAccount(HttpMixin):
     def ssh_capture(self, cmd, allow_fail=False, callback=None):
         '''Runs the command via SSH and captures the output, yielding lines of the output.'''
         ssh_cmd = self.ssh_command(cmd)
-        proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
 
         def output_generator():
             for line in iter(proc.stdout.readline, ''):
@@ -101,7 +101,7 @@ class RemoteAccount(HttpMixin):
     def ssh_output(self, cmd, allow_fail=False):
         '''Runs the command via SSH and captures the output, returning it as a string.'''
         ssh_cmd = self.ssh_command(cmd)
-        proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
         (stdoutdata, stderrdata) = proc.communicate()
         if proc.returncode != 0 and not allow_fail:
             raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
