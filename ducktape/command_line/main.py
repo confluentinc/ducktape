@@ -104,7 +104,7 @@ def update_latest_symlink(results_root, new_results_dir):
     latest_test_dir = os.path.join(results_root, "latest")
     if os.path.islink(latest_test_dir):
         os.unlink(latest_test_dir)
-    os.symlink(new_results_dir, latest_test_dir)
+    os.symlink(os.path.relpath(new_results_dir, results_root), latest_test_dir)
 
 
 def main():
