@@ -89,9 +89,11 @@ class Ignore(Mark):
         return "IGNORE"
 
     def apply(self, seed_context, context_list):
+        assert len(context_list) > 0, "ignore annotation is not being applied to any test cases"
+
         for ctx in context_list:
             ctx.ignore = ctx.ignore or self.injected_args is None or self.injected_args == ctx.injected_args
-        return seed_context, context_list
+        return context_list
 
     def __eq__(self, other):
         return super(Ignore, self).__eq__(other) and self.injected_args == other.injected_args
@@ -125,7 +127,7 @@ class Matrix(Mark):
             injected_fun = _inject(**injected_args)(seed_context.function)
             context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=injected_args))
 
-        return seed_context, context_list
+        return context_list
 
     def __eq__(self, other):
         return super(Matrix, self).__eq__(other) and self.injected_args == other.injected_args
@@ -143,7 +145,7 @@ class Parametrize(Mark):
     def apply(self, seed_context, context_list):
         injected_fun = _inject(**self.injected_args)(seed_context.function)
         context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=self.injected_args))
-        return seed_context, context_list
+        return context_list
 
     def __eq__(self, other):
         return super(Parametrize, self).__eq__(other) and self.injected_args == other.injected_args
@@ -168,6 +170,7 @@ def _strip_parametrize_marks(fun):
     for m in marks:
         if not _is_parametrize_mark(m):
             Mark.mark(fun, m)
+
 
 def parametrized(f):
     """Is this function or object decorated with @parametrize or @matrix?"""
@@ -361,7 +364,7 @@ class MarkedFunctionExpander(object):
 
         if hasattr(f, "marks"):
             for m in f.marks:
-                self.seed_context, self.context_list = m.apply(self.seed_context, self.context_list)
+                self.context_list = m.apply(self.seed_context, self.context_list)
 
         return self.context_list
 

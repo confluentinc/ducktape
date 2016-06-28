@@ -142,6 +142,8 @@ class TestContext(Logger):
         :param cls
         :param function
         :param injected_args
+        :param service_registry
+        :param _cluster_size
         """
         self.session_context = kwargs.get("session_context", None)
         self.module = kwargs.get("module", None)
@@ -149,6 +151,7 @@ class TestContext(Logger):
         self.function = kwargs.get("function", None)
         self.injected_args = kwargs.get("injected_args", None)
         self.ignore = kwargs.get("ignore", False)
+        self._cluster_size = kwargs.get("_cluster_size", None)
 
         self.services = ServiceRegistry()
 
@@ -156,16 +159,23 @@ class TestContext(Logger):
         self.log_collect = {}
 
     def __repr__(self):
-        return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
-               (self.module, self.cls_name, self.function_name, str(self.injected_args))
+        return "<module=%s, cls=%s, function=%s, injected_args=%s, cluster_size=%d>" % \
+               (self.module, self.cls_name, self.function_name, str(self.injected_args),
+                self.cluster_size)
 
     def copy(self, **kwargs):
-        """Construct a new TestContext object from another TestContext object
-        Note that this is not a true copy, since a fresh ServiceRegistry instance will be created.
-        """
+        """Construct a new TestContext object from another TestContext object"""
         ctx_copy = TestContext(**self.__dict__)
         ctx_copy.__dict__.update(**kwargs)
         return ctx_copy
+
+    @property
+    def cluster_size(self):
+        if hasattr(self, "_cluster_size") and self._cluster_size is not None:
+            return self._cluster_size
+        else:
+            # by default, assume that no cluster nodes will be allocated
+            return 0
 
     @property
     def globals(self):
