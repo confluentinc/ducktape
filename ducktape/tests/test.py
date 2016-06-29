@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import logging
 import os
 import re
@@ -133,6 +134,9 @@ def _escape_pathname(s):
     return re.sub("^\.|\.$", "", s)
 
 
+CLUSTER_SIZE_KEYWORD = "num_nodes"
+
+
 class TestContext(Logger):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
     def __init__(self, **kwargs):
@@ -143,15 +147,18 @@ class TestContext(Logger):
         :param function
         :param injected_args
         :param service_registry
-        :param _cluster_size
+        :param cluster_use_metadata
         """
-        self.session_context = kwargs.get("session_context", None)
-        self.module = kwargs.get("module", None)
-        self.cls = kwargs.get("cls", None)
-        self.function = kwargs.get("function", None)
-        self.injected_args = kwargs.get("injected_args", None)
+        self.session_context = kwargs.get("session_context")
+        self.module = kwargs.get("module")
+        self.cls = kwargs.get("cls")
+        self.function = kwargs.get("function")
+        self.injected_args = kwargs.get("injected_args")
         self.ignore = kwargs.get("ignore", False)
-        self._cluster_size = kwargs.get("_cluster_size", None)
+
+        # cluster_use_metadata is a dict containing information about how this test will use cluster resources
+        # to date, this only includes "num_nodes"
+        self.cluster_use_metadata = copy.copy(kwargs.get("cluster_use_metadata", {}))
 
         self.services = ServiceRegistry()
 
@@ -159,9 +166,9 @@ class TestContext(Logger):
         self.log_collect = {}
 
     def __repr__(self):
-        return "<module=%s, cls=%s, function=%s, injected_args=%s, cluster_size=%d>" % \
+        return "<module=%s, cls=%s, function=%s, injected_args=%s, cluster_size=%s>" % \
                (self.module, self.cls_name, self.function_name, str(self.injected_args),
-                self.cluster_size)
+                str(self.expected_num_nodes))
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object"""
@@ -170,12 +177,11 @@ class TestContext(Logger):
         return ctx_copy
 
     @property
-    def cluster_size(self):
-        if hasattr(self, "_cluster_size") and self._cluster_size is not None:
-            return self._cluster_size
-        else:
-            # by default, assume that no cluster nodes will be allocated
-            return 0
+    def expected_num_nodes(self):
+        """How many nodes we expect this test to consume when run.
+        Return None if undefined.
+        """
+        return self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
 
     @property
     def globals(self):

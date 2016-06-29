@@ -12,64 +12,64 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+
 from ducktape.mark._mark import Mark
 
 
-def _is_int(n):
-    try:
-        int(n) == n
-        return True
-    except ValueError:
-        return False
-
-
-class ClusterSize(Mark):
-    """Provide a hint about cluster use."""
-    def __init__(self, num_nodes):
-        assert _is_int(num_nodes), "num_nodes is not an int. Can't create a cluster use marker without meaningful num_nodes."
-        self.cluster_size = num_nodes
+class ClusterUseMetadata(Mark):
+    """Provide a hint about how a given test will use the cluster."""
+    def __init__(self, **kwargs):
+        # shallow copy
+        self.metadata = copy.copy(kwargs)
 
     @property
     def name(self):
         return "RESOURCE_HINT_CLUSTER_USE"
 
     def apply(self, seed_context, context_list):
-        assert len(context_list) > 0, "cluster size annotation is not being applied to any test cases"
+        assert len(context_list) > 0, "cluster use annotation is not being applied to any test cases"
 
         for ctx in context_list:
-            if not hasattr(ctx, "_cluster_size") or ctx._cluster_size is None:
-                setattr(ctx, "_cluster_size", self.cluster_size)
+            if not ctx.cluster_use_metadata:
+                # only update if non-None and non-empty
+                ctx.cluster_use_metadata = self.metadata
         return context_list
 
 
-def cluster_size(num_nodes):
-    """Test method decorator used to indicate how many cluster nodes will be used by the given test.
+def cluster(**kwargs):
+    """Test method decorator used to provide hints about how the test will use the given cluster.
+
+    Keywords used by ducktape:
+    - num_nodes: provide hint about how many nodes the test will consume
+
 
     Example::
         # basic usage
-        @cluster_size(10)
+        @cluster(num_nodes=10)
         def the_test(...):
             ...
 
         # parametrized test:
         # both test cases will be marked with cluster_size of 200
-        @cluster_size(200)
+        @cluster(num_nodes=200)
         @parametrize(x=1)
         @parametrize(x=2)
         def the_test(x):
             ...
 
         # test case {'x': 1} has cluster size 100, test case {'x': 2} has cluster size 200
-        @cluster_size(100)
+        @cluster(num_nodes=100)
         @parametrize(x=1)
-        @cluster_size(200)
+        @cluster(num_nodes=200)
         @parametrize(x=2)
         def the_test(x):
             ...
 
     """
-    def cluster_sizer(f):
-        Mark.mark(f, ClusterSize(num_nodes))
+
+    def cluster_use_metadata_adder(f):
+        Mark.mark(f, ClusterUseMetadata(**kwargs))
         return f
 
-    return cluster_sizer
+    return cluster_use_metadata_adder
