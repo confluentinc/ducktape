@@ -60,7 +60,6 @@ class SerialTestRunner(TestRunner):
         self.current_test_context = None
 
     def run_all_tests(self):
-
         self.results.start_time = time.time()
         self.log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
         self.log(logging.INFO, "running %d tests..." % len(self.tests))

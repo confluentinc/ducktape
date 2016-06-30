@@ -21,7 +21,7 @@ from ducktape.tests.logger import Logger
 from ducktape.command_line.defaults import ConsoleDefaults
 
 
-class SessionContext(Logger):
+class SessionContext(object):
     """Wrapper class for 'global' variables. A call to ducktape generates a single shared SessionContext object
     which helps route logging and reporting, etc.
     """
@@ -43,15 +43,40 @@ class SessionContext(Logger):
         return self._globals
 
     @property
+    def logger(self):
+        """Return a logger object associated with this session context.
+
+        We avoid having a direct reference to a logger object in this class so that it remains pickleable.
+        (Having a direct reference to the logger would mean having a direct reference to open file handles,
+        which prevents pickling)
+
+        Since python loggers from the logging module are global, and unique to the logger name, we actually
+        get the same logger object every time this is called, even though a new SessionContextLogger object is
+        instantiated on each call.
+        """
+        return SessionContextLogger(self.session_id + ".session_logger", self.results_dir, self.debug).logger
+
+
+class SessionContextLogger(Logger):
+    def __init__(self, logger_name, log_dir, debug):
+        self._logger_name = logger_name
+        self.log_dir = log_dir
+        self.debug = debug
+
+    @property
     def logger_name(self):
-        return self.session_id + ".session_logger"
+        return self._logger_name
 
     def configure_logger(self):
         """Set up the logger to log to stdout and files. This creates a few files as a side-effect. """
+        if len(self._logger.handlers) > 0:
+            # This logger has already been configured
+            return
+
         self._logger.setLevel(logging.DEBUG)
 
-        fh_info = logging.FileHandler(os.path.join(self.results_dir, "session_log.info"))
-        fh_debug = logging.FileHandler(os.path.join(self.results_dir, "session_log.debug"))
+        fh_info = logging.FileHandler(os.path.join(self.log_dir, "session_log.info"))
+        fh_debug = logging.FileHandler(os.path.join(self.log_dir, "session_log.debug"))
         fh_info.setLevel(logging.INFO)
         fh_debug.setLevel(logging.DEBUG)
 
