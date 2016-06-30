@@ -101,7 +101,7 @@ class CheckClusterUseAnnotation(object):
         num_nodes_1 = 10
         num_nodes_2 = 20
 
-        # num_nodes_2 should *not* override num_nodes_1
+        # num_nodes_1 should *not* override num_nodes_2
         @cluster(num_nodes=num_nodes_1)
         @parametrize(x=1)
         @parametrize(x=1.5)
@@ -120,7 +120,7 @@ class CheckClusterUseAnnotation(object):
         num_nodes_1 = 10
         num_nodes_2 = 20
 
-        # num_nodes_2 should *not* override num_nodes_1
+        # num_nodes_1 should *not* override num_nodes_2
         @cluster(num_nodes=num_nodes_1)
         @matrix(x=[1])
         @matrix(x=[1.5, 1.6], y=[-15, -16])
