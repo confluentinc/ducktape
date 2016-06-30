@@ -18,7 +18,8 @@ import os
 import re
 
 from ducktape.tests.test import Test, TestContext
-from ducktape.mark import parametrized, MarkedFunctionExpander
+from ducktape.mark import parametrized
+from ducktape.mark.mark_expander import MarkedFunctionExpander
 
 
 class LoaderException(Exception):

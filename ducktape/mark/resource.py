@@ -16,6 +16,8 @@ import copy
 
 from ducktape.mark._mark import Mark
 
+CLUSTER_SIZE_KEYWORD = "num_nodes"
+
 
 class ClusterUseMetadata(Mark):
     """Provide a hint about how a given test will use the cluster."""

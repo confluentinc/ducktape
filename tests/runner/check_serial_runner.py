@@ -14,7 +14,8 @@
 
 from ducktape.tests.test import TestContext, Test
 from ducktape.tests.runner import SerialTestRunner
-from ducktape.mark import ignore, parametrize, MarkedFunctionExpander
+from ducktape.mark import ignore, parametrize
+from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 
 import tests.ducktape_mock

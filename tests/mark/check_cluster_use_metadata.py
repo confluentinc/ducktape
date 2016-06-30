@@ -13,7 +13,8 @@
 # limitations under the License.
 
 
-from ducktape.mark import parametrize, matrix, ignore, MarkedFunctionExpander
+from ducktape.mark import parametrize, matrix, ignore
+from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.mark.resource import cluster
 
 import pytest

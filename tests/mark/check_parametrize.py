@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.mark import parametrize
-from ducktape.mark._mark import parametrized, MarkedFunctionExpander
-from ducktape.mark import matrix
+from ducktape.mark import parametrize, parametrized, matrix
+from ducktape.mark.mark_expander import MarkedFunctionExpander
 
 
 class CheckParametrize(object):

@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test, TestContext
+from ducktape.tests.test import Test
 from ducktape.services.service import Service
 from ducktape.mark import parametrize
-from ducktape.mark import MarkedFunctionExpander
+from ducktape.mark.mark_expander import MarkedFunctionExpander
 
 from tests.ducktape_mock import session_context
 

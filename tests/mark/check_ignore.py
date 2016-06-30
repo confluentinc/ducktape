@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.mark._mark import ignored, MarkedFunctionExpander
-from ducktape.mark import ignore, parametrize, matrix
+from ducktape.mark.mark_expander import MarkedFunctionExpander
+from ducktape.mark import ignore, ignored, parametrize, matrix
 
 import pytest
+
 
 class CheckIgnore(object):
     def check_simple(self):

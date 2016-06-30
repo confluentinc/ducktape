@@ -23,6 +23,7 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
+from ducktape.mark.resource import CLUSTER_SIZE_KEYWORD
 
 
 class Test(TemplateRenderer):
@@ -132,9 +133,6 @@ def _escape_pathname(s):
     # Multiple dots -> single dot (and no leading or trailing dot)
     s = re.sub("[\.]+", ".", s)
     return re.sub("^\.|\.$", "", s)
-
-
-CLUSTER_SIZE_KEYWORD = "num_nodes"
 
 
 class TestContext(Logger):

@@ -15,7 +15,7 @@
 from ducktape.tests.test import Test
 from ducktape.tests.runner import SerialTestRunner
 from ducktape.services.service import Service
-from ducktape.mark import MarkedFunctionExpander
+from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 from ducktape.mark import matrix
 
