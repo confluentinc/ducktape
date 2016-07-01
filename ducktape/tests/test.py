@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import logging
 import os
 import re
@@ -22,6 +23,7 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
+from ducktape.mark.resource import CLUSTER_SIZE_KEYWORD
 
 
 class Test(TemplateRenderer):
@@ -142,13 +144,19 @@ class TestContext(Logger):
         :param cls
         :param function
         :param injected_args
+        :param service_registry
+        :param cluster_use_metadata
         """
-        self.session_context = kwargs.get("session_context", None)
-        self.module = kwargs.get("module", None)
-        self.cls = kwargs.get("cls", None)
-        self.function = kwargs.get("function", None)
-        self.injected_args = kwargs.get("injected_args", None)
+        self.session_context = kwargs.get("session_context")
+        self.module = kwargs.get("module")
+        self.cls = kwargs.get("cls")
+        self.function = kwargs.get("function")
+        self.injected_args = kwargs.get("injected_args")
         self.ignore = kwargs.get("ignore", False)
+
+        # cluster_use_metadata is a dict containing information about how this test will use cluster resources
+        # to date, this only includes "num_nodes"
+        self.cluster_use_metadata = copy.copy(kwargs.get("cluster_use_metadata", {}))
 
         self.services = ServiceRegistry()
 
@@ -156,16 +164,22 @@ class TestContext(Logger):
         self.log_collect = {}
 
     def __repr__(self):
-        return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
-               (self.module, self.cls_name, self.function_name, str(self.injected_args))
+        return "<module=%s, cls=%s, function=%s, injected_args=%s, cluster_size=%s>" % \
+               (self.module, self.cls_name, self.function_name, str(self.injected_args),
+                str(self.expected_num_nodes))
 
     def copy(self, **kwargs):
-        """Construct a new TestContext object from another TestContext object
-        Note that this is not a true copy, since a fresh ServiceRegistry instance will be created.
-        """
+        """Construct a new TestContext object from another TestContext object"""
         ctx_copy = TestContext(**self.__dict__)
         ctx_copy.__dict__.update(**kwargs)
         return ctx_copy
+
+    @property
+    def expected_num_nodes(self):
+        """How many nodes we expect this test to consume when run.
+        Return None if undefined.
+        """
+        return self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
 
     @property
     def globals(self):

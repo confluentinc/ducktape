@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.mark._mark import ignored, MarkedFunctionExpander
-from ducktape.mark import ignore, parametrize, matrix
+from ducktape.mark.mark_expander import MarkedFunctionExpander
+from ducktape.mark import ignore, ignored, parametrize, matrix
+
+import pytest
 
 
 class CheckIgnore(object):
@@ -108,3 +110,35 @@ class CheckIgnore(object):
                 assert ctx.ignore
             else:
                 assert not ctx.ignore
+
+    def check_invalid_specific_ignore(self):
+        """If there are no test cases to which ignore applies, it should raise an error
+        Keeping in mind annotations "point down": they only apply to test cases physically below.
+        """
+        class C(object):
+            @parametrize(x=100, y=200, z=300)
+            @parametrize(x=100, z=300)
+            @parametrize(y=200)
+            @parametrize()
+            @ignore(x=100, y=200, z=300)
+            def function(self, x=1, y=2, z=3):
+                return x, y, z
+
+        assert ignored(C.function)
+        with pytest.raises(AssertionError):
+            MarkedFunctionExpander(function=C.function, cls=C).expand()
+
+    def check_invalid_ignore_all(self):
+        """If there are no test cases to which ignore applies, it should raise an error"""
+        class C(object):
+            @parametrize(x=100, y=200, z=300)
+            @parametrize(x=100, z=300)
+            @parametrize(y=200)
+            @parametrize()
+            @ignore
+            def function(self, x=1, y=2, z=3):
+                return x, y, z
+
+        assert ignored(C.function)
+        with pytest.raises(AssertionError):
+            MarkedFunctionExpander(function=C.function, cls=C).expand()
