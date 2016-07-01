@@ -158,17 +158,6 @@ def _is_parametrize_mark(m):
     return m.name == PARAMETRIZED.name or m.name == MATRIX.name
 
 
-def _strip_parametrize_marks(fun):
-    """Helper method - remove only parametrize and matrix markings"""
-    if not parametrized(fun):
-        return
-
-    marks = fun.marks
-    Mark.clear_marks(fun)
-    for m in marks:
-        if not _is_parametrize_mark(m):
-            Mark.mark(fun, m)
-
 def parametrized(f):
     """Is this function or object decorated with @parametrize or @matrix?"""
     return Mark.marked(f, PARAMETRIZED) or Mark.marked(f, MATRIX)
@@ -340,8 +329,8 @@ def _inject(*args, **kwargs):
 
 class MarkedFunctionExpander(object):
     """This class helps expand decorated/marked functions into a list of test context objects. """
-    def __init__(self, session_context=None, module=None, cls=None, function=None):
-        self.seed_context = TestContext(session_context=session_context, module=module, cls=cls, function=function)
+    def __init__(self, session_context=None, module=None, cls=None, function=None, file=None):
+        self.seed_context = TestContext(session_context=session_context, module=module, cls=cls, function=function, file=file)
 
         if parametrized(function):
             self.context_list = []
@@ -355,9 +344,15 @@ class MarkedFunctionExpander(object):
 
         if test_parameters is not None:
             # User has specified that they want to run tests with specific parameters
-            # Strip existing parametrize and matrix marks, and parametrize it only with test_parameters
-            _strip_parametrize_marks(f)
+            # Strip existing parametrize and matrix marks, and parametrize it only with the given test_parameters
+            marks = []
+            if hasattr(f, "marks"):
+                marks = [m for m in f.marks if not _is_parametrize_mark(m)]
+                Mark.clear_marks(f)
+
             Mark.mark(f, Parametrize(**test_parameters))
+            for m in marks:
+                Mark.mark(f, m)
 
         if hasattr(f, "marks"):
             for m in f.marks:

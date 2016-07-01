@@ -14,9 +14,11 @@
 
 
 import logging
+import os
 import time
 import traceback
 
+from ducktape.tests.loader import TestLoader
 from ducktape.tests.result import TestResult, TestResults, IGNORE, PASS, FAIL
 from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
@@ -59,6 +61,13 @@ class SerialTestRunner(TestRunner):
         self.current_test = None
         self.current_test_context = None
 
+    def collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
+        loader = TestLoader(self.session_context, test_parameters=injected_args)
+
+        loaded_context = loader._discover(directory, file_name, cls_name, method_name)
+        assert len(loaded_context) == 1
+        return loaded_context[0]
+
     def run_all_tests(self):
         self.results.start_time = time.time()
         self.log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
@@ -71,8 +80,13 @@ class SerialTestRunner(TestRunner):
                     "Expected all nodes to be available. Instead, %d of %d are available" %
                     (self.cluster.num_available_nodes(), len(self.cluster)))
 
-            self.current_test_context = test_context
+            directory = os.path.dirname(test_context.file)
+            file_name = os.path.basename(test_context.file)
+            cls_name = test_context.cls.__name__
+            method_name = test_context.function.__name__
+            injected_args = test_context.injected_args
 
+            self.current_test_context = self.collect_test_context(directory, file_name, cls_name, method_name, injected_args)
             if self.current_test_context.ignore:
                 # Skip running this test, but keep track of the fact that we ignored it
                 result = TestResult(self.current_test_context,
@@ -92,7 +106,7 @@ class SerialTestRunner(TestRunner):
 
             try:
                 # Instantiate test
-                self.current_test = test_context.cls(test_context)
+                self.current_test = self.current_test_context.cls(self.current_test_context)
 
                 # Run the test unit
                 start_time = time.time()
@@ -138,6 +152,7 @@ class SerialTestRunner(TestRunner):
                 break
 
         self.results.stop_time = time.time()
+
         return self.results
 
     def setup_single_test(self):

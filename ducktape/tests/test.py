@@ -138,16 +138,23 @@ class TestContext(Logger):
     def __init__(self, **kwargs):
         """
         :param session_context
-        :param module
-        :param cls
-        :param function
-        :param injected_args
+        :param module: name of the module containing the test class/method
+        :param cls: class object containing the test method
+        :param function: the test method
+        :param file: file containing this module
+        :param injected_args: a dict containing keyword args which will be passed to the test method
         """
-        self.session_context = kwargs.get("session_context", None)
-        self.module = kwargs.get("module", None)
-        self.cls = kwargs.get("cls", None)
-        self.function = kwargs.get("function", None)
-        self.injected_args = kwargs.get("injected_args", None)
+
+        self.session_context = kwargs.get("session_context")
+        self.module = kwargs.get("module")
+
+        if kwargs.get("file") is not None:
+            self.file = os.path.abspath(kwargs.get("file"))
+        else:
+            self.file = None
+        self.cls = kwargs.get("cls")
+        self.function = kwargs.get("function")
+        self.injected_args = kwargs.get("injected_args")
         self.ignore = kwargs.get("ignore", False)
 
         self.services = ServiceRegistry()
@@ -156,8 +163,8 @@ class TestContext(Logger):
         self.log_collect = {}
 
     def __repr__(self):
-        return "<module=%s, cls=%s, function=%s, injected_args=%s>" % \
-               (self.module, self.cls_name, self.function_name, str(self.injected_args))
+        return "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s>" % \
+               (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file), str(self.ignore))
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object
@@ -165,6 +172,7 @@ class TestContext(Logger):
         """
         ctx_copy = TestContext(**self.__dict__)
         ctx_copy.__dict__.update(**kwargs)
+
         return ctx_copy
 
     @property

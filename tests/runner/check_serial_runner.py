@@ -12,18 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import TestContext, Test
+from ducktape.tests.test import TestContext
 from ducktape.tests.runner import SerialTestRunner
-from ducktape.mark import ignore, parametrize, MarkedFunctionExpander
+from ducktape.mark import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 
 import tests.ducktape_mock
+from .resources.test_thingy import TestThingy
 
 from mock import MagicMock, Mock
+import os
+
+TEST_THINGY_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
 
 
 class CheckSerialRunner(object):
-
     def check_insufficient_cluster_resources(self):
         """The test runner should behave sensibly when the cluster is too small to run a given test."""
         mock_cluster = MagicMock()
@@ -31,7 +35,8 @@ class CheckSerialRunner(object):
         mock_cluster.num_available_nodes = lambda: 1
         session_context = tests.ducktape_mock.session_context(mock_cluster)
 
-        test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi)
+        test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi,
+                                   file=TEST_THINGY_FILE)
         runner = SerialTestRunner(session_context, [test_context])
         runner.log = Mock()
 
@@ -50,7 +55,8 @@ class CheckSerialRunner(object):
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2]
         ctx_list = []
         for f in test_methods:
-            ctx_list.extend(MarkedFunctionExpander(session_context=session_context, cls=TestThingy, function=f).expand())
+            ctx_list.extend(
+                MarkedFunctionExpander(session_context=session_context, cls=TestThingy, function=f, file=TEST_THINGY_FILE).expand())
 
         runner = SerialTestRunner(session_context, ctx_list)
         runner.log = Mock()
@@ -61,23 +67,3 @@ class CheckSerialRunner(object):
         assert results.num_passed == 1
         assert results.num_ignored == 2
         assert results[0].data == {"data": 3.14159}
-
-
-class TestThingy(Test):
-    """Fake ducktape test class"""
-
-    def min_cluster_size(self):
-        """ This test uses many nodes, wow!"""
-        return 1000
-
-    def test_pi(self):
-        return {"data": 3.14159}
-
-    @ignore
-    def test_ignore1(self):
-        pass
-
-    @ignore(x=5)
-    @parametrize(x=5)
-    def test_ignore2(self, x=2):
-        pass
