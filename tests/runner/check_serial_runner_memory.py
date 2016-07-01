@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test
 from ducktape.tests.runner import SerialTestRunner
-from ducktape.services.service import Service
-from ducktape.mark.mark_expander import MarkedFunctionExpander
+from ducktape.mark import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
-from ducktape.mark import matrix
 
+from .resources.test_memory_leak import MemoryLeakTest
 
 import multiprocessing
 import os
@@ -30,39 +28,15 @@ import tests.ducktape_mock
 from mock import Mock
 
 
-MEMORY_EATER_LIST_SIZE = 10000000
 N_TEST_CASES = 5
 
 
-class MemoryEater(Service):
-    """Simple service that has a reference to a list with many elements"""
-
-    def __init__(self, context):
-        super(MemoryEater, self).__init__(context, 1)
-        self.items = []
-
-    def start_node(self, node):
-        self.items = [x for x in range(MEMORY_EATER_LIST_SIZE)]
-
-    def stop_node(self, node):
-        pass
-
-    def clean_node(self, node):
-        pass
-
-
-class MemoryLeakTest(Test):
-    """A group of identical "memory-hungry" ducktape tests.
-    Each test holds a reference to a service which itself holds a reference to a large (memory intensive) object.
-    """
-    def __init__(self, test_context):
-        super(MemoryLeakTest, self).__init__(test_context)
-        self.memory_eater = MemoryEater(test_context)
-
-    @matrix(x=[i for i in range(N_TEST_CASES)])
-    def test_leak(self, x):
-        self.memory_eater.start()
-
+MEMORY_LEAK_TEST_FILE = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "resources/test_memory_leak.py"
+    )
+)
 
 class InstrumentedSerialTestRunner(SerialTestRunner):
     """Identical to SerialTestRunner, except dump memory used by the current process
@@ -105,7 +79,8 @@ class CheckMemoryUsage(object):
         ctx_list = []
         test_methods = [MemoryLeakTest.test_leak]
         for f in test_methods:
-            ctx_list.extend(MarkedFunctionExpander(session_context=self.session_context, cls=MemoryLeakTest, function=f).expand())
+            ctx_list.extend(MarkedFunctionExpander(session_context=self.session_context, cls=MemoryLeakTest, function=f,
+                                                   file=MEMORY_LEAK_TEST_FILE).expand())
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
         # Run all tests in another process

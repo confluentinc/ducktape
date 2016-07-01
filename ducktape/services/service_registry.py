@@ -12,13 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.services.service import Service
-from ducktape.utils.local_filesystem_utils import mkdir_p
-
-from collections import OrderedDict
-
-import os
-
 
 class ServiceRegistry(list):
 

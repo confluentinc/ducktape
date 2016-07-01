@@ -113,3 +113,96 @@ class CheckTestLoader(object):
             assert t.injected_args == parameters
 
 
+def join_parsed_symbol_components(parsed):
+    """
+    Join together a parsed symbol
+
+    e.g.
+        {
+            'dir': 'path/to/dir',
+            'file': 'test_file.py',
+            'cls': 'ClassName',
+            'method': 'method'
+        },
+        ->
+        'path/to/dir/test_file.py::ClassName.method'
+    """
+    symbol = os.path.join(parsed['dir'], parsed['file'])
+
+    if parsed['cls'] or parsed['method']:
+        symbol += "::"
+        symbol += parsed['cls']
+        if parsed['method']:
+            symbol += "."
+            symbol += parsed['method']
+
+    return symbol
+
+
+def normalize_ending_slash(dirname):
+    if dirname.endswith(os.path.sep):
+        dirname = dirname[:-len(os.path.sep)]
+    return dirname
+
+
+class CheckParseSymbol(object):
+    def check_parse_discovery_symbol(self):
+        """Check that "test discovery symbol" parsing logic works correctly"""
+        parsed_symbols = [
+            {
+                'dir': 'path/to/dir',
+                'file': '',
+                'cls': '',
+                'method': ''
+            },
+            {
+                'dir': 'path/to/dir',
+                'file': 'test_file.py',
+                'cls': '',
+                'method': ''
+            },
+            {
+                'dir': 'path/to/dir',
+                'file': 'test_file.py',
+                'cls': 'ClassName',
+                'method': ''
+            },
+            {
+                'dir': 'path/to/dir',
+                'file': 'test_file.py',
+                'cls': 'ClassName',
+                'method': 'method'
+            },
+            {
+                'dir': 'path/to/dir',
+                'file': '',
+                'cls': 'ClassName',
+                'method': ''
+            },
+        ]
+
+        loader = TestLoader(tests.ducktape_mock.session_context())
+        for parsed in parsed_symbols:
+            symbol = join_parsed_symbol_components(parsed)
+
+            expected_parsed = (
+                normalize_ending_slash(parsed['dir']),
+                parsed['file'],
+                parsed['cls'],
+                parsed['method']
+            )
+
+            actually_parsed = loader.parse_discovery_symbol(symbol)
+            actually_parsed = (
+                normalize_ending_slash(actually_parsed[0]),
+                actually_parsed[1],
+                actually_parsed[2],
+                actually_parsed[3]
+            )
+
+            assert actually_parsed == expected_parsed, "%s did not parse as expected" % symbol
+
+
+
+
+

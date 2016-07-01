@@ -47,11 +47,18 @@ class TestLoader(object):
         return self.session_context.logger
 
     def parse_discovery_symbol(self, discovery_symbol):
-        """Parse command-line argument into a tuple (directory, module.py, cls_name, function_name).
+        """Parse a single 'discovery symbol'
+
+        :return tuple of form (directory, module.py, cls_name, function_name)
 
         :raise LoaderException if it can't be parsed
+
+        Examples:
+            "path/to/directory" -> ("/absolute/path/to/directory", "", "", "")
+            "path/to/test_file.py" -> ("/absolute/path/to", "test_file.py", "", "")
+            "path/to/test_file.py::ClassName.method" -> ("/absolute/path/to", "test_file.py", "ClassName", "method")
         """
-        directory = os.path.abspath(os.path.dirname(discovery_symbol))
+        directory = os.path.dirname(discovery_symbol)
         base = os.path.basename(discovery_symbol)
 
         if base.find("::") >= 0:
@@ -72,8 +79,12 @@ class TestLoader(object):
             else:
                 raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
         else:
+            # No "::" present in symbol
             module, cls_name, method_name = base, "", ""
 
+        if not module.endswith(".py"):
+            directory = os.path.join(directory, module)
+            module = ""
         return directory, module, cls_name, method_name
 
     def discover(self, test_discovery_symbols):
@@ -85,38 +96,47 @@ class TestLoader(object):
           (i.e. it has no subclasses).
         - Discover test methods within each test class. A test method is a method containing 'test' in its name
 
-        :type test_discovery_symbols: list
-        :rtype: list
+        :param test_discovery_symbols: list of file paths
+        :return list of test context objects found during discovery
         """
         assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
-        test_context_list = []
+        all_test_context_list = []
         for symbol in test_discovery_symbols:
             directory, module_name, cls_name, method_name = self.parse_discovery_symbol(symbol)
+            directory = os.path.abspath(directory)
 
-            # Check validity of path
-            path = os.path.join(directory, module_name)
-            if not os.path.exists(path):
-                raise LoaderException("Path {} does not exist".format(path))
+            test_context_list_for_symbol = self._discover(directory, module_name, cls_name, method_name)
+            all_test_context_list.extend(test_context_list_for_symbol)
 
-            # Recursively search path for test modules
-            if os.path.isfile(path):
-                test_files = [os.path.abspath(path)]
-            else:
-                test_files = self.find_test_files(path)
-            modules = self.import_modules(test_files)
-
-            # Find all tests in discovered modules and filter out any that don't match the discovery symbol
-            for m in modules:
-                test_context_list.extend(self.expand_module(m))
-            if len(cls_name) > 0:
-                test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
-            if len(method_name) > 0:
-                test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
-
-            if len(test_context_list) == 0:
+            if len(test_context_list_for_symbol) == 0:
                 raise LoaderException("Didn't find any tests for symbol %s." % symbol)
 
-        self.logger.debug("Discovered these tests: " + str(test_context_list))
+        self.logger.debug("Discovered these tests: " + str(all_test_context_list))
+        return all_test_context_list
+
+    def _discover(self, directory, module_name, cls_name, method_name):
+
+        # Check validity of path
+        path = os.path.join(directory, module_name)
+        if not os.path.exists(path):
+            raise LoaderException("Path {} does not exist".format(path))
+
+        # Recursively search path for test modules
+        test_context_list = []
+        if os.path.isfile(path):
+            test_files = [os.path.abspath(path)]
+        else:
+            test_files = self.find_test_files(path)
+        modules_and_files = self.import_modules(test_files)
+
+        # Find all tests in discovered modules and filter out any that don't match the discovery symbol
+        for mf in modules_and_files:
+            test_context_list.extend(self.expand_module(mf))
+        if len(cls_name) > 0:
+            test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
+        if len(method_name) > 0:
+            test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
+
         return test_context_list
 
     def import_modules(self, file_list):
@@ -125,8 +145,21 @@ class TestLoader(object):
 
         Return all imported modules.
 
-        :type file_list: list
-        :return list of imported modules
+        :type file_list: list of files which we will try to import
+        :return list of dicts; each dict has the successfully imported module and the file from which it was imported
+
+        Example:
+            [
+                {
+                    "module": module1,
+                    "file": file1
+                },
+                {
+                    "module": module2,
+                    "file": file2
+                },
+                ...
+            ]
         """
         module_list = []
 
@@ -141,7 +174,12 @@ class TestLoader(object):
                 module_name = '.'.join(path_pieces)
                 # Try to import the current file as a module
                 try:
-                    module_list.append(importlib.import_module(module_name))
+                    module_list.append(
+                        {
+                            "module": importlib.import_module(module_name),
+                            "file": f
+                        }
+                    )
                     self.logger.debug("Successfully imported " + module_name)
                     successful_import = True
                     break  # no need to keep trying
@@ -192,16 +230,23 @@ class TestLoader(object):
 
         return module_list
 
-    def expand_module(self, module):
+    def expand_module(self, module_and_file):
         """Return a list of TestContext objects, one object for every 'testable unit' in module"""
 
         test_context_list = []
+        module = module_and_file["module"]
+        file = module_and_file["file"]
+
         module_objects = module.__dict__.values()
         test_classes = [c for c in module_objects if self.is_test_class(c)]
 
         for cls in test_classes:
-            test_context_list.extend(
-                self.expand_class(TestContext(session_context=self.session_context, module=module.__name__, cls=cls)))
+            test_context_list.extend(self.expand_class(
+                TestContext(
+                        session_context=self.session_context,
+                        module=module.__name__,
+                        cls=cls,
+                        file=file)))
 
         return test_context_list
 
@@ -220,7 +265,7 @@ class TestLoader(object):
         return test_context_list
 
     def expand_function(self, t_ctx):
-        expander = MarkedFunctionExpander(t_ctx.session_context, t_ctx.module, t_ctx.cls, t_ctx.function)
+        expander = MarkedFunctionExpander(t_ctx.session_context, t_ctx.module, t_ctx.cls, t_ctx.function, t_ctx.file)
         return expander.expand(self.test_parameters)
 
     def find_test_files(self, base_dir):
