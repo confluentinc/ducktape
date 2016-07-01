@@ -40,7 +40,7 @@ def session_context(cluster=mock_cluster(), **kwargs):
 
 def test_context(session_context=session_context()):
     """Return a TestContext object"""
-    return TestContext(session_context=session_context)
+    return TestContext(session_context=session_context, file="a/b/c")
 
 
 class MockNode(object):
