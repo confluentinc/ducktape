@@ -33,6 +33,12 @@ class RemoteAccountTestService(Service):
     def __init__(self, context):
         super(RemoteAccountTestService, self).__init__(context, 1)
         self.temp_dir = generate_tempdir_name()
+        self.logs = {
+            "my_log": {
+                "path": self.log_file,
+                "collect_default": True
+            }
+        }
 
     @property
     def log_file(self):

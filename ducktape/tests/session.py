@@ -33,6 +33,7 @@ class SessionContext(Logger):
         self.cluster = kwargs["cluster"]
 
         self.debug = kwargs.get("debug", False)
+        self.compress = kwargs.get("compress", False)
         self.exit_first = kwargs.get("exit_first", False)
         self.no_teardown = kwargs.get("no_teardown", False)
         self._globals = kwargs.get("globals")

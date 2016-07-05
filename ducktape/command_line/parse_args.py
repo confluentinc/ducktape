@@ -29,6 +29,7 @@ def create_ducktape_parser():
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout.")
     parser.add_argument("--config-file", action="store", default=ConsoleDefaults.USER_CONFIG_FILE,
                         help="path to project-specific configuration file.")
+    parser.add_argument("--compress", action="store_true", help="compress remote logs before collection.")
     parser.add_argument("--cluster", action="store", default=ConsoleDefaults.CLUSTER_TYPE,
                         help="cluster class to use to allocate nodes for tests.")
     parser.add_argument("--cluster-file", action="store", default=None,
