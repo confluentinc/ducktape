@@ -65,6 +65,31 @@ class Test(TemplateRenderer):
             if isinstance(e, KeyboardInterrupt):
                 raise e
 
+    def compress_service_logs(self, node, service, node_logs):
+        """Compress logs on a node corresponding to the given service.
+
+        :param node The node on which to compress the given logs
+        :param service The service to which the node belongs
+        :param node_logs Paths to logs (or log directories) which will be compressed
+
+        :return a list of paths to compressed logs.
+        """
+        compressed_logs = []
+        for nlog in node_logs:
+            try:
+                node.account.ssh(_compress_cmd(nlog))
+                if nlog.endswith(os.path.sep):
+                    nlog = nlog[:-len(os.path.sep)]
+                nlog += ".tgz"
+                compressed_logs.append(nlog)
+
+            except Exception as e:
+                self.test_context.logger.warn(
+                    "Error compressing log %s: service %(service)s: %(message)s" % (nlog, service, str(e))
+                )
+
+        return compressed_logs
+
     def copy_service_logs(self):
         """Copy logs from service nodes to the results directory."""
         for service in self.test_context.services:
@@ -80,6 +105,9 @@ class Test(TemplateRenderer):
                 for log_name in log_dirs.keys():
                     if self.should_collect_log(log_name, service):
                         node_logs.append(log_dirs[log_name]["path"])
+
+                if self.test_context.session_context.compress:
+                    node_logs = self.compress_service_logs(node, service, node_logs)
 
                 if len(node_logs) > 0:
                     # Create directory into which service logs will be copied
@@ -117,6 +145,16 @@ class Test(TemplateRenderer):
         default = service.logs[log_name]["collect_default"]
         val = self.test_context.log_collect.get(key, default)
         return val
+
+
+def _compress_cmd(log_path):
+    """Return bash command which compresses the given path to a tarball."""
+    compres_cmd = 'cd "$(dirname %s)" && ' % log_path
+    compres_cmd += 'f="$(basename %s)" && ' % log_path
+    compres_cmd += 'tar czf "$f.tgz" "$f" && '
+    compres_cmd += 'rm -rf %s' % log_path
+
+    return compres_cmd
 
 
 def _escape_pathname(s):
