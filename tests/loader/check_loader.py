@@ -103,7 +103,7 @@ class CheckTestLoader(object):
         and the injected args should be those passed in from command-line.
         """
         parameters = {"x": 1, "y": -1}
-        loader = TestLoader(self.SESSION_CONTEXT, test_parameters=parameters)
+        loader = TestLoader(self.SESSION_CONTEXT, injected_args=parameters)
 
         file = os.path.join(discover_dir(), "test_decorated.py")
         tests = loader.discover([file])

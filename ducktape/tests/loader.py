@@ -33,18 +33,16 @@ DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 class TestLoader(object):
     """Class used to discover and load tests."""
 
-    def __init__(self, session_context, test_parameters=None):
+    def __init__(self, session_context, logger, injected_args=None):
         self.session_context = session_context
+        assert logger is not None
+        self.logger = logger
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
 
         # A non-None value here means the loader will override the injected_args
         # in any discovered test, whether or not it is parametrized
-        self.test_parameters = test_parameters
-
-    @property
-    def logger(self):
-        return self.session_context.logger
+        self.injected_args = injected_args
 
     def parse_discovery_symbol(self, discovery_symbol):
         """Parse a single 'discovery symbol'
@@ -266,7 +264,7 @@ class TestLoader(object):
 
     def expand_function(self, t_ctx):
         expander = MarkedFunctionExpander(t_ctx.session_context, t_ctx.module, t_ctx.cls, t_ctx.function, t_ctx.file)
-        return expander.expand(self.test_parameters)
+        return expander.expand(self.injected_args)
 
     def find_test_files(self, base_dir):
         """Return a list of files underneath base_dir that look like test files.

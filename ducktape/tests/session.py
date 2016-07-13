@@ -30,12 +30,12 @@ class SessionContext(object):
         # session_id, results_dir, cluster, globals):
         self.session_id = kwargs["session_id"]
         self.results_dir = os.path.abspath(kwargs["results_dir"])
-        self.cluster = kwargs["cluster"]
 
         self.debug = kwargs.get("debug", False)
         self.compress = kwargs.get("compress", False)
         self.exit_first = kwargs.get("exit_first", False)
         self.no_teardown = kwargs.get("no_teardown", False)
+        self.max_parallel = kwargs.get("max_parallel", 1)
         self._globals = kwargs.get("globals")
 
     @property
@@ -43,26 +43,12 @@ class SessionContext(object):
         """None, or an immutable dictionary containing user-defined global variables."""
         return self._globals
 
-    @property
-    def logger(self):
-        """Return a logger object associated with this session context.
 
-        We avoid having a direct reference to a logger object in this class so that it remains pickleable.
-        (Having a direct reference to the logger would mean having a direct reference to open file handles,
-        which prevents pickling)
-
-        Since python loggers from the logging module are global, and unique to the logger name, we actually
-        get the same logger object every time this is called, even though a new SessionContextLogger object is
-        instantiated on each call.
-        """
-        return SessionContextLogger(self.session_id + ".session_logger", self.results_dir, self.debug).logger
-
-
-class SessionContextLogger(Logger):
-    def __init__(self, logger_name, log_dir, debug):
-        self._logger_name = logger_name
-        self.log_dir = log_dir
-        self.debug = debug
+class SessionLogger(Logger):
+    def __init__(self, session_context):
+        self.log_dir = session_context.results_dir
+        self.debug = session_context.debug
+        self._logger_name = session_context.session_id + ".session_logger"
 
     @property
     def logger_name(self):
@@ -70,8 +56,7 @@ class SessionContextLogger(Logger):
 
     def configure_logger(self):
         """Set up the logger to log to stdout and files. This creates a few files as a side-effect. """
-        if len(self._logger.handlers) > 0:
-            # This logger has already been configured
+        if self.configured:
             return
 
         self._logger.setLevel(logging.DEBUG)

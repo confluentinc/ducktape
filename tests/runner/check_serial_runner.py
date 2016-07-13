@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ducktape.tests.test import TestContext
-from ducktape.tests.runner import SerialTestRunner
+from ducktape.tests.runner import TestRunner
 from ducktape.mark import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 
@@ -37,7 +37,7 @@ class CheckSerialRunner(object):
 
         test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi,
                                    file=TEST_THINGY_FILE)
-        runner = SerialTestRunner(session_context, [test_context])
+        runner = TestRunner(session_context, [test_context])
         runner.log = Mock()
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
@@ -58,7 +58,7 @@ class CheckSerialRunner(object):
             ctx_list.extend(
                 MarkedFunctionExpander(session_context=session_context, cls=TestThingy, function=f, file=TEST_THINGY_FILE).expand())
 
-        runner = SerialTestRunner(session_context, ctx_list)
+        runner = TestRunner(session_context, ctx_list)
         runner.log = Mock()
 
         results = runner.run_all_tests()
