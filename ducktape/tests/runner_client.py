@@ -19,7 +19,6 @@ import time
 import traceback
 import zmq
 
-from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.tests.message import Request
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
@@ -30,21 +29,22 @@ from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
-def run_client(logger_name, log_dir, debug, max_parallel):
-    client = RunnerClient(logger_name, log_dir, debug, max_parallel)
+def run_client(port, logger_name, log_dir, debug, max_parallel):
+    client = RunnerClient(port, logger_name, log_dir, debug, max_parallel)
     client.run()
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, logger_name, log_dir, debug, max_parallel):
+    def __init__(self, port, logger_name, log_dir, debug, max_parallel):
         self.serde = SerDe()
         self.logger = TestLogger(logger_name, log_dir, debug, max_parallel).logger
+        self.runner_port = port
 
         self.id = "test-runner-%d-%d" % (os.getpid(), id(self))
         self.request = Request(self.id)
-        self.sender = Sender("localhost", str(ConsoleDefaults.TEST_DRIVER_PORT), self.logger)
+        self.sender = Sender("localhost", str(self.runner_port), self.logger)
 
         ready_reply = self.sender.send(self.request.ready())
         self.session_context = ready_reply["session_context"]
@@ -62,7 +62,7 @@ class RunnerClient(object):
 
     def collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
         # TODO - different logger for TestLoader object
-        loader = TestLoader(self.session_context, self.logger, injected_args=injected_args)
+        loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)
         loaded_context_list = loader._discover(directory, file_name, cls_name, method_name)
 
         assert len(loaded_context_list) == 1
@@ -101,6 +101,13 @@ class RunnerClient(object):
         try:
             # Instantiate test
             self.test = self.test_context.cls(self.test_context)
+
+            self.logger.debug("Checking if there are enough nodes...")
+            if self.test.min_cluster_size() > len(self.cluster):
+                raise RuntimeError(
+                    "There are not enough nodes available in the cluster to run this test. "
+                    "Cluster size: %d, Need at least: %d. Services currently registered: %s" %
+                    (len(self.cluster), self.test.min_cluster_size(), self.test_context.services))
 
             # Run the test unit
             start_time = time.time()
@@ -234,13 +241,14 @@ class Sender(object):
         self.socket.connect(self.server_endpoint)
         self.poller.register(self.socket, zmq.POLLIN)
 
-    def send(self, event, blocking=True):
+    def send(self, message, blocking=True):
 
         retries_left = Sender.NUM_RETRIES
-        serialized_event = self.serde.serialize(event)
+        serialized_event = self.serde.serialize(message)
 
         while retries_left > 0:
-            print "client: sending event:", str(event)
+            self.logger.debug("client: sending event: " + str(message))
+            print "client: sending event:", str(message)
             self.socket.send(serialized_event)
             retries_left -= 1
             waiting_for_reply = True

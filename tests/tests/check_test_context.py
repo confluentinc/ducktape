@@ -19,6 +19,8 @@ from ducktape.mark.mark_expander import MarkedFunctionExpander
 
 from tests.ducktape_mock import session_context
 
+from mock import MagicMock
+
 
 class CheckTestContext(object):
     def check_copy_constructor(self):
@@ -29,7 +31,7 @@ class CheckTestContext(object):
 
         This problem cropped up in particular with parametrized tests.
         """
-        expander = MarkedFunctionExpander(session_context=session_context(), cls=DummyTest, function=DummyTest.test_me)
+        expander = MarkedFunctionExpander(session_context=session_context(), cls=DummyTest, function=DummyTest.test_me, cluster=MagicMock())
         ctx_list = expander.expand()
 
         for ctx in ctx_list:

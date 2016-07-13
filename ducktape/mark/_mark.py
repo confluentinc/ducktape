@@ -342,8 +342,9 @@ def _inject(*args, **kwargs):
 
 class MarkedFunctionExpander(object):
     """This class helps expand decorated/marked functions into a list of test context objects. """
-    def __init__(self, session_context=None, module=None, cls=None, function=None, file=None):
-        self.seed_context = TestContext(session_context=session_context, module=module, cls=cls, function=function, file=file)
+    def __init__(self, session_context=None, module=None, cls=None, function=None, file=None, cluster=None):
+        self.seed_context = TestContext(
+            session_context=session_context, module=module, cls=cls, function=function, file=file, cluster=cluster)
 
         if parametrized(function):
             self.context_list = []

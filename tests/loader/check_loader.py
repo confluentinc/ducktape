@@ -21,6 +21,8 @@ import os.path
 import pytest
 import re
 
+from mock import Mock
+
 
 def discover_dir():
     """Return the absolute path to the directory to use with discovery tests."""
@@ -60,20 +62,20 @@ class CheckTestLoader(object):
 
     def check_test_loader_with_directory(self):
         """Check discovery on a directory."""
-        loader = TestLoader(self.SESSION_CONTEXT)
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         tests = loader.discover([discover_dir()])
         assert len(tests) == num_tests_in_dir(discover_dir())
 
     def check_test_loader_with_file(self):
         """Check discovery on a file. """
-        loader = TestLoader(self.SESSION_CONTEXT)
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         module_path = os.path.join(discover_dir(), "test_a.py")
 
         tests = loader.discover([module_path])
         assert len(tests) == num_tests_in_file(module_path)
 
     def check_test_loader_multiple_files(self):
-        loader = TestLoader(self.SESSION_CONTEXT)
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         file_a = os.path.join(discover_dir(), "test_a.py")
         file_b = os.path.join(discover_dir(), "test_b.py")
 
@@ -83,12 +85,12 @@ class CheckTestLoader(object):
     def check_test_loader_with_nonexistent_file(self):
         """Check discovery on a non-existent path should throw LoaderException"""
         with pytest.raises(LoaderException):
-            loader = TestLoader(self.SESSION_CONTEXT)
+            loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
             tests = loader.discover([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
 
     def check_test_loader_with_class(self):
         """Check test discovery with discover class syntax."""
-        loader = TestLoader(self.SESSION_CONTEXT)
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         tests = loader.discover([os.path.join(discover_dir(), "test_b.py::TestBB")])
         assert len(tests) == 2
 
@@ -103,7 +105,7 @@ class CheckTestLoader(object):
         and the injected args should be those passed in from command-line.
         """
         parameters = {"x": 1, "y": -1}
-        loader = TestLoader(self.SESSION_CONTEXT, injected_args=parameters)
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=parameters)
 
         file = os.path.join(discover_dir(), "test_decorated.py")
         tests = loader.discover([file])
@@ -181,7 +183,7 @@ class CheckParseSymbol(object):
             },
         ]
 
-        loader = TestLoader(tests.ducktape_mock.session_context())
+        loader = TestLoader(tests.ducktape_mock.session_context(), logger=Mock())
         for parsed in parsed_symbols:
             symbol = join_parsed_symbol_components(parsed)
 

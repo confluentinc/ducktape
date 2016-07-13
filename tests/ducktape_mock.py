@@ -26,7 +26,7 @@ def mock_cluster():
     return MagicMock()
 
 
-def session_context(cluster=mock_cluster(), **kwargs):
+def session_context(**kwargs):
     """Return a SessionContext object"""
 
     if "results_dir" not in kwargs.keys():
@@ -35,12 +35,12 @@ def session_context(cluster=mock_cluster(), **kwargs):
         os.mkdir(session_dir)
         kwargs["results_dir"] = session_dir
 
-    return SessionContext(session_id="test_session", cluster=cluster, **kwargs)
+    return SessionContext(session_id="test_session", **kwargs)
 
 
-def test_context(session_context=session_context()):
+def test_context(session_context=session_context(), cluster=mock_cluster()):
     """Return a TestContext object"""
-    return TestContext(session_context=session_context, file="a/b/c")
+    return TestContext(session_context=session_context, file="a/b/c", cluster=cluster)
 
 
 class MockNode(object):

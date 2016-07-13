@@ -38,6 +38,7 @@ MEMORY_LEAK_TEST_FILE = os.path.abspath(
     )
 )
 
+
 class InstrumentedTestRunner(TestRunner):
     """Identical to SerialTestRunner, except dump memory used by the current process
     before running each test.
@@ -59,8 +60,8 @@ class InstrumentedTestRunner(TestRunner):
 
 class CheckMemoryUsage(object):
     def setup_method(self, _):
-        mock_cluster = LocalhostCluster()
-        self.session_context = tests.ducktape_mock.session_context(mock_cluster)
+        self.cluster = LocalhostCluster()
+        self.session_context = tests.ducktape_mock.session_context()
 
     def check_for_inter_test_memory_leak(self):
         """Until v0.3.10, ducktape had a serious source of potential memory leaks.
@@ -80,13 +81,12 @@ class CheckMemoryUsage(object):
         test_methods = [MemoryLeakTest.test_leak]
         for f in test_methods:
             ctx_list.extend(MarkedFunctionExpander(session_context=self.session_context, cls=MemoryLeakTest, function=f,
-                                                   file=MEMORY_LEAK_TEST_FILE).expand())
+                                                   file=MEMORY_LEAK_TEST_FILE, cluster=self.cluster).expand())
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
         # Run all tests in another process
         queue = multiprocessing.Queue()
-        runner = InstrumentedTestRunner(self.session_context, ctx_list, queue=queue)
-        runner.log = Mock()
+        runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, queue=queue)
 
         proc = multiprocessing.Process(target=runner.run_all_tests)
         proc.start()
