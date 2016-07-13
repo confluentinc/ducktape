@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import time
 
 
@@ -34,7 +33,14 @@ IGNORE = TestStatus("ignore")
 class TestResult(object):
     """Wrapper class for a single result returned by a single test."""
 
-    def __init__(self, test_context, test_status=PASS, summary="", data=None, start_time=-1, stop_time=-1):
+    def __init__(self,
+                 test_context,
+                 session_context,
+                 test_status=PASS,
+                 summary="",
+                 data=None,
+                 start_time=-1,
+                 stop_time=-1):
         """
         @param test_context  standard test context object
         @param test_status   did the test pass or fail, etc?
@@ -42,8 +48,15 @@ class TestResult(object):
         @param data          data returned by the test, e.g. throughput
         """
 
-        self.test_context = test_context
-        self.session_context = self.test_context.session_context
+        self.test_id = test_context.test_id
+        self.module_name = test_context.module_name
+        self.cls_name = test_context.cls_name
+        self.function_name = test_context.function_name
+        self.injected_args = test_context.injected_args
+        self.description = test_context.description
+        self.results_dir = test_context.results_dir
+
+        self.session_context = session_context
         self.test_status = test_status
         self.summary = summary
         self._data = data
@@ -55,20 +68,6 @@ class TestResult(object):
     @property
     def data(self):
         return self._data
-
-    @data.setter
-    def data(self, d):
-        try:
-            json.dumps(d)  # Check that d is JSON-serializable
-            self._data = d
-        except TypeError as e:
-            self.test_context.logger.error("Data returned from %s should be JSON-serializable but is not." %
-                                           self.test_context.test_name)
-            raise e
-
-    @property
-    def description(self):
-        return self.test_context.description
 
     @property
     def run_time(self):

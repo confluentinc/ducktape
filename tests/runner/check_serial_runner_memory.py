@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.runner import SerialTestRunner
+from ducktape.tests.runner import TestRunner
 from ducktape.mark import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 
@@ -38,14 +38,14 @@ MEMORY_LEAK_TEST_FILE = os.path.abspath(
     )
 )
 
-class InstrumentedSerialTestRunner(SerialTestRunner):
+class InstrumentedTestRunner(TestRunner):
     """Identical to SerialTestRunner, except dump memory used by the current process
     before running each test.
     """
     def __init__(self, *args, **kwargs):
         self.queue = kwargs.get("queue")
         del kwargs["queue"]
-        super(InstrumentedSerialTestRunner, self).__init__(*args, **kwargs)
+        super(InstrumentedTestRunner, self).__init__(*args, **kwargs)
 
     def run_single_test(self):
         # write current memory usage to file before running the test
@@ -53,7 +53,7 @@ class InstrumentedSerialTestRunner(SerialTestRunner):
         current_memory = _get_memory(pid)
         self.queue.put(current_memory)
 
-        data = super(InstrumentedSerialTestRunner, self).run_single_test()
+        data = super(InstrumentedTestRunner, self).run_single_test()
         return data
 
 
@@ -85,7 +85,7 @@ class CheckMemoryUsage(object):
 
         # Run all tests in another process
         queue = multiprocessing.Queue()
-        runner = InstrumentedSerialTestRunner(self.session_context, ctx_list, queue=queue)
+        runner = InstrumentedTestRunner(self.session_context, ctx_list, queue=queue)
         runner.log = Mock()
 
         proc = multiprocessing.Process(target=runner.run_all_tests)

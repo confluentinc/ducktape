@@ -133,11 +133,58 @@ def _escape_pathname(s):
     return re.sub("^\.|\.$", "", s)
 
 
-class TestContext(Logger):
+class TestLogger(Logger):
+    def __init__(self, logger_name, log_dir, debug, max_parallel):
+        self._logger_name = logger_name
+        self.log_dir = log_dir
+        self.debug = debug
+        self.max_parallel = max_parallel
+
+    @property
+    def logger_name(self):
+        return self._logger_name
+
+    def configure_logger(self):
+        """Set up the logger to log to stdout and files.
+        This creates a directory and a few files as a side-effect.
+        """
+        if self.configured:
+            return
+
+        self._logger.setLevel(logging.DEBUG)
+        mkdir_p(self.log_dir)
+
+        # Create info and debug level handlers to pipe to log files
+        info_fh = logging.FileHandler(os.path.join(self.log_dir, "test_log.info"))
+        debug_fh = logging.FileHandler(os.path.join(self.log_dir, "test_log.debug"))
+
+        info_fh.setLevel(logging.INFO)
+        debug_fh.setLevel(logging.DEBUG)
+
+        formatter = logging.Formatter(ConsoleDefaults.TEST_LOG_FORMATTER)
+        info_fh.setFormatter(formatter)
+        debug_fh.setFormatter(formatter)
+
+        self._logger.addHandler(info_fh)
+        self._logger.addHandler(debug_fh)
+
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setFormatter(formatter)
+        if self.debug and self.max_parallel == 1:
+            # If debug flag is set in non-parallel mode, pipe debug logs to stdout
+            ch.setLevel(logging.DEBUG)
+        else:
+            # default - pipe warning level logging to stdout
+            ch.setLevel(logging.WARNING)
+        self._logger.addHandler(ch)
+
+
+class TestContext(object):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
     def __init__(self, **kwargs):
         """
         :param session_context
+        :param cluster: the cluster object which will be used by this test
         :param module: name of the module containing the test class/method
         :param cls: class object containing the test method
         :param function: the test method
@@ -146,6 +193,7 @@ class TestContext(Logger):
         """
 
         self.session_context = kwargs.get("session_context")
+        self.cluster = kwargs.get("cluster")
         self.module = kwargs.get("module")
 
         if kwargs.get("file") is not None:
@@ -174,6 +222,20 @@ class TestContext(Logger):
         ctx_copy.__dict__.update(**kwargs)
 
         return ctx_copy
+
+    @property
+    def test_metadata(self):
+        return {
+            "directory": os.path.dirname(self.file),
+            "file_name": os.path.basename(self.file),
+            "cls_name": self.cls.__name__,
+            "method_name": self.function.__name__,
+            "injected_args": self.injected_args
+        }
+
+    @property
+    def logger_name(self):
+        return self.test_id
 
     @property
     def globals(self):
@@ -211,9 +273,6 @@ class TestContext(Logger):
             params = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
             return _escape_pathname(params)
 
-    @property
-    def cluster(self):
-        return self.session_context.cluster
 
     @property
     def results_dir(self):
@@ -248,41 +307,10 @@ class TestContext(Logger):
         return ".".join(filter(lambda x: x is not None and len(x) > 0, name_components))
 
     @property
-    def logger_name(self):
-        return self.test_id
-
-    def configure_logger(self):
-        """Set up the logger to log to stdout and files.
-        This creates a directory and a few files as a side-effect.
-        """
-        if self._logger_configured:
-            raise RuntimeError("test logger should only be configured once.")
-
-        self._logger.setLevel(logging.DEBUG)
-        mkdir_p(self.results_dir)
-
-        # Create info and debug level handlers to pipe to log files
-        info_fh = logging.FileHandler(os.path.join(self.results_dir, "test_log.info"))
-        debug_fh = logging.FileHandler(os.path.join(self.results_dir, "test_log.debug"))
-
-        info_fh.setLevel(logging.INFO)
-        debug_fh.setLevel(logging.DEBUG)
-
-        formatter = logging.Formatter(ConsoleDefaults.TEST_LOG_FORMATTER)
-        info_fh.setFormatter(formatter)
-        debug_fh.setFormatter(formatter)
-
-        self._logger.addHandler(info_fh)
-        self._logger.addHandler(debug_fh)
-
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setFormatter(formatter)
-        if self.session_context.debug:
-            # If debug flag is set, pipe verbose test logging to stdout
-            ch.setLevel(logging.DEBUG)
-        else:
-            # default - pipe warning level logging to stdout
-            ch.setLevel(logging.WARNING)
-        self._logger.addHandler(ch)
-
-
+    def logger(self):
+        """Lazily instantiate logger"""
+        return TestLogger(
+            self.logger_name,
+            self.results_dir,
+            self.session_context.debug,
+            self.session_context.max_parallel).logger

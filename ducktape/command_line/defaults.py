@@ -46,5 +46,7 @@ class ConsoleDefaults(object):
     # Log this to indicate a test is misbehaving to help end user find which test is at fault
     BAD_TEST_MESSAGE = "BAD_TEST"
 
+    # Test driver listens on this port for requests
+    TEST_DRIVER_PORT = 5556
 
 
