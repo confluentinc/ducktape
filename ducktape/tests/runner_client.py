@@ -248,7 +248,6 @@ class Sender(object):
 
         while retries_left > 0:
             self.logger.debug("client: sending event: " + str(message))
-            print "client: sending event:", str(message)
             self.socket.send(serialized_event)
             retries_left -= 1
             waiting_for_reply = True

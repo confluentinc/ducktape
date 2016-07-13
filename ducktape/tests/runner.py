@@ -116,7 +116,6 @@ class TestRunner(object):
         for proc in self.proc_list:
             proc.join()
 
-        print self.results
         return self.results
 
     def run_single_test(self):
