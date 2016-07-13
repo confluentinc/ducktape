@@ -24,8 +24,8 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, HTMLSummaryReporter
-from ducktape.tests.runner import SerialTestRunner
-from ducktape.tests.session import SessionContext
+from ducktape.tests.runner import TestRunner
+from ducktape.tests.session import SessionContext, SessionLogger
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
@@ -138,12 +138,13 @@ def main():
     setup_results_directory(results_dir)
 
     session_context = SessionContext(session_id=session_id, results_dir=results_dir, **args_dict)
+    session_logger = SessionLogger(session_context).logger
     for k, v in args_dict.iteritems():
-        session_context.logger.debug("Configuration: %s=%s", k, v)
+        session_logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run
     extend_import_paths(args_dict["test_path"])
-    loader = TestLoader(session_context, parameters)
+    loader = TestLoader(session_context, session_logger, parameters)
     try:
         tests = loader.discover(args_dict["test_path"])
     except LoaderException as e:
@@ -158,18 +159,19 @@ def main():
 
     # Initializing the cluster is slow, so do so only if
     # tests are sure to be run
+    cluster = None
     try:
         (cluster_mod_name, cluster_class_name) = args_dict["cluster"].rsplit('.', 1)
         cluster_mod = importlib.import_module(cluster_mod_name)
         cluster_class = getattr(cluster_mod, cluster_class_name)
-        session_context.cluster = cluster_class(cluster_file=args_dict["cluster_file"])
+        cluster = cluster_class(cluster_file=args_dict["cluster_file"])
     except:
         print "Failed to load cluster: ", str(sys.exc_info()[0])
         print traceback.format_exc(limit=16)
         sys.exit(1)
 
     # Run the tests
-    runner = SerialTestRunner(session_context, tests)
+    runner = TestRunner(cluster, session_context, session_logger, tests)
     test_results = runner.run_all_tests()
 
     # Report results
