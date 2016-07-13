@@ -51,11 +51,9 @@ class RunnerClient(object):
         self.test_metadata = ready_reply["test_metadata"]
         self.cluster = ready_reply["cluster"]
 
-        self.send(self.request.log("Loading test %s" % str(self.test_metadata), logging.INFO))
-        self.test_context = self.collect_test_context(**self.test_metadata)
-
         # Wait to instantiate the test object until running the test
         self.test = None
+        self.test_context = None
 
     def send(self, event):
         return self.sender.send(event)
@@ -71,6 +69,9 @@ class RunnerClient(object):
         return test_context
 
     def run(self):
+        self.log(logging.INFO, "Loading test %s" % str(self.test_metadata))
+        self.test_context = self.collect_test_context(**self.test_metadata)
+
         self.send(self.request.running())
         if len(self.cluster) != self.cluster.num_available_nodes():
             # Sanity check - are we leaking cluster nodes?
@@ -102,7 +103,7 @@ class RunnerClient(object):
             # Instantiate test
             self.test = self.test_context.cls(self.test_context)
 
-            self.logger.debug("Checking if there are enough nodes...")
+            self.log(logging.DEBUG, "Checking if there are enough nodes...")
             if self.test.min_cluster_size() > len(self.cluster):
                 raise RuntimeError(
                     "There are not enough nodes available in the cluster to run this test. "
@@ -111,10 +112,8 @@ class RunnerClient(object):
 
             # Run the test unit
             start_time = time.time()
-            self.log(logging.INFO, "setting up")
             self.setup_test()
 
-            self.log(logging.INFO, "running")
             data = self.run_test()
             test_status = PASS
             self.log(logging.INFO, "PASS")
@@ -153,7 +152,7 @@ class RunnerClient(object):
 
     def setup_test(self):
         """start services etc"""
-        self.send(self.request.log("Setting up test", logging.INFO))
+        self.log(logging.INFO, "Setting up...")
         self.test.setUp()
 
     def run_test(self):
@@ -162,6 +161,7 @@ class RunnerClient(object):
         We expect test_context.function to be a function or unbound method which takes an
         instantiated test object as its argument.
         """
+        self.log(logging.INFO, "Running...")
         return self.test_context.function(self.test)
 
     def teardown_test(self, teardown_services=True):
@@ -170,9 +170,7 @@ class RunnerClient(object):
         Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
         should stop if a keyboard interrupt is caught.
         """
-        if teardown_services:
-            self.log(logging.INFO, "tearing down")
-
+        self.log(logging.INFO, "Tearing down...")
         exceptions = []
         if hasattr(self.test_context, 'services'):
             services = self.test_context.services
@@ -212,13 +210,16 @@ class RunnerClient(object):
 
     def log(self, log_level, msg):
         """Log to the service log and the test log of the current test."""
-        if self.test is None:
-            msg = "%s: %s" % (str(self), str(msg))
+
+        if not getattr(self, 'test'):
+            msg = "%s: %s" % (self.__class__.__name__, str(msg))
             self.logger.log(log_level, msg)
         else:
-            msg = "%s: %s: %s" % (str(self), self.test_context.test_name, str(msg))
+            msg = "%s: %s: %s" % (self.__class__.__name__, self.test_context.test_name, str(msg))
             self.logger.log(log_level, msg)
             self.test.logger.log(log_level, msg)
+
+        self.send(self.request.log(msg, level=log_level))
 
 
 class Sender(object):
