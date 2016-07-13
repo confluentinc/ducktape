@@ -117,10 +117,10 @@ def main():
     """
     args_dict = parse_args(sys.argv[1:])
 
-    parameters = None
+    injected_args = None
     if args_dict["parameters"]:
         try:
-            parameters = json.loads(args_dict["parameters"])
+            injected_args = json.loads(args_dict["parameters"])
         except ValueError as e:
             print "parameters are not valid json: " + str(e.message)
             sys.exit(1)
@@ -144,7 +144,7 @@ def main():
 
     # Discover and load tests to be run
     extend_import_paths(args_dict["test_path"])
-    loader = TestLoader(session_context, session_logger, parameters)
+    loader = TestLoader(session_context, session_logger, injected_args=injected_args)
     try:
         tests = loader.discover(args_dict["test_path"])
     except LoaderException as e:
