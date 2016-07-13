@@ -59,15 +59,14 @@ class TestResult(object):
         self.session_context = session_context
         self.test_status = test_status
         self.summary = summary
-        self._data = data
+        self.data = data
 
         # For tracking run time
         self.start_time = start_time
         self.stop_time = stop_time
 
-    @property
-    def data(self):
-        return self._data
+    def __repr__(self):
+        return "<%s - test_status:%s, data:%s>" % (self.__class__.__name__, self.test_status, str(self.data))
 
     @property
     def run_time(self):

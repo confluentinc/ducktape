@@ -32,8 +32,9 @@ DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 class TestLoader(object):
     """Class used to discover and load tests."""
 
-    def __init__(self, session_context, logger, injected_args=None):
+    def __init__(self, session_context, logger, injected_args=None, cluster=None):
         self.session_context = session_context
+        self.cluster = cluster
         assert logger is not None
         self.logger = logger
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
@@ -241,6 +242,7 @@ class TestLoader(object):
             test_context_list.extend(self.expand_class(
                 TestContext(
                         session_context=self.session_context,
+                        cluster=self.cluster,
                         module=module.__name__,
                         cls=cls,
                         file=file)))
@@ -262,7 +264,13 @@ class TestLoader(object):
         return test_context_list
 
     def expand_function(self, t_ctx):
-        expander = MarkedFunctionExpander(t_ctx.session_context, t_ctx.module, t_ctx.cls, t_ctx.function, t_ctx.file)
+        expander = MarkedFunctionExpander(
+            t_ctx.session_context,
+            t_ctx.module,
+            t_ctx.cls,
+            t_ctx.function,
+            t_ctx.file,
+            t_ctx.cluster)
         return expander.expand(self.injected_args)
 
     def find_test_files(self, base_dir):

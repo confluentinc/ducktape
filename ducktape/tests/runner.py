@@ -63,16 +63,17 @@ class TestRunner(object):
     # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
     stop_testing = False
 
-    def __init__(self, cluster, session_context, session_logger, tests):
+    def __init__(self, cluster, session_context, session_logger, tests, port=ConsoleDefaults.TEST_DRIVER_PORT):
         # session_logger, message logger,
         self.session_logger = session_logger
         self.request_logger = RequestLogger(session_context).logger
         self.cluster = cluster
         self.serde = SerDe()
+        self.port = port
 
         self.zmq_context = zmq.Context()
         self.socket = self.zmq_context.socket(zmq.REP)
-        self.socket.bind("tcp://*:%s" % str(ConsoleDefaults.TEST_DRIVER_PORT))
+        self.socket.bind("tcp://*:%s" % str(self.port))
         self.poller = zmq.Poller()
         self.poller.register(self.socket, zmq.POLLIN)
 
@@ -100,17 +101,8 @@ class TestRunner(object):
 
             if len(self.active_tests) == 0:
                 self.current_test_context = self.staged_tests.pop()
+                self.run_single_test()
 
-                proc = multiprocessing.Process(
-                    target=run_client,
-                    args=[
-                        self.current_test_context.logger_name,
-                        self.current_test_context.results_dir,
-                        self.session_context.debug,
-                        self.session_context.max_parallel
-                    ])
-                self.proc_list.append(proc)
-                proc.start()
             try:
                 message = self.socket.recv()
                 event = self.serde.deserialize(message)
@@ -124,7 +116,21 @@ class TestRunner(object):
         for proc in self.proc_list:
             proc.join()
 
+        print self.results
         return self.results
+
+    def run_single_test(self):
+        proc = multiprocessing.Process(
+            target=run_client,
+            args=[
+                self.port,
+                self.current_test_context.logger_name,
+                self.current_test_context.results_dir,
+                self.session_context.debug,
+                self.session_context.max_parallel
+            ])
+        self.proc_list.append(proc)
+        proc.start()
 
     def handle(self, event):
         self.request_logger.debug(event)

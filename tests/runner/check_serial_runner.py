@@ -27,18 +27,40 @@ TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
 
 
+class FakeCluster(object):
+    def __init__(self, num_nodes):
+        self._num_nodes = num_nodes
+        self._available_nodes = self._num_nodes
+
+    def __len__(self):
+        return self._num_nodes
+
+    def request(self, nslots):
+        """Request the specified number of slots, which will be reserved until they are freed by the caller."""
+        self._available_nodes -= nslots
+        return [object() for _ in range(nslots)]
+
+    def num_available_nodes(self):
+        return self._available_nodes
+
+    def free(self, slots):
+        self._available_nodes += len(slots)
+
+    def free_single(self, slot):
+        self._available_nodes += 1
+
+
 class CheckSerialRunner(object):
+    port = 5556
+
     def check_insufficient_cluster_resources(self):
         """The test runner should behave sensibly when the cluster is too small to run a given test."""
-        mock_cluster = MagicMock()
-        mock_cluster.__len__.return_value = 1
-        mock_cluster.num_available_nodes = lambda: 1
-        session_context = tests.ducktape_mock.session_context(mock_cluster)
+        mock_cluster = FakeCluster(1)
+        session_context = tests.ducktape_mock.session_context()
 
         test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi,
-                                   file=TEST_THINGY_FILE)
-        runner = TestRunner(session_context, [test_context])
-        runner.log = Mock()
+                                   file=TEST_THINGY_FILE, cluster=mock_cluster)
+        runner = TestRunner(mock_cluster, session_context, Mock(), [test_context], port=CheckSerialRunner.port)
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
         results = runner.run_all_tests()
@@ -50,20 +72,26 @@ class CheckSerialRunner(object):
     def check_simple_run(self):
         """Check expected behavior when running a single test."""
         mock_cluster = LocalhostCluster()
-        session_context = tests.ducktape_mock.session_context(mock_cluster)
+        session_context = tests.ducktape_mock.session_context()
 
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2]
         ctx_list = []
         for f in test_methods:
             ctx_list.extend(
-                MarkedFunctionExpander(session_context=session_context, cls=TestThingy, function=f, file=TEST_THINGY_FILE).expand())
+                MarkedFunctionExpander(
+                    session_context=session_context,
+                    cls=TestThingy, function=f, file=TEST_THINGY_FILE, cluster=mock_cluster).expand())
 
-        runner = TestRunner(session_context, ctx_list)
-        runner.log = Mock()
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, port=CheckSerialRunner.port)
 
         results = runner.run_all_tests()
         assert len(results) == 3
         assert results.num_failed == 0
         assert results.num_passed == 1
         assert results.num_ignored == 2
-        assert results[0].data == {"data": 3.14159}
+
+        result_with_data = filter(lambda r: r.data is not None, results)[0]
+        assert result_with_data.data == {"data": 3.14159}
+
+    def teardown_method(self, _):
+        CheckSerialRunner.port += 1

@@ -39,10 +39,10 @@ class DifferentDummyService(Service):
 
 class CheckAllocateFree(object):
 
-    def setup_method(self, method):
+    def setup_method(self, _):
         self.cluster = LocalhostCluster()
-        self.session_context = session_context(cluster=self.cluster)
-        self.context = test_context(self.session_context)
+        self.session_context = session_context()
+        self.context = test_context(self.session_context, cluster=self.cluster)
 
     def check_allocate_free(self):
         """Check that allocating and freeing nodes works.
