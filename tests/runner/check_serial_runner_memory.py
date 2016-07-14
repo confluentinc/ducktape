@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ducktape.tests.runner import TestRunner
-from ducktape.mark import MarkedFunctionExpander
+from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 
 from .resources.test_memory_leak import MemoryLeakTest
