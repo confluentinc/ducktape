@@ -14,7 +14,7 @@
 
 from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner
-from ducktape.mark import MarkedFunctionExpander
+from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 
 import tests.ducktape_mock

@@ -13,14 +13,15 @@
 # limitations under the License.
 
 
-from ._mark import parametrized, _strip_parametrize_marks, Mark, Parametrize
+from ._mark import parametrized, Mark, Parametrize, _is_parametrize_mark
 from ducktape.tests.test import TestContext
 
 
 class MarkedFunctionExpander(object):
     """This class helps expand decorated/marked functions into a list of test context objects. """
-    def __init__(self, session_context=None, module=None, cls=None, function=None):
-        self.seed_context = TestContext(session_context=session_context, module=module, cls=cls, function=function)
+    def __init__(self, session_context=None, module=None, cls=None, function=None, file=None, cluster=None):
+        self.seed_context = TestContext(
+            session_context=session_context, module=module, cls=cls, function=function, file=file, cluster=cluster)
 
         if parametrized(function):
             self.context_list = []
@@ -34,13 +35,18 @@ class MarkedFunctionExpander(object):
 
         if test_parameters is not None:
             # User has specified that they want to run tests with specific parameters
-            # Strip existing parametrize and matrix marks, and parametrize it only with test_parameters
-            _strip_parametrize_marks(f)
+            # Strip existing parametrize and matrix marks, and parametrize it only with the given test_parameters
+            marks = []
+            if hasattr(f, "marks"):
+                marks = [m for m in f.marks if not _is_parametrize_mark(m)]
+                Mark.clear_marks(f)
+
             Mark.mark(f, Parametrize(**test_parameters))
+            for m in marks:
+                Mark.mark(f, m)
 
         if hasattr(f, "marks"):
             for m in f.marks:
                 self.context_list = m.apply(self.seed_context, self.context_list)
 
         return self.context_list
-
