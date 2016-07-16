@@ -18,9 +18,9 @@ from ducktape.cluster.localhost import LocalhostCluster
 
 from .resources.test_memory_leak import MemoryLeakTest
 
-import multiprocessing
 import os
 from memory_profiler import _get_memory
+import Queue
 import statistics
 
 import tests.ducktape_mock
@@ -84,13 +84,9 @@ class CheckMemoryUsage(object):
                                                    file=MEMORY_LEAK_TEST_FILE, cluster=self.cluster).expand())
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
-        # Run all tests in another process
-        queue = multiprocessing.Queue()
+        queue = Queue.Queue()
         runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, queue=queue)
-
-        proc = multiprocessing.Process(target=runner.run_all_tests)
-        proc.start()
-        proc.join()
+        runner.run_all_tests()
 
         measurements = []
         while not queue.empty():
