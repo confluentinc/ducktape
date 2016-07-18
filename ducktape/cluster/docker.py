@@ -1,4 +1,4 @@
-# Copyright 2015 Confluent Inc.
+# Copyright 2016 Confluent Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ class DockerCluster(Cluster):
     An implementation of Cluster that uses Docker containers.
     """
 
-    def __init__(self, cluster_json=None):
+    def __init__(self, cluster_file=None):
         super(DockerCluster, self).__init__()
 
         cids = subprocess.check_output('docker ps -q'.split(), stderr=subprocess.STDOUT).split()
@@ -33,7 +33,7 @@ class DockerCluster(Cluster):
             networks = list(cinfo["NetworkSettings"]["Networks"].items())
             if len(networks) != 1:
                 raise DucktapeError("DockerCluster only supports containers with 1 network.")
-            # Currently SSH 
+            # Currently SSH
             ssh_hostname = "localhost"
             ssh_port = int((x for x in cinfo["NetworkSettings"]["Ports"]["22/tcp"] if x["HostIp"] == "0.0.0.0").next()["HostPort"])
             # We'll use the IPAddress as the hostname because there
@@ -93,7 +93,7 @@ def build(dockerfile, image):
     print "Building Docker image", image
     try:
         subprocess.check_call(['docker', 'build', '-f', dockerfile, '-t', image, '.'])
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
         raise DucktapeError("Failed to build Docker image", e)
 
 def ensure_network(name):
@@ -103,21 +103,23 @@ def ensure_network(name):
         return
     except subprocess.CalledProcessError:
         pass  # Fall through to create the network
-    
+
     print "Creating network", name
     try:
         subprocess.check_output(['docker', 'network', 'create', '--driver=bridge', name], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         raise DucktapeError("Failed to validate or create Docker network", e)
 
+def worker_names(count):
+    return ["worker" + str(i) for i in range(count)]
+
 def up(image, network, size):
     print "Starting cluster with of", size, image, "containers on", network
-    nodes = status()
+    statuses = status(size)
 
-    for i in range(size):
-        name = "worker" + str(i) # FIXME
-        if name in nodes: continue
-        subprocess.check_output(['docker', 'run', 
+    for name in worker_names(size):
+        if statuses[name]["status"] == "running": continue # FIXME paused, other non-running states that shouldn't just create a new container?
+        subprocess.check_output(['docker', 'run',
                                  '--net=' + network,
                                  '--detach',
                                  '--publish-all',
@@ -125,31 +127,40 @@ def up(image, network, size):
                                  '--name=' + name,
                                  image])
 
-def status():
+def status(size):
     """Get list of currently running worker containers."""
-    try:
-        subprocess.check_output(['docker', 'inspect'] + )
-
     # Get any running containers that match our naming scheme
-    for x in [line for line in subprocess.check_output(['docker', 'ps']).split('\n')[1:] if line.strip()]:
-        print repr(x)
-    names = [line.split('\t')[6] for line in subprocess.check_output(['docker', 'ps']).split('\n')[1:] if line.strip()]
-    names = set([name for name in names if name.startswith('worker')]) # FIXME worker constant?
-    return names
+    active_names = [line.split()[-1] for line in subprocess.check_output(['docker', 'ps', '-a']).split('\n')[1:] if line.strip()]
+    active_names = set([name for name in active_names if name.startswith('worker')]) # FIXME worker constant?
 
-def down():
+    unstarted_state = {"status": "stopped"}
+    try:
+        active_names_ordered = list(active_names)
+        cinfos = json.loads(subprocess.check_output(['docker', 'inspect'] + active_names_ordered)) if active_names_ordered else {}
+    except ValueError:
+        raise RuntimeError("Could not parse docker inspect output when trying to determine status for %s" % active_names)
+
+    active_indexes = {name:idx for idx,name in enumerate(active_names_ordered)}
+    return {name: {"status": cinfos[active_indexes[name]]["State"]["Status"]} if name in active_indexes else unstarted_state for name in worker_names(size)}
+
+def print_status(size):
+    statuses = status(size)
+    print "Name\tStatus"
+    for name in sorted(statuses.keys()):
+        s = statuses[name]
+        print "%s\t%s" % (name, s["status"])
+
+def down(size):
     """
     Stop any currently running containers.
-    
+
     This only stops the containers but does not remove them.
     """
-    nodes = status()
-    subprocess.check_output(['docker', 'kill'] + nodes)
+    nodes = status(size)
+    subprocess.check_output(['docker', 'kill'] + nodes.keys())
 
 def main():
     """ducktape-docker - control program for Docker clusters used for Ducktape tests
-
-    ducktape-docker 
 
     This command allows you to setup, bootstrap, and destroy clusters
     of Docker containers to use for Ducktape tests. While the ducktape
@@ -170,16 +181,23 @@ def main():
     * size - number of containers to run
     """
 
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, RawTextHelpFormatter
+    import sys
 
-    parser = ArgumentParser()
+    parser = ArgumentParser(description=main.__doc__, formatter_class=RawTextHelpFormatter)
     parser.add_argument('command', type=str)
 
-    config = json.load(open('.docker-cluster'))
+    args = parser.parse_args()
 
-    #validate_config(config)
-    #build(config["dockerfile"], config["image"])
-    #ensure_network(config["network"])
-    #up(config["image"], config["network"], config["size"])
-    print status()
-    #down()
+    try:
+        config = json.load(open('.docker-cluster'))
+    except IOError:
+        print "Couldn't find .docker-cluster configuration file."
+        sys.exit(1)
+
+    validate_config(config)
+    build(config["dockerfile"], config["image"])
+    ensure_network(config["network"])
+    up(config["image"], config["network"], config["size"])
+    print_status(config["size"])
+    #down(config["size"])
