@@ -61,7 +61,7 @@ class RunnerClient(object):
     def collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
         # TODO - different logger for TestLoader object
         loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)
-        loaded_context_list = loader._discover(directory, file_name, cls_name, method_name)
+        loaded_context_list = loader.discover(directory, file_name, cls_name, method_name)
 
         assert len(loaded_context_list) == 1
         test_context = loaded_context_list[0]
