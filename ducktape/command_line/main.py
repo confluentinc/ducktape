@@ -146,7 +146,7 @@ def main():
     extend_import_paths(args_dict["test_path"])
     loader = TestLoader(session_context, session_logger, injected_args=injected_args)
     try:
-        tests = loader.discover(args_dict["test_path"])
+        tests = loader.load(args_dict["test_path"])
     except LoaderException as e:
         print "Failed while trying to discover tests: {}".format(e)
         sys.exit(1)
@@ -159,7 +159,6 @@ def main():
 
     # Initializing the cluster is slow, so do so only if
     # tests are sure to be run
-    cluster = None
     try:
         (cluster_mod_name, cluster_class_name) = args_dict["cluster"].rsplit('.', 1)
         cluster_mod = importlib.import_module(cluster_mod_name)

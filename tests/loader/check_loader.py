@@ -63,7 +63,7 @@ class CheckTestLoader(object):
     def check_test_loader_with_directory(self):
         """Check discovery on a directory."""
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        tests = loader.discover([discover_dir()])
+        tests = loader.load([discover_dir()])
         assert len(tests) == num_tests_in_dir(discover_dir())
 
     def check_test_loader_with_file(self):
@@ -71,7 +71,7 @@ class CheckTestLoader(object):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         module_path = os.path.join(discover_dir(), "test_a.py")
 
-        tests = loader.discover([module_path])
+        tests = loader.load([module_path])
         assert len(tests) == num_tests_in_file(module_path)
 
     def check_test_loader_multiple_files(self):
@@ -79,23 +79,23 @@ class CheckTestLoader(object):
         file_a = os.path.join(discover_dir(), "test_a.py")
         file_b = os.path.join(discover_dir(), "test_b.py")
 
-        tests = loader.discover([file_a, file_b])
+        tests = loader.load([file_a, file_b])
         assert len(tests) == num_tests_in_file(file_a) + num_tests_in_file(file_b)
 
     def check_test_loader_with_nonexistent_file(self):
         """Check discovery on a non-existent path should throw LoaderException"""
         with pytest.raises(LoaderException):
             loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-            tests = loader.discover([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+            tests = loader.load([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
 
     def check_test_loader_with_class(self):
         """Check test discovery with discover class syntax."""
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        tests = loader.discover([os.path.join(discover_dir(), "test_b.py::TestBB")])
+        tests = loader.load([os.path.join(discover_dir(), "test_b.py::TestBB")])
         assert len(tests) == 2
 
         # Sanity check, test that it discovers two test class & 3 tests if it searches the whole module
-        tests = loader.discover([os.path.join(discover_dir(), "test_b.py")])
+        tests = loader.load([os.path.join(discover_dir(), "test_b.py")])
         assert len(tests) == 3
 
     def check_test_loader_with_injected_args(self):
@@ -108,7 +108,7 @@ class CheckTestLoader(object):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=parameters)
 
         file = os.path.join(discover_dir(), "test_decorated.py")
-        tests = loader.discover([file])
+        tests = loader.load([file])
         assert len(tests) == 4
 
         for t in tests:
@@ -194,7 +194,7 @@ class CheckParseSymbol(object):
                 parsed['method']
             )
 
-            actually_parsed = loader.parse_discovery_symbol(symbol)
+            actually_parsed = loader._parse_discovery_symbol(symbol)
             actually_parsed = (
                 normalize_ending_slash(actually_parsed[0]),
                 actually_parsed[1],
