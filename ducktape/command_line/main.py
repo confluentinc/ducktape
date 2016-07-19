@@ -171,6 +171,7 @@ def main():
     # Run the tests
     runner = SerialTestRunner(session_context, tests)
     test_results = runner.run_all_tests()
+    session_context.close_logger()
 
     # Report results
     reporter = SimpleStdoutSummaryReporter(test_results)

@@ -203,6 +203,12 @@ class SerialTestRunner(TestRunner):
             exceptions.append(e)
             self.log(logging.WARN, "Error freeing nodes: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
+        try:
+            self.current_test_context.close_logger()
+        except BaseException as e:
+            exceptions.append(e)
+            self.log(logging.WARN, "Error closing logger: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+
         # Remove reference to services. This is important to prevent potential memory leaks if users write services
         # which themselves have references to large memory-intensive objects
         del self.current_test_context.services
