@@ -13,10 +13,12 @@
 # limitations under the License.
 
 
+import json
 import logging
 import multiprocessing
 import os
 import time
+import traceback
 import zmq
 
 from ducktape.tests.serde import SerDe
@@ -25,19 +27,15 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.tests.runner_client import run_client
 from ducktape.tests.result import TestResults
 from ducktape.utils.terminal_size import get_terminal_size
-from ducktape.tests.message import Request, ready_reply
+from ducktape.tests.event import ClientEventSupplier, EventResponseSupplier
 from ducktape.tests.logger import Logger
 
 
 class RequestLogger(Logger):
     def __init__(self, session_context):
         self.session_context = session_context
-
-    @property
-    def logger_name(self):
-        # Naming means RequestLogger.logger is a child of SessionLogger.logger
-        # I.e. requests
-        return "%s.requestlogger" % SessionLogger(self.session_context).logger_name
+        # This choice of name means RequestLogger.logger is a child of SessionLogger.logger
+        self.logger_name = "%s.requestlogger" % SessionLogger(self.session_context).logger_name
 
     def configure_logger(self):
         """Log to request_log."""
@@ -57,6 +55,25 @@ class RequestLogger(Logger):
         self._logger.addHandler(fh_debug)
 
 
+class Receiver(object):
+    def __init__(self, port):
+        self.port = port
+        self.serde = SerDe()
+
+        self.zmq_context = zmq.Context()
+        self.socket = self.zmq_context.socket(zmq.REP)
+        self.socket.bind("tcp://*:%s" % str(self.port))
+        # self.poller = zmq.Poller()
+        # self.poller.register(self.socket, zmq.POLLIN)
+
+    def recv(self):
+        message = self.socket.recv()
+        return self.serde.deserialize(message)
+
+    def send(self, event):
+        self.socket.send(self.serde.serialize(event))
+
+
 class TestRunner(object):
     """Runs tests serially."""
 
@@ -68,14 +85,10 @@ class TestRunner(object):
         self.session_logger = session_logger
         self.request_logger = RequestLogger(session_context).logger
         self.cluster = cluster
-        self.serde = SerDe()
+        self.event_response = EventResponseSupplier()
+        self.hostname = "localhost"
         self.port = port
-
-        self.zmq_context = zmq.Context()
-        self.socket = self.zmq_context.socket(zmq.REP)
-        self.socket.bind("tcp://*:%s" % str(self.port))
-        self.poller = zmq.Poller()
-        self.poller.register(self.socket, zmq.POLLIN)
+        self.receiver = Receiver(port)
 
         self.session_context = session_context
         self.results = TestResults(self.session_context)
@@ -104,13 +117,12 @@ class TestRunner(object):
                 self.run_single_test()
 
             try:
-                message = self.socket.recv()
-                event = self.serde.deserialize(message)
+                event = self.receiver.recv()
                 self.handle(event)
             except Exception as e:
-                s = str(type(e))
-                s += " " + str(e)
-                print "Exception receiving message:", str(e)
+                err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
+                err_str += "\n" + traceback.format_exc(limit=16)
+                self.log(logging.ERROR, err_str)
                 continue
 
         for proc in self.proc_list:
@@ -119,9 +131,11 @@ class TestRunner(object):
         return self.results
 
     def run_single_test(self):
+        """Start a test runner client in a subprocess"""
         proc = multiprocessing.Process(
             target=run_client,
             args=[
+                self.hostname,
                 self.port,
                 self.current_test_context.logger_name,
                 self.current_test_context.results_dir,
@@ -132,32 +146,32 @@ class TestRunner(object):
         proc.start()
 
     def handle(self, event):
-        self.request_logger.debug(event)
+        self.request_logger.debug(str(event))
 
-        if event["event_type"] == Request.READY:
+        if event["event_type"] == ClientEventSupplier.READY:
             self.handle_ready(event)
-        elif event["event_type"] in [Request.RUNNING, Request.SETTING_UP, Request.TEARING_DOWN]:
+        elif event["event_type"] in [ClientEventSupplier.RUNNING, ClientEventSupplier.SETTING_UP, ClientEventSupplier.TEARING_DOWN]:
             self.handle_lifecycle(event)
-        elif event["event_type"] == Request.FINISHED:
+        elif event["event_type"] == ClientEventSupplier.FINISHED:
             self.handle_finished(event)
-        elif event["event_type"] == Request.LOG:
+        elif event["event_type"] == ClientEventSupplier.LOG:
             self.handle_log(event)
         else:
-            self.handle_other(event)
+            raise RuntimeError("Received event with unknown event type: " + str(event))
 
     def handle_ready(self, event):
-        self.socket.send(
-            self.serde.serialize(ready_reply(self.session_context, self.current_test_context, self.cluster)))
+        self.receiver.send(
+                self.event_response.ready(event, self.session_context, self.current_test_context, self.cluster))
 
-        # Test is "active" once we receive the ready request
+        # Test is considered "active" as soon as we receive the ready request
         self.active_tests[event["source_id"]] = event["event_type"]
 
     def handle_log(self, event):
+        self.receiver.send(self.event_response.log(event))
         self.log(event["log_level"], event["message"])
-        self.socket.send(self.serde.serialize(event))
 
     def handle_finished(self, event):
-        self.socket.send(self.serde.serialize(event))
+        self.receiver.send(self.event_response.finished(event))
 
         # Move this test from running to finished
         del self.active_tests[event["source_id"]]
@@ -169,24 +183,13 @@ class TestRunner(object):
             print "~" * int(2 * terminal_width / 3)
 
     def handle_lifecycle(self, event):
-        self.socket.send(self.serde.serialize(event))
-
-    def handle_other(self, event):
-        self.socket.send(self.serde.serialize(event))
+        self.receiver.send(self.event_response.event_response(event))
 
     def log(self, log_level, msg):
-        """Log to the service log and the test log of the current test."""
-
+        """Log to the service log of the current test."""
         if self.current_test is None:
             msg = "%s: %s" % (self.who_am_i(), str(msg))
             self.session_logger.log(log_level, msg)
         else:
             msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, str(msg))
             self.session_logger.log(log_level, msg)
-            self.current_test.logger.log(log_level, msg)
-
-
-
-
-
-

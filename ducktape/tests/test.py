@@ -175,14 +175,10 @@ def _escape_pathname(s):
 
 class TestLogger(Logger):
     def __init__(self, logger_name, log_dir, debug, max_parallel):
-        self._logger_name = logger_name
+        self.logger_name = logger_name
         self.log_dir = log_dir
         self.debug = debug
         self.max_parallel = max_parallel
-
-    @property
-    def logger_name(self):
-        return self._logger_name
 
     def configure_logger(self):
         """Set up the logger to log to stdout and files.

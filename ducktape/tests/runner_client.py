@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import logging
 import os
 import time
 import traceback
 import zmq
 
-from ducktape.tests.message import Request
+from ducktape.tests.event import ClientEventSupplier
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
 from ducktape.tests.test import TestLogger
@@ -29,24 +28,24 @@ from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
-def run_client(port, logger_name, log_dir, debug, max_parallel):
-    client = RunnerClient(port, logger_name, log_dir, debug, max_parallel)
+def run_client(server_hostname, server_port, logger_name, log_dir, debug, max_parallel):
+    client = RunnerClient(server_hostname, server_port, logger_name, log_dir, debug, max_parallel)
     client.run()
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, port, logger_name, log_dir, debug, max_parallel):
+    def __init__(self, server_hostname, server_port, logger_name, log_dir, debug, max_parallel):
         self.serde = SerDe()
         self.logger = TestLogger(logger_name, log_dir, debug, max_parallel).logger
-        self.runner_port = port
+        self.runner_port = server_port
 
         self.id = "test-runner-%d-%d" % (os.getpid(), id(self))
-        self.request = Request(self.id)
-        self.sender = Sender("localhost", str(self.runner_port), self.logger)
+        self.message_supplier = ClientEventSupplier(self.id)
+        self.sender = Sender(server_hostname, str(self.runner_port), self.message_supplier, self.logger)
 
-        ready_reply = self.sender.send(self.request.ready())
+        ready_reply = self.sender.send(self.message_supplier.ready())
         self.session_context = ready_reply["session_context"]
         self.test_metadata = ready_reply["test_metadata"]
         self.cluster = ready_reply["cluster"]
@@ -72,7 +71,7 @@ class RunnerClient(object):
         self.log(logging.INFO, "Loading test %s" % str(self.test_metadata))
         self.test_context = self.collect_test_context(**self.test_metadata)
 
-        self.send(self.request.running())
+        self.send(self.message_supplier.running())
         if len(self.cluster) != self.cluster.num_available_nodes():
             # Sanity check - are we leaking cluster nodes?
             raise RuntimeError(
@@ -87,7 +86,7 @@ class RunnerClient(object):
                                 start_time=time.time(),
                                 stop_time=time.time())
             # Tell the server we are finished
-            self.send(self.request.finished(result=result))
+            self.send(self.message_supplier.finished(result=result))
             return
 
         # Results from this test, as well as logs will be dumped here
@@ -146,7 +145,7 @@ class RunnerClient(object):
 
         # Tell the server we are finished
         try:
-            self.send(self.request.finished(result=result))
+            self.send(self.message_supplier.finished(result=result))
         except Exception as e:
             self.logger.error("Problem sending FINISHED message:", str(e))
 
@@ -217,22 +216,22 @@ class RunnerClient(object):
         else:
             msg = "%s: %s: %s" % (self.__class__.__name__, self.test_context.test_name, str(msg))
             self.logger.log(log_level, msg)
-            self.test.logger.log(log_level, msg)
 
-        self.send(self.request.log(msg, level=log_level))
+        self.send(self.message_supplier.log(msg, level=log_level))
 
 
 class Sender(object):
     REQUEST_TIMEOUT_MS = 3000
     NUM_RETRIES = 5
 
-    def __init__(self, server_host, server_port, logger):
+    def __init__(self, server_host, server_port, message_supplier, logger):
         self.serde = SerDe()
         self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
         self.zmq_context = zmq.Context()
         self.socket = None
         self.poller = zmq.Poller()
 
+        self.message_supplier = message_supplier
         self.logger = logger
 
         self._init_socket()
@@ -242,13 +241,13 @@ class Sender(object):
         self.socket.connect(self.server_endpoint)
         self.poller.register(self.socket, zmq.POLLIN)
 
-    def send(self, message, blocking=True):
+    def send(self, event, blocking=True):
 
         retries_left = Sender.NUM_RETRIES
-        serialized_event = self.serde.serialize(message)
 
         while retries_left > 0:
-            self.logger.debug("client: sending event: " + str(message))
+            self.logger.debug("client: sending event: " + str(event))
+            serialized_event = self.serde.serialize(event)
             self.socket.send(serialized_event)
             retries_left -= 1
             waiting_for_reply = True
@@ -261,7 +260,7 @@ class Sender(object):
                     self.logger.debug("POLLIN")
                     reply = self.socket.recv()
                     if reply:
-                        self.logger.debug("received", self.serde.deserialize(reply))
+                        self.logger.debug("received " + str(self.serde.deserialize(reply)))
                         return self.serde.deserialize(reply)
                     else:
                         # send another request...
@@ -271,7 +270,9 @@ class Sender(object):
                     self.close()
                     self._init_socket()
                     waiting_for_reply = False
-                time.sleep(.5)
+                # Ensure each message we attempt to send has a unique id
+                # This copy constructor gives us a duplicate with a new message id
+                event = self.message_supplier.copy(event)
 
         raise RuntimeError("Unable to receive response from driver")
 
