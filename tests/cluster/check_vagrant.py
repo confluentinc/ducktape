@@ -14,10 +14,12 @@
 
 from ducktape.cluster.vagrant import VagrantCluster
 import json
+import pickle
 import os
+import shutil
+import tempfile
 
-class CheckVagrantCluster(object):
-    two_hosts = """Host worker1
+TWO_HOSTS = """Host worker1
   HostName 127.0.0.1
   User vagrant
   Port 2222
@@ -41,12 +43,27 @@ Host worker2
 
 """
 
+
+class CheckVagrantCluster(object):
     cluster_file = "cluster_file_temporary.json"
 
+    def setup_method(self, _):
+        if os.path.exists(self.cluster_file):
+            os.remove(self.cluster_file)
+
+    def teardown_method(self, _):
+        if os.path.exists(self.cluster_file):
+            os.remove(self.cluster_file)
+
     def _set_monkeypatch_attr(self, monkeypatch):
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (self.two_hosts, None))
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
+
+    def check_pickleable(self, monkeypatch):
+        self._set_monkeypatch_attr(monkeypatch)
+        cluster = VagrantCluster()
+        pickle.dumps(cluster)
 
     def check_one_host_parsing(self, monkeypatch):
         """check the behavior of VagrantCluster when cluster_file is not specified. VagrantCluster should read
@@ -87,7 +104,6 @@ Host worker2
         cluster_json_expected["nodes"] = nodes
         cluster_json_actual = json.load(open(os.path.abspath(self.cluster_file)))
 
-        os.remove(self.cluster_file)
         assert cluster_json_actual == cluster_json_expected
 
     def check_cluster_file_read(self, monkeypatch):
@@ -119,7 +135,6 @@ Host worker2
         json.dump(cluster_json_expected, open(self.cluster_file, 'w+'), indent=2, separators=(',', ': '), sort_keys=True)
 
         cluster = VagrantCluster(cluster_file=self.cluster_file)
-        os.remove(self.cluster_file)
 
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
