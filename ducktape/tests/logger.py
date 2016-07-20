@@ -17,10 +17,6 @@ import logging
 
 class Logger(object):
     @property
-    def logger_name(self):
-        raise NotImplementedError("logger_name property must be implemented by a subclass")
-
-    @property
     def logger(self):
         """Read-only logger attribute."""
         if not hasattr(self, '_logger'):

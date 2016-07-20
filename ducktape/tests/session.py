@@ -48,11 +48,7 @@ class SessionLogger(Logger):
     def __init__(self, session_context):
         self.log_dir = session_context.results_dir
         self.debug = session_context.debug
-        self._logger_name = session_context.session_id + ".session_logger"
-
-    @property
-    def logger_name(self):
-        return self._logger_name
+        self.logger_name = session_context.session_id + ".session_logger"
 
     def configure_logger(self):
         """Set up the logger to log to stdout and files. This creates a few files as a side-effect. """
