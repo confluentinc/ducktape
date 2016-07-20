@@ -14,7 +14,8 @@
 
 from ducktape.cluster.localhost import LocalhostCluster
 
-import sys
+import pickle
+
 
 class CheckLocalhostCluster(object):
     def setup_method(self, method):
@@ -22,6 +23,10 @@ class CheckLocalhostCluster(object):
 
     def check_size(self):
         len(self.cluster) >= 2 ** 31 - 1
+
+    def check_pickleable(self):
+        cluster = LocalhostCluster()
+        pickle.dumps(cluster)
 
     def check_request_free(self):
         available = self.cluster.num_available_nodes()
