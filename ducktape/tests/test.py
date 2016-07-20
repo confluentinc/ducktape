@@ -173,6 +173,15 @@ def _escape_pathname(s):
     return re.sub("^\.|\.$", "", s)
 
 
+def test_logger(logger_name, log_dir, debug, max_parallel):
+    """Helper method for getting a test logger object
+
+    Note that if this method is called multiple times with the same logger_name, it returns the same logger object.
+    Note also, that for a fixed logger_name, configuration occurs only the first time this function is called.
+    """
+    return TestLogger(logger_name, log_dir, debug, max_parallel).logger
+
+
 class TestLogger(Logger):
     def __init__(self, logger_name, log_dir, debug, max_parallel):
         self.logger_name = logger_name
@@ -358,8 +367,5 @@ class TestContext(object):
     @property
     def logger(self):
         """Lazily instantiate logger"""
-        return TestLogger(
-            self.logger_name,
-            self.results_dir,
-            self.session_context.debug,
-            self.session_context.max_parallel).logger
+        return test_logger(
+            self.logger_name, self.results_dir, self.session_context.debug, self.session_context.max_parallel)
