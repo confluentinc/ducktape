@@ -21,7 +21,7 @@ import zmq
 from ducktape.tests.event import ClientEventSupplier
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
-from ducktape.tests.test import TestLogger
+from ducktape.tests.test import test_logger
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.tests.reporter import SingleResultFileReporter
@@ -38,7 +38,7 @@ class RunnerClient(object):
 
     def __init__(self, server_hostname, server_port, logger_name, log_dir, debug, max_parallel):
         self.serde = SerDe()
-        self.logger = TestLogger(logger_name, log_dir, debug, max_parallel).logger
+        self.logger = test_logger(logger_name, log_dir, debug, max_parallel)
         self.runner_port = server_port
 
         self.id = "test-runner-%d-%d" % (os.getpid(), id(self))
