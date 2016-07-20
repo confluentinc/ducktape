@@ -50,7 +50,7 @@ class FakeCluster(object):
         self._available_nodes += 1
 
 
-class CheckSerialRunner(object):
+class CheckRunner(object):
     port = 5556
 
     def check_insufficient_cluster_resources(self):
@@ -60,7 +60,7 @@ class CheckSerialRunner(object):
 
         test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi,
                                    file=TEST_THINGY_FILE, cluster=mock_cluster)
-        runner = TestRunner(mock_cluster, session_context, Mock(), [test_context], port=CheckSerialRunner.port)
+        runner = TestRunner(mock_cluster, session_context, Mock(), [test_context], port=CheckRunner.port)
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
         results = runner.run_all_tests()
@@ -82,7 +82,7 @@ class CheckSerialRunner(object):
                     session_context=session_context,
                     cls=TestThingy, function=f, file=TEST_THINGY_FILE, cluster=mock_cluster).expand())
 
-        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, port=CheckSerialRunner.port)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, port=CheckRunner.port)
 
         results = runner.run_all_tests()
         assert len(results) == 3
@@ -94,4 +94,4 @@ class CheckSerialRunner(object):
         assert result_with_data.data == {"data": 3.14159}
 
     def teardown_method(self, _):
-        CheckSerialRunner.port += 1
+        CheckRunner.port += 1
