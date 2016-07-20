@@ -28,7 +28,8 @@ class ClientEventSupplier(object):
     # Types of messages available
     TYPES = {READY, SETTING_UP, RUNNING, TEARING_DOWN, FINISHED, LOG}
 
-    def __init__(self, source_id):
+    def __init__(self, test_id, source_id):
+        self.test_id = test_id
         # id of event source
         self.source_id = source_id
         self.event_id = 0
@@ -45,6 +46,7 @@ class ClientEventSupplier(object):
             payload = {}
 
         event = {
+            "test_id": self.test_id,
             "source_id": self.source_id,
             "event_id": self.event_id,
             "event_type": event_type,

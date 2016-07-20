@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-import json
 import logging
 import multiprocessing
 import os
@@ -22,37 +21,11 @@ import traceback
 import zmq
 
 from ducktape.tests.serde import SerDe
-from ducktape.tests.session import SessionLogger
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.tests.runner_client import run_client
 from ducktape.tests.result import TestResults
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventSupplier, EventResponseSupplier
-from ducktape.tests.logger import Logger
-
-
-class RequestLogger(Logger):
-    def __init__(self, session_context):
-        self.session_context = session_context
-        # This choice of name means RequestLogger.logger is a child of SessionLogger.logger
-        self.logger_name = "%s.requestlogger" % SessionLogger(self.session_context).logger_name
-
-    def configure_logger(self):
-        """Log to request_log."""
-        if self.configured:
-            return
-
-        self._logger.setLevel(logging.DEBUG)
-
-        fh_debug = logging.FileHandler(os.path.join(self.session_context.results_dir, "request_log.debug"))
-        fh_debug.setLevel(logging.DEBUG)
-
-        # create formatter and add it to the handlers
-        formatter = logging.Formatter(ConsoleDefaults.SESSION_LOG_FORMATTER)
-        fh_debug.setFormatter(formatter)
-
-        # add the handlers to the logger
-        self._logger.addHandler(fh_debug)
 
 
 class Receiver(object):
@@ -83,7 +56,6 @@ class TestRunner(object):
     def __init__(self, cluster, session_context, session_logger, tests, port=ConsoleDefaults.TEST_DRIVER_PORT):
         # session_logger, message logger,
         self.session_logger = session_logger
-        self.request_logger = RequestLogger(session_context).logger
         self.cluster = cluster
         self.event_response = EventResponseSupplier()
         self.hostname = "localhost"
@@ -98,7 +70,6 @@ class TestRunner(object):
         self.active_tests = {}
         self.finished_tests = {}
 
-        self.current_test = None
         self.current_test_context = None
 
     def who_am_i(self):
@@ -137,6 +108,7 @@ class TestRunner(object):
             args=[
                 self.hostname,
                 self.port,
+                self.current_test_context.test_id,
                 self.current_test_context.logger_name,
                 self.current_test_context.results_dir,
                 self.session_context.debug,
@@ -146,7 +118,7 @@ class TestRunner(object):
         proc.start()
 
     def handle(self, event):
-        self.request_logger.debug(str(event))
+        self.log(logging.DEBUG, str(event))
 
         if event["event_type"] == ClientEventSupplier.READY:
             self.handle_ready(event)
@@ -164,7 +136,7 @@ class TestRunner(object):
                 self.event_response.ready(event, self.session_context, self.current_test_context, self.cluster))
 
         # Test is considered "active" as soon as we receive the ready request
-        self.active_tests[event["source_id"]] = event["event_type"]
+        self.active_tests[event["test_id"]] = event
 
     def handle_log(self, event):
         self.receiver.send(self.event_response.log(event))
@@ -174,8 +146,8 @@ class TestRunner(object):
         self.receiver.send(self.event_response.finished(event))
 
         # Move this test from running to finished
-        del self.active_tests[event["source_id"]]
-        self.finished_tests[event["source_id"]] = event["event_type"]
+        del self.active_tests[event["test_id"]]
+        self.finished_tests[event["test_id"]] = event
         self.results.append(event['result'])
 
         if len(self.staged_tests) + len(self.active_tests) > 0 and self.session_context.max_parallel == 1:
@@ -185,11 +157,10 @@ class TestRunner(object):
     def handle_lifecycle(self, event):
         self.receiver.send(self.event_response.event_response(event))
 
+    def log_event(self, log_level, event):
+        """Log an event received from the client."""
+        pass
+
     def log(self, log_level, msg):
         """Log to the service log of the current test."""
-        if self.current_test is None:
-            msg = "%s: %s" % (self.who_am_i(), str(msg))
-            self.session_logger.log(log_level, msg)
-        else:
-            msg = "%s: %s: %s" % (self.who_am_i(), self.current_test_context.test_name, str(msg))
-            self.session_logger.log(log_level, msg)
+        self.session_logger.log(log_level, msg)
