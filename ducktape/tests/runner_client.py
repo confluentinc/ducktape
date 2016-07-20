@@ -28,21 +28,22 @@ from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
-def run_client(server_hostname, server_port, logger_name, log_dir, debug, max_parallel):
-    client = RunnerClient(server_hostname, server_port, logger_name, log_dir, debug, max_parallel)
+def run_client(server_hostname, server_port, logger_name, test_id, log_dir, debug, max_parallel):
+    client = RunnerClient(server_hostname, server_port, test_id, logger_name, log_dir, debug, max_parallel)
     client.run()
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, server_hostname, server_port, logger_name, log_dir, debug, max_parallel):
+    def __init__(self, server_hostname, server_port, test_id, logger_name, log_dir, debug, max_parallel):
         self.serde = SerDe()
         self.logger = test_logger(logger_name, log_dir, debug, max_parallel)
         self.runner_port = server_port
 
+        self.test_id = test_id
         self.id = "test-runner-%d-%d" % (os.getpid(), id(self))
-        self.message_supplier = ClientEventSupplier(self.id)
+        self.message_supplier = ClientEventSupplier(self.test_id, self.id)
         self.sender = Sender(server_hostname, str(self.runner_port), self.message_supplier, self.logger)
 
         ready_reply = self.sender.send(self.message_supplier.ready())
