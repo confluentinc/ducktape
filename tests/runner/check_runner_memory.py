@@ -40,7 +40,7 @@ MEMORY_LEAK_TEST_FILE = os.path.abspath(
 
 
 class InstrumentedTestRunner(TestRunner):
-    """Identical to SerialTestRunner, except dump memory used by the current process
+    """Identical to TestRunner, except dump memory used by the current process
     before running each test.
     """
     def __init__(self, *args, **kwargs):
