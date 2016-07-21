@@ -24,7 +24,7 @@ from ducktape.utils.util import wait_until
 
 
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip = None, logger=None):
+    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip=None, logger=None):
         self.hostname = hostname
         self.user = user
         self.ssh_args = ssh_args
