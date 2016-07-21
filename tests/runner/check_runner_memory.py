@@ -48,13 +48,13 @@ class InstrumentedTestRunner(TestRunner):
         del kwargs["queue"]
         super(InstrumentedTestRunner, self).__init__(*args, **kwargs)
 
-    def run_single_test(self):
+    def _run_single_test(self, test_context):
         # write current memory usage to file before running the test
         pid = os.getpid()
         current_memory = _get_memory(pid)
         self.queue.put(current_memory)
 
-        data = super(InstrumentedTestRunner, self).run_single_test()
+        data = super(InstrumentedTestRunner, self)._run_single_test(test_context)
         return data
 
 

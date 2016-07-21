@@ -64,10 +64,10 @@ class TestRunner(object):
 
         self.proc_list = []
         self.staged_tests = tests
+        self.test_id_to_test_context = {t.test_id: t for t in tests}
+        self.test_id_to_cluster = {}  # Track subcluster assigned to a particular test_id
         self.active_tests = {}
         self.finished_tests = {}
-
-        self.current_test_context = None
 
     def who_am_i(self):
         """Human-readable name helpful for logging."""
@@ -75,22 +75,22 @@ class TestRunner(object):
 
     def run_all_tests(self):
         self.results.start_time = time.time()
-        self.log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
-        self.log(logging.INFO, "running %d tests..." % len(self.staged_tests))
+        self._log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
+        self._log(logging.INFO, "running %d tests..." % len(self.staged_tests))
 
         while len(self.staged_tests) > 0 or len(self.active_tests) > 0:
 
             if len(self.active_tests) == 0:
-                self.current_test_context = self.staged_tests.pop()
-                self.run_single_test()
-
+                next_test_context = self.staged_tests.pop()
+                self._preallocate_subcluster(next_test_context)
+                self._run_single_test(next_test_context)
             try:
                 event = self.receiver.recv()
-                self.handle(event)
+                self._handle(event)
             except Exception as e:
                 err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
                 err_str += "\n" + traceback.format_exc(limit=16)
-                self.log(logging.ERROR, err_str)
+                self._log(logging.ERROR, err_str)
                 continue
 
         for proc in self.proc_list:
@@ -98,61 +98,85 @@ class TestRunner(object):
 
         return self.results
 
-    def run_single_test(self):
+    def _run_single_test(self, test_context):
         """Start a test runner client in a subprocess"""
         proc = multiprocessing.Process(
             target=run_client,
             args=[
                 self.hostname,
                 self.port,
-                self.current_test_context.test_id,
-                self.current_test_context.logger_name,
-                self.current_test_context.results_dir,
+                test_context.test_id,
+                test_context.logger_name,
+                test_context.results_dir,
                 self.session_context.debug
             ])
         self.proc_list.append(proc)
         proc.start()
 
-    def handle(self, event):
-        self.log(logging.DEBUG, str(event))
+    def _preallocate_subcluster(self, test_context):
+        """Preallocate the subcluster which will be used to run the test.
+
+        Side effect: store association between the test_id and the preallocated subcluster.
+
+        :param test_context
+        :return None
+        """
+
+        expected_num_nodes = test_context.expected_num_nodes
+        if expected_num_nodes is None:
+            expected_num_nodes = min(len(self.cluster), 10000)
+
+        self.test_id_to_cluster[test_context.test_id] = self.cluster.request_subcluster(expected_num_nodes)
+
+    def _handle(self, event):
+        self._log(logging.DEBUG, str(event))
 
         if event["event_type"] == ClientEventFactory.READY:
-            self.handle_ready(event)
+            self._handle_ready(event)
         elif event["event_type"] in [ClientEventFactory.RUNNING, ClientEventFactory.SETTING_UP, ClientEventFactory.TEARING_DOWN]:
-            self.handle_lifecycle(event)
+            self._handle_lifecycle(event)
         elif event["event_type"] == ClientEventFactory.FINISHED:
-            self.handle_finished(event)
+            self._handle_finished(event)
         elif event["event_type"] == ClientEventFactory.LOG:
-            self.handle_log(event)
+            self._handle_log(event)
         else:
             raise RuntimeError("Received event with unknown event type: " + str(event))
 
-    def handle_ready(self, event):
+    def _handle_ready(self, event):
+        test_id = event["test_id"]
+        test_context = self.test_id_to_test_context[test_id]
+        subcluster = self.test_id_to_cluster[test_id]
+
         self.receiver.send(
-                self.event_response.ready(event, self.session_context, self.current_test_context, self.cluster))
+                self.event_response.ready(event, self.session_context, test_context, subcluster))
 
         # Test is considered "active" as soon as we receive the ready request
         self.active_tests[event["test_id"]] = event
 
-    def handle_log(self, event):
+    def _handle_log(self, event):
         self.receiver.send(self.event_response.log(event))
-        self.log(event["log_level"], event["message"])
+        self._log(event["log_level"], event["message"])
 
-    def handle_finished(self, event):
+    def _handle_finished(self, event):
         self.receiver.send(self.event_response.finished(event))
 
-        # Move this test from running to finished
-        del self.active_tests[event["test_id"]]
-        self.finished_tests[event["test_id"]] = event
+        # Transition this test from running to finished
+        test_id = event["test_id"]
+        del self.active_tests[test_id]
+        self.finished_tests[test_id] = event
         self.results.append(event['result'])
+
+        # Free nodes used by the test
+        self.cluster.free_subcluster(self.test_id_to_cluster[test_id])
+        del self.test_id_to_cluster[test_id]
 
         if len(self.staged_tests) + len(self.active_tests) > 0 and self.session_context.max_parallel == 1:
             terminal_width, y = get_terminal_size()
             print "~" * int(2 * terminal_width / 3)
 
-    def handle_lifecycle(self, event):
+    def _handle_lifecycle(self, event):
         self.receiver.send(self.event_response._event_response(event))
 
-    def log(self, log_level, msg, *args, **kwargs):
+    def _log(self, log_level, msg, *args, **kwargs):
         """Log to the service log of the current test."""
         self.session_logger.log(log_level, msg, *args, **kwargs)

@@ -15,13 +15,16 @@
 from ducktape.errors import TimeoutError
 from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
+from ducktape.cluster.remoteaccount import RemoteAccount
 
+import logging
 from threading import Thread
 import SimpleHTTPServer
 import SocketServer
 import threading
 import time
 import random
+
 
 class SimpleServer(object):
     """Helper class which starts a simple server listening on localhost at the specified port
@@ -53,7 +56,6 @@ class SimpleServer(object):
         self.background_thread.join(timeout=.5)
         if self.background_thread.is_alive():
             raise Exception("SimpleServer failed to stop quickly")
-
 
 
 class CheckIterWrapper(object):
@@ -91,6 +93,7 @@ class CheckIterWrapper(object):
     def teardown(self):
         self.account.ssh("rm -f " + self.temp_file)
 
+
 class CheckRemoteAccount(object):
     def setup(self):
         self.server = SimpleServer()
@@ -120,4 +123,21 @@ class CheckRemoteAccount(object):
 
     def teardown(self):
         self.server.stop()
+
+
+class CheckRemoteAccountEquality(object):
+    def check_remote_account_equality(self):
+        """Different instances of remote account initialized with the same parameters should be equal."""
+        kwargs = {
+            "hostname": "hello",
+            "user": "vagrant",
+            "ssh_args": "asdf",
+            "ssh_hostname": "123",
+            "externally_routable_ip": "345",
+            "logger": logging.getLogger(__name__)
+        }
+        r1 = RemoteAccount(**kwargs)
+        r2 = RemoteAccount(**kwargs)
+
+        assert r1 == r2
 

@@ -17,7 +17,9 @@ from __future__ import absolute_import
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
-import collections, json, os, os.path
+import collections
+import json
+import os
 
 
 class JsonCluster(Cluster):
@@ -77,7 +79,6 @@ class JsonCluster(Cluster):
 
         self.available_nodes = collections.deque(node_accounts)
         self.in_use_nodes = set()
-        self.id_source = 1
 
     def __len__(self):
         return len(self.available_nodes) + len(self.in_use_nodes)
@@ -101,7 +102,7 @@ class JsonCluster(Cluster):
             "hostname": account.hostname,
             "user": account.user,
             "ssh_args": account.ssh_args,
-            "ssh_hostname": account.hostname,
+            "ssh_hostname": account.ssh_hostname,
             "externally_routable_ip": account.externally_routable_ip
         }
 
@@ -116,14 +117,14 @@ class JsonCluster(Cluster):
         result = []
         for i in range(num_nodes):
             node = self.available_nodes.popleft()
-            result.append(ClusterSlot(self, node, slot_id=self.id_source))
-            self.in_use_nodes.add(self.id_source)
-            self.id_source += 1
+            cluster_slot = ClusterSlot(node)
+            result.append(cluster_slot)
+            self.in_use_nodes.add(cluster_slot)
         return result
 
     def free_single(self, slot):
-        assert(slot.slot_id in self.in_use_nodes)
-        self.in_use_nodes.remove(slot.slot_id)
+        assert(slot in self.in_use_nodes)
+        self.in_use_nodes.remove(slot)
         self.available_nodes.append(slot.account)
 
     def _externally_routable_ip(self, account):
