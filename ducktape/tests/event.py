@@ -17,7 +17,9 @@ import os
 import time
 
 
-class ClientEventSupplier(object):
+class ClientEventFactory(object):
+    """Used by test runner clients to generate events."""
+
     READY = "READY"  # reply: {test_metadata, cluster, session_context}
     SETTING_UP = "SETTING_UP"
     RUNNING = "RUNNING"
@@ -34,14 +36,14 @@ class ClientEventSupplier(object):
         self.source_id = source_id
         self.event_id = 0
 
-    def event(self, event_type, payload=None):
+    def _event(self, event_type, payload=None):
         """Create a message object with certain base fields, and augmented by the payload.
 
         :param event_type: type of message this is
         :param payload: a dict containing extra fields for the message. Key names should not conflict with keys
             in the base event.
         """
-        assert event_type in ClientEventSupplier.TYPES, "Unknown event type"
+        assert event_type in ClientEventFactory.TYPES, "Unknown event type"
         if payload is None:
             payload = {}
 
@@ -69,8 +71,8 @@ class ClientEventSupplier(object):
         return new_event
 
     def running(self):
-        return self.event(
-            event_type=ClientEventSupplier.RUNNING,
+        return self._event(
+            event_type=ClientEventFactory.RUNNING,
             payload={
                 "pid": os.getpid(),
                 "pgroup_id": os.getpgrp()
@@ -78,8 +80,8 @@ class ClientEventSupplier(object):
         )
 
     def ready(self):
-        return self.event(
-            event_type=ClientEventSupplier.READY,
+        return self._event(
+            event_type=ClientEventFactory.READY,
             payload={
                 "pid": os.getpid(),
                 "pgroup_id": os.getpgrp()
@@ -87,21 +89,21 @@ class ClientEventSupplier(object):
         )
 
     def setting_up(self):
-        return self.event(
-            event_type=ClientEventSupplier.SETTING_UP
+        return self._event(
+            event_type=ClientEventFactory.SETTING_UP
         )
 
     def finished(self, result):
-        return self.event(
-            event_type=ClientEventSupplier.FINISHED,
+        return self._event(
+            event_type=ClientEventFactory.FINISHED,
             payload={
                 "result": result
             }
         )
 
     def log(self, message, level):
-        return self.event(
-            event_type=ClientEventSupplier.LOG,
+        return self._event(
+            event_type=ClientEventFactory.LOG,
             payload={
                 "message": message,
                 "log_level": level
@@ -109,8 +111,9 @@ class ClientEventSupplier(object):
         )
 
 
-class EventResponseSupplier(object):
-    def event_response(self, client_event, payload=None):
+class EventResponseFactory(object):
+    """Used by the test runner to create responses to events from client processes."""
+    def _event_response(self, client_event, payload=None):
         if payload is None:
             payload = {}
 
@@ -127,7 +130,7 @@ class EventResponseSupplier(object):
         return event_response
 
     def running(self, client_event):
-        return self.event_response(client_event)
+        return self._event_response(client_event)
 
     def ready(self, client_event, session_context, test_context, cluster):
         payload = {
@@ -136,15 +139,15 @@ class EventResponseSupplier(object):
             "cluster": cluster
         }
 
-        return self.event_response(client_event, payload)
+        return self._event_response(client_event, payload)
 
     def setting_up(self, client_event):
-        return self.event_response(client_event)
+        return self._event_response(client_event)
 
     def finished(self, client_event):
-        return self.event_response(client_event)
+        return self._event_response(client_event)
 
     def log(self, client_event):
-        return self.event_response(client_event)
+        return self._event_response(client_event)
 
 

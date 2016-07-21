@@ -18,7 +18,7 @@ import time
 import traceback
 import zmq
 
-from ducktape.tests.event import ClientEventSupplier
+from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
 from ducktape.tests.test import test_logger
@@ -28,25 +28,25 @@ from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
-def run_client(server_hostname, server_port, logger_name, test_id, log_dir, debug, max_parallel):
-    client = RunnerClient(server_hostname, server_port, test_id, logger_name, log_dir, debug, max_parallel)
+def run_client(server_hostname, server_port, logger_name, test_id, log_dir, debug):
+    client = RunnerClient(server_hostname, server_port, test_id, logger_name, log_dir, debug)
     client.run()
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, server_hostname, server_port, test_id, logger_name, log_dir, debug, max_parallel):
+    def __init__(self, server_hostname, server_port, test_id, logger_name, log_dir, debug):
         self.serde = SerDe()
-        self.logger = test_logger(logger_name, log_dir, debug, max_parallel)
+        self.logger = test_logger(logger_name, log_dir, debug)
         self.runner_port = server_port
 
         self.test_id = test_id
         self.id = "test-runner-%d-%d" % (os.getpid(), id(self))
-        self.message_supplier = ClientEventSupplier(self.test_id, self.id)
-        self.sender = Sender(server_hostname, str(self.runner_port), self.message_supplier, self.logger)
+        self.message = ClientEventFactory(self.test_id, self.id)
+        self.sender = Sender(server_hostname, str(self.runner_port), self.message, self.logger)
 
-        ready_reply = self.sender.send(self.message_supplier.ready())
+        ready_reply = self.sender.send(self.message.ready())
         self.session_context = ready_reply["session_context"]
         self.test_metadata = ready_reply["test_metadata"]
         self.cluster = ready_reply["cluster"]
@@ -58,7 +58,7 @@ class RunnerClient(object):
     def send(self, event):
         return self.sender.send(event)
 
-    def collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
+    def _collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
         # TODO - different logger for TestLoader object
         loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)
         loaded_context_list = loader.discover(directory, file_name, cls_name, method_name)
@@ -70,9 +70,9 @@ class RunnerClient(object):
 
     def run(self):
         self.log(logging.INFO, "Loading test %s" % str(self.test_metadata))
-        self.test_context = self.collect_test_context(**self.test_metadata)
+        self.test_context = self._collect_test_context(**self.test_metadata)
 
-        self.send(self.message_supplier.running())
+        self.send(self.message.running())
         if len(self.cluster) != self.cluster.num_available_nodes():
             # Sanity check - are we leaking cluster nodes?
             raise RuntimeError(
@@ -87,7 +87,7 @@ class RunnerClient(object):
                                 start_time=time.time(),
                                 stop_time=time.time())
             # Tell the server we are finished
-            self.send(self.message_supplier.finished(result=result))
+            self.send(self.message.finished(result=result))
             return
 
         # Results from this test, as well as logs will be dumped here
@@ -146,7 +146,7 @@ class RunnerClient(object):
 
         # Tell the server we are finished
         try:
-            self.send(self.message_supplier.finished(result=result))
+            self.send(self.message.finished(result=result))
         except Exception as e:
             self.logger.error("Problem sending FINISHED message:", str(e))
 
@@ -208,17 +208,17 @@ class RunnerClient(object):
         # which themselves have references to large memory-intensive objects
         del self.test_context.services
 
-    def log(self, log_level, msg):
+    def log(self, log_level, msg, *args, **kwargs):
         """Log to the service log and the test log of the current test."""
 
-        if not getattr(self, 'test'):
+        if self.test_context is None:
             msg = "%s: %s" % (self.__class__.__name__, str(msg))
-            self.logger.log(log_level, msg)
+            self.logger.log(log_level, msg, *args, **kwargs)
         else:
             msg = "%s: %s: %s" % (self.__class__.__name__, self.test_context.test_name, str(msg))
-            self.logger.log(log_level, msg)
+            self.logger.log(log_level, msg, *args, **kwargs)
 
-        self.send(self.message_supplier.log(msg, level=log_level))
+        self.send(self.message.log(msg, level=log_level))
 
 
 class Sender(object):

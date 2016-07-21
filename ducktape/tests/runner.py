@@ -15,7 +15,6 @@
 
 import logging
 import multiprocessing
-import os
 import time
 import traceback
 import zmq
@@ -25,7 +24,7 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.tests.runner_client import run_client
 from ducktape.tests.result import TestResults
 from ducktape.utils.terminal_size import get_terminal_size
-from ducktape.tests.event import ClientEventSupplier, EventResponseSupplier
+from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 
 
 class Receiver(object):
@@ -36,8 +35,6 @@ class Receiver(object):
         self.zmq_context = zmq.Context()
         self.socket = self.zmq_context.socket(zmq.REP)
         self.socket.bind("tcp://*:%s" % str(self.port))
-        # self.poller = zmq.Poller()
-        # self.poller.register(self.socket, zmq.POLLIN)
 
     def recv(self):
         message = self.socket.recv()
@@ -57,7 +54,7 @@ class TestRunner(object):
         # session_logger, message logger,
         self.session_logger = session_logger
         self.cluster = cluster
-        self.event_response = EventResponseSupplier()
+        self.event_response = EventResponseFactory()
         self.hostname = "localhost"
         self.port = port
         self.receiver = Receiver(port)
@@ -111,8 +108,7 @@ class TestRunner(object):
                 self.current_test_context.test_id,
                 self.current_test_context.logger_name,
                 self.current_test_context.results_dir,
-                self.session_context.debug,
-                self.session_context.max_parallel
+                self.session_context.debug
             ])
         self.proc_list.append(proc)
         proc.start()
@@ -120,13 +116,13 @@ class TestRunner(object):
     def handle(self, event):
         self.log(logging.DEBUG, str(event))
 
-        if event["event_type"] == ClientEventSupplier.READY:
+        if event["event_type"] == ClientEventFactory.READY:
             self.handle_ready(event)
-        elif event["event_type"] in [ClientEventSupplier.RUNNING, ClientEventSupplier.SETTING_UP, ClientEventSupplier.TEARING_DOWN]:
+        elif event["event_type"] in [ClientEventFactory.RUNNING, ClientEventFactory.SETTING_UP, ClientEventFactory.TEARING_DOWN]:
             self.handle_lifecycle(event)
-        elif event["event_type"] == ClientEventSupplier.FINISHED:
+        elif event["event_type"] == ClientEventFactory.FINISHED:
             self.handle_finished(event)
-        elif event["event_type"] == ClientEventSupplier.LOG:
+        elif event["event_type"] == ClientEventFactory.LOG:
             self.handle_log(event)
         else:
             raise RuntimeError("Received event with unknown event type: " + str(event))
@@ -155,12 +151,8 @@ class TestRunner(object):
             print "~" * int(2 * terminal_width / 3)
 
     def handle_lifecycle(self, event):
-        self.receiver.send(self.event_response.event_response(event))
+        self.receiver.send(self.event_response._event_response(event))
 
-    def log_event(self, log_level, event):
-        """Log an event received from the client."""
-        pass
-
-    def log(self, log_level, msg):
+    def log(self, log_level, msg, *args, **kwargs):
         """Log to the service log of the current test."""
-        self.session_logger.log(log_level, msg)
+        self.session_logger.log(log_level, msg, *args, **kwargs)
