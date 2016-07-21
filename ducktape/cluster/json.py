@@ -21,16 +21,41 @@ import collections, json, os, os.path
 
 
 class JsonCluster(Cluster):
-    """
-    An implementation of Cluster that uses static settings specified in a cluster file.
-
-    - If cluster_json is specified, use cluster info from it
-    - Otherwise
-      - If cluster_file is specified in the constructor's kwargs, read cluster info from the file specified by cluster_file
-      - Otherwise, read cluster info from the default file specified by ConsoleDefaults.CLUSTER_FILE.
+    """ An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
     def __init__(self, cluster_json=None, *args, **kwargs):
+        """Initialize JsonCluster
+
+        JsonCluster can be initialized from:
+            - a json-serializeable dict
+            - a "cluster_file" containing json
+
+        :param cluster_json: a json-serializeable dict containing node information.
+            If cluster_json is None, load from file
+        :param cluster_file (optional): Overrides the default location of the json cluster file
+
+        Example json:
+        {
+            "nodes": [
+                {
+                    "hostname": "worker1",
+                    "user": "vagrant",
+                    "ssh_args": "-o 'HostName 127.0.0.1' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile \".vagrant/machines/machine123/virtualbox/private_key\"' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL' ",
+                    "ssh_hostname": "127.0.0.1",
+                    "externally_routable_ip": "192.168.50.151"
+                },
+                {
+                    "hostname": "worker2",
+                    "user": "vagrant",
+                    "ssh_args": "-o 'HostName 127.0.0.1' -o 'Port 2223' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile \".vagrant/machines/machine123/virtualbox/private_key\"' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL' ",
+                    "ssh_hostname": "127.0.0.1",
+                    "externally_routable_ip": "192.168.50.152"
+                },
+                ...
+            ]
+        }
+        """
         super(JsonCluster, self).__init__()
         if cluster_json is None:
             # This is a directly instantiation of JsonCluster rather than from a subclass (e.g. VagrantCluster)
@@ -60,16 +85,36 @@ class JsonCluster(Cluster):
     def num_available_nodes(self):
         return len(self.available_nodes)
 
-    def request(self, nslots):
-        if nslots > self.num_available_nodes():
+    def request_subcluster(self, num_nodes):
+        nodes = self.request(num_nodes)
+        return JsonCluster(
+            cluster_json={
+                "nodes": [self._account_to_dict(n.account) for n in nodes]
+            })
+
+    def free_subcluster(self, subcluster):
+        nodes = subcluster.request(len(subcluster))
+        self.free(nodes)
+
+    def _account_to_dict(self, account):
+        return {
+            "hostname": account.hostname,
+            "user": account.user,
+            "ssh_args": account.ssh_args,
+            "ssh_hostname": account.hostname,
+            "externally_routable_ip": account.externally_routable_ip
+        }
+
+    def request(self, num_nodes):
+        if num_nodes > self.num_available_nodes():
             err_msg = "There aren't enough available nodes to satisfy the resource request. " \
                 "Total cluster size: %d, Requested: %d, Already allocated: %d, Available: %d. " % \
-                      (len(self), nslots, len(self.in_use_nodes), self.num_available_nodes())
+                      (len(self), num_nodes, len(self.in_use_nodes), self.num_available_nodes())
             err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
             raise RuntimeError(err_msg)
 
         result = []
-        for i in range(nslots):
+        for i in range(num_nodes):
             node = self.available_nodes.popleft()
             result.append(ClusterSlot(self, node, slot_id=self.id_source))
             self.in_use_nodes.add(self.id_source)

@@ -38,7 +38,19 @@ class Cluster(object):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         raise NotImplementedError()
 
-    def request(self, nslots):
+    def request_subcluster(self, num_nodes):
+        """Return an instance of Cluster with the specified num_nodes.
+
+        All implementations of this method within ducktape make use of the num_nodes parameter, but in some
+        conceivable implementations, it may be reasonable to ignore.
+        """
+        raise NotImplementedError()
+
+    def free_subcluster(self, subcluster):
+        """Free all nodes allocated to subcluster back to the original cluster."""
+        raise NotImplementedError()
+
+    def request(self, num_nodes):
         """Request the specified number of slots, which will be reserved until they are freed by the caller."""
         raise NotImplementedError()
 
