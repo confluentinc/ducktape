@@ -73,12 +73,6 @@ class RunnerClient(object):
         self.test_context = self._collect_test_context(**self.test_metadata)
 
         self.send(self.message.running())
-        if len(self.cluster) != self.cluster.num_available_nodes():
-            # Sanity check - are we leaking cluster nodes?
-            raise RuntimeError(
-                "Expected all nodes to be available. Instead, %d of %d are available" %
-                (self.cluster.num_available_nodes(), len(self.cluster)))
-
         if self.test_context.ignore:
             # Skip running this test, but keep track of the fact that we ignored it
             result = TestResult(self.test_context,

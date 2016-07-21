@@ -43,7 +43,7 @@ class LocalhostCluster(Cluster):
     def request(self, num_nodes):
         assert self._available >= num_nodes
         self._available -= num_nodes
-        return [ClusterSlot(self, RemoteAccount("localhost")) for i in range(num_nodes)]
+        return [ClusterSlot(RemoteAccount("localhost")) for i in range(num_nodes)]
 
     def num_available_nodes(self):
         return self._available

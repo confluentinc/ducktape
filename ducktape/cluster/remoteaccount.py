@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import os
 import select
 import signal
@@ -38,6 +39,20 @@ class RemoteAccount(HttpMixin):
             r += self.user + "@"
         r += self.hostname
         return r
+
+    def __repr__(self):
+        return str(self.__dict__)
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        return self.__dict__ == other.__dict__
+
+    def __hash__(self):
+        # convert self.__dict__ to a hashable type
+        TupleRepresentation = collections.namedtuple('TupleRepresentation', [k for k in self.__dict__.keys()])
+        return hash(TupleRepresentation(**self.__dict__))
 
     @property
     def local(self):
@@ -280,6 +295,7 @@ class iter_wrapper(object):
             if timeout_sec is None or select.select([self.descriptor], [], [], timeout_sec)[0]:
                 self.cached = next(self.iter_obj, self.sentinel)
         return self.cached is not self.sentinel
+
 
 class LogMonitor(object):
     """

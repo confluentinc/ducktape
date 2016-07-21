@@ -16,14 +16,22 @@ import collections
 
 
 class ClusterSlot(object):
-    def __init__(self, parent, account, **kwargs):
-        self.parent = parent
+    def __init__(self, account, **kwargs):
         self.account = account
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def free(self):
-        self.parent.free(self)
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        return self.__dict__ == other.__dict__
+
+    def __hash__(self):
+        # convert self.__dict__ to a hashable type
+        TupleRepresentation = collections.namedtuple('TupleRepresentation', [k for k in self.__dict__.keys()])
+        return hash(TupleRepresentation(**self.__dict__))
+
 
 
 class Cluster(object):
@@ -68,3 +76,9 @@ class Cluster(object):
 
     def free_single(self, slot):
         raise NotImplementedError()
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        return self.__dict__ == other.__dict__
