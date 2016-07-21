@@ -21,11 +21,13 @@ import os
 from threading import Thread
 import time
 
+
 def generate_tempdir_name():
     """Use this ad-hoc function instead of the tempfile module since we're creating and removing
     this directory with ssh commands.
     """
     return "/tmp/" + "t" + str(int(time.time()))
+
 
 class RemoteAccountTestService(Service):
     """Simple service that allocates one node for performing tests of RemoteAccount functionality"""
@@ -46,6 +48,7 @@ class RemoteAccountTestService(Service):
 
     def start_node(self, node):
         node.account.ssh("mkdir -p " + self.temp_dir)
+        node.account.ssh("touch " + self.log_file)
 
     def stop_node(self, node):
         pass
@@ -55,6 +58,7 @@ class RemoteAccountTestService(Service):
 
     def write_to_log(self, msg):
         self.nodes[0].account.ssh("echo -e -n " + repr(msg) + " >> " + self.log_file)
+
 
 class RemoteAccountTest(Test):
 

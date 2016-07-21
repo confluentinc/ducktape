@@ -17,23 +17,24 @@ import logging
 
 class Logger(object):
     @property
-    def logger_name(self):
-        raise NotImplementedError("logger_name property must be implemented by a subclass")
-
-    @property
     def logger(self):
         """Read-only logger attribute."""
         if not hasattr(self, '_logger'):
             self._logger = logging.getLogger(self.logger_name)
 
-        if not hasattr(self, "_logger_configured"):
-            self.__dict__["_logger_configured"] = False
-
-        if not self._logger_configured:
+        if not self.configured:
             self.configure_logger()
-            self._logger_configured = True
 
         return self._logger
+
+    @property
+    def configured(self):
+        """Return True iff the logger has been configured.
+
+        Since logging objects are global in the sense that logging.getLogger(self.logger_name) yields the same
+        object, we assume it is already configured if it already has at least 1 handler.
+        """
+        return len(logging.getLogger(self.logger_name).handlers) > 0
 
     def configure_logger(self):
         raise NotImplementedError("configure_logger property must be implemented by a subclass")

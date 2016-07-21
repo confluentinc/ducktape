@@ -12,17 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test
-from ducktape.tests.runner import SerialTestRunner
-from ducktape.services.service import Service
+from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
-from ducktape.mark import matrix
 
+from .resources.test_memory_leak import MemoryLeakTest
 
-import multiprocessing
 import os
 from memory_profiler import _get_memory
+import Queue
 import statistics
 
 import tests.ducktape_mock
@@ -30,48 +28,25 @@ import tests.ducktape_mock
 from mock import Mock
 
 
-MEMORY_EATER_LIST_SIZE = 10000000
 N_TEST_CASES = 5
 
 
-class MemoryEater(Service):
-    """Simple service that has a reference to a list with many elements"""
-
-    def __init__(self, context):
-        super(MemoryEater, self).__init__(context, 1)
-        self.items = []
-
-    def start_node(self, node):
-        self.items = [x for x in range(MEMORY_EATER_LIST_SIZE)]
-
-    def stop_node(self, node):
-        pass
-
-    def clean_node(self, node):
-        pass
+MEMORY_LEAK_TEST_FILE = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "resources/test_memory_leak.py"
+    )
+)
 
 
-class MemoryLeakTest(Test):
-    """A group of identical "memory-hungry" ducktape tests.
-    Each test holds a reference to a service which itself holds a reference to a large (memory intensive) object.
-    """
-    def __init__(self, test_context):
-        super(MemoryLeakTest, self).__init__(test_context)
-        self.memory_eater = MemoryEater(test_context)
-
-    @matrix(x=[i for i in range(N_TEST_CASES)])
-    def test_leak(self, x):
-        self.memory_eater.start()
-
-
-class InstrumentedSerialTestRunner(SerialTestRunner):
-    """Identical to SerialTestRunner, except dump memory used by the current process
+class InstrumentedTestRunner(TestRunner):
+    """Identical to TestRunner, except dump memory used by the current process
     before running each test.
     """
     def __init__(self, *args, **kwargs):
         self.queue = kwargs.get("queue")
         del kwargs["queue"]
-        super(InstrumentedSerialTestRunner, self).__init__(*args, **kwargs)
+        super(InstrumentedTestRunner, self).__init__(*args, **kwargs)
 
     def run_single_test(self):
         # write current memory usage to file before running the test
@@ -79,14 +54,14 @@ class InstrumentedSerialTestRunner(SerialTestRunner):
         current_memory = _get_memory(pid)
         self.queue.put(current_memory)
 
-        data = super(InstrumentedSerialTestRunner, self).run_single_test()
+        data = super(InstrumentedTestRunner, self).run_single_test()
         return data
 
 
 class CheckMemoryUsage(object):
     def setup_method(self, _):
-        mock_cluster = LocalhostCluster()
-        self.session_context = tests.ducktape_mock.session_context(mock_cluster)
+        self.cluster = LocalhostCluster()
+        self.session_context = tests.ducktape_mock.session_context()
 
     def check_for_inter_test_memory_leak(self):
         """Until v0.3.10, ducktape had a serious source of potential memory leaks.
@@ -105,17 +80,13 @@ class CheckMemoryUsage(object):
         ctx_list = []
         test_methods = [MemoryLeakTest.test_leak]
         for f in test_methods:
-            ctx_list.extend(MarkedFunctionExpander(session_context=self.session_context, cls=MemoryLeakTest, function=f).expand())
+            ctx_list.extend(MarkedFunctionExpander(session_context=self.session_context, cls=MemoryLeakTest, function=f,
+                                                   file=MEMORY_LEAK_TEST_FILE, cluster=self.cluster).expand())
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
-        # Run all tests in another process
-        queue = multiprocessing.Queue()
-        runner = InstrumentedSerialTestRunner(self.session_context, ctx_list, queue=queue)
-        runner.log = Mock()
-
-        proc = multiprocessing.Process(target=runner.run_all_tests)
-        proc.start()
-        proc.join()
+        queue = Queue.Queue()
+        runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, queue=queue)
+        runner.run_all_tests()
 
         measurements = []
         while not queue.empty():

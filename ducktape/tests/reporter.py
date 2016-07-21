@@ -49,7 +49,7 @@ class SingleResultReporter(object):
     def result_string(self):
         """Stringify single result"""
         result_lines = [
-            "test_id:    %s" % self.result.test_context.test_id,
+            "test_id:    %s" % self.result.test_id,
             "status:     %s" % str(self.result.test_status).upper(),
             "run time:   %s" % format_time(self.result.run_time),
         ]
@@ -73,13 +73,13 @@ class SingleResultReporter(object):
 class SingleResultFileReporter(SingleResultReporter):
     def report(self):
         self.width = DEFAULT_SEPARATOR_WIDTH
-        report_file = os.path.join(self.result.test_context.results_dir, "report.txt")
+        report_file = os.path.join(self.result.results_dir, "report.txt")
         with open(report_file, "w") as fp:
             fp.write(self.report_string())
 
         # write collected data
-        if self.result.data is not None and len(self.result.data) > 0:
-            data_file = os.path.join(self.result.test_context.results_dir, "data.json")
+        if self.result.data is not None:
+            data_file = os.path.join(self.result.results_dir, "data.json")
             with open(data_file, "w") as fp:
                 fp.write(json.dumps(self.result.data))
 
@@ -137,14 +137,14 @@ class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
 class HTMLSummaryReporter(SummaryReporter):
 
     def format_test_name(self, result):
-        lines = ["Module: " + result.test_context.module_name,
-                 "Class:  " + result.test_context.cls_name,
-                 "Method: " + result.test_context.function_name]
+        lines = ["Module: " + result.module_name,
+                 "Class:  " + result.cls_name,
+                 "Method: " + result.function_name]
 
-        if result.test_context.injected_args is not None:
+        if result.injected_args is not None:
             lines.append("Arguments:")
             lines.append(
-                json.dumps(result.test_context.injected_args, sort_keys=True, indent=2, separators=(',', ': ')))
+                json.dumps(result.injected_args, sort_keys=True, indent=2, separators=(',', ': ')))
 
         return "\n".join(lines)
 
@@ -170,7 +170,7 @@ class HTMLSummaryReporter(SummaryReporter):
         base_dir = os.path.abspath(result.session_context.results_dir)
         base_dir = os.path.join(base_dir, "")  # Ensure trailing directory indicator
 
-        test_results_dir = os.path.abspath(result.test_context.results_dir)
+        test_results_dir = os.path.abspath(result.results_dir)
         return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
     def format_report(self):

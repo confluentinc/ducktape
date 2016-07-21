@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from ducktape.cluster.json import JsonCluster
+import pickle
 import pytest
+
 
 class CheckJsonCluster(object):
     single_node_cluster_json = {"nodes": [{"hostname": "localhost"}]}
@@ -38,6 +40,10 @@ class CheckJsonCluster(object):
         n = 10
         cluster = JsonCluster({"nodes":[{"hostname": "localhost%d" % x} for x in range(n)]})
         assert len(cluster) == n
+
+    def check_pickleable(self):
+        cluster = JsonCluster({"nodes":[{"hostname": "localhost1"}, {"hostname": "localhost2"}, {"hostname": "localhost3"}]})
+        pickle.dumps(cluster)
 
     def check_allocate_free(self):
         cluster = JsonCluster({"nodes":[{"hostname": "localhost1"}, {"hostname": "localhost2"}, {"hostname": "localhost3"}]})

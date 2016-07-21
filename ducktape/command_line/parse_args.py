@@ -51,7 +51,8 @@ def create_ducktape_parser():
     parser.add_argument("--globals", action="store",
                         help="user-defined globals go here. "
                              "This can be a file containing a JSON object, or a string representing a JSON object.")
-
+    parser.add_argument("--max-parallel", action="store", type=int, default=1,
+                        help="Upper bound on number of tests run simultaneously.")
     return parser
 
 

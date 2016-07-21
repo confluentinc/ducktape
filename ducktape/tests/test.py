@@ -173,20 +173,78 @@ def _escape_pathname(s):
     return re.sub("^\.|\.$", "", s)
 
 
-class TestContext(Logger):
+def test_logger(logger_name, log_dir, debug):
+    """Helper method for getting a test logger object
+
+    Note that if this method is called multiple times with the same logger_name, it returns the same logger object.
+    Note also, that for a fixed logger_name, configuration occurs only the first time this function is called.
+    """
+    return TestLogger(logger_name, log_dir, debug).logger
+
+
+class TestLogger(Logger):
+    def __init__(self, logger_name, log_dir, debug):
+        self.logger_name = logger_name
+        self.log_dir = log_dir
+        self.debug = debug
+
+    def configure_logger(self):
+        """Set up the logger to log to stdout and files.
+        This creates a directory and a few files as a side-effect.
+        """
+        if self.configured:
+            return
+
+        self._logger.setLevel(logging.DEBUG)
+        mkdir_p(self.log_dir)
+
+        # Create info and debug level handlers to pipe to log files
+        info_fh = logging.FileHandler(os.path.join(self.log_dir, "test_log.info"))
+        debug_fh = logging.FileHandler(os.path.join(self.log_dir, "test_log.debug"))
+
+        info_fh.setLevel(logging.INFO)
+        debug_fh.setLevel(logging.DEBUG)
+
+        formatter = logging.Formatter(ConsoleDefaults.TEST_LOG_FORMATTER)
+        info_fh.setFormatter(formatter)
+        debug_fh.setFormatter(formatter)
+
+        self._logger.addHandler(info_fh)
+        self._logger.addHandler(debug_fh)
+
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setFormatter(formatter)
+        if self.debug:
+            # If debug flag is set, pipe debug logs to stdout
+            ch.setLevel(logging.DEBUG)
+        else:
+            # default - pipe warning level logging to stdout
+            ch.setLevel(logging.WARNING)
+        self._logger.addHandler(ch)
+
+
+class TestContext(object):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
     def __init__(self, **kwargs):
         """
         :param session_context
-        :param module
-        :param cls
-        :param function
-        :param injected_args
-        :param service_registry
+        :param cluster: the cluster object which will be used by this test
+        :param module: name of the module containing the test class/method
+        :param cls: class object containing the test method
+        :param function: the test method
+        :param file: file containing this module
+        :param injected_args: a dict containing keyword args which will be passed to the test method
         :param cluster_use_metadata
         """
+
         self.session_context = kwargs.get("session_context")
+        self.cluster = kwargs.get("cluster")
         self.module = kwargs.get("module")
+
+        if kwargs.get("file") is not None:
+            self.file = os.path.abspath(kwargs.get("file"))
+        else:
+            self.file = None
         self.cls = kwargs.get("cls")
         self.function = kwargs.get("function")
         self.injected_args = kwargs.get("injected_args")
@@ -201,16 +259,35 @@ class TestContext(Logger):
         # dict for toggling service log collection on/off
         self.log_collect = {}
 
+        self._logger = None
+
     def __repr__(self):
-        return "<module=%s, cls=%s, function=%s, injected_args=%s, cluster_size=%s>" % \
-               (self.module, self.cls_name, self.function_name, str(self.injected_args),
+        return "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s>" % \
+               (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file), str(self.ignore),
                 str(self.expected_num_nodes))
 
     def copy(self, **kwargs):
-        """Construct a new TestContext object from another TestContext object"""
+        """Construct a new TestContext object from another TestContext object
+        Note that this is not a true copy, since a fresh ServiceRegistry instance will be created.
+        """
         ctx_copy = TestContext(**self.__dict__)
         ctx_copy.__dict__.update(**kwargs)
+
         return ctx_copy
+
+    @property
+    def test_metadata(self):
+        return {
+            "directory": os.path.dirname(self.file),
+            "file_name": os.path.basename(self.file),
+            "cls_name": self.cls.__name__,
+            "method_name": self.function.__name__,
+            "injected_args": self.injected_args
+        }
+
+    @property
+    def logger_name(self):
+        return self.test_id
 
     @property
     def expected_num_nodes(self):
@@ -255,9 +332,6 @@ class TestContext(Logger):
             params = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
             return _escape_pathname(params)
 
-    @property
-    def cluster(self):
-        return self.session_context.cluster
 
     @property
     def results_dir(self):
@@ -292,41 +366,9 @@ class TestContext(Logger):
         return ".".join(filter(lambda x: x is not None and len(x) > 0, name_components))
 
     @property
-    def logger_name(self):
-        return self.test_id
-
-    def configure_logger(self):
-        """Set up the logger to log to stdout and files.
-        This creates a directory and a few files as a side-effect.
-        """
-        if self._logger_configured:
-            raise RuntimeError("test logger should only be configured once.")
-
-        self._logger.setLevel(logging.DEBUG)
-        mkdir_p(self.results_dir)
-
-        # Create info and debug level handlers to pipe to log files
-        info_fh = logging.FileHandler(os.path.join(self.results_dir, "test_log.info"))
-        debug_fh = logging.FileHandler(os.path.join(self.results_dir, "test_log.debug"))
-
-        info_fh.setLevel(logging.INFO)
-        debug_fh.setLevel(logging.DEBUG)
-
-        formatter = logging.Formatter(ConsoleDefaults.TEST_LOG_FORMATTER)
-        info_fh.setFormatter(formatter)
-        debug_fh.setFormatter(formatter)
-
-        self._logger.addHandler(info_fh)
-        self._logger.addHandler(debug_fh)
-
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setFormatter(formatter)
-        if self.session_context.debug:
-            # If debug flag is set, pipe verbose test logging to stdout
-            ch.setLevel(logging.DEBUG)
-        else:
-            # default - pipe warning level logging to stdout
-            ch.setLevel(logging.WARNING)
-        self._logger.addHandler(ch)
-
+    def logger(self):
+        if self._logger is None:
+            self._logger = test_logger(
+                self.logger_name, self.results_dir, self.session_context.debug)
+        return self._logger
 

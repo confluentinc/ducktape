@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import importlib
 import inspect
 import os
@@ -26,6 +27,10 @@ class LoaderException(Exception):
     pass
 
 
+# A helper container class
+ModuleAndFile = collections.namedtuple('ModuleAndFile', ['module', 'file'])
+
+
 DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
 DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 
@@ -33,25 +38,92 @@ DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 class TestLoader(object):
     """Class used to discover and load tests."""
 
-    def __init__(self, session_context, test_parameters=None):
+    def __init__(self, session_context, logger, injected_args=None, cluster=None):
         self.session_context = session_context
+        self.cluster = cluster
+        assert logger is not None
+        self.logger = logger
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
 
         # A non-None value here means the loader will override the injected_args
         # in any discovered test, whether or not it is parametrized
-        self.test_parameters = test_parameters
+        self.injected_args = injected_args
 
-    @property
-    def logger(self):
-        return self.session_context.logger
+    def load(self, test_discovery_symbols):
+        """Recurse through packages in file hierarchy starting at base_dir, and return a list of test_context objects
+        for all discovered tests.
 
-    def parse_discovery_symbol(self, discovery_symbol):
-        """Parse command-line argument into a tuple (directory, module.py, cls_name, function_name).
+        - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
+        - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
+          (i.e. it has no subclasses).
+        - Discover test methods within each test class. A test method is a method containing 'test' in its name
+
+        :param test_discovery_symbols: list of file paths
+        :return list of test context objects found during discovery
+        """
+        assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
+        all_test_context_list = []
+        for symbol in test_discovery_symbols:
+            directory, module_name, cls_name, method_name = self._parse_discovery_symbol(symbol)
+            directory = os.path.abspath(directory)
+
+            test_context_list_for_symbol = self.discover(directory, module_name, cls_name, method_name)
+            all_test_context_list.extend(test_context_list_for_symbol)
+
+            if len(test_context_list_for_symbol) == 0:
+                raise LoaderException("Didn't find any tests for symbol %s." % symbol)
+
+        self.logger.debug("Discovered these tests: " + str(all_test_context_list))
+        return all_test_context_list
+
+    def discover(self, directory, module_name, cls_name, method_name):
+        """Discover and unpack parametrized tests tied to the given module/class/method
+
+        :param directory: path to the module containing the test method
+        :param module_name: name of the module containing the test method
+        :param cls_name: name of the class containing the test method
+        :param method_name: name of the targeted test method
+        :return list of test_context objects
+        """
+        # Check validity of path
+        path = os.path.join(directory, module_name)
+        if not os.path.exists(path):
+            raise LoaderException("Path {} does not exist".format(path))
+
+        # Recursively search path for test modules
+        test_context_list = []
+        if os.path.isfile(path):
+            test_files = [os.path.abspath(path)]
+        else:
+            test_files = self._find_test_files(path)
+        modules_and_files = self._import_modules(test_files)
+
+        # Find all tests in discovered modules and filter out any that don't match the discovery symbol
+        for mf in modules_and_files:
+            test_context_list.extend(self._expand_module(mf))
+        if len(cls_name) > 0:
+            test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
+        if len(method_name) > 0:
+            test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
+
+        return test_context_list
+
+    def _parse_discovery_symbol(self, discovery_symbol):
+        """Parse a single 'discovery symbol'
+
+        :param discovery_symbol: a symbol used to target test(s).
+            Looks like: <path/to/file_or_directory>[::<ClassName>[.method_name]]
+        :return tuple of form (directory, module.py, cls_name, function_name)
 
         :raise LoaderException if it can't be parsed
+
+        Examples:
+            "path/to/directory" -> ("path/to/directory", "", "", "")
+            "path/to/test_file.py" -> ("path/to", "test_file.py", "", "")
+            "path/to/test_file.py::ClassName.method" -> ("path/to", "test_file.py", "ClassName", "method")
         """
-        directory = os.path.abspath(os.path.dirname(discovery_symbol))
+        directory = os.path.dirname(discovery_symbol)
         base = os.path.basename(discovery_symbol)
 
         if base.find("::") >= 0:
@@ -72,63 +144,25 @@ class TestLoader(object):
             else:
                 raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
         else:
+            # No "::" present in symbol
             module, cls_name, method_name = base, "", ""
 
+        if not module.endswith(".py"):
+            directory = os.path.join(directory, module)
+            module = ""
         return directory, module, cls_name, method_name
 
-    def discover(self, test_discovery_symbols):
-        """Recurse through packages in file hierarchy starting at base_dir, and return a list of all found test methods
-        in test classes.
-
-        - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
-        - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
-          (i.e. it has no subclasses).
-        - Discover test methods within each test class. A test method is a method containing 'test' in its name
-
-        :type test_discovery_symbols: list
-        :rtype: list
-        """
-        assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
-        test_context_list = []
-        for symbol in test_discovery_symbols:
-            directory, module_name, cls_name, method_name = self.parse_discovery_symbol(symbol)
-
-            # Check validity of path
-            path = os.path.join(directory, module_name)
-            if not os.path.exists(path):
-                raise LoaderException("Path {} does not exist".format(path))
-
-            # Recursively search path for test modules
-            if os.path.isfile(path):
-                test_files = [os.path.abspath(path)]
-            else:
-                test_files = self.find_test_files(path)
-            modules = self.import_modules(test_files)
-
-            # Find all tests in discovered modules and filter out any that don't match the discovery symbol
-            for m in modules:
-                test_context_list.extend(self.expand_module(m))
-            if len(cls_name) > 0:
-                test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
-            if len(method_name) > 0:
-                test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
-
-            if len(test_context_list) == 0:
-                raise LoaderException("Didn't find any tests for symbol %s." % symbol)
-
-        self.logger.debug("Discovered these tests: " + str(test_context_list))
-        return test_context_list
-
-    def import_modules(self, file_list):
+    def _import_modules(self, file_list):
         """Attempt to import modules in the file list.
         Assume all files in the list are absolute paths ending in '.py'
 
         Return all imported modules.
 
-        :type file_list: list
-        :return list of imported modules
+        :param file_list: list of files which we will try to import
+        :return list of ModuleAndFile objects; each object contains the successfully imported module and
+            the file from which it was imported
         """
-        module_list = []
+        module_and_file_list = []
 
         for f in file_list:
             if f[-3:] != ".py" or not os.path.isabs(f):
@@ -141,7 +175,8 @@ class TestLoader(object):
                 module_name = '.'.join(path_pieces)
                 # Try to import the current file as a module
                 try:
-                    module_list.append(importlib.import_module(module_name))
+                    module_and_file_list.append(
+                        ModuleAndFile(module=importlib.import_module(module_name), file=f))
                     self.logger.debug("Successfully imported " + module_name)
                     successful_import = True
                     break  # no need to keep trying
@@ -190,46 +225,57 @@ class TestLoader(object):
             if not successful_import:
                 self.logger.debug("Unable to import %s" % f)
 
-        return module_list
+        return module_and_file_list
 
-    def expand_module(self, module):
+    def _expand_module(self, module_and_file):
         """Return a list of TestContext objects, one object for every 'testable unit' in module"""
 
         test_context_list = []
+        module = module_and_file.module
+        file_name = module_and_file.file
         module_objects = module.__dict__.values()
-        test_classes = [c for c in module_objects if self.is_test_class(c)]
+        test_classes = [c for c in module_objects if self._is_test_class(c)]
 
         for cls in test_classes:
-            test_context_list.extend(
-                self.expand_class(TestContext(session_context=self.session_context, module=module.__name__, cls=cls)))
+            test_context_list.extend(self._expand_class(
+                TestContext(
+                        session_context=self.session_context,
+                        cluster=self.cluster,
+                        module=module.__name__,
+                        cls=cls,
+                        file=file_name)))
 
         return test_context_list
 
-    def expand_class(self, t_ctx):
+    def _expand_class(self, t_ctx):
         """Return a list of TestContext objects, one object for each method in t_ctx.cls"""
         test_methods = []
         for f_name in dir(t_ctx.cls):
             f = getattr(t_ctx.cls, f_name)
-            if self.is_test_function(f):
+            if self._is_test_function(f):
                 test_methods.append(f)
 
         test_context_list = []
         for f in test_methods:
             t = t_ctx.copy(function=f)
-            test_context_list.extend(self.expand_function(t))
+            test_context_list.extend(self._expand_function(t))
         return test_context_list
 
-    def expand_function(self, t_ctx):
-        expander = MarkedFunctionExpander(t_ctx.session_context, t_ctx.module, t_ctx.cls, t_ctx.function)
-        return expander.expand(self.test_parameters)
+    def _expand_function(self, t_ctx):
+        expander = MarkedFunctionExpander(
+            t_ctx.session_context,
+            t_ctx.module,
+            t_ctx.cls,
+            t_ctx.function,
+            t_ctx.file,
+            t_ctx.cluster)
+        return expander.expand(self.injected_args)
 
-    def find_test_files(self, base_dir):
+    def _find_test_files(self, base_dir):
         """Return a list of files underneath base_dir that look like test files.
-        The returned file names are absolute paths to the files in question.
 
-        :type base_dir: str
-        :type pattern: str
-        :rtype: list
+        :param base_dir: the base directory from which to search recursively for test files.
+        :return: list of absolute paths to test files
         """
         test_files = []
 
@@ -239,20 +285,20 @@ class TestLoader(object):
                 continue
             for f in files:
                 file_path = os.path.abspath(os.path.join(pwd, f))
-                if self.is_test_file(file_path):
+                if self._is_test_file(file_path):
                     test_files.append(file_path)
 
         return test_files
 
-    def is_test_file(self, file_name):
+    def _is_test_file(self, file_name):
         """By default, a test file looks like test_*.py or *_test.py"""
         return re.match(self.test_file_pattern, os.path.basename(file_name)) is not None
 
-    def is_test_class(self, obj):
+    def _is_test_class(self, obj):
         """An object is a test class if it's a leafy subclass of Test."""
         return inspect.isclass(obj) and issubclass(obj, Test) and len(obj.__subclasses__()) == 0
 
-    def is_test_function(self, function):
+    def _is_test_function(self, function):
         """A test function looks like a test and is callable (or expandable)."""
         if function is None:
             return False

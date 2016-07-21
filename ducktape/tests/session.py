@@ -21,7 +21,7 @@ from ducktape.tests.logger import Logger
 from ducktape.command_line.defaults import ConsoleDefaults
 
 
-class SessionContext(Logger):
+class SessionContext(object):
     """Wrapper class for 'global' variables. A call to ducktape generates a single shared SessionContext object
     which helps route logging and reporting, etc.
     """
@@ -30,12 +30,12 @@ class SessionContext(Logger):
         # session_id, results_dir, cluster, globals):
         self.session_id = kwargs["session_id"]
         self.results_dir = os.path.abspath(kwargs["results_dir"])
-        self.cluster = kwargs["cluster"]
 
         self.debug = kwargs.get("debug", False)
         self.compress = kwargs.get("compress", False)
         self.exit_first = kwargs.get("exit_first", False)
         self.no_teardown = kwargs.get("no_teardown", False)
+        self.max_parallel = kwargs.get("max_parallel", 1)
         self._globals = kwargs.get("globals")
 
     @property
@@ -43,16 +43,22 @@ class SessionContext(Logger):
         """None, or an immutable dictionary containing user-defined global variables."""
         return self._globals
 
-    @property
-    def logger_name(self):
-        return self.session_id + ".session_logger"
+
+class SessionLogger(Logger):
+    def __init__(self, session_context):
+        self.log_dir = session_context.results_dir
+        self.debug = session_context.debug
+        self.logger_name = session_context.session_id + ".session_logger"
 
     def configure_logger(self):
         """Set up the logger to log to stdout and files. This creates a few files as a side-effect. """
+        if self.configured:
+            return
+
         self._logger.setLevel(logging.DEBUG)
 
-        fh_info = logging.FileHandler(os.path.join(self.results_dir, "session_log.info"))
-        fh_debug = logging.FileHandler(os.path.join(self.results_dir, "session_log.debug"))
+        fh_info = logging.FileHandler(os.path.join(self.log_dir, "session_log.info"))
+        fh_debug = logging.FileHandler(os.path.join(self.log_dir, "session_log.debug"))
         fh_info.setLevel(logging.INFO)
         fh_debug.setLevel(logging.DEBUG)
 

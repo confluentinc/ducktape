@@ -21,6 +21,8 @@ import os.path
 import pytest
 import re
 
+from mock import Mock
+
 
 def discover_dir():
     """Return the absolute path to the directory to use with discovery tests."""
@@ -60,40 +62,40 @@ class CheckTestLoader(object):
 
     def check_test_loader_with_directory(self):
         """Check discovery on a directory."""
-        loader = TestLoader(self.SESSION_CONTEXT)
-        tests = loader.discover([discover_dir()])
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()])
         assert len(tests) == num_tests_in_dir(discover_dir())
 
     def check_test_loader_with_file(self):
         """Check discovery on a file. """
-        loader = TestLoader(self.SESSION_CONTEXT)
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         module_path = os.path.join(discover_dir(), "test_a.py")
 
-        tests = loader.discover([module_path])
+        tests = loader.load([module_path])
         assert len(tests) == num_tests_in_file(module_path)
 
     def check_test_loader_multiple_files(self):
-        loader = TestLoader(self.SESSION_CONTEXT)
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         file_a = os.path.join(discover_dir(), "test_a.py")
         file_b = os.path.join(discover_dir(), "test_b.py")
 
-        tests = loader.discover([file_a, file_b])
+        tests = loader.load([file_a, file_b])
         assert len(tests) == num_tests_in_file(file_a) + num_tests_in_file(file_b)
 
     def check_test_loader_with_nonexistent_file(self):
         """Check discovery on a non-existent path should throw LoaderException"""
         with pytest.raises(LoaderException):
-            loader = TestLoader(self.SESSION_CONTEXT)
-            tests = loader.discover([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+            loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+            tests = loader.load([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
 
     def check_test_loader_with_class(self):
         """Check test discovery with discover class syntax."""
-        loader = TestLoader(self.SESSION_CONTEXT)
-        tests = loader.discover([os.path.join(discover_dir(), "test_b.py::TestBB")])
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([os.path.join(discover_dir(), "test_b.py::TestBB")])
         assert len(tests) == 2
 
         # Sanity check, test that it discovers two test class & 3 tests if it searches the whole module
-        tests = loader.discover([os.path.join(discover_dir(), "test_b.py")])
+        tests = loader.load([os.path.join(discover_dir(), "test_b.py")])
         assert len(tests) == 3
 
     def check_test_loader_with_injected_args(self):
@@ -103,13 +105,106 @@ class CheckTestLoader(object):
         and the injected args should be those passed in from command-line.
         """
         parameters = {"x": 1, "y": -1}
-        loader = TestLoader(self.SESSION_CONTEXT, test_parameters=parameters)
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=parameters)
 
         file = os.path.join(discover_dir(), "test_decorated.py")
-        tests = loader.discover([file])
+        tests = loader.load([file])
         assert len(tests) == 4
 
         for t in tests:
             assert t.injected_args == parameters
+
+
+def join_parsed_symbol_components(parsed):
+    """
+    Join together a parsed symbol
+
+    e.g.
+        {
+            'dir': 'path/to/dir',
+            'file': 'test_file.py',
+            'cls': 'ClassName',
+            'method': 'method'
+        },
+        ->
+        'path/to/dir/test_file.py::ClassName.method'
+    """
+    symbol = os.path.join(parsed['dir'], parsed['file'])
+
+    if parsed['cls'] or parsed['method']:
+        symbol += "::"
+        symbol += parsed['cls']
+        if parsed['method']:
+            symbol += "."
+            symbol += parsed['method']
+
+    return symbol
+
+
+def normalize_ending_slash(dirname):
+    if dirname.endswith(os.path.sep):
+        dirname = dirname[:-len(os.path.sep)]
+    return dirname
+
+
+class CheckParseSymbol(object):
+    def check_parse_discovery_symbol(self):
+        """Check that "test discovery symbol" parsing logic works correctly"""
+        parsed_symbols = [
+            {
+                'dir': 'path/to/dir',
+                'file': '',
+                'cls': '',
+                'method': ''
+            },
+            {
+                'dir': 'path/to/dir',
+                'file': 'test_file.py',
+                'cls': '',
+                'method': ''
+            },
+            {
+                'dir': 'path/to/dir',
+                'file': 'test_file.py',
+                'cls': 'ClassName',
+                'method': ''
+            },
+            {
+                'dir': 'path/to/dir',
+                'file': 'test_file.py',
+                'cls': 'ClassName',
+                'method': 'method'
+            },
+            {
+                'dir': 'path/to/dir',
+                'file': '',
+                'cls': 'ClassName',
+                'method': ''
+            },
+        ]
+
+        loader = TestLoader(tests.ducktape_mock.session_context(), logger=Mock())
+        for parsed in parsed_symbols:
+            symbol = join_parsed_symbol_components(parsed)
+
+            expected_parsed = (
+                normalize_ending_slash(parsed['dir']),
+                parsed['file'],
+                parsed['cls'],
+                parsed['method']
+            )
+
+            actually_parsed = loader._parse_discovery_symbol(symbol)
+            actually_parsed = (
+                normalize_ending_slash(actually_parsed[0]),
+                actually_parsed[1],
+                actually_parsed[2],
+                actually_parsed[3]
+            )
+
+            assert actually_parsed == expected_parsed, "%s did not parse as expected" % symbol
+
+
+
 
 

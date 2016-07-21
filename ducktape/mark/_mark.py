@@ -159,18 +159,6 @@ def _is_parametrize_mark(m):
     return m.name == PARAMETRIZED.name or m.name == MATRIX.name
 
 
-def _strip_parametrize_marks(fun):
-    """Helper method - remove only parametrize and matrix markings"""
-    if not parametrized(fun):
-        return
-
-    marks = fun.marks
-    Mark.clear_marks(fun)
-    for m in marks:
-        if not _is_parametrize_mark(m):
-            Mark.mark(fun, m)
-
-
 def parametrized(f):
     """Is this function or object decorated with @parametrize or @matrix?"""
     return Mark.marked(f, PARAMETRIZED) or Mark.marked(f, MATRIX)
@@ -338,3 +326,5 @@ def _inject(*args, **kwargs):
 
         return wrapper
     return injector
+
+
