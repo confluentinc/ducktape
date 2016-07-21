@@ -28,7 +28,7 @@ class LoaderException(Exception):
 
 
 # A helper container class
-ModuleAndFile = collections.namedtuple('ModuleAndFile', 'module file')
+ModuleAndFile = collections.namedtuple('ModuleAndFile', ['module', 'file'])
 
 
 DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"

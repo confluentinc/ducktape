@@ -173,21 +173,20 @@ def _escape_pathname(s):
     return re.sub("^\.|\.$", "", s)
 
 
-def test_logger(logger_name, log_dir, debug, max_parallel):
+def test_logger(logger_name, log_dir, debug):
     """Helper method for getting a test logger object
 
     Note that if this method is called multiple times with the same logger_name, it returns the same logger object.
     Note also, that for a fixed logger_name, configuration occurs only the first time this function is called.
     """
-    return TestLogger(logger_name, log_dir, debug, max_parallel).logger
+    return TestLogger(logger_name, log_dir, debug).logger
 
 
 class TestLogger(Logger):
-    def __init__(self, logger_name, log_dir, debug, max_parallel):
+    def __init__(self, logger_name, log_dir, debug):
         self.logger_name = logger_name
         self.log_dir = log_dir
         self.debug = debug
-        self.max_parallel = max_parallel
 
     def configure_logger(self):
         """Set up the logger to log to stdout and files.
@@ -215,8 +214,8 @@ class TestLogger(Logger):
 
         ch = logging.StreamHandler(sys.stdout)
         ch.setFormatter(formatter)
-        if self.debug and self.max_parallel == 1:
-            # If debug flag is set in non-parallel mode, pipe debug logs to stdout
+        if self.debug:
+            # If debug flag is set, pipe debug logs to stdout
             ch.setLevel(logging.DEBUG)
         else:
             # default - pipe warning level logging to stdout
@@ -259,6 +258,8 @@ class TestContext(object):
 
         # dict for toggling service log collection on/off
         self.log_collect = {}
+
+        self._logger = None
 
     def __repr__(self):
         return "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s>" % \
@@ -366,6 +367,8 @@ class TestContext(object):
 
     @property
     def logger(self):
-        """Lazily instantiate logger"""
-        return test_logger(
-            self.logger_name, self.results_dir, self.session_context.debug, self.session_context.max_parallel)
+        if self._logger is None:
+            self._logger = test_logger(
+                self.logger_name, self.results_dir, self.session_context.debug)
+        return self._logger
+
