@@ -60,7 +60,7 @@ class InstrumentedTestRunner(TestRunner):
 
 class CheckMemoryUsage(object):
     def setup_method(self, _):
-        self.cluster = LocalhostCluster()
+        self.cluster = LocalhostCluster(num_nodes=100)
         self.session_context = tests.ducktape_mock.session_context()
 
     def check_for_inter_test_memory_leak(self):

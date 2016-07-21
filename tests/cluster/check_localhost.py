@@ -40,6 +40,11 @@ class CheckLocalhostCluster(object):
         self.cluster.free_subcluster(subcluster)
         assert self.cluster.num_available_nodes() == cluster_initial_size
 
+    def check_subcluster_size(self):
+        cluster = LocalhostCluster()
+        subcluster = cluster.request_subcluster(10)
+        assert len(subcluster) == 10
+
     def check_request_free(self):
         available = self.cluster.num_available_nodes()
         initial_size = len(self.cluster)
