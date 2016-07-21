@@ -20,7 +20,7 @@ from ducktape.cluster.localhost import LocalhostCluster
 import tests.ducktape_mock
 from .resources.test_thingy import TestThingy
 
-from mock import MagicMock, Mock
+from mock import Mock
 import os
 
 TEST_THINGY_FILE = os.path.abspath(
@@ -53,7 +53,7 @@ class FakeCluster(object):
     def free(self, slots):
         self._available_nodes += len(slots)
 
-    def free_single(self, slot):
+    def free_single(self, _):
         self._available_nodes += 1
 
 
@@ -78,7 +78,7 @@ class CheckRunner(object):
 
     def check_simple_run(self):
         """Check expected behavior when running a single test."""
-        mock_cluster = LocalhostCluster()
+        mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
 
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2]
