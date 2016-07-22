@@ -86,15 +86,15 @@ class JsonCluster(Cluster):
     def num_available_nodes(self):
         return len(self.available_nodes)
 
-    def request_subcluster(self, num_nodes):
-        nodes = self.request(num_nodes)
+    def alloc_subcluster(self, num_nodes):
+        nodes = self.alloc(num_nodes)
         return JsonCluster(
             cluster_json={
                 "nodes": [self._account_to_dict(n.account) for n in nodes]
             })
 
-    def free_subcluster(self, subcluster):
-        nodes = subcluster.request(len(subcluster))
+    def free_subcluster(self, cluster):
+        nodes = cluster.alloc(len(cluster))
         self.free(nodes)
 
     def _account_to_dict(self, account):
@@ -106,7 +106,7 @@ class JsonCluster(Cluster):
             "externally_routable_ip": account.externally_routable_ip
         }
 
-    def request(self, num_nodes):
+    def alloc(self, num_nodes):
         if num_nodes > self.num_available_nodes():
             err_msg = "There aren't enough available nodes to satisfy the resource request. " \
                 "Total cluster size: %d, Requested: %d, Already allocated: %d, Available: %d. " % \

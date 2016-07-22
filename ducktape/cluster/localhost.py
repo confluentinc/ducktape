@@ -32,15 +32,15 @@ class LocalhostCluster(Cluster):
     def __len__(self):
         return self._size
 
-    def request_subcluster(self, num_nodes):
-        self.request(num_nodes)
+    def alloc_subcluster(self, num_nodes):
+        self.alloc(num_nodes)
         return LocalhostCluster(num_nodes=num_nodes)
 
-    def free_subcluster(self, subcluster):
-        nodes = subcluster.request(len(subcluster))
+    def free_subcluster(self, cluster):
+        nodes = cluster.alloc(len(cluster))
         self.free(nodes)
 
-    def request(self, num_nodes):
+    def alloc(self, num_nodes):
         assert self._available >= num_nodes
         self._available -= num_nodes
         return [ClusterSlot(RemoteAccount("localhost")) for i in range(num_nodes)]
