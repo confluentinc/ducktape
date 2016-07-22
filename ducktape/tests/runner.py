@@ -127,7 +127,7 @@ class TestRunner(object):
             # If there is no information on cluster usage, allocate entire cluster
             expected_num_nodes = len(self.cluster)
 
-        self.test_id_to_cluster[test_context.test_id] = self.cluster.request_subcluster(expected_num_nodes)
+        self.test_id_to_cluster[test_context.test_id] = self.cluster.alloc_subcluster(expected_num_nodes)
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))

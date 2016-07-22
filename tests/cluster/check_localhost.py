@@ -31,7 +31,7 @@ class CheckLocalhostCluster(object):
     def check_request_free_subcluster(self):
         cluster_initial_size = len(self.cluster)
         subcluster_size = 100
-        subcluster = self.cluster.request_subcluster(subcluster_size)
+        subcluster = self.cluster.alloc_subcluster(subcluster_size)
 
         assert isinstance(subcluster, LocalhostCluster)
         assert self.cluster.num_available_nodes() == cluster_initial_size - subcluster_size
@@ -42,7 +42,7 @@ class CheckLocalhostCluster(object):
 
     def check_subcluster_size(self):
         cluster = LocalhostCluster()
-        subcluster = cluster.request_subcluster(10)
+        subcluster = cluster.alloc_subcluster(10)
         assert len(subcluster) == 10
 
     def check_request_free(self):
@@ -50,7 +50,7 @@ class CheckLocalhostCluster(object):
         initial_size = len(self.cluster)
 
         # Should be able to allocate arbitrarily many nodes
-        slots = self.cluster.request(100)
+        slots = self.cluster.alloc(100)
         assert(len(slots) == 100)
         for slot in slots:
             assert(slot.account.hostname == 'localhost')

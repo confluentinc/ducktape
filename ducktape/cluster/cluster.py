@@ -33,7 +33,6 @@ class ClusterSlot(object):
         return hash(TupleRepresentation(**self.__dict__))
 
 
-
 class Cluster(object):
     """ Interface for a cluster -- a collection of nodes with login credentials.
     This interface doesn't define any mapping of roles/services to nodes. It only interacts with some underlying
@@ -46,35 +45,35 @@ class Cluster(object):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         raise NotImplementedError()
 
-    def request_subcluster(self, num_nodes):
-        """Return an instance of Cluster with the specified num_nodes.
-
-        All implementations of this method within ducktape make use of the num_nodes parameter, but in some
-        conceivable implementations, it may be reasonable to ignore.
-        """
+    def alloc_subcluster(self, num_nodes):
+        """Try to reserve num_nodes from this cluster, and return a cluster composed only of those nodes."""
         raise NotImplementedError()
 
-    def free_subcluster(self, subcluster):
+    def free_subcluster(self, cluster):
         """Free all nodes allocated to subcluster back to the original cluster."""
         raise NotImplementedError()
 
-    def request(self, num_nodes):
-        """Request the specified number of slots, which will be reserved until they are freed by the caller."""
+    def alloc(self, num_nodes):
+        """Try to allocate the specified number of nodes, which will be reserved until they are freed by the caller."""
         raise NotImplementedError()
+
+    def request(self, num_nodes):
+        """Identical to alloc. Keeping for compatibility"""
+        return self.alloc(num_nodes)
 
     def num_available_nodes(self):
-        """Number of available slots."""
+        """Number of available nodes."""
         raise NotImplementedError()
 
-    def free(self, slots):
-        """Free the given slot or list of slots"""
-        if isinstance(slots, collections.Iterable):
-            for s in slots:
+    def free(self, nodes):
+        """Free the given node or list of nodes"""
+        if isinstance(nodes, collections.Iterable):
+            for s in nodes:
                 self.free_single(s)
         else:
-            self.free_single(slots)
+            self.free_single(nodes)
 
-    def free_single(self, slot):
+    def free_single(self, node):
         raise NotImplementedError()
 
     def __eq__(self, other):

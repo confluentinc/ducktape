@@ -128,7 +128,7 @@ class Service(TemplateRenderer):
         self.logger.debug("Requesting %d nodes from the cluster." % self.num_nodes)
 
         try:
-            self.nodes = self.cluster.request(self.num_nodes)
+            self.nodes = self.cluster.alloc(self.num_nodes)
         except RuntimeError as e:
             msg = str(e.message)
             if hasattr(self.context, "services"):
