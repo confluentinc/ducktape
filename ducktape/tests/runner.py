@@ -126,6 +126,10 @@ class TestRunner(object):
         expected_num_nodes = test_context.expected_num_nodes
         if expected_num_nodes is None:
             # If there is no information on cluster usage, allocate entire cluster
+            if self.session_context.max_parallel > 1:
+                self._log(logging.WARNING,
+                          "Test %s has no cluster use metadata, so this test will not run in parallel with any others."
+                          % test_context.test_id)
             expected_num_nodes = len(self.cluster)
 
         self._test_cluster[test_context.test_id] = FiniteSubcluster(self.cluster.alloc(expected_num_nodes))
