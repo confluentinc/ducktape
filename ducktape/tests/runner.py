@@ -154,15 +154,7 @@ class TestRunner(object):
     def expected_num_nodes(self, test_context):
         """Helper method for deciding how many nodes we expect the given test to use."""
         expected = test_context.expected_num_nodes
-        if expected is None:
-            # If there is no information on cluster usage, allocate entire cluster
-            if self.session_context.max_parallel > 1:
-                self._log(logging.WARNING,
-                          "Test %s has no cluster use metadata, so this test will not run in parallel with any others."
-                          % test_context.test_id)
-            return len(self.cluster)
-        else:
-            return expected
+        return len(self.cluster) if expected is None else expected
 
     def _run_single_test(self, test_context):
         """Start a test runner client in a subprocess"""
@@ -191,6 +183,13 @@ class TestRunner(object):
         :return None
         """
         expected = self.expected_num_nodes(test_context)
+        if test_context.expected_num_nodes is None and self.max_parallel > 1:
+            # If there is no information on cluster usage, allocate entire cluster
+            if self.session_context.max_parallel > 1:
+                self._log(logging.WARNING,
+                          "Test %s has no cluster use metadata, so this test will not run in parallel with any others."
+                          % test_context.test_id)
+
         self._test_cluster[test_context.test_id] = FiniteSubcluster(self.cluster.alloc(expected))
 
     def _handle(self, event):
