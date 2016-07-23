@@ -41,13 +41,6 @@ class FakeCluster(Cluster):
         self._available_nodes -= nslots
         return [object() for _ in range(nslots)]
 
-    def alloc_subcluster(self, nslots):
-        self.alloc(nslots)
-        return FakeCluster(nslots)
-
-    def free_subcluster(self, subcluster):
-        self.free(subcluster.alloc(len(subcluster)))
-
     def num_available_nodes(self):
         return self._available_nodes
 

@@ -22,15 +22,10 @@ class ClusterSlot(object):
             setattr(self, k, v)
 
     def __eq__(self, other):
-        if other is None:
-            return False
-
-        return self.__dict__ == other.__dict__
+        return other is not None and self.__dict__ == other.__dict__
 
     def __hash__(self):
-        # convert self.__dict__ to a hashable type
-        TupleRepresentation = collections.namedtuple('TupleRepresentation', [k for k in self.__dict__.keys()])
-        return hash(TupleRepresentation(**self.__dict__))
+        return hash(tuple(self.__dict__.items()))
 
 
 class Cluster(object):
@@ -43,14 +38,6 @@ class Cluster(object):
 
     def __len__(self):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
-        raise NotImplementedError()
-
-    def alloc_subcluster(self, num_nodes):
-        """Try to reserve num_nodes from this cluster, and return a cluster composed only of those nodes."""
-        raise NotImplementedError()
-
-    def free_subcluster(self, cluster):
-        """Free all nodes allocated to subcluster back to the original cluster."""
         raise NotImplementedError()
 
     def alloc(self, num_nodes):
@@ -77,7 +64,7 @@ class Cluster(object):
         raise NotImplementedError()
 
     def __eq__(self, other):
-        if other is None:
-            return False
+        return other is not None and self.__dict__ == other.__dict__
 
-        return self.__dict__ == other.__dict__
+    def __hash__(self):
+        return hash(tuple(self.__dict__.items()))

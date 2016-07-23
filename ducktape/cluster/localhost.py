@@ -28,22 +28,20 @@ class LocalhostCluster(Cluster):
         # Use a very large number, but fixed value so accounting for # of available nodes works
         self._size = kwargs.get("num_nodes", sys.maxint)
         self._available = self._size
+        self._id_supplier = 0
 
     def __len__(self):
         return self._size
 
-    def alloc_subcluster(self, num_nodes):
-        self.alloc(num_nodes)
-        return LocalhostCluster(num_nodes=num_nodes)
-
-    def free_subcluster(self, cluster):
-        nodes = cluster.alloc(len(cluster))
-        self.free(nodes)
-
     def alloc(self, num_nodes):
         assert self._available >= num_nodes
         self._available -= num_nodes
-        return [ClusterSlot(RemoteAccount("localhost")) for i in range(num_nodes)]
+
+        allocated_nodes = []
+        for _ in range(num_nodes):
+            allocated_nodes.append(ClusterSlot(RemoteAccount("localhost"), slot_id=self._id_supplier))
+            self._id_supplier += 1
+        return allocated_nodes
 
     def num_available_nodes(self):
         return self._available

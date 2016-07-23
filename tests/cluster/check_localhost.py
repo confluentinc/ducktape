@@ -18,7 +18,7 @@ import pickle
 
 
 class CheckLocalhostCluster(object):
-    def setup_method(self, method):
+    def setup_method(self, _):
         self.cluster = LocalhostCluster()
 
     def check_size(self):
@@ -27,23 +27,6 @@ class CheckLocalhostCluster(object):
     def check_pickleable(self):
         cluster = LocalhostCluster()
         pickle.dumps(cluster)
-
-    def check_request_free_subcluster(self):
-        cluster_initial_size = len(self.cluster)
-        subcluster_size = 100
-        subcluster = self.cluster.alloc_subcluster(subcluster_size)
-
-        assert isinstance(subcluster, LocalhostCluster)
-        assert self.cluster.num_available_nodes() == cluster_initial_size - subcluster_size
-        assert len(subcluster) == subcluster_size
-
-        self.cluster.free_subcluster(subcluster)
-        assert self.cluster.num_available_nodes() == cluster_initial_size
-
-    def check_subcluster_size(self):
-        cluster = LocalhostCluster()
-        subcluster = cluster.alloc_subcluster(10)
-        assert len(subcluster) == 10
 
     def check_request_free(self):
         available = self.cluster.num_available_nodes()
