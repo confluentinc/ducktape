@@ -44,15 +44,10 @@ class RemoteAccount(HttpMixin):
         return str(self.__dict__)
 
     def __eq__(self, other):
-        if other is None:
-            return False
-
-        return self.__dict__ == other.__dict__
+        return other is not None and self.__dict__ == other.__dict__
 
     def __hash__(self):
-        # convert self.__dict__ to a hashable type
-        TupleRepresentation = collections.namedtuple('TupleRepresentation', [k for k in self.__dict__.keys()])
-        return hash(TupleRepresentation(**self.__dict__))
+        return hash(tuple(self.__dict__.items()))
 
     @property
     def local(self):

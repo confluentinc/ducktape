@@ -79,23 +79,13 @@ class JsonCluster(Cluster):
 
         self.available_nodes = collections.deque(node_accounts)
         self.in_use_nodes = set()
+        self._id_supplier = 0
 
     def __len__(self):
         return len(self.available_nodes) + len(self.in_use_nodes)
 
     def num_available_nodes(self):
         return len(self.available_nodes)
-
-    def alloc_subcluster(self, num_nodes):
-        nodes = self.alloc(num_nodes)
-        return JsonCluster(
-            cluster_json={
-                "nodes": [self._account_to_dict(n.account) for n in nodes]
-            })
-
-    def free_subcluster(self, cluster):
-        nodes = cluster.alloc(len(cluster))
-        self.free(nodes)
 
     def _account_to_dict(self, account):
         return {
@@ -117,9 +107,10 @@ class JsonCluster(Cluster):
         result = []
         for i in range(num_nodes):
             node = self.available_nodes.popleft()
-            cluster_slot = ClusterSlot(node)
+            cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
             result.append(cluster_slot)
             self.in_use_nodes.add(cluster_slot)
+            self._id_supplier += 1
         return result
 
     def free_single(self, slot):

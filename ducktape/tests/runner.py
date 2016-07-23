@@ -25,6 +25,7 @@ from ducktape.tests.runner_client import run_client
 from ducktape.tests.result import TestResults
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
+from ducktape.cluster.finite_subcluster import FiniteSubcluster
 
 
 class Receiver(object):
@@ -64,8 +65,8 @@ class TestRunner(object):
 
         self.proc_list = []
         self.staged_tests = tests
-        self.test_id_to_test_context = {t.test_id: t for t in tests}
-        self.test_id_to_cluster = {}  # Track subcluster assigned to a particular test_id
+        self._test_context = {t.test_id: t for t in tests}
+        self._test_cluster = {}  # Track subcluster assigned to a particular test_id
         self.active_tests = {}
         self.finished_tests = {}
 
@@ -127,7 +128,7 @@ class TestRunner(object):
             # If there is no information on cluster usage, allocate entire cluster
             expected_num_nodes = len(self.cluster)
 
-        self.test_id_to_cluster[test_context.test_id] = self.cluster.alloc_subcluster(expected_num_nodes)
+        self._test_cluster[test_context.test_id] = FiniteSubcluster(self.cluster.alloc(expected_num_nodes))
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))
@@ -145,8 +146,8 @@ class TestRunner(object):
 
     def _handle_ready(self, event):
         test_id = event["test_id"]
-        test_context = self.test_id_to_test_context[test_id]
-        subcluster = self.test_id_to_cluster[test_id]
+        test_context = self._test_context[test_id]
+        subcluster = self._test_cluster[test_id]
 
         self.receiver.send(
                 self.event_response.ready(event, self.session_context, test_context, subcluster))
@@ -168,8 +169,9 @@ class TestRunner(object):
         self.results.append(event['result'])
 
         # Free nodes used by the test
-        self.cluster.free_subcluster(self.test_id_to_cluster[test_id])
-        del self.test_id_to_cluster[test_id]
+        subcluster = self._test_cluster[test_id]
+        self.cluster.free(subcluster.alloc(len(subcluster)))
+        del self._test_cluster[test_id]
 
         if len(self.staged_tests) + len(self.active_tests) > 0 and self.session_context.max_parallel == 1:
             terminal_width, y = get_terminal_size()

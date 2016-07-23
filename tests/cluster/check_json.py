@@ -45,34 +45,6 @@ class CheckJsonCluster(object):
         cluster = JsonCluster({"nodes":[{"hostname": "localhost1"}, {"hostname": "localhost2"}, {"hostname": "localhost3"}]})
         pickle.dumps(cluster)
 
-    def check_request_free_subcluster(self):
-        """Check that requesting and freeing a subcluster behaves correctly."""
-        cluster_size = 100
-        cluster_json = {
-            "nodes": [{"hostname": "localhost%d" % i} for i in range(cluster_size)]
-        }
-        cluster = JsonCluster(cluster_json)
-        cluster_initial_size = len(cluster)
-        subcluster_size = 10
-        subcluster = cluster.alloc_subcluster(subcluster_size)
-
-        assert isinstance(subcluster, JsonCluster)
-        assert cluster.num_available_nodes() == cluster_initial_size - subcluster_size
-        assert len(subcluster) == subcluster_size
-
-        cluster.free_subcluster(subcluster)
-        assert cluster.num_available_nodes() == cluster_initial_size
-
-    def check_request_subcluster_disjoint(self):
-        cluster_size = 100
-        cluster_json = {
-            "nodes": [{"hostname": "localhost%d" % i} for i in range(cluster_size)]
-        }
-        cluster = JsonCluster(cluster_json)
-        cluster_initial_size = len(cluster)
-        subcluster_size = 10
-        subcluster = cluster.alloc_subcluster(subcluster_size)
-
     def check_allocate_free(self):
         cluster = JsonCluster({"nodes":[{"hostname": "localhost1"}, {"hostname": "localhost2"}, {"hostname": "localhost3"}]})
         assert len(cluster) == 3
