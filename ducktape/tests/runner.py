@@ -26,6 +26,7 @@ from ducktape.tests.result import TestResults
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
+from ducktape.tests.scheduler import TestScheduler, TestExpectedNodes
 
 
 class Receiver(object):
@@ -43,56 +44,6 @@ class Receiver(object):
 
     def send(self, event):
         self.socket.send(self.serde.serialize(event))
-
-
-class TestScheduler(object):
-    def __init__(self, test_context_list, runner):
-        self.runner = runner
-        self.test_context_list = test_context_list
-        self._sort_test_context_list()
-
-    def __len__(self):
-        return len(self.test_context_list)
-
-    def _sort_test_context_list(self):
-        """Replace self.test_context_list with a sorted shallow copy
-
-        Sort from largest cluster users to smallest
-        """
-        # sort from largest cluster users to smallest
-        self.test_context_list = sorted(self.test_context_list,
-                                        key=lambda tc: self.runner.expected_num_nodes(tc),
-                                        reverse=True)
-
-    def __iter__(self):
-        """This class is iterable"""
-        return self
-
-    def peek(self):
-        """Locate and return the next object to be scheduled, without removing it internally.
-
-        :return test_context for the next test to be scheduled
-        :raise RuntimeError if the scheduler is empty
-        """
-        if len(self) == 0:
-            raise RuntimeError("No more tests available")
-
-        for tc in self.test_context_list:
-            if self.runner.expected_num_nodes(tc) <= self.runner.cluster.num_available_nodes():
-                return tc
-
-        return None
-
-    def next(self):
-        """Get the next test"""
-        tc = self.peek()
-        self.test_context_list.remove(tc)
-        return tc
-
-    def add(self, test_context):
-        """Enqueue another test"""
-        self.test_context_list.append(test_context)
-        self._sort_test_context_list()
 
 
 class TestRunner(object):
@@ -115,7 +66,9 @@ class TestRunner(object):
         self.results = TestResults(self.session_context)
 
         self.proc_list = []
-        self.scheduler = TestScheduler(tests, self)
+        self.scheduler = TestScheduler(
+            [TestExpectedNodes(test_context=t, expected_nodes=self.expected_num_nodes(t)) for t in tests],
+            self.cluster)
         self._test_context = {t.test_id: t for t in tests}
         self._test_cluster = {}  # Track subcluster assigned to a particular test_id
         self.active_tests = {}
