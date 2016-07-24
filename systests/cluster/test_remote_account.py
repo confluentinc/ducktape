@@ -16,6 +16,7 @@ from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
 from ducktape.utils.util import wait_until
+from ducktape.mark.resource import cluster
 
 import os
 from threading import Thread
@@ -69,6 +70,7 @@ class RemoteAccountTest(Test):
     def setUp(self):
         self.account_service.start()
 
+    @cluster(num_nodes=1)
     def test_ssh_capture(self):
         """Test that ssh_capture correctly captures output from ssh subprocess.
         Also, verify that the ssh command is run before the user iterates through
@@ -89,6 +91,7 @@ class RemoteAccountTest(Test):
         lines = [int(l.strip()) for l in ssh_output]
         assert lines == [i for i in range(1, 6)]
 
+    @cluster(num_nodes=1)
     def test_monitor_log(self):
         """Tests log monitoring by writing to a log in the background thread"""
 
@@ -117,6 +120,7 @@ class RemoteAccountTest(Test):
         if logging_thread.isAlive():
             raise Exception("Timed out waiting for background thread.")
 
+    @cluster(num_nodes=1)
     def test_monitor_log_exception(self):
         """Tests log monitoring correctly throws an exception when the regex was not found"""
 

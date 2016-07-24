@@ -21,7 +21,7 @@ VAGRANTFILE_API_VERSION = "2"
 
 # General config
 enable_dns = false
-num_workers = 1
+num_workers = 3
 ram_megabytes = 1280
 base_box = "ubuntu/trusty64"
 
