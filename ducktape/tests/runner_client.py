@@ -61,7 +61,7 @@ class RunnerClient(object):
     def send(self, event):
         return self.sender.send(event)
 
-    def _sigterm_handler(self):
+    def _sigterm_handler(self, signum, frame):
         """Translate SIGTERM to SIGINT on this process
 
         python will treat SIGINT as a Keyboard exception. Exception handling does the rest.
