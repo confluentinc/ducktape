@@ -87,15 +87,6 @@ class JsonCluster(Cluster):
     def num_available_nodes(self):
         return len(self.available_nodes)
 
-    def _account_to_dict(self, account):
-        return {
-            "hostname": account.hostname,
-            "user": account.user,
-            "ssh_args": account.ssh_args,
-            "ssh_hostname": account.ssh_hostname,
-            "externally_routable_ip": account.externally_routable_ip
-        }
-
     def alloc(self, num_nodes):
         if num_nodes > self.num_available_nodes():
             err_msg = "There aren't enough available nodes to satisfy the resource request. " \
