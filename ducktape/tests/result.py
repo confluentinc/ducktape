@@ -28,6 +28,9 @@ class TestStatus(object):
 PASS = TestStatus("pass")
 FAIL = TestStatus("fail")
 IGNORE = TestStatus("ignore")
+# Test process failed in a way we couldn't handle gracefully
+# Logs etc. may or may not be present
+FATAL_ERROR = TestStatus("fatal_error")
 
 
 class TestResult(object):

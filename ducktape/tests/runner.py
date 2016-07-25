@@ -24,7 +24,7 @@ import zmq
 from ducktape.tests.serde import SerDe
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.tests.runner_client import run_client
-from ducktape.tests.result import TestResults
+from ducktape.tests.result import TestResults, TestResult, FATAL_ERROR
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
@@ -121,6 +121,7 @@ class TestRunner(object):
 
     @property
     def _expect_client_requests(self):
+        """Should we keep listening for requests from runner clients?"""
         return len(self.active_tests) > 0
 
     def run_all_tests(self):
@@ -129,6 +130,20 @@ class TestRunner(object):
         self._log(logging.INFO, "running %d tests..." % len(self.scheduler))
 
         while self._ready_to_trigger_more_tests or self._expect_client_requests:
+            for test_id in self.active_tests:
+                if not self._client_procs[test_id].is_alive():
+                    self._log(logging.ERROR, "Client process running %s died without completing the test.")
+                    # The runner client process maybe died a horrible death without sending a FINISHED message
+                    result = TestResult(
+                        self._test_context[test_id],
+                        self.session_context,
+                        test_status=FATAL_ERROR,
+                        summary="Test client process died without sending a FINISHED message."
+                    )
+
+                    # TODO - maybe we should *not* release associated cluster resources? We have no idea if this
+                    # test cleaned up after itself.
+                    self._transition_to_finished(test_id, result)
 
             while self._ready_to_trigger_more_tests:
                 next_test_context = self.scheduler.next()
@@ -220,12 +235,19 @@ class TestRunner(object):
 
     def _handle_finished(self, event):
         test_id = event["test_id"]
+        result = event["result"]
         self.receiver.send(self.event_response.finished(event))
+        self._transition_to_finished(test_id, result)
 
-        # Transition this test from running to finished
+        if self._should_print_delimiter:
+            terminal_width, y = get_terminal_size()
+            self._log(logging.INFO, "~" * int(2 * terminal_width / 3))
+
+    def _transition_to_finished(self, test_id, result):
+        """Transition this test from running to finished"""
         del self.active_tests[test_id]
-        self.finished_tests[test_id] = event
-        self.results.append(event['result'])
+        self.finished_tests[test_id] = True
+        self.results.append(result)
 
         # Free nodes used by the test
         subcluster = self._test_cluster[test_id]
@@ -234,10 +256,6 @@ class TestRunner(object):
 
         # Join on the finished test process
         self._client_procs[test_id].join()
-
-        if self._should_print_delimiter:
-            terminal_width, y = get_terminal_size()
-            self._log(logging.INFO, "~" * int(2 * terminal_width / 3))
 
     @property
     def _should_print_delimiter(self):
