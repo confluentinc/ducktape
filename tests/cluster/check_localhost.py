@@ -18,7 +18,7 @@ import pickle
 
 
 class CheckLocalhostCluster(object):
-    def setup_method(self, method):
+    def setup_method(self, _):
         self.cluster = LocalhostCluster()
 
     def check_size(self):
@@ -33,7 +33,7 @@ class CheckLocalhostCluster(object):
         initial_size = len(self.cluster)
 
         # Should be able to allocate arbitrarily many nodes
-        slots = self.cluster.request(100)
+        slots = self.cluster.alloc(100)
         assert(len(slots) == 100)
         for slot in slots:
             assert(slot.account.hostname == 'localhost')

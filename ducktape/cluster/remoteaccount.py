@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 import os
 import select
 import signal
@@ -24,7 +25,7 @@ from ducktape.utils.util import wait_until
 
 
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip = None, logger=None):
+    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip=None, logger=None):
         self.hostname = hostname
         self.user = user
         self.ssh_args = ssh_args
@@ -38,6 +39,15 @@ class RemoteAccount(HttpMixin):
             r += self.user + "@"
         r += self.hostname
         return r
+
+    def __repr__(self):
+        return str(self.__dict__)
+
+    def __eq__(self, other):
+        return other is not None and self.__dict__ == other.__dict__
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.__dict__.items())))
 
     @property
     def local(self):
@@ -280,6 +290,7 @@ class iter_wrapper(object):
             if timeout_sec is None or select.select([self.descriptor], [], [], timeout_sec)[0]:
                 self.cached = next(self.iter_obj, self.sentinel)
         return self.cached is not self.sentinel
+
 
 class LogMonitor(object):
     """

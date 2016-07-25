@@ -50,12 +50,12 @@ class CheckJsonCluster(object):
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 3)
 
-        nodes = cluster.request(1)
+        nodes = cluster.alloc(1)
         nodes_hostnames = self.cluster_hostnames(nodes)
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 2)
 
-        nodes2 = cluster.request(2)
+        nodes2 = cluster.alloc(2)
         nodes2_hostnames = self.cluster_hostnames(nodes2)
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 0)
@@ -70,14 +70,14 @@ class CheckJsonCluster(object):
 
     def check_parsing(self):
         # Checks that RemoteAccounts are generated correctly from input JSON
-        node = JsonCluster({"nodes":[{"hostname": "hostname"}]}).request(1)[0]
+        node = JsonCluster({"nodes":[{"hostname": "hostname"}]}).alloc(1)[0]
         assert(node.account.hostname == "hostname")
         assert(node.account.user is None)
         assert(node.account.ssh_args is None)
 
         node = JsonCluster({"nodes":[{"hostname": "hostname",
                                       "user": "user",
-                                      "ssh_args": "ssh_args"}]}).request(1)[0]
+                                      "ssh_args": "ssh_args"}]}).alloc(1)[0]
         assert(node.account.hostname == "hostname")
         assert(node.account.user == "user")
         assert(node.account.ssh_args == "ssh_args")
@@ -85,4 +85,4 @@ class CheckJsonCluster(object):
     def check_exhausts_supply(self):
         cluster = JsonCluster(self.single_node_cluster_json)
         with pytest.raises(RuntimeError):
-            cluster.request(2)
+            cluster.alloc(2)

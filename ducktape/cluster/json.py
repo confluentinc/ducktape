@@ -17,20 +17,47 @@ from __future__ import absolute_import
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
-import collections, json, os, os.path
+import collections
+import json
+import os
 
 
 class JsonCluster(Cluster):
-    """
-    An implementation of Cluster that uses static settings specified in a cluster file.
-
-    - If cluster_json is specified, use cluster info from it
-    - Otherwise
-      - If cluster_file is specified in the constructor's kwargs, read cluster info from the file specified by cluster_file
-      - Otherwise, read cluster info from the default file specified by ConsoleDefaults.CLUSTER_FILE.
+    """ An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
     def __init__(self, cluster_json=None, *args, **kwargs):
+        """Initialize JsonCluster
+
+        JsonCluster can be initialized from:
+            - a json-serializeable dict
+            - a "cluster_file" containing json
+
+        :param cluster_json: a json-serializeable dict containing node information.
+            If cluster_json is None, load from file
+        :param cluster_file (optional): Overrides the default location of the json cluster file
+
+        Example json:
+        {
+            "nodes": [
+                {
+                    "hostname": "worker1",
+                    "user": "vagrant",
+                    "ssh_args": "-o 'HostName 127.0.0.1' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile \".vagrant/machines/machine123/virtualbox/private_key\"' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL' ",
+                    "ssh_hostname": "127.0.0.1",
+                    "externally_routable_ip": "192.168.50.151"
+                },
+                {
+                    "hostname": "worker2",
+                    "user": "vagrant",
+                    "ssh_args": "-o 'HostName 127.0.0.1' -o 'Port 2223' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile \".vagrant/machines/machine123/virtualbox/private_key\"' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL' ",
+                    "ssh_hostname": "127.0.0.1",
+                    "externally_routable_ip": "192.168.50.152"
+                },
+                ...
+            ]
+        }
+        """
         super(JsonCluster, self).__init__()
         if cluster_json is None:
             # This is a directly instantiation of JsonCluster rather than from a subclass (e.g. VagrantCluster)
@@ -52,7 +79,7 @@ class JsonCluster(Cluster):
 
         self.available_nodes = collections.deque(node_accounts)
         self.in_use_nodes = set()
-        self.id_source = 1
+        self._id_supplier = 0
 
     def __len__(self):
         return len(self.available_nodes) + len(self.in_use_nodes)
@@ -60,25 +87,26 @@ class JsonCluster(Cluster):
     def num_available_nodes(self):
         return len(self.available_nodes)
 
-    def request(self, nslots):
-        if nslots > self.num_available_nodes():
+    def alloc(self, num_nodes):
+        if num_nodes > self.num_available_nodes():
             err_msg = "There aren't enough available nodes to satisfy the resource request. " \
                 "Total cluster size: %d, Requested: %d, Already allocated: %d, Available: %d. " % \
-                      (len(self), nslots, len(self.in_use_nodes), self.num_available_nodes())
+                      (len(self), num_nodes, len(self.in_use_nodes), self.num_available_nodes())
             err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
             raise RuntimeError(err_msg)
 
         result = []
-        for i in range(nslots):
+        for i in range(num_nodes):
             node = self.available_nodes.popleft()
-            result.append(ClusterSlot(self, node, slot_id=self.id_source))
-            self.in_use_nodes.add(self.id_source)
-            self.id_source += 1
+            cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
+            result.append(cluster_slot)
+            self.in_use_nodes.add(cluster_slot)
+            self._id_supplier += 1
         return result
 
     def free_single(self, slot):
-        assert(slot.slot_id in self.in_use_nodes)
-        self.in_use_nodes.remove(slot.slot_id)
+        assert(slot in self.in_use_nodes)
+        self.in_use_nodes.remove(slot)
         self.available_nodes.append(slot.account)
 
     def _externally_routable_ip(self, account):

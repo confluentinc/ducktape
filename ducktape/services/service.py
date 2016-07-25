@@ -128,7 +128,7 @@ class Service(TemplateRenderer):
         self.logger.debug("Requesting %d nodes from the cluster." % self.num_nodes)
 
         try:
-            self.nodes = self.cluster.request(self.num_nodes)
+            self.nodes = self.cluster.alloc(self.num_nodes)
         except RuntimeError as e:
             msg = str(e.message)
             if hasattr(self.context, "services"):
@@ -197,7 +197,6 @@ class Service(TemplateRenderer):
             raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec) +
                                "These nodes are still alive: " + str(unfinished_nodes))
 
-
     def wait_node(self, node, timeout_sec=None):
         """Wait for the service on the given node to finish. 
         Return True if the node finished shutdown, False otherwise.
@@ -236,7 +235,7 @@ class Service(TemplateRenderer):
         for node in self.nodes:
             self.logger.info("%s: freeing node" % self.who_am_i(node))
             node.account.logger = None
-            node.free()
+            self.cluster.free(node)
 
         self.nodes = []
 

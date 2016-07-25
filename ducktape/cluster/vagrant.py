@@ -121,6 +121,7 @@ class VagrantCluster(JsonCluster):
             output, _ = proc.communicate()
             self._is_aws = output.find("aws") >= 0
         return self._is_aws
+
     def _externally_routable_ip(self, node_account):
         if self.is_aws:
             cmd = "/sbin/ifconfig eth0 "
