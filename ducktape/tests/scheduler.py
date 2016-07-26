@@ -35,11 +35,8 @@ class TestScheduler(object):
         self._sort_test_context_list()
 
     def __len__(self):
+        """Number of tests currently in the scheduler"""
         return len(self._test_context_list)
-
-    def __iter__(self):
-        """This class is iterable"""
-        return self
 
     def _sort_test_context_list(self):
         """Replace self.test_context_list with a sorted shallow copy
@@ -54,7 +51,7 @@ class TestScheduler(object):
     def peek(self):
         """Locate and return the next object to be scheduled, without removing it internally.
 
-        :return test_context for the next test to be scheduled
+        :return test_context for the next test to be scheduled. If no test can currently be scheduled, return None.
         :raise RuntimeError if the scheduler is empty
         """
         if len(self) == 0:
@@ -74,8 +71,3 @@ class TestScheduler(object):
         tc = self.peek()
         self._test_context_list.remove(tc)
         return tc
-
-    def put(self, test_context):
-        """Enqueue another test"""
-        self._test_context_list.append(test_context)
-        self._sort_test_context_list()
