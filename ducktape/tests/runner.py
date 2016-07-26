@@ -29,6 +29,7 @@ from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler, TestExpectedNodes
+from ducktape.tests.result import FAIL
 
 
 class Receiver(object):
@@ -70,6 +71,8 @@ class TestRunner(object):
         self.session_context = session_context
         self.max_parallel = session_context.max_parallel
         self.results = TestResults(self.session_context)
+
+        self.exit_first = self.session_context.exit_first
 
         self.main_process_pid = os.getpid()
         self.scheduler = TestScheduler(
@@ -220,10 +223,14 @@ class TestRunner(object):
         test_id = event["test_id"]
         self.receiver.send(self.event_response.finished(event))
 
+        result = event['result']
+        if result.test_status == FAIL and self.exit_first:
+            self.stop_testing = True
+
         # Transition this test from running to finished
         del self.active_tests[test_id]
         self.finished_tests[test_id] = event
-        self.results.append(event['result'])
+        self.results.append(result)
 
         # Free nodes used by the test
         subcluster = self._test_cluster[test_id]

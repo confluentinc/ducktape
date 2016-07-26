@@ -20,12 +20,15 @@ from tests.ducktape_mock import FakeCluster
 
 import tests.ducktape_mock
 from .resources.test_thingy import TestThingy
+from .resources.test_failing_tests import FailingTest
 
 from mock import Mock
 import os
 
 TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
+FAILING_TEST_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_failing_tests.py"))
 
 
 class CheckRunner(object):
@@ -70,6 +73,26 @@ class CheckRunner(object):
 
         result_with_data = filter(lambda r: r.data is not None, results)[0]
         assert result_with_data.data == {"data": 3.14159}
+
+    def check_exit_first(self):
+        """Confirm that exit_first in session context has desired effect of preventing any tests from running
+        after the first test failure.
+        """
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(**{"exit_first": True})
+
+        test_methods = [FailingTest.test_fail]
+        ctx_list = []
+        for f in test_methods:
+            ctx_list.extend(
+                MarkedFunctionExpander(
+                    session_context=session_context,
+                    cls=FailingTest, function=f, file=FAILING_TEST_FILE, cluster=mock_cluster).expand())
+
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, port=CheckRunner.port)
+        results = runner.run_all_tests()
+        assert len(ctx_list) > 1
+        assert len(results) == 1
 
     def teardown_method(self, _):
         CheckRunner.port += 1
