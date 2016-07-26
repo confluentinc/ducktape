@@ -51,12 +51,9 @@ class TestScheduler(object):
     def peek(self):
         """Locate and return the next object to be scheduled, without removing it internally.
 
-        :return test_context for the next test to be scheduled. If no test can currently be scheduled, return None.
-        :raise RuntimeError if the scheduler is empty
+        :return test_context for the next test to be scheduled.
+            If scheduler is empty, or no test can currently be scheduled, return None.
         """
-        if len(self) == 0:
-            raise RuntimeError("No more tests available")
-
         for tc in self._test_context_list:
             if self._expected_nodes[tc.test_id] <= self.cluster.num_available_nodes():
                 return tc
