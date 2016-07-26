@@ -14,6 +14,7 @@
 
 import os
 import select
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -142,7 +143,38 @@ class RemoteAccount(HttpMixin):
         for pid in pids:
             self.signal(pid, sig, allow_fail=allow_fail)
 
-    def scp_from_command(self, src, dest, recursive=False):
+    def scp(self, src, dest, dest_node, recursive=False):
+        """Copy src_path to dest_path on dest_node
+
+        Note this currently copies src to dest via the driver node.
+
+        :param src_path Path the file or directory we want to copy
+        :param dest_node The node to which we want to copy the file/directory
+        :param dest_path The destination path
+        :param recursive (optional)
+        """
+
+        if src.endswith(os.path.sep):
+            # remove trailing path separator
+            src_path = src[:-len(os.path.sep)]
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            self.scp_from(src, temp_dir, recursive)
+            temp_src_path = os.path.join(temp_dir, os.path.basename(src))
+            dest_node.account.scp_to(temp_src_path, dest, recursive)
+        finally:
+            if os.path.isdir(temp_dir):
+                shutil.rmtree(temp_dir)
+
+    def scp_from(self, src, dest, recursive=False):
+        """Copy something from this node to driver node. src may be a string or an iterable of several sources."""
+        return self._ssh_quiet(self._scp_from_command(src, dest, recursive))
+
+    def scp_to(self, src, dest, recursive=False):
+        return self._ssh_quiet(self._scp_to_command(src, dest, recursive))
+
+    def _scp_from_command(self, src, dest, recursive=False):
         if self.user:
             remotehost = self.user + "@" + self.hostname
         else:
@@ -164,11 +196,9 @@ class RemoteAccount(HttpMixin):
         r += src + " " + dest
         return r
 
-    def scp_from(self, src, dest, recursive=False):
-        """Copy something from this node. src may be a string or an iterable of several sources."""
-        return self._ssh_quiet(self.scp_from_command(src, dest, recursive))
+    def _scp_to_command(self, src, dest, recursive=False):
+        """Copy something from driver node to this node. src may be a string or an iterable of several sources."""
 
-    def scp_to_command(self, src, dest, recursive=False):
         if not isinstance(src, basestring):
             # Assume src is iterable
             src = " ".join(src)
@@ -184,10 +214,7 @@ class RemoteAccount(HttpMixin):
         r += self.hostname + ":" + dest
         return r
 
-    def scp_to(self, src, dest, recursive=False):
-        return self._ssh_quiet(self.scp_to_command(src, dest, recursive))
-
-    def rsync_to_command(self, flags, src_dir, dest_dir):
+    def _rsync_to_command(self, flags, src_dir, dest_dir):
         r = "rsync "
         if self.ssh_args:
             r += "-e \"ssh " + self.ssh_args + "\" "
@@ -200,7 +227,7 @@ class RemoteAccount(HttpMixin):
         return r
 
     def rsync_to(self, flags, src_dir, dest_dir):
-        return self._ssh_quiet(self.rsync_to_command(flags, src_dir, dest_dir))
+        return self._ssh_quiet(self._rsync_to_command(flags, src_dir, dest_dir))
 
     def create_file(self, path, contents):
         tmp = tempfile.NamedTemporaryFile(delete=False)

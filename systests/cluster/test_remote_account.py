@@ -17,8 +17,10 @@ from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
 from ducktape.utils.util import wait_until
 from ducktape.mark.resource import cluster
+from ducktape.mark import matrix
 
 import os
+from subprocess import CalledProcessError
 from threading import Thread
 import time
 
@@ -61,8 +63,72 @@ class RemoteAccountTestService(Service):
         self.nodes[0].account.ssh("echo -e -n " + repr(msg) + " >> " + self.log_file)
 
 
-class RemoteAccountTest(Test):
+class ScpTest(Test):
 
+    def setUp(self):
+        self.src_node, self.dest_node = self.test_context.cluster.alloc(2)
+        self.scratch_dir = "scratch/"
+
+        self.src_node.account.ssh("mkdir -p %s" % self.scratch_dir)
+        self.dest_node.account.ssh("mkdir -p %s" % self.scratch_dir)
+
+    @cluster(num_nodes=2)
+    @matrix(recursive=[False, True])
+    def test_direct_scp_file(self, recursive):
+        """Verify that a file can be correctly copied directly between nodes.
+
+        This should work with or without the recursive flag.
+        """
+        contents = "123"
+        filename = os.path.join(self.scratch_dir, "myfile.txt")
+        self.src_node.account.ssh("echo %s > %s" % (contents, filename))
+
+        self.src_node.account.scp(filename, filename, self.dest_node, recursive=recursive)
+
+        # This throws an exception if the file doesn't exist
+        self.dest_node.account.ssh("test -f %s" % filename, allow_fail=False)
+
+    @cluster(num_nodes=2)
+    @matrix(recursive=[True, False])
+    def test_direct_scp_directory(self, recursive):
+        """Verify that a directory can be correctly copied directly between nodes.
+        """
+
+        # Use self.scratch_dir with a dummy file on src_node as the source directory
+        contents = "123"
+        self.src_dir = os.path.join(self.scratch_dir, "source")
+        self.src_node.account.ssh("mkdir -p %s" % self.src_dir)
+        filename = "%s/myfile.txt" % self.src_dir
+        self.src_node.account.ssh("echo %s > %s" % (contents, filename))
+
+        # destination directory
+        dest_dir = "%s/mycool/destination/directory" % self.scratch_dir
+        self.dest_node.account.ssh("mkdir -p %s" % dest_dir)
+
+        # Copy!
+        if recursive:
+            self.src_node.account.scp(self.src_dir, dest_dir, self.dest_node, recursive=recursive)
+        else:
+            try:
+                self.src_node.account.scp(self.src_dir, dest_dir, self.dest_node, recursive=recursive)
+                raise AssertionError("scp on directory with recursive=False should raise CalledProcessError")
+            except CalledProcessError as e:
+                # this is correct
+                return
+
+        # This throws an exception if the directory does not exist
+        dest = os.path.join(dest_dir, "source")
+        self.dest_node.account.ssh("test -d %s" % dest, allow_fail=False)
+        self.dest_node.account.ssh("test -e %s" % os.path.join(dest, "myfile.txt"))
+
+    def tearDown(self):
+        # allow_fail in case scratch dir was not successfully created
+        self.src_node.account.ssh("rm -rf %s" % self.scratch_dir, allow_fail=True)
+        self.dest_node.account.ssh("rm -rf %s" % self.scratch_dir, allow_fail=True)
+        self.test_context.cluster.free([self.src_node, self.dest_node])
+
+
+class RemoteAccountTest(Test):
     def __init__(self, test_context):
         super(RemoteAccountTest, self).__init__(test_context)
         self.account_service = RemoteAccountTestService(test_context)
