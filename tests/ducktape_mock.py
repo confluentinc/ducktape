@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.cluster.cluster import Cluster
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
 from ducktape.cluster.remoteaccount import RemoteAccount
@@ -24,6 +25,30 @@ import tempfile
 
 def mock_cluster():
     return MagicMock()
+
+
+class FakeCluster(Cluster):
+    """A cluster class with counters, but no actual node objects"""
+    def __init__(self, num_nodes):
+        self._num_nodes = num_nodes
+        self._available_nodes = self._num_nodes
+
+    def __len__(self):
+        return self._num_nodes
+
+    def alloc(self, nslots):
+        """Request the specified number of slots, which will be reserved until they are freed by the caller."""
+        self._available_nodes -= nslots
+        return [object() for _ in range(nslots)]
+
+    def num_available_nodes(self):
+        return self._available_nodes
+
+    def free(self, slots):
+        self._available_nodes += len(slots)
+
+    def free_single(self, _):
+        self._available_nodes += 1
 
 
 def session_context(**kwargs):

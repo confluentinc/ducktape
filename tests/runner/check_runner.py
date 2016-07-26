@@ -16,7 +16,7 @@ from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
-from ducktape.cluster.cluster import Cluster
+from tests.ducktape_mock import FakeCluster
 
 import tests.ducktape_mock
 from .resources.test_thingy import TestThingy
@@ -26,29 +26,6 @@ import os
 
 TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
-
-
-class FakeCluster(Cluster):
-    def __init__(self, num_nodes):
-        self._num_nodes = num_nodes
-        self._available_nodes = self._num_nodes
-
-    def __len__(self):
-        return self._num_nodes
-
-    def alloc(self, nslots):
-        """Request the specified number of slots, which will be reserved until they are freed by the caller."""
-        self._available_nodes -= nslots
-        return [object() for _ in range(nslots)]
-
-    def num_available_nodes(self):
-        return self._available_nodes
-
-    def free(self, slots):
-        self._available_nodes += len(slots)
-
-    def free_single(self, _):
-        self._available_nodes += 1
 
 
 class CheckRunner(object):
