@@ -116,7 +116,6 @@ class TestRunner(object):
         """Should we pull another test from the scheduler?"""
         return not self.stop_testing and \
             len(self.active_tests) < self.max_parallel and \
-            len(self.scheduler) > 0 and \
             self.scheduler.peek() is not None
 
     @property
