@@ -32,6 +32,9 @@ def create_ducktape_parser():
     parser.add_argument("--compress", action="store_true", help="compress remote logs before collection.")
     parser.add_argument("--cluster", action="store", default=ConsoleDefaults.CLUSTER_TYPE,
                         help="cluster class to use to allocate nodes for tests.")
+    parser.add_argument("--default-num-nodes", action="store", type=int, default=None,
+                        help="Global hint for cluster usage. A test without the @cluster annotation will "
+                        "default to this value for expected cluster usage.")
     parser.add_argument("--cluster-file", action="store", default=None,
                         help="path to a json file which provides information needed to initialize a json cluster. "
                              "The file is used to read/write cached cluster info if "

@@ -36,6 +36,7 @@ class SessionContext(object):
         self.exit_first = kwargs.get("exit_first", False)
         self.no_teardown = kwargs.get("no_teardown", False)
         self.max_parallel = kwargs.get("max_parallel", 1)
+        self.default_expected_num_nodes = kwargs.get("default_num_nodes", None)
         self._globals = kwargs.get("globals")
 
     @property
