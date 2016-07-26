@@ -38,6 +38,9 @@ class TestScheduler(object):
         """Number of tests currently in the scheduler"""
         return len(self._test_context_list)
 
+    def __iter__(self):
+        return self
+
     def _sort_test_context_list(self):
         """Replace self.test_context_list with a sorted shallow copy
 
@@ -65,6 +68,13 @@ class TestScheduler(object):
 
         This action removes the test_context object from the scheduler.
         """
+        if len(self) == 0:
+            raise StopIteration("Scheduler is empty.")
+
         tc = self.peek()
+
+        if tc is None:
+            raise RuntimeError("No tests can currently be scheduled.")
+
         self._test_context_list.remove(tc)
         return tc
