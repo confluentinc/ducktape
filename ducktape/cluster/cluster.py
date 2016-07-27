@@ -21,12 +21,6 @@ class ClusterSlot(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def __eq__(self, other):
-        return other is not None and self.__dict__ == other.__dict__
-
-    def __hash__(self):
-        return hash(tuple(sorted(self.__dict__.items())))
-
 
 class Cluster(object):
     """ Interface for a cluster -- a collection of nodes with login credentials.
