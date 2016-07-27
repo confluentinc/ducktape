@@ -78,6 +78,9 @@ class TestRunner(object):
         self.scheduler = TestScheduler(
             [TestExpectedNodes(test_context=t, expected_nodes=self.expected_num_nodes(t)) for t in tests],
             self.cluster)
+
+        self.test_counter = 1
+        self.total_tests = len(self.scheduler)
         self._test_context = {t.test_id: t for t in tests}
         self._test_cluster = {}  # Track subcluster assigned to a particular test_id
         self._client_procs = {}  # track client processes running tests
@@ -159,6 +162,9 @@ class TestRunner(object):
 
     def _run_single_test(self, test_context):
         """Start a test runner client in a subprocess"""
+        self._log(logging.INFO, "Triggering test %d of %d..." % (self.test_counter, self.total_tests))
+        self.test_counter += 1
+
         # Test is considered "active" as soon as we start it up in a subprocess
         self.active_tests[test_context.test_id] = True
 
