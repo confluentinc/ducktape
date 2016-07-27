@@ -14,6 +14,7 @@
 
 import os
 from paramiko import SSHClient, SSHConfig, AutoAddPolicy
+from scp import SCPClient
 import select
 import signal
 import tempfile
@@ -32,7 +33,8 @@ class RemoteAccount(HttpMixin):
         self.externally_routable_ip = externally_routable_ip
         self.logger = logger
         self._ssh_config = None
-        self._client = None
+        self._ssh_client = None
+        self._scp_client = None
 
     @property
     def ssh_config(self):
@@ -41,8 +43,8 @@ class RemoteAccount(HttpMixin):
         return self._ssh_config
 
     @property
-    def client(self):
-        if not self._client:
+    def ssh_client(self):
+        if not self._ssh_client:
             o = self.ssh_config.lookup(self.hostname)
 
             client = SSHClient()
@@ -54,9 +56,15 @@ class RemoteAccount(HttpMixin):
                 password=None,
                 key_filename=o['identityfile'],
                 look_for_keys=False)
-            self._client = client
+            self._ssh_client = client
 
-        return self._client
+        return self._ssh_client
+
+    @property
+    def scp_client(self):
+        if not self._scp_client:
+            self._scp_client = SCPClient(self.ssh_client.get_transport())
+        return self._scp_client
 
     def _parse_ssh_opts(self):
         args = self.ssh_args
@@ -142,7 +150,7 @@ class RemoteAccount(HttpMixin):
         subprocess.CalledProcessError. If allow_fail is True, returns the exit
         status of the command.
         """
-        client = self.client
+        client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
 
         exit_status = stdin.channel.recv_exit_status()
@@ -160,7 +168,7 @@ class RemoteAccount(HttpMixin):
     def ssh_capture(self, cmd, allow_fail=False, callback=None):
         '''Runs the command via SSH and captures the output, yielding lines of the output.'''
 
-        client = self.client
+        client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
 
         def output_generator():
@@ -181,7 +189,7 @@ class RemoteAccount(HttpMixin):
 
     def ssh_output(self, cmd, allow_fail=False):
         """Runs the command via SSH and captures the output, returning it as a string."""
-        client = self.client
+        client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
 
         try:
@@ -219,50 +227,14 @@ class RemoteAccount(HttpMixin):
         for pid in pids:
             self.signal(pid, sig, allow_fail=allow_fail)
 
-    def scp_from_command(self, src, dest, recursive=False):
-        if self.user:
-            remotehost = self.user + "@" + self.hostname
-        else:
-            remotehost = self.hostname
-
-        if isinstance(src, basestring):
-            src = remotehost + ":" + src
-        else:
-            # assume src is iterable
-            # e.g. "ubuntu@host:path1 ubuntu@host:path2"
-            src = " ".join([remotehost + ":" + path for path in src])
-
-        r = "scp "
-        if self.ssh_args:
-            r += self.ssh_args + " "
-        if recursive:
-            r += "-r "
-
-        r += src + " " + dest
-        return r
-
     def scp_from(self, src, dest, recursive=False):
         """Copy something from this node. src may be a string or an iterable of several sources."""
-        return self.ssh(self.scp_from_command(src, dest, recursive))
-
-    def scp_to_command(self, src, dest, recursive=False):
-        if not isinstance(src, basestring):
-            # Assume src is iterable
-            src = " ".join(src)
-
-        r = "scp "
-        if self.ssh_args:
-            r += self.ssh_args + " "
-        if recursive:
-            r += "-r "
-        r += src + " "
-        if self.user:
-            r += self.user + "@"
-        r += self.hostname + ":" + dest
-        return r
+        scp = self._scp_client
+        scp.get(src, dest)
 
     def scp_to(self, src, dest, recursive=False):
-        return self.ssh(self.scp_to_command(src, dest, recursive))
+        scp = self._scp_client
+        scp.put(src, dest)
 
     def create_file(self, path, contents):
         tmp = tempfile.NamedTemporaryFile(delete=False)
