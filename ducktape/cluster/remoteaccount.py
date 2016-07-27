@@ -229,11 +229,11 @@ class RemoteAccount(HttpMixin):
 
     def scp_from(self, src, dest, recursive=False):
         """Copy something from this node. src may be a string or an iterable of several sources."""
-        scp = self._scp_client
+        scp = self.scp_client
         scp.get(src, dest)
 
     def scp_to(self, src, dest, recursive=False):
-        scp = self._scp_client
+        scp = self.scp_client
         scp.put(src, dest)
 
     def create_file(self, path, contents):
