@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import os
+from paramiko import SSHClient, SSHConfig, AutoAddPolicy
 import select
 import signal
-import subprocess
 import tempfile
 from contextlib import contextmanager
 
@@ -31,6 +31,60 @@ class RemoteAccount(HttpMixin):
         self.ssh_hostname = ssh_hostname
         self.externally_routable_ip = externally_routable_ip
         self.logger = logger
+        self._ssh_config = None
+        self._client = None
+
+    @property
+    def ssh_config(self):
+        if not self._ssh_config:
+            self._ssh_config = self._parse_ssh_opts()
+        return self._ssh_config
+
+    @property
+    def client(self):
+        if not self._client:
+            o = self.ssh_config.lookup(self.hostname)
+
+            client = SSHClient()
+            client.set_missing_host_key_policy(AutoAddPolicy())
+            client.connect(
+                hostname=o['hostname'],
+                port=int(o['port']),
+                username=self.user,
+                password=None,
+                key_filename=o['identityfile'],
+                look_for_keys=False)
+            self._client = client
+
+        return self._client
+
+    def _parse_ssh_opts(self):
+        args = self.ssh_args
+        args = args.split("-o")
+        args = [a.strip() for a in args]
+        args = [a.replace("'", "") for a in args]
+        args = [a.replace("\"", "") for a in args]
+        args = [a.replace("\\", "") for a in args]
+        args = [a for a in args if len(a) > 0]
+
+        args_dict = {"Host": self.hostname}
+        for a in args:
+             pair = a.split(' ')
+             args_dict[pair[0]] = pair[1]
+        ssh_info_lines = ["%s %s" % (k, v) for k, v in args_dict.iteritems()]
+
+        f = tempfile.NamedTemporaryFile(delete=False)
+        try:
+            f.write("\n".join(ssh_info_lines))
+            f.close()
+
+            config = SSHConfig()
+            with open(f.name, "r") as fd:
+                config.parse(fd)
+        finally:
+            if os.path.exists(f.name):
+                os.remove(f.name)
+        return config
 
     def __str__(self):
         r = ""
@@ -88,34 +142,57 @@ class RemoteAccount(HttpMixin):
         subprocess.CalledProcessError. If allow_fail is True, returns the exit
         status of the command.
         """
-        return self._ssh_quiet(self.ssh_command(cmd), allow_fail)
+        client = self.client
+        stdin, stdout, stderr = client.exec_command(cmd)
+
+        exit_status = stdin.channel.recv_exit_status()
+        try:
+
+            if not allow_fail and exit_status != 0:
+                raise RuntimeError("Remote call nonzero exit status: %s" % stderr.read())
+        finally:
+            stdin.close()
+            stdout.close()
+            stderr.close()
+
+        return exit_status
 
     def ssh_capture(self, cmd, allow_fail=False, callback=None):
         '''Runs the command via SSH and captures the output, yielding lines of the output.'''
-        ssh_cmd = self.ssh_command(cmd)
-        proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+
+        client = self.client
+        stdin, stdout, stderr = client.exec_command(cmd)
 
         def output_generator():
-            for line in iter(proc.stdout.readline, ''):
+            for line in iter(stdout.readline, ''):
                 if callback is None:
                     yield line
                 else:
                     yield callback(line)
-            proc.communicate()
-            if proc.returncode != 0 and not allow_fail:
-                raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
+            try:
+                if not allow_fail and stdin.channel.recv_exit_status() != 0:
+                    raise RuntimeError()
+            finally:
+                stdin.close()
+                stdout.close()
+                stderr.close()
 
-        return iter_wrapper(output_generator(), proc.stdout)
+        return iter_wrapper(output_generator(), stdout)
 
     def ssh_output(self, cmd, allow_fail=False):
-        '''Runs the command via SSH and captures the output, returning it as a string.'''
-        ssh_cmd = self.ssh_command(cmd)
-        proc = subprocess.Popen(ssh_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
-        (stdoutdata, stderrdata) = proc.communicate()
-        if proc.returncode != 0 and not allow_fail:
-            raise subprocess.CalledProcessError(proc.returncode, ssh_cmd)
-        if self.logger is not None:
-            self.logger.debug("Ran cmd " + ssh_cmd + " -> " + str(stdoutdata))
+        """Runs the command via SSH and captures the output, returning it as a string."""
+        client = self.client
+        stdin, stdout, stderr = client.exec_command(cmd)
+
+        try:
+            stdoutdata = stdout.read()
+            if not allow_fail and stdin.channel.recv_exit_status() != 0:
+                raise RuntimeError("Remote call nonzero exit status: %s" % stderr.read())
+        finally:
+            stdin.close()
+            stdout.close()
+            stderr.close()
+
         return stdoutdata
 
     def alive(self, pid):
@@ -166,7 +243,7 @@ class RemoteAccount(HttpMixin):
 
     def scp_from(self, src, dest, recursive=False):
         """Copy something from this node. src may be a string or an iterable of several sources."""
-        return self._ssh_quiet(self.scp_from_command(src, dest, recursive))
+        return self.ssh(self.scp_from_command(src, dest, recursive))
 
     def scp_to_command(self, src, dest, recursive=False):
         if not isinstance(src, basestring):
@@ -185,22 +262,7 @@ class RemoteAccount(HttpMixin):
         return r
 
     def scp_to(self, src, dest, recursive=False):
-        return self._ssh_quiet(self.scp_to_command(src, dest, recursive))
-
-    def rsync_to_command(self, flags, src_dir, dest_dir):
-        r = "rsync "
-        if self.ssh_args:
-            r += "-e \"ssh " + self.ssh_args + "\" "
-        if flags:
-            r += flags
-        r += src_dir
-        if self.user:
-            r += self.user + "@"
-        r += self.hostname + ":" + dest_dir
-        return r
-
-    def rsync_to(self, flags, src_dir, dest_dir):
-        return self._ssh_quiet(self.rsync_to_command(flags, src_dir, dest_dir))
+        return self.ssh(self.scp_to_command(src, dest, recursive))
 
     def create_file(self, path, contents):
         tmp = tempfile.NamedTemporaryFile(delete=False)
@@ -209,30 +271,6 @@ class RemoteAccount(HttpMixin):
         tmp.close()
         self.scp_to(local_name, path)
         os.remove(local_name)
-
-    def _ssh_quiet(self, cmd, allow_fail=False):
-        """Runs the command on the remote host using SSH and blocks until the remote command finishes.
-
-        If it succeeds, there is no output; if it fails the output is printed
-        and the CalledProcessError is re-raised. If allow_fail is True, the
-        CalledProcess error will not be re-raised and the exit status of the
-        process will be returned instead.
-        """
-        try:
-            if self.logger is not None:
-                self.logger.debug("Trying to run remote command: " + cmd)
-            subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-            return 0
-        except subprocess.CalledProcessError as e:
-            # Depending on the user, failure of remote commands may be part of normal usage patterns (e.g. if used in
-            # a "wait_until" loop). So, log it, but don't make it too scary.
-            if self.logger is not None:
-                self.logger.debug("Error running remote command: " + cmd)
-                self.logger.debug(e.output)
-
-            if allow_fail:
-                return e.returncode
-            raise e
 
     @contextmanager
     def monitor_log(self, log):
@@ -248,7 +286,7 @@ class RemoteAccount(HttpMixin):
         """
         try:
             offset = int(self.ssh_output("wc -c %s" % log).split()[0])
-        except subprocess.CalledProcessError:
+        except:
             offset = 0
         yield LogMonitor(self, log, offset)
 
