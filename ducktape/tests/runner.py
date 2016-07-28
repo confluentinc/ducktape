@@ -28,7 +28,7 @@ from ducktape.tests.result import TestResults
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
-from ducktape.tests.scheduler import TestScheduler, TestExpectedNodes
+from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL
 
 
@@ -75,9 +75,7 @@ class TestRunner(object):
         self.exit_first = self.session_context.exit_first
 
         self.main_process_pid = os.getpid()
-        self.scheduler = TestScheduler(
-            [TestExpectedNodes(test_context=t, expected_nodes=self.expected_num_nodes(t)) for t in tests],
-            self.cluster)
+        self.scheduler = TestScheduler(tests, self.cluster)
 
         self.test_counter = 1
         self.total_tests = len(self.scheduler)
@@ -155,11 +153,6 @@ class TestRunner(object):
 
         return self.results
 
-    def expected_num_nodes(self, test_context):
-        """Helper method for deciding how many nodes we expect the given test to use."""
-        expected = test_context.expected_num_nodes
-        return len(self.cluster) if expected is None else expected
-
     def _run_single_test(self, test_context):
         """Start a test runner client in a subprocess"""
         self._log(logging.INFO, "Triggering test %d of %d..." % (self.test_counter, self.total_tests))
@@ -190,14 +183,12 @@ class TestRunner(object):
         :param test_context
         :return None
         """
-        expected = self.expected_num_nodes(test_context)
-        if test_context.expected_num_nodes is None and self.max_parallel > 1:
-            # If there is no information on cluster usage, allocate entire cluster
+        if test_context.expected_num_nodes == len(self.cluster) and self.max_parallel > 1:
             self._log(logging.WARNING,
-                      "Test %s has no cluster use metadata, so this test will not run in parallel with any others."
+                      "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
                       % test_context.test_id)
 
-        self._test_cluster[test_context.test_id] = FiniteSubcluster(self.cluster.alloc(expected))
+        self._test_cluster[test_context.test_id] = FiniteSubcluster(self.cluster.alloc(test_context.expected_num_nodes))
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))
@@ -246,14 +237,21 @@ class TestRunner(object):
         # Join on the finished test process
         self._client_procs[test_id].join()
 
-        if self._should_print_delimiter:
+        if self._should_print_separator:
             terminal_width, y = get_terminal_size()
             self._log(logging.INFO, "~" * int(2 * terminal_width / 3))
 
     @property
-    def _should_print_delimiter(self):
+    def _should_print_separator(self):
+        """The separator is the twiddle that goes in between tests on stdout.
+
+        This only makes sense to print if tests are run sequentially (aka max_parallel = 1) since
+        output from tests is interleaved otherwise.
+
+        Also, we don't want to print the separator after the last test output has been received, so
+        we check that there's more test output expected.
+        """
         return self.session_context.max_parallel == 1 and \
-            not self.stop_testing and \
             (self._expect_client_requests or self._ready_to_trigger_more_tests)
 
     def _handle_lifecycle(self, event):

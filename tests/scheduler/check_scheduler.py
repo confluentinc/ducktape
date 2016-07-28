@@ -17,14 +17,19 @@ import collections
 import pytest
 
 from tests.ducktape_mock import FakeCluster
-from ducktape.tests.scheduler import TestScheduler, TestExpectedNodes
+from ducktape.tests.scheduler import TestScheduler
 
-FakeContext = collections.namedtuple('FakeContext', ['test_id'])
+FakeContext = collections.namedtuple('FakeContext', ['test_id', 'expected_num_nodes'])
 
 
 class CheckScheduler(object):
     def setup_method(self, _):
         self.cluster = FakeCluster(100)
+        self.tc_list = [
+            FakeContext(0, expected_num_nodes=10),
+            FakeContext(1, expected_num_nodes=50),
+            FakeContext(2, expected_num_nodes=100),
+        ]
 
     def check_empty(self):
         """Check expected behavior of empty scheduler."""
@@ -37,13 +42,9 @@ class CheckScheduler(object):
 
     def check_non_empty_cluster_too_small(self):
         """Ensure that scheduler does not return tests if the cluster does not have enough available nodes. """
-        te_list = [
-            TestExpectedNodes(FakeContext(1), expected_nodes=10),
-            TestExpectedNodes(FakeContext(2), expected_nodes=50),
-            TestExpectedNodes(FakeContext(3), expected_nodes=100),
-        ]
-        scheduler = TestScheduler(te_list, self.cluster)
-        assert len(scheduler) == len(te_list)
+
+        scheduler = TestScheduler(self.tc_list, self.cluster)
+        assert len(scheduler) == len(self.tc_list)
         assert scheduler.peek() is not None
 
         # alloc all cluster nodes so none are available
@@ -58,12 +59,7 @@ class CheckScheduler(object):
     def check_simple_usage(self):
         """Check usage with fully available cluster."""
 
-        te_list = [
-            TestExpectedNodes(FakeContext(0), expected_nodes=10),
-            TestExpectedNodes(FakeContext(1), expected_nodes=50),
-            TestExpectedNodes(FakeContext(2), expected_nodes=100),
-        ]
-        scheduler = TestScheduler(te_list, self.cluster)
+        scheduler = TestScheduler(self.tc_list, self.cluster)
 
         c = 2
         while len(scheduler) > 0:
@@ -79,12 +75,8 @@ class CheckScheduler(object):
 
     def check_with_changing_cluster_availability(self):
         """Modify cluster usage in between calls to next() """
-        te_list = [
-            TestExpectedNodes(FakeContext(0), expected_nodes=10),
-            TestExpectedNodes(FakeContext(1), expected_nodes=50),
-            TestExpectedNodes(FakeContext(2), expected_nodes=100),
-        ]
-        scheduler = TestScheduler(te_list, self.cluster)
+
+        scheduler = TestScheduler(self.tc_list, self.cluster)
 
         # allocate 60 nodes; only test_id 0 should be available
         slots = self.cluster.alloc(60)

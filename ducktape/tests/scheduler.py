@@ -13,25 +13,16 @@
 # limitations under the License.
 
 
-import collections
-
-TestExpectedNodes = collections.namedtuple('TestExpectedNodes', ['test_context', 'expected_nodes'])
-
-
 class TestScheduler(object):
     """This class tracks tests which are scheduled to run, and provides an ordering based on the current cluster state.
 
     The ordering is "on-demand"; calling next returns the largest cluster user which fits in the currently
     available cluster nodes.
     """
-    def __init__(self, tc_expected_nodes, cluster):
+    def __init__(self, test_contexts, cluster):
 
         self.cluster = cluster
-        self._test_context_list = [t.test_context for t in tc_expected_nodes]
-        self._expected_nodes = {
-            t.test_context.test_id: t.expected_nodes
-            for t in tc_expected_nodes
-        }
+        self._test_context_list = test_contexts[:]  # shallow copy
         self._sort_test_context_list()
 
     def __len__(self):
@@ -48,7 +39,7 @@ class TestScheduler(object):
         """
         # sort from largest cluster users to smallest
         self._test_context_list = sorted(self._test_context_list,
-                                         key=lambda tc: self._expected_nodes[tc.test_id],
+                                         key=lambda tc: tc.expected_num_nodes,
                                          reverse=True)
 
     def peek(self):
@@ -58,7 +49,7 @@ class TestScheduler(object):
             If scheduler is empty, or no test can currently be scheduled, return None.
         """
         for tc in self._test_context_list:
-            if self._expected_nodes[tc.test_id] <= self.cluster.num_available_nodes():
+            if tc.expected_num_nodes <= self.cluster.num_available_nodes():
                 return tc
 
         return None
