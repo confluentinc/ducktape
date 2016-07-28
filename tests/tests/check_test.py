@@ -12,13 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import random
 import shutil
+import sys
 import tempfile
 
 from tests import ducktape_mock
 from ducktape.tests.test import Test, TestContext, _escape_pathname, _compress_cmd
+
+
+class DummyTest(Test):
+    """class description"""
+    def test_class_description(self):
+        pass
+
+    def test_function_description(self):
+        """function description"""
+        pass
+
+
+class DummyTestNoDescription(Test):
+    def test_this(self):
+        pass
 
 
 class CheckEscapePathname(object):
@@ -88,6 +105,37 @@ class CheckCompressCmd(object):
         os.system("tar xzf %s" % (compressed_path))
         assert os.path.exists(uncompressed_path)
 
+    def check_compress_service_logs_swallow_error(self):
+        """Try compressing a non-existent service log, and check that it logs a message without throwing an error.
+        """
+        from tests.ducktape_mock import session_context
+        tc = TestContext(
+            session_context=session_context(),
+            module=sys.modules[DummyTestNoDescription.__module__],
+            cls=DummyTestNoDescription,
+            function=DummyTestNoDescription.test_this
+        )
+
+        tc._logger = logging.getLogger(__name__)
+        temp_log_file = tempfile.NamedTemporaryFile(delete=False).name
+
+        try:
+            tmp_log_handler = logging.FileHandler(temp_log_file)
+            tc._logger.addHandler(tmp_log_handler)
+
+            test_obj = tc.cls(tc)
+
+            # Expect an error to be triggered but swallowed
+            test_obj.compress_service_logs(node=None, service=None, node_logs=["hi"])
+
+            tmp_log_handler.close()
+            with open(temp_log_file, "r") as f:
+                s = f.read()
+                assert s.find("Error compressing log hi") >= 0
+        finally:
+            if os.path.exists(temp_log_file):
+                os.remove(temp_log_file)
+
     def check_abs_path_file(self):
         """Check compress command on an absolute path to a file"""
         filename = self._make_random_file(self.tempdir)
@@ -140,18 +188,3 @@ class CheckCompressCmd(object):
     def teardown_method(self, _):
         if os.path.exists(self.tempdir):
             shutil.rmtree(self.tempdir)
-
-
-class DummyTest(Test):
-    """class description"""
-    def test_class_description(self):
-        pass
-
-    def test_function_description(self):
-        """function description"""
-        pass
-
-
-class DummyTestNoDescription(Test):
-    def test_this(self):
-        pass
