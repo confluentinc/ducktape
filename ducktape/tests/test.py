@@ -85,7 +85,7 @@ class Test(TemplateRenderer):
 
             except Exception as e:
                 self.test_context.logger.warn(
-                    "Error compressing log %s: service %(service)s: %(message)s" % (nlog, service, str(e))
+                    "Error compressing log %s: service %s: %s" % (nlog, service, str(e))
                 )
 
         return compressed_logs
