@@ -86,9 +86,13 @@ class CheckIterWrapper(object):
             assert output.has_next(timeout_sec=0)
             assert output.next().strip() == str(i)
         start = time.time()
-        assert output.has_next(timeout_sec=5) == False
+        assert output.has_next(timeout_sec=1) == False
         stop = time.time()
-        assert (stop - start >= 5) and (stop - start) < 5 + self.eps, "has_next() should return right after 5 seconds"
+        assert (stop - start >= 1) and (stop - start) < 1 + self.eps, "has_next() should return right after 1 second"
+
+        # the tail -F call above can leave stray processes, so clean up
+        cmd = "for p in $(ps ax | grep -v grep | grep \"%s\" | awk '{print $1}'); do kill $p; done" % self.temp_file
+        self.account.ssh(cmd)
 
     def teardown(self):
         self.account.ssh("rm -f " + self.temp_file)

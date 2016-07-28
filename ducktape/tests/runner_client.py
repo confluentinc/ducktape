@@ -14,6 +14,7 @@
 
 import logging
 import os
+import signal
 import time
 import traceback
 import zmq
@@ -37,6 +38,8 @@ class RunnerClient(object):
     """Run a single test"""
 
     def __init__(self, server_hostname, server_port, test_id, logger_name, log_dir, debug):
+        signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
+
         self.serde = SerDe()
         self.logger = test_logger(logger_name, log_dir, debug)
         self.runner_port = server_port
@@ -57,6 +60,13 @@ class RunnerClient(object):
 
     def send(self, event):
         return self.sender.send(event)
+
+    def _sigterm_handler(self, signum, frame):
+        """Translate SIGTERM to SIGINT on this process
+
+        python will treat SIGINT as a Keyboard exception. Exception handling does the rest.
+        """
+        os.kill(os.getpid(), signal.SIGINT)
 
     def _collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
         # TODO - different logger for TestLoader object

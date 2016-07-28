@@ -294,7 +294,15 @@ class TestContext(object):
         """How many nodes we expect this test to consume when run.
         Return None if undefined.
         """
-        return self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
+        expected = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
+
+        if expected is None:
+            expected = self.session_context.default_expected_num_nodes
+
+        if expected is None and self.cluster is not None:
+            expected = len(self.cluster)
+
+        return expected
 
     @property
     def globals(self):

@@ -100,13 +100,13 @@ class JsonCluster(Cluster):
             node = self.available_nodes.popleft()
             cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
             result.append(cluster_slot)
-            self.in_use_nodes.add(cluster_slot)
+            self.in_use_nodes.add(node)
             self._id_supplier += 1
         return result
 
     def free_single(self, slot):
-        assert(slot in self.in_use_nodes)
-        self.in_use_nodes.remove(slot)
+        assert(slot.account in self.in_use_nodes)
+        self.in_use_nodes.remove(slot.account)
         self.available_nodes.append(slot.account)
 
     def _externally_routable_ip(self, account):

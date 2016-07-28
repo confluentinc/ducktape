@@ -16,39 +16,19 @@ from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
-from ducktape.cluster.cluster import Cluster
+from tests.ducktape_mock import FakeCluster
 
 import tests.ducktape_mock
 from .resources.test_thingy import TestThingy
+from .resources.test_failing_tests import FailingTest
 
 from mock import Mock
 import os
 
 TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
-
-
-class FakeCluster(Cluster):
-    def __init__(self, num_nodes):
-        self._num_nodes = num_nodes
-        self._available_nodes = self._num_nodes
-
-    def __len__(self):
-        return self._num_nodes
-
-    def alloc(self, nslots):
-        """Request the specified number of slots, which will be reserved until they are freed by the caller."""
-        self._available_nodes -= nslots
-        return [object() for _ in range(nslots)]
-
-    def num_available_nodes(self):
-        return self._available_nodes
-
-    def free(self, slots):
-        self._available_nodes += len(slots)
-
-    def free_single(self, _):
-        self._available_nodes += 1
+FAILING_TEST_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_failing_tests.py"))
 
 
 class CheckRunner(object):
@@ -93,6 +73,26 @@ class CheckRunner(object):
 
         result_with_data = filter(lambda r: r.data is not None, results)[0]
         assert result_with_data.data == {"data": 3.14159}
+
+    def check_exit_first(self):
+        """Confirm that exit_first in session context has desired effect of preventing any tests from running
+        after the first test failure.
+        """
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(**{"exit_first": True})
+
+        test_methods = [FailingTest.test_fail]
+        ctx_list = []
+        for f in test_methods:
+            ctx_list.extend(
+                MarkedFunctionExpander(
+                    session_context=session_context,
+                    cls=FailingTest, function=f, file=FAILING_TEST_FILE, cluster=mock_cluster).expand())
+
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, port=CheckRunner.port)
+        results = runner.run_all_tests()
+        assert len(ctx_list) > 1
+        assert len(results) == 1
 
     def teardown_method(self, _):
         CheckRunner.port += 1
