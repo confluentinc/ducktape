@@ -164,6 +164,10 @@ def main():
         cluster_mod = importlib.import_module(cluster_mod_name)
         cluster_class = getattr(cluster_mod, cluster_class_name)
         cluster = cluster_class(cluster_file=args_dict["cluster_file"])
+        for ctx in tests:
+            # Note that we're attaching a reference to cluster
+            # only after test context objects have been instantiated
+            ctx.cluster = cluster
     except:
         print "Failed to load cluster: ", str(sys.exc_info()[0])
         print traceback.format_exc(limit=16)

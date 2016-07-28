@@ -295,8 +295,12 @@ class TestContext(object):
         Return None if undefined.
         """
         expected = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
+
         if expected is None:
             expected = self.session_context.default_expected_num_nodes
+
+        if expected is None and self.cluster is not None:
+            expected = len(self.cluster)
 
         return expected
 
