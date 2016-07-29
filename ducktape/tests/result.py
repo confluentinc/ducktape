@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from json import JSONEncoder
+import os
 import time
 from ducktape.tests.test import TestContext
 
@@ -49,7 +51,6 @@ class TestResult(object):
         @param summary       summary information
         @param data          data returned by the test, e.g. throughput
         """
-
         self.test_id = test_context.test_id
         self.module_name = test_context.module_name
         self.cls_name = test_context.cls_name
@@ -64,6 +65,15 @@ class TestResult(object):
         self.test_status = test_status
         self.summary = summary
         self.data = data
+
+        self.base_results_dir = session_context.results_dir
+        self.results_dir = test_context.results_dir
+        if not self.results_dir.endswith(os.path.sep):
+            self.results_dir += os.path.sep
+        if not self.base_results_dir.endswith(os.path.sep):
+            self.base_results_dir += os.path.sep
+        assert self.results_dir.startswith(self.base_results_dir)
+        self.relative_results_dir = self.results_dir[len(self.base_results_dir):]
 
         # For tracking run time
         self.start_time = start_time
@@ -80,6 +90,33 @@ class TestResult(object):
             return time.time() - self.start_time
 
         return self.stop_time - self.start_time
+
+
+class JSONResultEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, TestResult):
+            return {
+                "test_id": obj.test_id,
+                "module_name": obj.module_name,
+                "cls_name": obj.cls_name,
+                "function_name": obj.function_name,
+                "injected_args": obj.injected_args,
+                "description": obj.description,
+                "results_dir": obj.results_dir,
+                "relative_results_dir": obj.relative_results_dir,
+                "base_results_dir": obj.base_results_dir,
+                "test_status": obj.test_status,
+                "summary": obj.summary,
+                "data": obj.data,
+                "start_time": obj.start_time,
+                "stop_time": obj.stop_time,
+                "run_time": obj.run_time
+            }
+        elif isinstance(obj, TestStatus):
+            return str(obj).upper()
+        else:
+            # Let the base class default method raise the TypeError
+            return JSONEncoder.default(self, obj)
 
 
 class TestResults(list):

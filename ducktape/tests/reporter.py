@@ -19,7 +19,7 @@ import shutil
 import pkg_resources
 
 from ducktape.utils.terminal_size import get_terminal_size
-from ducktape.tests.result import PASS, FAIL, IGNORE
+from ducktape.tests.result import PASS, FAIL, IGNORE, JSONResultEncoder
 
 
 DEFAULT_SEPARATOR_WIDTH = 100
@@ -132,6 +132,16 @@ class SimpleFileSummaryReporter(SimpleSummaryReporter):
 class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
     def report(self):
         print self.report_string()
+
+
+class JSONReporter(object):
+    def __init__(self, results):
+        self.results = results
+
+    def report(self):
+        report_file = os.path.abspath(os.path.join(self.results.session_context.results_dir, "report.json"))
+        with open(report_file, "w") as f:
+            f.write(json.dumps(self.results, cls=JSONResultEncoder, sort_keys=True, indent=2, separators=(',', ': ')))
 
 
 class HTMLSummaryReporter(SummaryReporter):
