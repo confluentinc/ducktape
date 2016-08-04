@@ -15,8 +15,8 @@
 import os
 from paramiko import SSHClient, SSHConfig, AutoAddPolicy
 from scp import SCPClient
-import select
 import signal
+import socket
 import tempfile
 from contextlib import contextmanager
 
@@ -49,12 +49,13 @@ class RemoteAccount(HttpMixin):
 
             client = SSHClient()
             client.set_missing_host_key_policy(AutoAddPolicy())
+
             client.connect(
-                hostname=o['hostname'],
-                port=int(o['port']),
+                hostname=o.get('hostname', self.hostname),
+                port=int(o.get('port', 22)),
                 username=self.user,
                 password=None,
-                key_filename=o['identityfile'],
+                key_filename=o.get('identityfile'),
                 look_for_keys=False)
             self._ssh_client = client
 
@@ -67,6 +68,9 @@ class RemoteAccount(HttpMixin):
         return self._scp_client
 
     def _parse_ssh_opts(self):
+        if self.ssh_args is None:
+            return SSHConfig()
+
         args = self.ssh_args
         args = args.split("-o")
         args = [a.strip() for a in args]
@@ -166,12 +170,13 @@ class RemoteAccount(HttpMixin):
         return exit_status
 
     def ssh_capture(self, cmd, allow_fail=False, callback=None):
-        '''Runs the command via SSH and captures the output, yielding lines of the output.'''
+        """Runs the command via SSH and captures the output, yielding lines of the output."""
 
         client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
 
         def output_generator():
+
             for line in iter(stdout.readline, ''):
                 if callback is None:
                     yield line
@@ -185,7 +190,7 @@ class RemoteAccount(HttpMixin):
                 stdout.close()
                 stderr.close()
 
-        return iter_wrapper(output_generator(), stdout)
+        return _IterWrapper(output_generator(), stdout)
 
     def ssh_output(self, cmd, allow_fail=False):
         """Runs the command via SSH and captures the output, returning it as a string."""
@@ -263,13 +268,20 @@ class RemoteAccount(HttpMixin):
         yield LogMonitor(self, log, offset)
 
 
-class iter_wrapper(object):
+class _IterWrapper(object):
     """
     Helper class that wraps around an iterable object to provide has_next() in addition to next()
     """
-    def __init__(self, iter_obj, descriptor=None):
+    def __init__(self, iter_obj, channel_file=None):
+        """
+        :param iter_obj An iterator
+        :param channel_file A paramiko ChannelFile object
+        """
         self.iter_obj = iter_obj
-        self.descriptor = descriptor
+        self.channel_file = channel_file
+
+        # sentinel is an indicator that there is currently nothing cached
+        # I.e. if self.cached is self.sentinel, we'll have
         self.sentinel = object()
         self.cached = self.sentinel
 
@@ -284,20 +296,29 @@ class iter_wrapper(object):
         return next_obj
 
     def has_next(self, timeout_sec=None):
-        """Check if output is available and possibly wait until the availability is known.
-        1) If there is output available, return true
-        2) If there is no output available (i.e. EOF), return false
-        3) If it is unknown whether output is available
-           - If timeout_sec is not specified, wait indefinitely until the availability is known
-           - Otherwise, wait for at most time_sec seconds
-             - If availability is known before timeout, return the true/false as appropriate
-             - Otherwise, return false
-        """
-        assert timeout_sec is None or self.descriptor is not None, "should have descriptor to enforce timeout"
+        """Return True iff next(iter_obj) would return another object within timeout_sec, else False.
 
+        If timeout_sec is None, next(iter_obj) may block indefinitely.
+        """
+        assert timeout_sec is None or self.channel_file is not None, "should have descriptor to enforce timeout"
+
+        prev_timeout = None
         if self.cached is self.sentinel:
-            if timeout_sec is None or select.select([self.descriptor], [], [], timeout_sec)[0]:
+            if self.channel_file is not None:
+                prev_timeout = self.channel_file.channel.gettimeout()
+
+                # when timeout_sec is None, next(iter_obj) will block indefinitely
+                self.channel_file.channel.settimeout(timeout_sec)
+
+            try:
                 self.cached = next(self.iter_obj, self.sentinel)
+            except socket.timeout:
+                self.cached = self.sentinel
+            finally:
+                if self.channel_file is not None:
+                    # restore preexisting timeout
+                    self.channel_file.channel.settimeout(prev_timeout)
+
         return self.cached is not self.sentinel
 
 

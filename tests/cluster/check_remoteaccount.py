@@ -81,20 +81,23 @@ class CheckIterWrapper(object):
     def check_iter_wrapper_timeout(self):
         output = self.account.ssh_capture("tail -F " + self.temp_file)
         # allow command to be executed before we check output with timeout_sec = 0
-        time.sleep(1)
+        time.sleep(.5)
         for i in range(self.line_num):
             assert output.has_next(timeout_sec=0)
             assert output.next().strip() == str(i)
-        start = time.time()
-        assert output.has_next(timeout_sec=1) == False
-        stop = time.time()
-        assert (stop - start >= 1) and (stop - start) < 1 + self.eps, "has_next() should return right after 1 second"
 
+        timeout = .25
+        start = time.time()
+        assert output.has_next(timeout_sec=timeout) == False
+        stop = time.time()
+        assert (stop - start >= timeout) and (stop - start) < timeout + self.eps, \
+            "has_next() should return right after %s second" % str(timeout)
+
+    def teardown(self):
         # the tail -F call above can leave stray processes, so clean up
         cmd = "for p in $(ps ax | grep -v grep | grep \"%s\" | awk '{print $1}'); do kill $p; done" % self.temp_file
         self.account.ssh(cmd)
 
-    def teardown(self):
         self.account.ssh("rm -f " + self.temp_file)
 
 
