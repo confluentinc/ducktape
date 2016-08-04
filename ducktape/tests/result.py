@@ -60,7 +60,7 @@ class TestResult(DucktapeJsonSerializeable):
             self.nodes_used = test_context.services.num_nodes()
         else:
             self.services = {}
-            self.nodes_used = []
+            self.nodes_used = 0
 
         self.test_id = test_context.test_id
         self.module_name = test_context.module_name
@@ -124,12 +124,13 @@ class TestResult(DucktapeJsonSerializeable):
 
 class TestResults(DucktapeJsonSerializeable):
     """Class used to aggregate individual TestResult objects from many tests."""
-    def __init__(self, session_context):
+    def __init__(self, session_context, cluster):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
         self._results = []
         self.session_context = session_context
+        self.cluster = cluster
 
         # For tracking total run time
         self.start_time = -1
@@ -184,15 +185,20 @@ class TestResults(DucktapeJsonSerializeable):
     def to_json(self):
         return {
             "session_context": self.session_context,
-            "run_time": self.run_time_seconds,
+            "run_time_seconds": self.run_time_seconds,
             "start_time": self.start_time,
             "stop_time": self.stop_time,
             "run_time_statistics": self._stats([r.run_time_seconds for r in self]),
-            "cluster_use_statistics": self._stats([r.nodes_used for r in self]),
-            "cluster_allocation_statistics": self._stats([r.nodes_allocated for r in self]),
+            "cluster_nodes_used": self._stats([r.nodes_used for r in self]),
+            "cluster_nodes_allocated": self._stats([r.nodes_allocated for r in self]),
+            "cluster_utilization":
+                (1.0 / len(self.cluster)) *
+                (1.0 / self.run_time_seconds) *
+                sum([r.nodes_used * r.run_time_seconds for r in self]),
+            "cluster_num_nodes": len(self.cluster),
             "num_passed": self.num_passed,
             "num_failed": self.num_failed,
             "num_ignored": self.num_ignored,
-            "actual_parallelism": sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds,
+            "parallelism": sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds,
             "results": [r for r in self._results]
         }

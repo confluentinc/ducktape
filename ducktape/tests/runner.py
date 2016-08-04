@@ -87,7 +87,7 @@ class TestRunner(object):
 
         self.session_context = session_context
         self.max_parallel = session_context.max_parallel
-        self.results = TestResults(self.session_context)
+        self.results = TestResults(self.session_context, self.cluster)
 
         self.exit_first = self.session_context.exit_first
 
