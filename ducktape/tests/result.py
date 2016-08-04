@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from json import JSONEncoder
+from ducktape.json_serializable import DucktapeJsonSerializeable
 import os
+import statistics
 import time
 from ducktape.tests.test import TestContext
 
 
-class TestStatus(object):
+class TestStatus(DucktapeJsonSerializeable):
     def __init__(self, status):
         self._status = str(status).lower()
 
@@ -28,12 +29,16 @@ class TestStatus(object):
     def __str__(self):
         return self._status
 
+    def to_json(self):
+        return str(self).upper()
+
+
 PASS = TestStatus("pass")
 FAIL = TestStatus("fail")
 IGNORE = TestStatus("ignore")
 
 
-class TestResult(object):
+class TestResult(DucktapeJsonSerializeable):
     """Wrapper class for a single result returned by a single test."""
 
     def __init__(self,
@@ -51,6 +56,14 @@ class TestResult(object):
         @param summary       summary information
         @param data          data returned by the test, e.g. throughput
         """
+        self.nodes_allocated = len(test_context.cluster)
+        if hasattr(test_context, "services"):
+            self.services = test_context.services.to_json()
+            self.nodes_used = test_context.services.num_nodes()
+        else:
+            self.services = {}
+            self.nodes_used = []
+
         self.test_id = test_context.test_id
         self.module_name = test_context.module_name
         self.cls_name = test_context.cls_name
@@ -83,7 +96,7 @@ class TestResult(object):
         return "<%s - test_status:%s, data:%s>" % (self.__class__.__name__, self.test_status, str(self.data))
 
     @property
-    def run_time(self):
+    def run_time_seconds(self):
         if self.start_time < 0:
             return -1
         if self.stop_time < 0:
@@ -91,66 +104,69 @@ class TestResult(object):
 
         return self.stop_time - self.start_time
 
-
-class JSONResultEncoder(JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, TestResult):
-            return {
-                "test_id": obj.test_id,
-                "module_name": obj.module_name,
-                "cls_name": obj.cls_name,
-                "function_name": obj.function_name,
-                "injected_args": obj.injected_args,
-                "description": obj.description,
-                "results_dir": obj.results_dir,
-                "relative_results_dir": obj.relative_results_dir,
-                "base_results_dir": obj.base_results_dir,
-                "test_status": obj.test_status,
-                "summary": obj.summary,
-                "data": obj.data,
-                "start_time": obj.start_time,
-                "stop_time": obj.stop_time,
-                "run_time": obj.run_time
-            }
-        elif isinstance(obj, TestStatus):
-            return str(obj).upper()
-        else:
-            # Let the base class default method raise the TypeError
-            return JSONEncoder.default(self, obj)
+    def to_json(self):
+        return {
+            "test_id": self.test_id,
+            "module_name": self.module_name,
+            "cls_name": self.cls_name,
+            "function_name": self.function_name,
+            "injected_args": self.injected_args,
+            "description": self.description,
+            "results_dir": self.results_dir,
+            "relative_results_dir": self.relative_results_dir,
+            "base_results_dir": self.base_results_dir,
+            "test_status": self.test_status,
+            "summary": self.summary,
+            "data": self.data,
+            "start_time": self.start_time,
+            "stop_time": self.stop_time,
+            "run_time_seconds": self.run_time_seconds,
+            "nodes_allocated": self.nodes_allocated,
+            "nodes_used": self.nodes_used,
+            "services": self.services
+        }
 
 
-class TestResults(list):
+class TestResults(DucktapeJsonSerializeable):
     """Class used to aggregate individual TestResult objects from many tests."""
     def __init__(self, session_context):
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
-        super(list, self).__init__()
-
+        self._results = []
         self.session_context = session_context
 
         # For tracking total run time
         self.start_time = -1
         self.stop_time = -1
 
+    def append(self, obj):
+        return self._results.append(obj)
+
+    def __len__(self):
+        return len(self._results)
+
+    def __iter__(self):
+        return iter(self._results)
+
     @property
     def num_passed(self):
-        return len([r for r in self if r.test_status == PASS])
+        return len([r for r in self._results if r.test_status == PASS])
 
     @property
     def num_failed(self):
-        return len([r for r in self if r.test_status == FAIL])
+        return len([r for r in self._results if r.test_status == FAIL])
 
     @property
     def num_ignored(self):
-        return len([r for r in self if r.test_status == IGNORE])
+        return len([r for r in self._results if r.test_status == IGNORE])
 
     @property
-    def run_time(self):
+    def run_time_seconds(self):
         if self.start_time < 0:
             return -1
         if self.stop_time < 0:
-            return time.time() - self.start_time
+            self.stop_time = time.time()
 
         return self.stop_time - self.start_time
 
@@ -158,9 +174,30 @@ class TestResults(list):
         """Check cumulative success of all tests run so far
         :rtype: bool
         """
-        for result in self:
+        for result in self._results:
             if result.test_status == FAIL:
                 return False
         return True
 
+    def _stats(self, num_list):
+        return {
+            "mean": statistics.mean(num_list),
+            "min": min(num_list),
+            "max": max(num_list)
+        }
 
+    def to_json(self):
+        return {
+            "session_context": self.session_context,
+            "run_time": self.run_time_seconds,
+            "start_time": self.start_time,
+            "stop_time": self.stop_time,
+            "run_time_statistics": self._stats([r.run_time_seconds for r in self]),
+            "cluster_use_statistics": self._stats([r.nodes_used for r in self]),
+            "cluster_allocation_statistics": self._stats([r.nodes_allocated for r in self]),
+            "num_passed": self.num_passed,
+            "num_failed": self.num_failed,
+            "num_ignored": self.num_ignored,
+            "actual_parallelism": sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds,
+            "results": [r for r in self._results]
+        }
