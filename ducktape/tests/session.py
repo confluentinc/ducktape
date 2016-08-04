@@ -19,9 +19,10 @@ import time
 
 from ducktape.tests.logger import Logger
 from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.json_serializable import DucktapeJsonSerializeable
 
 
-class SessionContext(object):
+class SessionContext(DucktapeJsonSerializeable):
     """Wrapper class for 'global' variables. A call to ducktape generates a single shared SessionContext object
     which helps route logging and reporting, etc.
     """
@@ -43,6 +44,9 @@ class SessionContext(object):
     def globals(self):
         """None, or an immutable dictionary containing user-defined global variables."""
         return self._globals
+
+    def to_json(self):
+        return self.__dict__
 
 
 class SessionLogger(Logger):

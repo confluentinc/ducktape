@@ -58,13 +58,13 @@ class Service(TemplateRenderer):
         self.num_nodes = num_nodes
         self.context = context
 
+        self.nodes = []
+        self.allocate_nodes()
+
         # Every time a service instance is created, it registers itself with its
         # context object. This makes it possible for external mechanisms to clean up
         # after the service if something goes wrong.
         self.context.services.append(self)
-
-        self.nodes = []
-        self.allocate_nodes()
 
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
@@ -146,7 +146,7 @@ class Service(TemplateRenderer):
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.logger = self.logger
 
-        self.logger.debug("Successfully allocated %d nodes to %s" % (self.num_nodes, self.who_am_i()))
+        self.logger.debug("Successfully allocated %d nodes to %s" % (self.num_nodes, self.__class__.__name__))
 
     def start(self):
         """Start the service on all nodes."""
