@@ -157,7 +157,7 @@ class RunnerClient(object):
     def setup_test(self):
         """start services etc"""
         self.log(logging.INFO, "Setting up...")
-        self.test.setUp()
+        self.test.setup()
 
     def run_test(self):
         """Run the test!
@@ -176,6 +176,14 @@ class RunnerClient(object):
         """
         self.log(logging.INFO, "Tearing down...")
         exceptions = []
+
+        if teardown_services:
+            try:
+                self.test.teardown()
+            except BaseException as e:
+                exceptions.append(e)
+                self.log(logging.WARN, "Error running teardown method: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+
         if hasattr(self.test_context, 'services'):
             services = self.test_context.services
 

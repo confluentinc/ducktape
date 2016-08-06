@@ -14,9 +14,10 @@
 
 import os
 from paramiko import SSHClient, SSHConfig, AutoAddPolicy
-from scp import SCPClient
+import shutil
 import signal
 import socket
+import stat
 import tempfile
 from contextlib import contextmanager
 
@@ -34,7 +35,7 @@ class RemoteAccount(HttpMixin):
         self.logger = logger
         self._ssh_config = None
         self._ssh_client = None
-        self._scp_client = None
+        self._sftp_client = None
 
     @property
     def ssh_config(self):
@@ -62,10 +63,22 @@ class RemoteAccount(HttpMixin):
         return self._ssh_client
 
     @property
-    def scp_client(self):
-        if not self._scp_client:
-            self._scp_client = SCPClient(self.ssh_client.get_transport())
-        return self._scp_client
+    def sftp_client(self):
+        if not self._sftp_client:
+            self._sftp_client = self.ssh_client.open_sftp()
+
+        # TODO: can we check that it is still open before returning it? Not sure how timeouts would work for a long-lived session?
+        return self._sftp_client
+
+    def close(self):
+        """Close/release any outstanding network connections to remote account."""
+
+        if self._ssh_client:
+            self._ssh_client.close()
+            self._ssh_client = None
+        if self._sftp_client:
+            self._sftp_client.close()
+            self._sftp_client = None
 
     def _parse_ssh_opts(self):
         if self.ssh_args is None:
@@ -159,7 +172,6 @@ class RemoteAccount(HttpMixin):
 
         exit_status = stdin.channel.recv_exit_status()
         try:
-
             if not allow_fail and exit_status != 0:
                 raise RuntimeError("Remote call nonzero exit status: %s" % stderr.read())
         finally:
@@ -232,22 +244,177 @@ class RemoteAccount(HttpMixin):
         for pid in pids:
             self.signal(pid, sig, allow_fail=allow_fail)
 
-    def scp_from(self, src, dest, recursive=False):
-        """Copy something from this node. src may be a string or an iterable of several sources."""
-        scp = self.scp_client
-        scp.get(src, dest)
+    def copy_between(self, src, dest, dest_node):
+        """Copy src_path to dest_path on dest_node
 
-    def scp_to(self, src, dest, recursive=False):
-        scp = self.scp_client
-        scp.put(src, dest)
+        :param src_path Path to the file or directory we want to copy
+        :param dest_path The destination path
+        :param dest_node The node to which we want to copy the file/directory
+
+        Note that if src is a directory, this will automatically copy recursively.
+
+        Examples:
+
+        path/to/file, path/to/renamed_file, node
+            file will be copied to renamed_file on node
+
+
+        """
+        # TODO: if dest is an existing file, what is the behavior?
+
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+            src_name = src
+            if src_name.endswith(os.path.sep):
+                src_name = src_name[:-len(os.path.sep)]  # trim off path separator from end
+            src_name = os.path.basename(src_name)
+
+            # TODO: deal with very unlikely case that src_name matches temp_dir name?
+            # TODO: I think this actually works
+
+            local_dest = os.path.join(temp_dir, src_name)
+            self.copy_from(src, local_dest)
+
+            dest_node.account.copy_to(local_dest, dest)
+
+        finally:
+            if os.path.isdir(temp_dir):
+                shutil.rmtree(temp_dir)
+
+    def copy_from(self, src, dest):
+        if os.path.isdir(dest):
+            # dest is an existing directory, so assuming src looks like path/to/src_name,
+            # in this case we'll copy as:
+            #   path/to/src_name -> dest/src_name
+            src_name = src
+            if src_name.endswith(os.path.sep):
+                src_name = src_name[:-len(os.path.sep)]  # trim off path separator from end
+            src_name = os.path.basename(src_name)
+
+            dest = os.path.join(dest, src_name)
+
+        if self.isfile(src):
+            self.sftp_client.get(src, dest)
+        elif self.isdir(src):
+            # we can now assume dest path looks like: path_that_exists/new_directory
+            os.mkdir(dest)
+
+            # for obj in `ls src`, if it's a file, copy with copy_file_from, elif its a directory, call again
+            for obj in self.sftp_client.listdir(src):
+                obj_path = os.path.join(src, obj)
+                if self.isfile(obj_path) or self.isdir(obj_path):
+                    self.copy_from(obj_path, dest)
+                else:
+                    # TODO what about uncopyable file types?
+                    pass
+
+    def copy_to(self, src, dest):
+
+        if self.isdir(dest):
+            # dest is an existing directory, so assuming src looks like path/to/src_name,
+            # in this case we'll copy as:
+            #   path/to/src_name -> dest/src_name
+            src_name = src
+            if src_name.endswith(os.path.sep):
+                src_name = src_name[:-len(os.path.sep)]  # trim off path separator from end
+            src_name = os.path.basename(src_name)
+
+            dest = os.path.join(dest, src_name)
+
+        if os.path.isfile(src):
+            # local to remote
+            self.sftp_client.put(src, dest)
+        elif os.path.isdir(src):
+            # we can now assume dest path looks like: path_that_exists/new_directory
+            self.mkdir(dest)
+
+            # for obj in `ls src`, if it's a file, copy with copy_file_from, elif its a directory, call again
+            for obj in os.listdir(src):
+                obj_path = os.path.join(src, obj)
+                if os.path.isfile(obj_path) or os.path.isdir(obj_path):
+                    self.copy_to(obj_path, dest)
+                else:
+                    # TODO what about uncopyable file types?
+                    pass
+
+    def islink(self, path):
+        try:
+            # stat should follow symlinks
+            path_stat = self.sftp_client.lstat(path)
+            return stat.S_ISLNK(path_stat.st_mode)
+        except:
+            # TODO figure out which errors are legit (e.g. if file does not exist, what will sftp.stat do?)
+            is_file = False
+
+        return is_file
+
+    def isdir(self, path):
+        try:
+            # stat should follow symlinks
+            path_stat = self.sftp_client.stat(path)
+            return stat.S_ISDIR(path_stat.st_mode)
+        except:
+            # TODO figure out which errors are legit (e.g. if file does not exist, what will sftp.stat do?)
+            is_file = False
+
+        return is_file
+
+    def exists(self, path):
+        """Test that the path exists, but don't follow symlinks."""
+        try:
+            # stat follows symlinks and tries to stat the actual file
+            self.sftp_client.lstat(path)
+            return True
+        except IOError:
+            return False
+
+    def isfile(self, path):
+        """Imitates semantics of os.path.isfile
+
+        :path Path to the thing to check
+        :return True iff path is a file or a symlink to a file, else False. Note False can mean path does not exist.
+        """
+        try:
+            # stat should follow symlinks
+            path_stat = self.sftp_client.stat(path)
+            return stat.S_ISREG(path_stat.st_mode)
+        except:
+            # TODO figure out which errors are legit (e.g. if file does not exist, what will sftp.stat do?)
+            is_file = False
+
+        return is_file
+
+    def open(self, path, mode='r'):
+        return self.sftp_client.open(path, mode)
 
     def create_file(self, path, contents):
-        tmp = tempfile.NamedTemporaryFile(delete=False)
-        local_name = tmp.name
-        tmp.write(contents)
-        tmp.close()
-        self.scp_to(local_name, path)
-        os.remove(local_name)
+        """Create file at path, with the given contents.
+
+        If the path already exists, it will be overwritten.
+        """
+        # TODO: what should semantics be if path exists? what actually happens if it already exists?
+        # TODO: what happens if the base part of the path does not exist?
+        with self.sftp_client.open(path, "w") as f:
+            f.write(contents)
+
+    def mkdir(self, path, mode=0755):
+
+        self.sftp_client.mkdir(path, mode)
+
+    def mkdirs(self, path, mode=0755):
+        self.ssh("mkdir -p %s && chmod %o %s" % (path, mode, path))
+
+    def remove(self, path, allow_fail=False):
+        """Remove the given file or directory"""
+
+        if not allow_fail and not self.exists(path):
+            raise RuntimeError("Cannot remove %s because it does not exist" % path)
+
+        if not allow_fail and not (self.isdir(path) or self.isfile(path) or self.islink(path)):
+            raise RuntimeError("Cannot remove %s because it is neither a directory, nor a path, nor a symlink.")
+
+        self.ssh("rm -rf %s" % path)
 
     @contextmanager
     def monitor_log(self, log):

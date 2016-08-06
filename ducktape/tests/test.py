@@ -52,12 +52,22 @@ class Test(TemplateRenderer):
         """
         return self.test_context.services.num_nodes()
 
-    def setUp(self):
+    def setup(self):
         """Override this for custom setup logic."""
+
+        # for backward compatibility
+        self.setUp()
+
+    def teardown(self):
+        """Override this for custom teardown logic."""
+
+        # for backward compatibility
+        self.tearDown()
+
+    def setUp(self):
         pass
 
     def tearDown(self):
-        """Override this for custom teardown logic."""
         pass
 
     def free_nodes(self):
@@ -120,7 +130,8 @@ class Test(TemplateRenderer):
 
                     # Try to copy the service logs
                     try:
-                        node.account.scp_from(node_logs, dest, recursive=True)
+                        for log in node_logs:
+                            node.account.copy_from(log, dest)
                     except Exception as e:
                         self.test_context.logger.warn(
                             "Error copying log %(log_name)s from %(source)s to %(dest)s. \
