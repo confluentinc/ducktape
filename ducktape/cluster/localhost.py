@@ -48,4 +48,5 @@ class LocalhostCluster(Cluster):
 
     def free_single(self, slot):
         assert self._available + 1 <= self._size
+        slot.account.close()
         self._available += 1

@@ -106,6 +106,7 @@ class JsonCluster(Cluster):
 
     def free_single(self, slot):
         assert(slot.account in self.in_use_nodes)
+        slot.account.close()
         self.in_use_nodes.remove(slot.account)
         self.available_nodes.append(slot.account)
 
