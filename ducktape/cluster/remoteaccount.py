@@ -196,7 +196,7 @@ class RemoteAccount(HttpMixin):
                     yield callback(line)
             try:
                 if not allow_fail and stdin.channel.recv_exit_status() != 0:
-                    raise RuntimeError()
+                    raise RuntimeError("Error running remote command:", stderr.read())
             finally:
                 stdin.close()
                 stdout.close()
