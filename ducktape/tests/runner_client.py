@@ -14,6 +14,7 @@
 
 import logging
 import os
+import shutil
 import signal
 import time
 import traceback
@@ -131,6 +132,7 @@ class RunnerClient(object):
 
         finally:
             self.teardown_test(teardown_services=not self.session_context.no_teardown)
+
             stop_time = time.time()
 
             result = TestResult(
@@ -216,9 +218,7 @@ class RunnerClient(object):
             exceptions.append(e)
             self.log(logging.WARN, "Error freeing nodes: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
-        # Remove reference to services. This is important to prevent potential memory leaks if users write services
-        # which themselves have references to large memory-intensive objects
-        del self.test_context.services
+        self.test_context.close()
 
     def log(self, log_level, msg, *args, **kwargs):
         """Log to the service log and the test log of the current test."""

@@ -38,3 +38,12 @@ class Logger(object):
 
     def configure_logger(self):
         raise NotImplementedError("configure_logger property must be implemented by a subclass")
+
+    @staticmethod
+    def close_logger(logger):
+        """Filehandles etc are not closed automatically, so close them here"""
+        if logger is not None:
+            handlers = logger.handlers[:]
+            for handler in handlers:
+                handler.close()
+                logger.removeHandler(handler)
