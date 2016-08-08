@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 from paramiko import SSHClient, SSHConfig, AutoAddPolicy
 import shutil
@@ -23,6 +24,34 @@ from contextlib import contextmanager
 
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
+from ducktape.errors import DucktapeError
+
+
+class RemoteAccountError(DucktapeError):
+    """This exception is raised when an attempted action on a remote node fails.
+    """
+    def __init__(self, account, msg):
+        self.account_str = str(account)
+        self.msg = msg
+
+    def __str__(self):
+        return "%s: %s" % (self.account_str, self.msg)
+
+
+class RemoteCommandError(RemoteAccountError):
+    """This exception is raised when a process run by ssh*() returns a non-zero exit status.
+    """
+    def __init__(self, account, cmd, exit_status, remote_err_msg):
+        self.account_str = str(account)
+        self.exit_status = exit_status
+        self.cmd = cmd
+        self.remote_err_msg = remote_err_msg
+
+    def __str__(self):
+        msg = "%s: Command '%s' returned non-zero exit status %d." % (self.account_str, self.cmd, self.exit_status)
+        if self.remote_err_msg:
+            msg += " Remote error message: %s" % self.remote_err_msg
+        return msg
 
 
 class RemoteAccount(HttpMixin):
@@ -32,10 +61,25 @@ class RemoteAccount(HttpMixin):
         self.ssh_args = ssh_args
         self.ssh_hostname = ssh_hostname
         self.externally_routable_ip = externally_routable_ip
-        self.logger = logger
+        self._logger = logger
         self._ssh_config = None
         self._ssh_client = None
         self._sftp_client = None
+
+    @property
+    def logger(self):
+        if self._logger:
+            return self._logger
+        else:
+            return logging.getLogger(__name__)
+
+    @logger.setter
+    def logger(self, logger):
+        self._logger = logger
+
+    def _log(self, level, msg, *args, **kwargs):
+        msg = "%s: %s" % (str(self), msg)
+        self.logger.log(level, msg, *args, **kwargs)
 
     @property
     def ssh_config(self):
@@ -161,19 +205,24 @@ class RemoteAccount(HttpMixin):
         return r
 
     def ssh(self, cmd, allow_fail=False):
+        """Run the given command on the remote host, and block until the command has finished running.
+
+        :param cmd The remote ssh command
+        :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
+
+        :return The exit status of the command.
+        :raise RemoteCommandError If allow_fail is False and the command returns a non-zero exit status, raises
+            RemoteCommandError.
         """
-        Run the specified command on the remote host. If allow_fail is False and
-        the command returns a non-zero exit status, throws
-        subprocess.CalledProcessError. If allow_fail is True, returns the exit
-        status of the command.
-        """
+        self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
+
         client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
 
         exit_status = stdin.channel.recv_exit_status()
         try:
             if not allow_fail and exit_status != 0:
-                raise RuntimeError("Remote call nonzero exit status: %s" % stderr.read())
+                raise RemoteCommandError(self, cmd, exit_status, stderr.read())
         finally:
             stdin.close()
             stdout.close()
@@ -182,7 +231,19 @@ class RemoteAccount(HttpMixin):
         return exit_status
 
     def ssh_capture(self, cmd, allow_fail=False, callback=None):
-        """Runs the command via SSH and captures the output, yielding lines of the output."""
+        """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
+
+        Does *not* block
+
+        :param cmd The remote ssh command
+        :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
+        :param callback If set, the iterator returns callback(line) for each line of output instead of the raw output
+
+        :return SSHOutputIter object which allows iteration through each line of output.
+        :raise RemoteCommandError If allow_fail is False and the command returns a non-zero exit status, raises
+            RemoteCommandError.
+        """
+        self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
         client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
@@ -195,24 +256,36 @@ class RemoteAccount(HttpMixin):
                 else:
                     yield callback(line)
             try:
-                if not allow_fail and stdin.channel.recv_exit_status() != 0:
-                    raise RuntimeError("Error running remote command:", stderr.read())
+                exit_status = stdin.channel.recv_exit_status()
+                if not allow_fail and exit_status != 0:
+                    raise RemoteCommandError(self, cmd, exit_status, stderr.read())
             finally:
                 stdin.close()
                 stdout.close()
                 stderr.close()
 
-        return _IterWrapper(output_generator(), stdout)
+        return SSHOutputIter(output_generator(), stdout)
 
     def ssh_output(self, cmd, allow_fail=False):
-        """Runs the command via SSH and captures the output, returning it as a string."""
+        """Runs the command via SSH and captures the output, returning it as a string.
+
+        :param cmd The remote ssh command.
+        :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
+
+        :return The stdout output from the ssh command.
+        :raise RemoteCommandError If allow_fail is False and the command returns a non-zero exit status, raises
+            RemoteCommandError.
+        """
+        self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
+
         client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
 
         try:
             stdoutdata = stdout.read()
-            if not allow_fail and stdin.channel.recv_exit_status() != 0:
-                raise RuntimeError("Remote call nonzero exit status: %s" % stderr.read())
+            exit_status = stdin.channel.recv_exit_status()
+            if not allow_fail and exit_status != 0:
+                raise RemoteCommandError(self, cmd, exit_status, stderr.read())
         finally:
             stdin.close()
             stdout.close()
@@ -253,11 +326,10 @@ class RemoteAccount(HttpMixin):
 
         Note that if src is a directory, this will automatically copy recursively.
 
-        Examples:
+        Example:
 
         path/to/file, path/to/renamed_file, node
             file will be copied to renamed_file on node
-
 
         """
         # TODO: if dest is an existing file, what is the behavior?
@@ -408,11 +480,17 @@ class RemoteAccount(HttpMixin):
     def remove(self, path, allow_fail=False):
         """Remove the given file or directory"""
 
-        if not allow_fail and not self.exists(path):
-            raise RuntimeError("Cannot remove %s because it does not exist" % path)
+        if not self.exists(path):
+            msg = "Cannot remove %s because it does not exist." % path
+            self._log(logging.DEBUG, msg)
+            if not allow_fail:
+                raise RemoteAccountError(self, msg)
 
-        if not allow_fail and not (self.isdir(path) or self.isfile(path) or self.islink(path)):
-            raise RuntimeError("Cannot remove %s because it is neither a directory, nor a path, nor a symlink.")
+        if not (self.isdir(path) or self.isfile(path) or self.islink(path)):
+            msg = "Cannot remove %s because it is neither a directory, nor a path, nor a symlink." % path
+            self._log(logging.DEBUG, msg)
+            if not allow_fail:
+                raise RemoteAccountError(self, msg)
 
         self.ssh("rm -rf %s" % path)
 
@@ -435,9 +513,8 @@ class RemoteAccount(HttpMixin):
         yield LogMonitor(self, log, offset)
 
 
-class _IterWrapper(object):
-    """
-    Helper class that wraps around an iterable object to provide has_next() in addition to next()
+class SSHOutputIter(object):
+    """Helper class that wraps around an iterable object to provide has_next() in addition to next()
     """
     def __init__(self, iter_obj, channel_file=None):
         """
@@ -447,8 +524,8 @@ class _IterWrapper(object):
         self.iter_obj = iter_obj
         self.channel_file = channel_file
 
-        # sentinel is an indicator that there is currently nothing cached
-        # I.e. if self.cached is self.sentinel, we'll have
+        # sentinel is used as an indicator that there is currently nothing cached
+        # If self.cached is self.sentinel, then next object from ier_obj is not yet cached.
         self.sentinel = object()
         self.cached = self.sentinel
 
@@ -476,7 +553,6 @@ class _IterWrapper(object):
 
                 # when timeout_sec is None, next(iter_obj) will block indefinitely
                 self.channel_file.channel.settimeout(timeout_sec)
-
             try:
                 self.cached = next(self.iter_obj, self.sentinel)
             except socket.timeout:

@@ -64,16 +64,27 @@ class RemoteAccountTestService(Service):
         self.nodes[0].account.ssh("echo -e -n " + repr(msg) + " >> " + self.log_file)
 
 
+class GenericService(Service):
+    """Service which doesn't do anything - just a group of nodes each of which has a scratch directory."""
+    def __init__(self, context, num_nodes):
+        super(GenericService, self).__init__(context, num_nodes)
+        self.scratch_dir = "scratch"
+        for node in self.nodes:
+            node.account.mkdirs(self.scratch_dir)
+
+    def clean_node(self, node):
+        node.account.remove(self.scratch_dir, allow_fail=True)
+
+
 class FileSystemTest(Test):
     """
     Note that in an attempt to isolate the file system methods, validation should be done with ssh/shell commands.
     """
 
     def setup(self):
-        self.node = self.test_context.cluster.alloc(1)[0]
-        self.scratch_dir = "scratch_dir"
-
-        self.node.account.ssh("mkdir %s" % self.scratch_dir)
+        self.service = GenericService(self.test_context, 1)
+        self.node = self.service.nodes[0]
+        self.scratch_dir = self.service.scratch_dir
 
     @cluster(num_nodes=1)
     def create_file_test(self):
@@ -193,10 +204,6 @@ class FileSystemTest(Test):
         # remove non-existent path with allow_fail = True should be ok
         self.node.account.remove("a/b/c/d", allow_fail=True)
 
-    def teardown(self):
-        self.node.account.ssh("if [ -d \"%s\" ]; then rm -rf %s; fi" % (self.scratch_dir, self.scratch_dir), allow_fail=True)
-        self.test_context.cluster.free([self.node])
-
 
 # Representation of a somewhat arbitrary directory structure for testing copy functionality
 # A key which has a string as its value represents a file
@@ -280,10 +287,10 @@ def verify_dir_structure(base_dir, dir_structure, node=None):
 class CopyToAndFroTest(Test):
     """These tests check copy_to, and copy_from functionality."""
     def setup(self):
-        self.node = self.test_context.cluster.alloc(1)[0]
-        self.remote_scratch_dir = "scratch/"
+        self.service = GenericService(self.test_context, 1)
+        self.node = self.service.nodes[0]
+        self.remote_scratch_dir = self.service.scratch_dir
 
-        self.node.account.mkdirs(self.remote_scratch_dir)
         self.local_temp_dir = tempfile.mkdtemp()
 
         self.logger.info("local_temp_dir: %s" % self.local_temp_dir)
@@ -330,20 +337,16 @@ class CopyToAndFroTest(Test):
 
     def teardown(self):
         # allow_fail in case scratch dir was not successfully created
-        self.node.account.remove(self.remote_scratch_dir, allow_fail=True)
         if os.path.exists(self.local_temp_dir):
             shutil.rmtree(self.local_temp_dir)
-        self.test_context.cluster.free([self.node])
 
 
 class CopyDirectTest(Test):
 
     def setup(self):
-        self.src_node, self.dest_node = self.test_context.cluster.alloc(2)
-        self.remote_scratch_dir = "scratch/"
-
-        self.src_node.account.mkdirs(self.remote_scratch_dir)
-        self.dest_node.account.mkdirs(self.remote_scratch_dir)
+        self.service = GenericService(self.test_context, 2)
+        self.src_node, self.dest_node = self.service.nodes
+        self.remote_scratch_dir = self.service.scratch_dir
 
         self.logger.info("src_node: %s" % str(self.src_node.account))
         self.logger.info("dest_node: %s" % str(self.dest_node.account))
@@ -373,12 +376,6 @@ class CopyDirectTest(Test):
         make_dir_structure(self.remote_scratch_dir, DIR_STRUCTURE, node=self.src_node)
         self.src_node.account.copy_between(self.remote_scratch_dir, self.remote_scratch_dir, self.dest_node)
         verify_dir_structure(os.path.join(self.remote_scratch_dir, "scratch"), DIR_STRUCTURE, node=self.dest_node)
-
-    def teardown(self):
-        # allow_fail in case scratch dir was not successfully created
-        self.src_node.account.remove(self.remote_scratch_dir, allow_fail=True)
-        self.dest_node.account.remove(self.remote_scratch_dir, allow_fail=True)
-        self.test_context.cluster.free([self.src_node, self.dest_node])
 
 
 class RemoteAccountTest(Test):
