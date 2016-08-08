@@ -16,7 +16,9 @@ import copy
 import logging
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 from ducktape.tests.logger import Logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
@@ -271,6 +273,7 @@ class TestContext(object):
         self.log_collect = {}
 
         self._logger = None
+        self._scratch_dir = None
 
     def __repr__(self):
         return "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s>" % \
@@ -285,6 +288,13 @@ class TestContext(object):
         ctx_copy.__dict__.update(**kwargs)
 
         return ctx_copy
+
+    @property
+    def scratch_dir(self):
+        """This local scratch directory is created/destroyed before/after each test is run."""
+        if not self._scratch_dir:
+            self._scratch_dir = tempfile.mkdtemp()
+        return self._scratch_dir
 
     @property
     def test_metadata(self):
@@ -391,3 +401,16 @@ class TestContext(object):
                 self.logger_name, self.results_dir, self.session_context.debug)
         return self._logger
 
+    def close(self):
+        """Release resources, etc."""
+        # Remove reference to services. This is important to prevent potential memory leaks if users write services
+        # which themselves have references to large memory-intensive objects
+        del self.services
+
+        # Remove local scratch directory
+        if self._scratch_dir and os.path.exists(self.scratch_dir):
+            shutil.rmtree(self.scratch_dir)
+
+        # Release file handles held by logger
+        if self._logger:
+            Logger.close_logger(self._logger)
