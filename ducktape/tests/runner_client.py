@@ -143,6 +143,9 @@ class RunnerClient(object):
                 start_time,
                 stop_time)
 
+            # Close test context only after creating the result
+            self.test_context.close()
+
             self.log(logging.INFO, "Summary: %s" % str(result.summary))
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
@@ -216,8 +219,6 @@ class RunnerClient(object):
         except BaseException as e:
             exceptions.append(e)
             self.log(logging.WARN, "Error freeing nodes: %s" % e.message + "\n" + traceback.format_exc(limit=16))
-
-        self.test_context.close()
 
     def log(self, log_level, msg, *args, **kwargs):
         """Log to the service log and the test log of the current test."""
