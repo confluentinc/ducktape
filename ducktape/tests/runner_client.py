@@ -147,6 +147,9 @@ class RunnerClient(object):
                 start_time,
                 stop_time)
 
+            # Close test context only after creating the result
+            self.test_context.close()
+
             self.log(logging.INFO, "Summary: %s" % str(result.summary))
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
