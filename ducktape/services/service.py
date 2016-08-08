@@ -137,7 +137,7 @@ class Service(TemplateRenderer):
 
         for idx, node in enumerate(self.nodes, 1):
             # Remote accounts utilities should log where this service logs
-            if node.account.logger is not None:
+            if node.account._logger is not None:
                 # This log message help test-writer identify which test and/or service didn't clean up after itself
                 node.account.logger.critical(ConsoleDefaults.BAD_TEST_MESSAGE)
                 raise RuntimeError(
