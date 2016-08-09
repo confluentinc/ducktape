@@ -62,6 +62,10 @@ class VagrantCluster(JsonCluster):
             cluster_json["nodes"] = nodes
             json.dump(cluster_json, open(cluster_file, 'w+'), indent=2, separators=(',', ': '), sort_keys=True)
 
+        # Release any ssh clients used in querying the nodes for metadata
+        for node_account in self.available_nodes:
+            node_account.close()
+
     def _get_nodes_from_vagrant(self):
         nodes = []
         hostname, ssh_hostname, username, flags = None, None, None, ""
