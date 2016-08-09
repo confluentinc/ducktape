@@ -377,9 +377,7 @@ class TestContext(object):
 
     @property
     def test_id(self):
-        name_components = [self.session_context.session_id,
-                           self.test_name]
-        return ".".join(filter(lambda x: x is not None, name_components))
+        return self.test_name
 
     @property
     def test_name(self):
