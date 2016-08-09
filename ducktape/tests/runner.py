@@ -48,6 +48,10 @@ class Receiver(object):
     def send(self, event):
         self.socket.send(self.serde.serialize(event))
 
+    def close(self):
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close()
+
 
 class TestRunner(object):
     """Runs tests serially."""
@@ -147,12 +151,16 @@ class TestRunner(object):
                         err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
                         err_str += "\n" + traceback.format_exc(limit=16)
                         self._log(logging.ERROR, err_str)
-                        continue
+
+                        # All processes are on the same machine, so treat communication failure as a fatal error
+                        raise
             except KeyboardInterrupt:
+                # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
                 self.stop_testing = True
 
         for proc in self._client_procs.values():
             proc.join()
+        self.receiver.close()
 
         return self.results
 
@@ -211,7 +219,6 @@ class TestRunner(object):
         test_id = event["test_id"]
         test_context = self._test_context[test_id]
         subcluster = self._test_cluster[test_id]
-
         self.receiver.send(
                 self.event_response.ready(event, self.session_context, test_context, subcluster))
 
