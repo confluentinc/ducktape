@@ -29,7 +29,7 @@ from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler
-from ducktape.tests.result import FAIL
+from ducktape.tests.result import FAIL, TestResult
 
 
 class Receiver(object):
@@ -133,9 +133,29 @@ class TestRunner(object):
 
     def run_all_tests(self):
         self.results.start_time = time.time()
+
+        # Report tests which cannot be run
+        if len(self.scheduler.unschedulable) > 0:
+            self._log(logging.ERROR,
+                      "There are %d tests which cannot be run due to insufficient cluster resources" %
+                      len(self.scheduler.unschedulable))
+
+            for tc in self.scheduler.unschedulable:
+                msg = "Test %s expects more nodes than are available in the entire cluster: " % tc.test_id
+                msg += "expected_num_nodes: %s, cluster size: %s." % (str(tc.expected_num_nodes), str(len(self.cluster)))
+                self._log(logging.ERROR, msg)
+
+                self.results.append(TestResult(
+                    tc,
+                    self.session_context,
+                    test_status=FAIL,
+                    summary=msg,
+                    start_time=time.time(),
+                    stop_time=time.time()))
+
+        # Run the tests!
         self._log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
         self._log(logging.INFO, "running %d tests..." % len(self.scheduler))
-
         while self._ready_to_trigger_more_tests or self._expect_client_requests:
             try:
                 while self._ready_to_trigger_more_tests:
@@ -194,6 +214,8 @@ class TestRunner(object):
         :param test_context
         :return None
         """
+        assert test_context.expected_num_nodes <= len(self.cluster)
+
         if test_context.expected_num_nodes == len(self.cluster) and self.max_parallel > 1:
             self._log(logging.WARNING,
                       "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."

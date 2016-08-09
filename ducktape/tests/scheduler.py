@@ -20,9 +20,14 @@ class TestScheduler(object):
     available cluster nodes.
     """
     def __init__(self, test_contexts, cluster):
-
         self.cluster = cluster
-        self._test_context_list = test_contexts[:]  # shallow copy
+
+        # Track tests which would never be offered up by the scheduling algorithm due to insufficient
+        # cluster resources
+        self.unschedulable = [tc for tc in test_contexts if tc.expected_num_nodes > len(cluster)]
+
+        # these can be scheduled
+        self._test_context_list = [tc for tc in test_contexts if tc.expected_num_nodes <= len(cluster)]
         self._sort_test_context_list()
 
     def __len__(self):
