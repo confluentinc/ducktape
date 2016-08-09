@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+from collections import namedtuple
 import logging
 import multiprocessing
 import os
+import pysistence
 import signal
 import time
 import traceback
 import zmq
 
 from ducktape.tests.serde import SerDe
+from ducktape.tests.test import TestContext
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.tests.runner_client import run_client
 from ducktape.tests.result import TestResults
@@ -62,6 +64,9 @@ class Receiver(object):
         self.socket.close()
 
 
+TestKey = namedtuple('TestKey', ['test_id', 'runner_index'])
+
+
 class TestRunner(object):
     """Runs tests serially."""
 
@@ -96,8 +101,9 @@ class TestRunner(object):
 
         self.test_counter = 1
         self.total_tests = len(self.scheduler)
-        self._test_context = {t.test_id: t for t in tests}
-        self._test_cluster = {}  # Track subcluster assigned to a particular test_id
+        # This immutable dict tracks test_id -> test_context
+        self._test_context = pysistence.make_dict(**{t.test_id: t for t in tests})
+        self._test_cluster = {}  # Track subcluster assigned to a particular TestKey
         self._client_procs = {}  # track client processes running tests
         self.active_tests = {}
         self.finished_tests = {}
@@ -196,13 +202,14 @@ class TestRunner(object):
 
         return self.results
 
-    def _run_single_test(self, test_context):
+    def _run_single_test(self, test_context, schedule_index):
         """Start a test runner client in a subprocess"""
         self._log(logging.INFO, "Triggering test %d of %d..." % (self.test_counter, self.total_tests))
         self.test_counter += 1
 
         # Test is considered "active" as soon as we start it up in a subprocess
-        self.active_tests[test_context.test_id] = True
+        test_key = TestKey(test_context.test_id, schedule_index)
+        self.active_tests[test_key] = True
 
         proc = multiprocessing.Process(
             target=run_client,
@@ -210,15 +217,16 @@ class TestRunner(object):
                 self.hostname,
                 self.receiver.port,
                 test_context.test_id,
-                test_context.logger_name,
-                test_context.results_dir,
+                schedule_index,
+                TestContext.logger_name(test_context, schedule_index),
+                TestContext.results_dir(test_context, schedule_index),
                 self.session_context.debug
             ])
 
-        self._client_procs[test_context.test_id] = proc
+        self._client_procs[test_key] = proc
         proc.start()
 
-    def _preallocate_subcluster(self, test_context):
+    def _preallocate_subcluster(self, test_context, schedule_index):
         """Preallocate the subcluster which will be used to run the test.
 
         Side effect: store association between the test_id and the preallocated subcluster.
@@ -233,7 +241,7 @@ class TestRunner(object):
                       "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
                       % test_context.test_id)
 
-        self._test_cluster[test_context.test_id] = FiniteSubcluster(self.cluster.alloc(test_context.expected_num_nodes))
+        self._test_cluster[TestKey(test_context.test_id, schedule_index)] = FiniteSubcluster(self.cluster.alloc(test_context.expected_num_nodes))
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))
@@ -250,9 +258,10 @@ class TestRunner(object):
             raise RuntimeError("Received event with unknown event type: " + str(event))
 
     def _handle_ready(self, event):
-        test_id = event["test_id"]
-        test_context = self._test_context[test_id]
-        subcluster = self._test_cluster[test_id]
+        test_key = TestKey(event["test_id"], event["schedule_index"])
+        test_context = self._test_context[event["test_id"]]
+        subcluster = self._test_cluster[test_key]
+
         self.receiver.send(
                 self.event_response.ready(event, self.session_context, test_context, subcluster))
 
@@ -261,7 +270,7 @@ class TestRunner(object):
         self._log(event["log_level"], event["message"])
 
     def _handle_finished(self, event):
-        test_id = event["test_id"]
+        test_key = TestKey(event["test_id"], event["schedule_index"])
         self.receiver.send(self.event_response.finished(event))
 
         result = event['result']
@@ -269,17 +278,17 @@ class TestRunner(object):
             self.stop_testing = True
 
         # Transition this test from running to finished
-        del self.active_tests[test_id]
-        self.finished_tests[test_id] = event
+        del self.active_tests[test_key]
+        self.finished_tests[test_key] = event
         self.results.append(result)
 
         # Free nodes used by the test
-        subcluster = self._test_cluster[test_id]
+        subcluster = self._test_cluster[test_key]
         self.cluster.free(subcluster.alloc(len(subcluster)))
-        del self._test_cluster[test_id]
+        del self._test_cluster[test_key]
 
         # Join on the finished test process
-        self._client_procs[test_id].join()
+        self._client_procs[test_key].join()
 
         if self._should_print_separator:
             terminal_width, y = get_terminal_size()

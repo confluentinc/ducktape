@@ -126,7 +126,8 @@ class Test(TemplateRenderer):
                 if len(node_logs) > 0:
                     # Create directory into which service logs will be copied
                     dest = os.path.join(
-                        self.test_context.results_dir, service.service_id, node.account.hostname)
+                        TestContext.results_dir(self.test_context, self.test_context.schedule_index),
+                        service.service_id, node.account.hostname)
                     if not os.path.isdir(dest):
                         mkdir_p(dest)
 
@@ -268,6 +269,7 @@ class TestContext(object):
         self.cluster_use_metadata = copy.copy(kwargs.get("cluster_use_metadata", {}))
 
         self.services = ServiceRegistry()
+        self.schedule_index = None
 
         # dict for toggling service log collection on/off
         self.log_collect = {}
@@ -306,9 +308,27 @@ class TestContext(object):
             "injected_args": self.injected_args
         }
 
-    @property
-    def logger_name(self):
-        return self.test_id
+    @staticmethod
+    def logger_name(test_context, schedule_index):
+        if schedule_index is None:
+            return test_context.test_id
+        else:
+            return "%s-%s" % (test_context.test_id, str(schedule_index))
+
+    @staticmethod
+    def results_dir(test_context, schedule_index):
+        d = test_context.session_context.results_dir
+
+        if test_context.cls is not None:
+            d = os.path.join(d, test_context.cls.__name__)
+        if test_context.function is not None:
+            d = os.path.join(d, test_context.function.__name__)
+        if test_context.injected_args is not None:
+            d = os.path.join(d, test_context.injected_args_name)
+        if schedule_index is not None:
+            d = os.path.join(d, str(schedule_index))
+
+        return d
 
     @property
     def expected_num_nodes(self):
@@ -361,20 +381,6 @@ class TestContext(object):
             params = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
             return _escape_pathname(params)
 
-
-    @property
-    def results_dir(self):
-        d = self.session_context.results_dir
-
-        if self.cls is not None:
-            d = os.path.join(d, self.cls.__name__)
-        if self.function is not None:
-            d = os.path.join(d, self.function.__name__)
-        if self.injected_args is not None:
-            d = os.path.join(d, self.injected_args_name)
-
-        return d
-
     @property
     def test_id(self):
         return self.test_name
@@ -396,7 +402,9 @@ class TestContext(object):
     def logger(self):
         if self._logger is None:
             self._logger = test_logger(
-                self.logger_name, self.results_dir, self.session_context.debug)
+                TestContext.logger_name(self, self.schedule_index),
+                TestContext.results_dir(self, self.schedule_index),
+                self.session_context.debug)
         return self._logger
 
     def close(self):
