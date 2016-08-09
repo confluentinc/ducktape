@@ -56,9 +56,11 @@ class TestRunner(object):
     stop_testing = False
 
     def __init__(self, cluster, session_context, session_logger, tests, port=ConsoleDefaults.TEST_DRIVER_PORT):
-        # Set handlers for SIGTERM and SIGINT (kill -15, and Ctrl-C, respectively)
+        # Set handler for SIGTERM (aka kill -15)
+        # Note: it doesn't work to set a handler for SIGINT (Ctrl-C) in this parent process because the
+        # handler is inherited by all forked child processes, and it prevents the default python behavior
+        # of translating SIGINT into a KeyboardInterrupt exception
         signal.signal(signal.SIGTERM, self._propagate_sigterm)
-        signal.signal(signal.SIGINT, self._propagate_sigterm)
 
         # session_logger, message logger,
         self.session_logger = session_logger
@@ -95,7 +97,6 @@ class TestRunner(object):
         However, it is possible that the main process (and not the process group) receives a SIGINT or SIGTERM
         directly. Propagating SIGTERM to client processes is necessary in this case.
         """
-
         if os.getpid() != self.main_process_pid:
             # since we're using the multiprocessing module to create client processes,
             # this signal handler is also attached client processes, so we only want to propagate TERM signals
@@ -132,21 +133,23 @@ class TestRunner(object):
         self._log(logging.INFO, "running %d tests..." % len(self.scheduler))
 
         while self._ready_to_trigger_more_tests or self._expect_client_requests:
+            try:
+                while self._ready_to_trigger_more_tests:
+                    next_test_context = self.scheduler.next()
+                    self._preallocate_subcluster(next_test_context)
+                    self._run_single_test(next_test_context)
 
-            while self._ready_to_trigger_more_tests:
-                next_test_context = self.scheduler.next()
-                self._preallocate_subcluster(next_test_context)
-                self._run_single_test(next_test_context)
-
-            if self._expect_client_requests:
-                try:
-                    event = self.receiver.recv()
-                    self._handle(event)
-                except Exception as e:
-                    err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
-                    err_str += "\n" + traceback.format_exc(limit=16)
-                    self._log(logging.ERROR, err_str)
-                    continue
+                if self._expect_client_requests:
+                    try:
+                        event = self.receiver.recv()
+                        self._handle(event)
+                    except Exception as e:
+                        err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
+                        err_str += "\n" + traceback.format_exc(limit=16)
+                        self._log(logging.ERROR, err_str)
+                        continue
+            except KeyboardInterrupt:
+                self.stop_testing = True
 
         for proc in self._client_procs.values():
             proc.join()
