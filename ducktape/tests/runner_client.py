@@ -265,11 +265,9 @@ class Sender(object):
             waiting_for_reply = True
 
             while waiting_for_reply:
-                self.logger.debug("polling for response")
                 sockets = dict(self.poller.poll(Sender.REQUEST_TIMEOUT_MS))
 
                 if sockets.get(self.socket) == zmq.POLLIN:
-                    self.logger.debug("POLLIN")
                     reply = self.socket.recv()
                     if reply:
                         self.logger.debug("received " + str(self.serde.deserialize(reply)))
