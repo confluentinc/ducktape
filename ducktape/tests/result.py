@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import time
+from ducktape.tests.test import TestContext
 
 
 class TestStatus(object):
@@ -35,6 +36,7 @@ class TestResult(object):
 
     def __init__(self,
                  test_context,
+                 schedule_index,
                  session_context,
                  test_status=PASS,
                  summary="",
@@ -54,7 +56,9 @@ class TestResult(object):
         self.function_name = test_context.function_name
         self.injected_args = test_context.injected_args
         self.description = test_context.description
-        self.results_dir = test_context.results_dir
+        self.results_dir = TestContext.results_dir(test_context, schedule_index)
+
+        self.schedule_index = schedule_index
 
         self.session_context = session_context
         self.test_status = test_status
@@ -80,8 +84,6 @@ class TestResult(object):
 
 class TestResults(list):
     """Class used to aggregate individual TestResult objects from many tests."""
-    # TODO make this tread safe - once tests are run in parallel, this will be shared by multiple threads
-
     def __init__(self, session_context):
         """
         :type session_context: ducktape.tests.session.SessionContext
