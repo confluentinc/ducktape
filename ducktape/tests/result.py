@@ -184,16 +184,12 @@ class TestResults(DucktapeJsonSerializeable):
         if len(num_list) == 0:
             return {
                 "mean": None,
-                "mode": None,
-                "median": None,
                 "min": None,
                 "max": None
             }
 
         return {
             "mean": statistics.mean(num_list),
-            "mode": statistics.mode(num_list),
-            "median": statistics.median(num_list),
             "min": min(num_list),
             "max": max(num_list)
         }
