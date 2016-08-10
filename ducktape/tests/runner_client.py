@@ -143,14 +143,16 @@ class RunnerClient(object):
                 start_time,
                 stop_time)
 
-            # Close test context only after creating the result
-            self.test_context.close()
-
             self.log(logging.INFO, "Summary: %s" % str(result.summary))
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
             test_reporter = SingleResultFileReporter(result)
             test_reporter.report()
+
+            # Release test_context resources only after creating the result and finishing logging activity
+            self.test_context.close()
+            self.test_context = None
+            self.test = None
 
         # Tell the server we are finished
         try:
