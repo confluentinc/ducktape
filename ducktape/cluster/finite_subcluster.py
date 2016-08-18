@@ -47,5 +47,3 @@ class FiniteSubcluster(Cluster):
         assert node in self._in_use
         self._in_use.remove(node)
         self._available.add(node)
-
-
