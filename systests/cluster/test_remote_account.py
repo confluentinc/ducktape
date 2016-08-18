@@ -20,6 +20,7 @@ from ducktape.mark.resource import cluster
 
 import os
 import pytest
+import random
 import shutil
 import tempfile
 from threading import Thread
@@ -455,3 +456,55 @@ class RemoteAccountTest(Test):
             # expected
             end = time.time()
             assert end - start > timeout, "Should have waited full timeout period while monitoring the log"
+
+
+class TestIterWrapper(Test):
+    def setup(self):
+        self.line_num = 6
+        self.eps = 0.01
+
+        self.service = GenericService(self.test_context, num_nodes=1)
+        self.node = self.service.nodes[0]
+
+        self.temp_file = "ducktape-test-" + str(random.randint(0, 100000))
+        contents = ""
+        for i in range(self.line_num):
+            contents += "%d\n" % i
+
+        self.node.account.create_file(self.temp_file, contents)
+
+    def test_iter_wrapper(self):
+        """Test has_next functionality on the returned iterable item."""
+        output = self.node.account.ssh_capture("cat " + self.temp_file)
+        for i in range(self.line_num):
+            assert output.has_next()  # with timeout in case of hang
+            assert output.next().strip() == str(i)
+        start = time.time()
+        assert output.has_next() == False
+        stop = time.time()
+        assert stop - start < self.eps, "has_next() should return immediately"
+
+    def test_iter_wrapper_timeout(self):
+        """Test has_next with timeout"""
+        output = self.node.account.ssh_capture("tail -F " + self.temp_file)
+        # allow command to be executed before we check output with timeout_sec = 0
+        time.sleep(.5)
+        for i in range(self.line_num):
+            assert output.has_next(timeout_sec=0)
+            assert output.next().strip() == str(i)
+
+        timeout = .25
+        start = time.time()
+        # This check will last for the duration of the timeout because the the remote tail -F process
+        # remains running, and the output stream is not closed.
+        assert output.has_next(timeout_sec=timeout) == False
+        stop = time.time()
+        assert (stop - start >= timeout) and (stop - start) < timeout + self.eps, \
+            "has_next() should return right after %s second" % str(timeout)
+
+    def teardown(self):
+        # tail -F call above will leave stray processes, so clean up
+        cmd = "for p in $(ps ax | grep -v grep | grep \"%s\" | awk '{print $1}'); do kill $p; done" % self.temp_file
+        self.node.account.ssh(cmd, allow_fail=True)
+
+        self.node.account.ssh("rm -f " + self.temp_file, allow_fail=True)
