@@ -15,7 +15,7 @@
 from ducktape.errors import TimeoutError
 from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
-from ducktape.cluster.remoteaccount import RemoteAccount
+from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountSSHConfig
 
 import logging
 from threading import Thread
@@ -133,13 +133,14 @@ class CheckRemoteAccount(object):
 
 
 class CheckRemoteAccountEquality(object):
+
     def check_remote_account_equality(self):
         """Different instances of remote account initialized with the same parameters should be equal."""
+
+        ssh_config = RemoteAccountSSHConfig(host="thehost", hostname="localhost", port=22)
+
         kwargs = {
-            "hostname": "hello",
-            "user": "vagrant",
-            "ssh_args": "asdf",
-            "ssh_hostname": "123",
+            "ssh_config": ssh_config,
             "externally_routable_ip": "345",
             "logger": logging.getLogger(__name__)
         }

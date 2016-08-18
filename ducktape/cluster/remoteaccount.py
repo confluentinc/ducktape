@@ -12,19 +12,73 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from contextlib import contextmanager
 import logging
 import os
-from paramiko import SSHClient, SSHConfig, AutoAddPolicy
+from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
 import shutil
 import signal
 import socket
 import stat
 import tempfile
-from contextlib import contextmanager
 
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
+
+
+class RemoteAccountSSHConfig(object):
+    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
+        """Wrapper for ssh configs used by ducktape to connect to remote machines.
+
+        The fields in this class are lowercase versions of a small selection of ssh config properties
+        (see man page: "man ssh_config")
+        """
+        self.host = host
+        self.hostname = hostname or 'localhost'
+        self.user = user
+        self.port = port or 22
+        self.port = int(self.port)
+        self.password = password
+        self.identityfile = identityfile
+
+    @staticmethod
+    def from_string(config_str):
+        """Construct RemoteAccountSSHConfig object from a string that looks like
+
+        Host the-host
+            Hostname the-hostname
+            Port 22
+            User ubuntu
+            IdentityFile /path/to/key
+        """
+        config = SSHConfig()
+        config.parse(config_str.split("\n"))
+
+        hostnames = config.get_hostnames()
+        if '*' in hostnames:
+            hostnames.remove('*')
+        assert len(hostnames) == 1, "Expected hostnames to have single entry: %s" % hostnames
+        host = hostnames.pop()
+
+        config_dict = config.lookup(host)
+        if config_dict.get("identityfile") is not None:
+            # paramiko.SSHConfig parses this in as a list, but we only want a single string
+            config_dict["identityfile"] = config_dict["identityfile"][0]
+
+        return RemoteAccountSSHConfig(host, **config_dict)
+
+    def to_json(self):
+        return self.__dict__
+
+    def __repr__(self):
+        return str(self.to_json())
+
+    def __eq__(self, other):
+        return other and other.__dict__ == self.__dict__
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.__dict__.items())))
 
 
 class RemoteAccountError(DucktapeError):
@@ -41,28 +95,49 @@ class RemoteAccountError(DucktapeError):
 class RemoteCommandError(RemoteAccountError):
     """This exception is raised when a process run by ssh*() returns a non-zero exit status.
     """
-    def __init__(self, account, cmd, exit_status, remote_err_msg):
+    def __init__(self, account, cmd, exit_status, msg):
         self.account_str = str(account)
         self.exit_status = exit_status
         self.cmd = cmd
-        self.remote_err_msg = remote_err_msg
+        self.msg = msg
 
     def __str__(self):
         msg = "%s: Command '%s' returned non-zero exit status %d." % (self.account_str, self.cmd, self.exit_status)
-        if self.remote_err_msg:
-            msg += " Remote error message: %s" % self.remote_err_msg
+        if self.msg:
+            msg += " Remote error message: %s" % self.msg
         return msg
 
 
+class IgnoreMissingHostKeyPolicy(MissingHostKeyPolicy):
+    """Policy for ignoring missing host keys.
+    Many examples show use of AutoAddPolicy, but this clutters up the known_hosts file unnecessarily.
+    """
+    def missing_host_key(self, client, hostname, key):
+        return
+
+
 class RemoteAccount(HttpMixin):
-    def __init__(self, hostname, user=None, ssh_args=None, ssh_hostname=None, externally_routable_ip=None, logger=None):
-        self.hostname = hostname
-        self.user = user
-        self.ssh_args = ssh_args
-        self.ssh_hostname = ssh_hostname
+    """RemoteAccount is the heart of interaction with cluster nodes,
+    and every allocated cluster node has a reference to an instance of RemoteAccount.
+
+    It wraps metadata such as ssh configs, and provides methods for file system manipulation and shell commands.
+    """
+    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
+        # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
+        # be hashable
+        self.ssh_config = ssh_config
+
+        # We don't want to rely on the hostname (e.g. 'worker1') having been added to the driver host's /etc/hosts file.
+        # But that means we need to distinguish between the hostname and the value of hostname we use for SSH commands.
+        # We try to satisfy all use cases and keep things simple by
+        #   a) storing the hostname the user probably expects (the "Host" value in .ssh/config)
+        #   b) saving the real value we use for running the SSH command
+        self.hostname = ssh_config.host
+        self.ssh_hostname = ssh_config.hostname
+
+        self.user = ssh_config.user
         self.externally_routable_ip = externally_routable_ip
         self._logger = logger
-        self._ssh_config = None
         self._ssh_client = None
         self._sftp_client = None
 
@@ -82,25 +157,17 @@ class RemoteAccount(HttpMixin):
         self.logger.log(level, msg, *args, **kwargs)
 
     @property
-    def ssh_config(self):
-        if not self._ssh_config:
-            self._ssh_config = self._parse_ssh_opts()
-        return self._ssh_config
-
-    @property
     def ssh_client(self):
         if not self._ssh_client:
-            o = self.ssh_config.lookup(self.hostname)
-
             client = SSHClient()
-            client.set_missing_host_key_policy(AutoAddPolicy())
+            client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
 
             client.connect(
-                hostname=o.get('hostname', self.hostname),
-                port=int(o.get('port', 22)),
-                username=self.user,
-                password=None,
-                key_filename=o.get('identityfile'),
+                hostname=self.ssh_config.hostname,
+                port=self.ssh_config.port,
+                username=self.ssh_config.user,
+                password=self.ssh_config.password,
+                key_filename=self.ssh_config.identityfile,
                 look_for_keys=False)
             self._ssh_client = client
 
@@ -124,37 +191,6 @@ class RemoteAccount(HttpMixin):
             self._sftp_client.close()
             self._sftp_client = None
 
-    def _parse_ssh_opts(self):
-        if self.ssh_args is None:
-            return SSHConfig()
-
-        args = self.ssh_args
-        args = args.split("-o")
-        args = [a.strip() for a in args]
-        args = [a.replace("'", "") for a in args]
-        args = [a.replace("\"", "") for a in args]
-        args = [a.replace("\\", "") for a in args]
-        args = [a for a in args if len(a) > 0]
-
-        args_dict = {"Host": self.hostname}
-        for a in args:
-             pair = a.split(' ')
-             args_dict[pair[0]] = pair[1]
-        ssh_info_lines = ["%s %s" % (k, v) for k, v in args_dict.iteritems()]
-
-        f = tempfile.NamedTemporaryFile(delete=False)
-        try:
-            f.write("\n".join(ssh_info_lines))
-            f.close()
-
-            config = SSHConfig()
-            with open(f.name, "r") as fd:
-                config.parse(fd)
-        finally:
-            if os.path.exists(f.name):
-                os.remove(f.name)
-        return config
-
     def __str__(self):
         r = ""
         if self.user:
@@ -173,8 +209,9 @@ class RemoteAccount(HttpMixin):
 
     @property
     def local(self):
-        """Returns true if this 'remote' account is actually local. This is only a heuristic, but should work for simple local testing."""
-        return self.hostname == "localhost" and self.user is None and self.ssh_args is None
+        """Returns True if this 'remote' account is probably local.
+        This is an imperfect heuristic, but should work for simple local testing."""
+        return self.hostname == "localhost" and self.user is None and self.ssh_config is None
 
     def wait_for_http_service(self, port, headers, timeout=20, path='/'):
         """Wait until this service node is available/awake."""
@@ -192,18 +229,6 @@ class RemoteAccount(HttpMixin):
         except:
             return False
 
-    def ssh_command(self, cmd):
-        if self.local:
-            return cmd
-        r = "ssh "
-        if self.user:
-            r += self.user + "@"
-        r += self.hostname + " "
-        if self.ssh_args:
-            r += self.ssh_args + " "
-        r += "'" + cmd.replace("'", "'\\''") + "'"
-        return r
-
     def ssh(self, cmd, allow_fail=False):
         """Run the given command on the remote host, and block until the command has finished running.
 
@@ -219,7 +244,7 @@ class RemoteAccount(HttpMixin):
         client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
 
-        exit_status = stdin.channel.recv_exit_status()
+        exit_status = stdout.channel.recv_exit_status()
         try:
             if not allow_fail and exit_status != 0:
                 raise RemoteCommandError(self, cmd, exit_status, stderr.read())
@@ -251,12 +276,13 @@ class RemoteAccount(HttpMixin):
         def output_generator():
 
             for line in iter(stdout.readline, ''):
+
                 if callback is None:
                     yield line
                 else:
                     yield callback(line)
             try:
-                exit_status = stdin.channel.recv_exit_status()
+                exit_status = stdout.channel.recv_exit_status()
                 if not allow_fail and exit_status != 0:
                     raise RemoteCommandError(self, cmd, exit_status, stderr.read())
             finally:
