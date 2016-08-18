@@ -15,7 +15,7 @@
 from ducktape.cluster.cluster import Cluster
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
-from ducktape.cluster.remoteaccount import RemoteAccount
+from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountSSHConfig
 from mock import MagicMock
 
 
@@ -76,6 +76,12 @@ class MockNode(object):
 
 class MockAccount(RemoteAccount):
     """Mock node.account object"""
-    def __init__(self, hostname="localhost", user=None, ssh_args=None, ssh_hostname=None, logger=None):
-        super(MockAccount, self).__init__(hostname, user, ssh_args, ssh_hostname, logger)
-        self.externally_routable_ip = "localhost"
+    def __init__(self):
+
+        ssh_config = RemoteAccountSSHConfig(
+            host="localhost",
+            user=None,
+            hostname="localhost",
+            port=22)
+
+        super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None)

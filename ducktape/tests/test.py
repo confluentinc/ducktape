@@ -406,8 +406,8 @@ class TestContext(object):
         del self.services
 
         # Remove local scratch directory
-        if self._scratch_dir and os.path.exists(self.scratch_dir):
-            shutil.rmtree(self.scratch_dir)
+        if self._scratch_dir and os.path.exists(self._scratch_dir):
+            shutil.rmtree(self._scratch_dir)
 
         # Release file handles held by logger
         if self._logger:
