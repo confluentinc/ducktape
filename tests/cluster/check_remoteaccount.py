@@ -23,7 +23,6 @@ import SimpleHTTPServer
 import SocketServer
 import threading
 import time
-import random
 
 
 class SimpleServer(object):
@@ -56,49 +55,6 @@ class SimpleServer(object):
         self.background_thread.join(timeout=.5)
         if self.background_thread.is_alive():
             raise Exception("SimpleServer failed to stop quickly")
-
-
-class CheckIterWrapper(object):
-    def setup(self):
-        self.line_num = 6
-        self.eps = 0.01
-        self.account = MockAccount()
-        self.account.ssh("mkdir -p /tmp")
-        self.temp_file = "/tmp/ducktape-test-" + str(random.randint(0, 100000))
-        for i in range(self.line_num):
-            self.account.ssh("echo " + str(i) + " >> " + self.temp_file)
-
-    def check_iter_wrapper(self):
-        output = self.account.ssh_capture("tail " + self.temp_file)
-        for i in range(self.line_num):
-            assert output.has_next()
-            assert output.next().strip() == str(i)
-        start = time.time()
-        assert output.has_next() == False
-        stop = time.time()
-        assert stop - start < self.eps, "has_next() should return immediately"
-
-    def check_iter_wrapper_timeout(self):
-        output = self.account.ssh_capture("tail -F " + self.temp_file)
-        # allow command to be executed before we check output with timeout_sec = 0
-        time.sleep(.5)
-        for i in range(self.line_num):
-            assert output.has_next(timeout_sec=0)
-            assert output.next().strip() == str(i)
-
-        timeout = .25
-        start = time.time()
-        assert output.has_next(timeout_sec=timeout) == False
-        stop = time.time()
-        assert (stop - start >= timeout) and (stop - start) < timeout + self.eps, \
-            "has_next() should return right after %s second" % str(timeout)
-
-    def teardown(self):
-        # the tail -F call above can leave stray processes, so clean up
-        cmd = "for p in $(ps ax | grep -v grep | grep \"%s\" | awk '{print $1}'); do kill $p; done" % self.temp_file
-        self.account.ssh(cmd)
-
-        self.account.ssh("rm -f " + self.temp_file)
 
 
 class CheckRemoteAccount(object):
