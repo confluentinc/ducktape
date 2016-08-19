@@ -21,6 +21,7 @@ import signal
 import socket
 import stat
 import tempfile
+import warnings
 
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
@@ -178,7 +179,6 @@ class RemoteAccount(HttpMixin):
         if not self._sftp_client:
             self._sftp_client = self.ssh_client.open_sftp()
 
-        # TODO: can we check that it is still open before returning it? Not sure how timeouts would work for a long-lived session?
         return self._sftp_client
 
     def close(self):
@@ -344,10 +344,10 @@ class RemoteAccount(HttpMixin):
             self.signal(pid, sig, allow_fail=allow_fail)
 
     def copy_between(self, src, dest, dest_node):
-        """Copy src_path to dest_path on dest_node
+        """Copy src to dest on dest_node
 
-        :param src_path Path to the file or directory we want to copy
-        :param dest_path The destination path
+        :param src Path to the file or directory we want to copy
+        :param dest The destination path
         :param dest_node The node to which we want to copy the file/directory
 
         Note that if src is a directory, this will automatically copy recursively.
@@ -363,15 +363,10 @@ class RemoteAccount(HttpMixin):
         temp_dir = tempfile.mkdtemp()
 
         try:
-            src_name = src
-            if src_name.endswith(os.path.sep):
-                src_name = src_name[:-len(os.path.sep)]  # trim off path separator from end
-            src_name = os.path.basename(src_name)
-
             # TODO: deal with very unlikely case that src_name matches temp_dir name?
             # TODO: I think this actually works
+            local_dest = self._re_anchor_basename(src, temp_dir)
 
-            local_dest = os.path.join(temp_dir, src_name)
             self.copy_from(src, local_dest)
 
             dest_node.account.copy_to(local_dest, dest)
@@ -380,17 +375,40 @@ class RemoteAccount(HttpMixin):
             if os.path.isdir(temp_dir):
                 shutil.rmtree(temp_dir)
 
+    def scp_from(self, src, dest, recursive=False):
+        warnings.warn("scp_from is now deprecated. Please use copy_from")
+        self.copy_from(src, dest)
+
+    def _re_anchor_basename(self, path, directory):
+        """Anchor the basename of path onto the given directory
+
+        Helper for the various copy_* methods.
+
+        :param path Path to a file or directory. Could be on the driver machine or a worker machine.
+        :param directory Path to a directory. Could be on the driver machine or a worker machine.
+
+        Example:
+            path/to/the_basename, another/path/ -> another/path/the_basename
+        """
+        path_basename = path
+
+        # trim off path separator from end of path
+        # this is necessary because os.path.basename of a path ending in a separator is an empty string
+        # For example:
+        #   os.path.basename("the/path/") == ""
+        #   os.path.basename("the/path") == "path"
+        if path_basename.endswith(os.path.sep):
+            path_basename = path_basename[:-len(os.path.sep)]
+        path_basename = os.path.basename(path_basename)
+
+        return os.path.join(directory, path_basename)
+
     def copy_from(self, src, dest):
         if os.path.isdir(dest):
             # dest is an existing directory, so assuming src looks like path/to/src_name,
             # in this case we'll copy as:
             #   path/to/src_name -> dest/src_name
-            src_name = src
-            if src_name.endswith(os.path.sep):
-                src_name = src_name[:-len(os.path.sep)]  # trim off path separator from end
-            src_name = os.path.basename(src_name)
-
-            dest = os.path.join(dest, src_name)
+            dest = self._re_anchor_basename(src, dest)
 
         if self.isfile(src):
             self.sftp_client.get(src, dest)
@@ -407,18 +425,17 @@ class RemoteAccount(HttpMixin):
                     # TODO what about uncopyable file types?
                     pass
 
+    def scp_to(self, src, dest, recursive=False):
+        warnings.warn("scp_to is now deprecated. Please use copy_to")
+        self.copy_to(src, dest)
+
     def copy_to(self, src, dest):
 
         if self.isdir(dest):
             # dest is an existing directory, so assuming src looks like path/to/src_name,
             # in this case we'll copy as:
             #   path/to/src_name -> dest/src_name
-            src_name = src
-            if src_name.endswith(os.path.sep):
-                src_name = src_name[:-len(os.path.sep)]  # trim off path separator from end
-            src_name = os.path.basename(src_name)
-
-            dest = os.path.join(dest, src_name)
+            dest = self._re_anchor_basename(src, dest)
 
         if os.path.isfile(src):
             # local to remote
