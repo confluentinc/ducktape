@@ -39,26 +39,34 @@ class JsonCluster(Cluster):
             If cluster_json is None, load from file
         :param cluster_file (optional): Overrides the default location of the json cluster file
 
-        Example json:
+        Example json with a local Vagrant cluster:
         {
-            "nodes": [
-                {
+          "nodes": [
+            {
+              "externally_routable_ip": "192.168.50.151",
 
-                    "hostname": "worker1",
-                    "user": "vagrant",
-                    "ssh_args": "-o 'HostName 127.0.0.1' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile \".vagrant/machines/machine123/virtualbox/private_key\"' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL' ",
-                    "ssh_hostname": "127.0.0.1",
-                    "externally_routable_ip": "192.168.50.151"
-                },
-                {
-                    "hostname": "worker2",
-                    "user": "vagrant",
-                    "ssh_args": "-o 'HostName 127.0.0.1' -o 'Port 2223' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile \".vagrant/machines/machine123/virtualbox/private_key\"' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL' ",
-                    "ssh_hostname": "127.0.0.1",
-                    "externally_routable_ip": "192.168.50.152"
-                },
-                ...
-            ]
+              "ssh_config": {
+                "host": "worker1",
+                "hostname": "127.0.0.1",
+                "identityfile": "/path/to/private_key",
+                "password": null,
+                "port": 2222,
+                "user": "vagrant"
+              }
+            },
+            {
+              "externally_routable_ip": "192.168.50.151",
+
+              "ssh_config": {
+                "host": "worker2",
+                "hostname": "127.0.0.1",
+                "identityfile": "/path/to/private_key",
+                "password": null,
+                "port": 2223,
+                "user": "vagrant"
+              }
+            }
+          ]
         }
         """
         super(JsonCluster, self).__init__()
