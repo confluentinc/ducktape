@@ -9,15 +9,30 @@ triggering special events (e.g. bouncing a service), collect results (such as
 logs or console output) and report results (expected conditions met, performance
 results, etc.).
 
-Quickstart
-----------
-TBD
 
 Install
 -------
 
-    pip install ducktape
-    
+Note: as a general rule, it's recommended to use an isolation tool such as `virtualenv`.
+
+Prerequisites:
+* ducktape uses paramiko, which depends upon cryptography, which has non-python external requirements
+* https://cryptography.io/en/latest/installation/
+* OSX should just work
+* Ubuntu:
+
+    ```
+    $ sudo apt-get install build-essential libssl-dev libffi-dev python-dev
+    ```
+* Fedora and RHEL-derivatives:
+
+    ```
+    $ sudo yum install gcc libffi-devel python-devel openssl-devel
+    ```
+
+
+Install ducktape: `pip install ducktape`
+
 Use
 ---
 ducktape discovers and runs tests in the path provided. 
