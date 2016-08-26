@@ -19,10 +19,9 @@ import time
 
 from ducktape.tests.loggermaker import LoggerMaker
 from ducktape.command_line.defaults import ConsoleDefaults
-from ducktape.json_serializable import DucktapeJsonSerializeable
 
 
-class SessionContext(DucktapeJsonSerializeable):
+class SessionContext(object):
     """Wrapper class for 'global' variables. A call to ducktape generates a single shared SessionContext object
     which helps route logging and reporting, etc.
     """
