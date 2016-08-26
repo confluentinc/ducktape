@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.json_serializable import DucktapeJsonSerializeable
 import os
 import statistics
 import time
 
 
-class TestStatus(DucktapeJsonSerializeable):
+class TestStatus(object):
     def __init__(self, status):
         self._status = str(status).lower()
 
@@ -37,7 +36,7 @@ FAIL = TestStatus("fail")
 IGNORE = TestStatus("ignore")
 
 
-class TestResult(DucktapeJsonSerializeable):
+class TestResult(object):
     """Wrapper class for a single result returned by a single test."""
 
     def __init__(self,
@@ -122,7 +121,7 @@ class TestResult(DucktapeJsonSerializeable):
         }
 
 
-class TestResults(DucktapeJsonSerializeable):
+class TestResults(object):
     """Class used to aggregate individual TestResult objects from many tests."""
     def __init__(self, session_context, cluster):
         """
