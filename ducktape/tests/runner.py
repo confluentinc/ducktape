@@ -33,13 +33,22 @@ from ducktape.tests.result import FAIL, TestResult
 
 
 class Receiver(object):
-    def __init__(self, port):
-        self.port = port
+    def __init__(self, min_port, max_port):
+        self.port = None
+        self.min_port = min_port
+        self.max_port = max_port
+
         self.serde = SerDe()
 
         self.zmq_context = zmq.Context()
         self.socket = self.zmq_context.socket(zmq.REP)
-        self.socket.bind("tcp://*:%s" % str(self.port))
+
+    def start(self):
+        """Bind to a random port in the range [self.min_port, self.max_port], inclusive
+        """
+        # note: bind_to_random port may retry the same port multiple times
+        self.port = self.socket.bind_to_random_port(addr="tcp://*", min_port=self.min_port, max_port=self.max_port + 1,
+                                                    max_tries=2 * (self.max_port + 1 - self.min_port))
 
     def recv(self):
         message = self.socket.recv()
@@ -59,7 +68,10 @@ class TestRunner(object):
     # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
     stop_testing = False
 
-    def __init__(self, cluster, session_context, session_logger, tests, port=ConsoleDefaults.TEST_DRIVER_PORT):
+    def __init__(self, cluster, session_context, session_logger, tests,
+                 min_port=ConsoleDefaults.TEST_DRIVER_MIN_PORT,
+                 max_port=ConsoleDefaults.TEST_DRIVER_MAX_PORT):
+
         # Set handler for SIGTERM (aka kill -15)
         # Note: it doesn't work to set a handler for SIGINT (Ctrl-C) in this parent process because the
         # handler is inherited by all forked child processes, and it prevents the default python behavior
@@ -71,8 +83,7 @@ class TestRunner(object):
         self.cluster = cluster
         self.event_response = EventResponseFactory()
         self.hostname = "localhost"
-        self.port = port
-        self.receiver = Receiver(port)
+        self.receiver = Receiver(min_port, max_port)
 
         self.session_context = session_context
         self.max_parallel = session_context.max_parallel
@@ -132,6 +143,7 @@ class TestRunner(object):
         return len(self.active_tests) > 0
 
     def run_all_tests(self):
+        self.receiver.start()
         self.results.start_time = time.time()
 
         # Report tests which cannot be run
@@ -196,7 +208,7 @@ class TestRunner(object):
             target=run_client,
             args=[
                 self.hostname,
-                self.port,
+                self.receiver.port,
                 test_context.test_id,
                 test_context.logger_name,
                 test_context.results_dir,
