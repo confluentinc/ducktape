@@ -30,10 +30,10 @@ class ClientEventFactory(object):
     # Types of messages available
     TYPES = {READY, SETTING_UP, RUNNING, TEARING_DOWN, FINISHED, LOG}
 
-    def __init__(self, test_id, schedule_index, source_id):
+    def __init__(self, test_id, test_index, source_id):
         self.test_id = test_id
         # id of event source
-        self.schedule_index = schedule_index
+        self.test_index = test_index
         self.source_id = source_id
         self.event_id = 0
 
@@ -51,7 +51,7 @@ class ClientEventFactory(object):
         event = {
             "test_id": self.test_id,
             "source_id": self.source_id,
-            "schedule_index": self.schedule_index,
+            "test_index": self.test_index,
             "event_id": self.event_id,
             "event_type": event_type,
             "event_time": time.time()

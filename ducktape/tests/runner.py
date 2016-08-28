@@ -66,7 +66,7 @@ class Receiver(object):
         self.socket.close()
 
 
-TestKey = namedtuple('TestKey', ['test_id', 'runner_index'])
+TestKey = namedtuple('TestKey', ['test_id', 'test_index'])
 
 
 class TestRunner(object):
@@ -264,7 +264,7 @@ class TestRunner(object):
             raise RuntimeError("Received event with unknown event type: " + str(event))
 
     def _handle_ready(self, event):
-        test_key = TestKey(event["test_id"], event["schedule_index"])
+        test_key = TestKey(event["test_id"], event["test_index"])
         test_context = self._test_context[event["test_id"]]
         subcluster = self._test_cluster[test_key]
 
@@ -276,7 +276,7 @@ class TestRunner(object):
         self._log(event["log_level"], event["message"])
 
     def _handle_finished(self, event):
-        test_key = TestKey(event["test_id"], event["schedule_index"])
+        test_key = TestKey(event["test_id"], event["test_index"])
         self.receiver.send(self.event_response.finished(event))
 
         result = event['result']

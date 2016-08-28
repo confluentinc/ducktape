@@ -29,15 +29,15 @@ from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
-def run_client(server_hostname, server_port, test_id, schedule_index, logger_name, log_dir, debug):
-    client = RunnerClient(server_hostname, server_port, test_id, schedule_index, logger_name, log_dir, debug)
+def run_client(server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug):
+    client = RunnerClient(server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug)
     client.run()
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, server_hostname, server_port, test_id, schedule_index, logger_name, log_dir, debug):
+    def __init__(self, server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
         self.serde = SerDe()
@@ -45,9 +45,9 @@ class RunnerClient(object):
         self.runner_port = server_port
 
         self.test_id = test_id
-        self.schedule_index = schedule_index
+        self.test_index = test_index
         self.id = "test-runner-%d-%d" % (os.getpid(), id(self))
-        self.message = ClientEventFactory(self.test_id, self.schedule_index, self.id)
+        self.message = ClientEventFactory(self.test_id, self.test_index, self.id)
         self.sender = Sender(server_hostname, str(self.runner_port), self.message, self.logger)
 
         ready_reply = self.sender.send(self.message.ready())
@@ -81,13 +81,13 @@ class RunnerClient(object):
     def run(self):
         self.log(logging.INFO, "Loading test %s" % str(self.test_metadata))
         self.test_context = self._collect_test_context(**self.test_metadata)
-        self.test_context.schedule_index = self.schedule_index
+        self.test_context.test_index = self.test_index
 
         self.send(self.message.running())
         if self.test_context.ignore:
             # Skip running this test, but keep track of the fact that we ignored it
             result = TestResult(self.test_context,
-                                self.schedule_index,
+                                self.test_index,
                                 self.session_context,
                                 test_status=IGNORE,
                                 start_time=time.time(),
@@ -97,7 +97,7 @@ class RunnerClient(object):
             return
 
         # Results from this test, as well as logs will be dumped here
-        mkdir_p(TestContext.results_dir(self.test_context, self.schedule_index))
+        mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
 
         start_time = -1
         stop_time = -1
@@ -139,7 +139,7 @@ class RunnerClient(object):
 
             result = TestResult(
                 self.test_context,
-                self.schedule_index,
+                self.test_index,
                 self.session_context,
                 test_status,
                 summary,
