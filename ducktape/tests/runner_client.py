@@ -88,6 +88,7 @@ class RunnerClient(object):
         if self.test_context.ignore:
             # Skip running this test, but keep track of the fact that we ignored it
             result = TestResult(self.test_context,
+                                self.schedule_index,
                                 self.session_context,
                                 test_status=IGNORE,
                                 start_time=time.time(),
@@ -125,6 +126,9 @@ class RunnerClient(object):
             self.log(logging.INFO, "PASS")
 
         except BaseException as e:
+            if not self.test:
+                self.log(logging.WARNING, "Failed to instantiate test class")
+
             err_trace = str(e.message) + "\n" + traceback.format_exc(limit=16)
             self.log(logging.INFO, "FAIL: " + err_trace)
 
@@ -183,7 +187,8 @@ class RunnerClient(object):
 
         if teardown_services:
             try:
-                self.test.teardown()
+                if self.test:
+                    self.test.teardown()
             except BaseException as e:
                 exceptions.append(e)
                 self.log(logging.WARN, "Error running teardown method: %s" % e.message + "\n" + traceback.format_exc(limit=16))
@@ -201,7 +206,8 @@ class RunnerClient(object):
 
             # always collect service logs
             try:
-                self.test.copy_service_logs()
+                if self.test:
+                    self.test.copy_service_logs()
             except BaseException as e:
                 exceptions.append(e)
                 self.log(logging.WARN, "Error copying service logs: %s" % e.message + "\n" + traceback.format_exc(limit=16))
@@ -215,7 +221,8 @@ class RunnerClient(object):
                     self.log(logging.WARN, "Error cleaning services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
 
         try:
-            self.test.free_nodes()
+            if self.test:
+                self.test.free_nodes()
         except BaseException as e:
             exceptions.append(e)
             self.log(logging.WARN, "Error freeing nodes: %s" % e.message + "\n" + traceback.format_exc(limit=16))
