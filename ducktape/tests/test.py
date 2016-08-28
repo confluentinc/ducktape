@@ -126,7 +126,7 @@ class Test(TemplateRenderer):
                 if len(node_logs) > 0:
                     # Create directory into which service logs will be copied
                     dest = os.path.join(
-                        TestContext.results_dir(self.test_context, self.test_context.schedule_index),
+                        TestContext.results_dir(self.test_context, self.test_context.test_index),
                         service.service_id, node.account.hostname)
                     if not os.path.isdir(dest):
                         mkdir_p(dest)
@@ -269,7 +269,7 @@ class TestContext(object):
         self.cluster_use_metadata = copy.copy(kwargs.get("cluster_use_metadata", {}))
 
         self.services = ServiceRegistry()
-        self.schedule_index = None
+        self.test_index = None
 
         # dict for toggling service log collection on/off
         self.log_collect = {}
@@ -309,14 +309,14 @@ class TestContext(object):
         }
 
     @staticmethod
-    def logger_name(test_context, schedule_index):
-        if schedule_index is None:
+    def logger_name(test_context, test_index):
+        if test_index is None:
             return test_context.test_id
         else:
-            return "%s-%s" % (test_context.test_id, str(schedule_index))
+            return "%s-%s" % (test_context.test_id, str(test_index))
 
     @staticmethod
-    def results_dir(test_context, schedule_index):
+    def results_dir(test_context, test_index):
         d = test_context.session_context.results_dir
 
         if test_context.cls is not None:
@@ -325,8 +325,8 @@ class TestContext(object):
             d = os.path.join(d, test_context.function.__name__)
         if test_context.injected_args is not None:
             d = os.path.join(d, test_context.injected_args_name)
-        if schedule_index is not None:
-            d = os.path.join(d, str(schedule_index))
+        if test_index is not None:
+            d = os.path.join(d, str(test_index))
 
         return d
 
@@ -402,8 +402,8 @@ class TestContext(object):
     def logger(self):
         if self._logger is None:
             self._logger = test_logger(
-                TestContext.logger_name(self, self.schedule_index),
-                TestContext.results_dir(self, self.schedule_index),
+                TestContext.logger_name(self, self.test_index),
+                TestContext.results_dir(self, self.test_index),
                 self.session_context.debug)
         return self._logger
 
