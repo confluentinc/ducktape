@@ -12,29 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import statistics
 import time
+
 from ducktape.tests.test import TestContext
-
-
-class TestStatus(object):
-    def __init__(self, status):
-        self._status = str(status).lower()
-
-    def __eq__(self, other):
-        return str(self).lower() == str(other).lower()
-
-    def __str__(self):
-        return self._status
-
-    def to_json(self):
-        return str(self).upper()
-
-
-PASS = TestStatus("pass")
-FAIL = TestStatus("fail")
-IGNORE = TestStatus("ignore")
+from ducktape.json_serializable import DucktapeJSONEncoder
+from ducktape.tests.reporter import SingleResultFileReporter
+from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.tests.status import PASS, FAIL, IGNORE
 
 
 class TestResult(object):
@@ -79,7 +66,6 @@ class TestResult(object):
         self.data = data
 
         self.base_results_dir = session_context.results_dir
-        self.results_dir = test_context.results_dir
         if not self.results_dir.endswith(os.path.sep):
             self.results_dir += os.path.sep
         if not self.base_results_dir.endswith(os.path.sep):
@@ -102,6 +88,19 @@ class TestResult(object):
             return time.time() - self.start_time
 
         return self.stop_time - self.start_time
+
+    def report(self):
+        if not os.path.exists(self.results_dir):
+            mkdir_p(self.results_dir)
+
+        self.dump_json()
+        test_reporter = SingleResultFileReporter(self)
+        test_reporter.report()
+
+    def dump_json(self):
+        """Dump this object as json to the given location. By default, dump into self.results_dir/report.json"""
+        with open(os.path.join(self.results_dir, "report.json"), "w") as fd:
+            json.dump(self, fd, cls=DucktapeJSONEncoder, sort_keys=True, indent=2)
 
     def to_json(self):
         return {

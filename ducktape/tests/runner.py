@@ -164,14 +164,17 @@ class TestRunner(object):
                 msg += "expected_num_nodes: %s, cluster size: %s." % (str(tc.expected_num_nodes), str(len(self.cluster)))
                 self._log(logging.ERROR, msg)
 
-                self.results.append(TestResult(
+                result = TestResult(
                     tc,
                     self.test_counter,
                     self.session_context,
                     test_status=FAIL,
                     summary=msg,
                     start_time=time.time(),
-                    stop_time=time.time()))
+                    stop_time=time.time())
+                self.results.append(result)
+                result.report()
+
                 self.test_counter += 1
 
         # Run the tests!

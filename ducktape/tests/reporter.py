@@ -19,7 +19,7 @@ import shutil
 import pkg_resources
 
 from ducktape.utils.terminal_size import get_terminal_size
-from ducktape.tests.result import PASS, FAIL, IGNORE
+from ducktape.tests.status import PASS, FAIL, IGNORE
 from ducktape.json_serializable import DucktapeJSONEncoder
 
 
