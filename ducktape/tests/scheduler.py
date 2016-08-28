@@ -29,7 +29,6 @@ class TestScheduler(object):
         # these can be scheduled
         self._test_context_list = [tc for tc in test_contexts if tc.expected_num_nodes <= len(cluster)]
         self._sort_test_context_list()
-        self._next_index = 0  # assign a unique index to each scheduled item
 
     def __len__(self):
         """Number of tests currently in the scheduler"""
@@ -65,7 +64,7 @@ class TestScheduler(object):
 
         This action removes the test_context object from the scheduler.
 
-        :return tuple (test_context, index)
+        :return test_context object
         """
         if len(self) == 0:
             raise StopIteration("Scheduler is empty.")
@@ -76,7 +75,4 @@ class TestScheduler(object):
             raise RuntimeError("No tests can currently be scheduled.")
 
         self._test_context_list.remove(tc)
-        ret = (tc, self._next_index)
-        self._next_index += 1
-
-        return ret
+        return tc

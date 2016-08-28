@@ -87,6 +87,7 @@ class RunnerClient(object):
         if self.test_context.ignore:
             # Skip running this test, but keep track of the fact that we ignored it
             result = TestResult(self.test_context,
+                                self.schedule_index,
                                 self.session_context,
                                 test_status=IGNORE,
                                 start_time=time.time(),
