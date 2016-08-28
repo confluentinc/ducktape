@@ -25,7 +25,6 @@ from ducktape.tests.serde import SerDe
 from ducktape.tests.test import test_logger, TestContext
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
-from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
@@ -92,6 +91,7 @@ class RunnerClient(object):
                                 test_status=IGNORE,
                                 start_time=time.time(),
                                 stop_time=time.time())
+            result.report()
             # Tell the server we are finished
             self.send(self.message.finished(result=result))
             return
@@ -150,8 +150,7 @@ class RunnerClient(object):
             self.log(logging.INFO, "Summary: %s" % str(result.summary))
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
-            test_reporter = SingleResultFileReporter(result)
-            test_reporter.report()
+            result.report()
 
             # Release test_context resources only after creating the result and finishing logging activity
             self.test_context.close()
