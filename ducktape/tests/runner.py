@@ -166,11 +166,13 @@ class TestRunner(object):
 
                 self.results.append(TestResult(
                     tc,
+                    self.test_counter,
                     self.session_context,
                     test_status=FAIL,
                     summary=msg,
                     start_time=time.time(),
                     stop_time=time.time()))
+                self.test_counter += 1
 
         # Run the tests!
         self._log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
@@ -205,13 +207,14 @@ class TestRunner(object):
 
         return self.results
 
-    def _run_single_test(self, test_context, schedule_index):
+    def _run_single_test(self, test_context):
         """Start a test runner client in a subprocess"""
-        self._log(logging.INFO, "Triggering test %d of %d..." % (self.test_counter, self.total_tests))
+        current_test_counter = self.test_counter
         self.test_counter += 1
+        self._log(logging.INFO, "Triggering test %d of %d..." % (current_test_counter, self.total_tests))
 
         # Test is considered "active" as soon as we start it up in a subprocess
-        test_key = TestKey(test_context.test_id, schedule_index)
+        test_key = TestKey(test_context.test_id, current_test_counter)
         self.active_tests[test_key] = True
 
         proc = multiprocessing.Process(
@@ -220,16 +223,16 @@ class TestRunner(object):
                 self.hostname,
                 self.receiver.port,
                 test_context.test_id,
-                schedule_index,
-                TestContext.logger_name(test_context, schedule_index),
-                TestContext.results_dir(test_context, schedule_index),
+                current_test_counter,
+                TestContext.logger_name(test_context, current_test_counter),
+                TestContext.results_dir(test_context, current_test_counter),
                 self.session_context.debug
             ])
 
         self._client_procs[test_key] = proc
         proc.start()
 
-    def _preallocate_subcluster(self, test_context, schedule_index):
+    def _preallocate_subcluster(self, test_context):
         """Preallocate the subcluster which will be used to run the test.
 
         Side effect: store association between the test_id and the preallocated subcluster.
@@ -244,7 +247,7 @@ class TestRunner(object):
                       "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
                       % test_context.test_id)
 
-        self._test_cluster[TestKey(test_context.test_id, schedule_index)] = FiniteSubcluster(self.cluster.alloc(test_context.expected_num_nodes))
+        self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = FiniteSubcluster(self.cluster.alloc(test_context.expected_num_nodes))
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))
