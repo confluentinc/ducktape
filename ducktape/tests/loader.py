@@ -38,11 +38,15 @@ DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 class TestLoader(object):
     """Class used to discover and load tests."""
 
-    def __init__(self, session_context, logger, injected_args=None, cluster=None):
+    def __init__(self, session_context, logger, repeat=1, injected_args=None, cluster=None):
         self.session_context = session_context
         self.cluster = cluster
         assert logger is not None
         self.logger = logger
+
+        assert repeat >= 1
+        self.repeat = repeat
+
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
 
@@ -60,7 +64,8 @@ class TestLoader(object):
         - Discover test methods within each test class. A test method is a method containing 'test' in its name
 
         :param test_discovery_symbols: list of file paths
-        :return list of test context objects found during discovery
+        :return list of test context objects found during discovery. Note: if self.repeat is set to n, each test_context
+            will appear in the list n times.
         """
         assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
         all_test_context_list = []
@@ -75,7 +80,7 @@ class TestLoader(object):
                 raise LoaderException("Didn't find any tests for symbol %s." % symbol)
 
         self.logger.debug("Discovered these tests: " + str(all_test_context_list))
-        return all_test_context_list
+        return all_test_context_list * self.repeat
 
     def discover(self, directory, module_name, cls_name, method_name):
         """Discover and unpack parametrized tests tied to the given module/class/method
