@@ -36,7 +36,7 @@ class TestResult(object):
 
     def __init__(self,
                  test_context,
-                 schedule_index,
+                 test_index,
                  session_context,
                  test_status=PASS,
                  summary="",
@@ -56,9 +56,9 @@ class TestResult(object):
         self.function_name = test_context.function_name
         self.injected_args = test_context.injected_args
         self.description = test_context.description
-        self.results_dir = TestContext.results_dir(test_context, schedule_index)
+        self.results_dir = TestContext.results_dir(test_context, test_index)
 
-        self.schedule_index = schedule_index
+        self.test_index = test_index
 
         self.session_context = session_context
         self.test_status = test_status
