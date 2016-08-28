@@ -56,6 +56,8 @@ def create_ducktape_parser():
                              "This can be a file containing a JSON object, or a string representing a JSON object.")
     parser.add_argument("--max-parallel", action="store", type=int, default=1,
                         help="Upper bound on number of tests run simultaneously.")
+    parser.add_argument("--repeat", action="store", type=int, default=1,
+                        help="Use this flag to repeat all discovered tests the given number of times.")
     return parser
 
 

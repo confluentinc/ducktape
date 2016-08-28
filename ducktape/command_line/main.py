@@ -144,7 +144,7 @@ def main():
 
     # Discover and load tests to be run
     extend_import_paths(args_dict["test_path"])
-    loader = TestLoader(session_context, session_logger, injected_args=injected_args)
+    loader = TestLoader(session_context, session_logger, repeat=args_dict["repeat"], injected_args=injected_args)
     try:
         tests = loader.load(args_dict["test_path"])
     except LoaderException as e:
