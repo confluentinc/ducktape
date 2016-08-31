@@ -193,6 +193,16 @@ class TestResults(object):
         }
 
     def to_json(self):
+        if self.run_time_seconds == 0:
+            # If things go horribly wrong, the test run may be effectively instantaneous
+            # Let's handle this case gracefully, and avoid divide-by-zero
+            cluster_utilization = 0
+            parallelism = 0
+        else:
+            cluster_utilization = (1.0 / len(self.cluster)) * (1.0 / self.run_time_seconds) * \
+                                  sum([r.nodes_used * r.run_time_seconds for r in self])
+            parallelism = sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds
+
         return {
             "session_context": self.session_context,
             "run_time_seconds": self.run_time_seconds,
@@ -201,14 +211,11 @@ class TestResults(object):
             "run_time_statistics": self._stats([r.run_time_seconds for r in self]),
             "cluster_nodes_used": self._stats([r.nodes_used for r in self]),
             "cluster_nodes_allocated": self._stats([r.nodes_allocated for r in self]),
-            "cluster_utilization":
-                (1.0 / len(self.cluster)) *
-                (1.0 / self.run_time_seconds) *
-                sum([r.nodes_used * r.run_time_seconds for r in self]),
+            "cluster_utilization": cluster_utilization,
             "cluster_num_nodes": len(self.cluster),
             "num_passed": self.num_passed,
             "num_failed": self.num_failed,
             "num_ignored": self.num_ignored,
-            "parallelism": sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds,
+            "parallelism": parallelism,
             "results": [r for r in self._results]
         }
