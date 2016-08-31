@@ -539,19 +539,12 @@ class RemoteAccount(HttpMixin):
     def remove(self, path, allow_fail=False):
         """Remove the given file or directory"""
 
-        if not self.exists(path):
-            msg = "Cannot remove %s because it does not exist." % path
-            self._log(logging.DEBUG, msg)
-            if not allow_fail:
-                raise RemoteAccountError(self, msg)
+        if allow_fail:
+            cmd = "rm -rf %s" % path
+        else:
+            cmd = "rm -r %s" % path
 
-        if not (self.isdir(path) or self.isfile(path) or self.islink(path)):
-            msg = "Cannot remove %s because it is neither a directory, nor a path, nor a symlink." % path
-            self._log(logging.DEBUG, msg)
-            if not allow_fail:
-                raise RemoteAccountError(self, msg)
-
-        self.ssh("rm -rf %s" % path)
+        self.ssh(cmd, allow_fail=allow_fail)
 
     @contextmanager
     def monitor_log(self, log):
