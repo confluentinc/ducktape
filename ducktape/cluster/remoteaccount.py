@@ -484,10 +484,7 @@ class RemoteAccount(HttpMixin):
             path_stat = self.sftp_client.lstat(path)
             return stat.S_ISLNK(path_stat.st_mode)
         except:
-            # TODO figure out which errors are legit (e.g. if file does not exist, what will sftp.stat do?)
-            is_file = False
-
-        return is_file
+            return False
 
     def isdir(self, path):
         try:
@@ -495,10 +492,7 @@ class RemoteAccount(HttpMixin):
             path_stat = self.sftp_client.stat(path)
             return stat.S_ISDIR(path_stat.st_mode)
         except:
-            # TODO figure out which errors are legit (e.g. if file does not exist, what will sftp.stat do?)
-            is_file = False
-
-        return is_file
+            return False
 
     def exists(self, path):
         """Test that the path exists, but don't follow symlinks."""
@@ -520,10 +514,7 @@ class RemoteAccount(HttpMixin):
             path_stat = self.sftp_client.stat(path)
             return stat.S_ISREG(path_stat.st_mode)
         except:
-            # TODO figure out which errors are legit (e.g. if file does not exist, what will sftp.stat do?)
-            is_file = False
-
-        return is_file
+            return False
 
     def open(self, path, mode='r'):
         return self.sftp_client.open(path, mode)
