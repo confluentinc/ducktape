@@ -119,6 +119,8 @@ class RunnerClient(object):
             self.setup_test()
 
             data = self.run_test()
+
+
             test_status = PASS
             self.log(logging.INFO, "PASS")
 

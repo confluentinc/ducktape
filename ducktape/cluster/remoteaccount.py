@@ -244,6 +244,9 @@ class RemoteAccount(HttpMixin):
         client = self.ssh_client
         stdin, stdout, stderr = client.exec_command(cmd)
 
+        # Unfortunately we need to read over the channel to ensure that recv_exit_status won't hang. See:
+        # http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.recv_exit_status
+        stdout.read()
         exit_status = stdout.channel.recv_exit_status()
         try:
             if not allow_fail and exit_status != 0:
@@ -255,7 +258,7 @@ class RemoteAccount(HttpMixin):
 
         return exit_status
 
-    def ssh_capture(self, cmd, allow_fail=False, callback=None):
+    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
 
         Does *not* block
@@ -263,6 +266,8 @@ class RemoteAccount(HttpMixin):
         :param cmd The remote ssh command
         :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
         :param callback If set, the iterator returns callback(line) for each line of output instead of the raw output
+        :param timeout_sec Set timeout on blocking reads/writes. Default None. For more details see
+            http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.settimeout
 
         :return SSHOutputIter object which allows iteration through each line of output.
         :raise RemoteCommandError If allow_fail is False and the command returns a non-zero exit status, raises
@@ -271,7 +276,15 @@ class RemoteAccount(HttpMixin):
         self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
         client = self.ssh_client
-        stdin, stdout, stderr = client.exec_command(cmd)
+        chan = client.get_transport().open_session(timeout=timeout_sec)
+
+        chan.settimeout(timeout_sec)
+        chan.exec_command(cmd)
+        chan.set_combine_stderr(combine_stderr)
+
+        stdin = chan.makefile('wb', -1)  # set bufsize to -1
+        stdout = chan.makefile('r', -1)
+        stderr = chan.makefile_stderr('r', -1)
 
         def output_generator():
 

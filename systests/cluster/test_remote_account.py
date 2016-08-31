@@ -17,6 +17,7 @@ from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
 from ducktape.utils.util import wait_until
 from ducktape.mark.resource import cluster
+from ducktape.mark import matrix
 
 import os
 import pytest
@@ -66,15 +67,15 @@ class RemoteAccountTestService(Service):
 
 
 class GenericService(Service):
-    """Service which doesn't do anything - just a group of nodes each of which has a scratch directory."""
+    """Service which doesn't do anything - just a group of nodes, each of which has a scratch directory."""
     def __init__(self, context, num_nodes):
         super(GenericService, self).__init__(context, num_nodes)
-        self.scratch_dir = "scratch"
+        self.worker_scratch_dir = "scratch"
         for node in self.nodes:
-            node.account.mkdirs(self.scratch_dir)
+            node.account.mkdirs(self.worker_scratch_dir)
 
     def clean_node(self, node):
-        node.account.remove(self.scratch_dir, allow_fail=True)
+        node.account.remove(self.worker_scratch_dir, allow_fail=True)
 
 
 class FileSystemTest(Test):
@@ -85,7 +86,7 @@ class FileSystemTest(Test):
     def setup(self):
         self.service = GenericService(self.test_context, 1)
         self.node = self.service.nodes[0]
-        self.scratch_dir = self.service.scratch_dir
+        self.scratch_dir = self.service.worker_scratch_dir
 
     @cluster(num_nodes=1)
     def create_file_test(self):
@@ -290,7 +291,7 @@ class CopyToAndFroTest(Test):
     def setup(self):
         self.service = GenericService(self.test_context, 1)
         self.node = self.service.nodes[0]
-        self.remote_scratch_dir = self.service.scratch_dir
+        self.remote_scratch_dir = self.service.worker_scratch_dir
 
         self.local_temp_dir = tempfile.mkdtemp()
 
@@ -347,7 +348,7 @@ class CopyDirectTest(Test):
     def setup(self):
         self.service = GenericService(self.test_context, 2)
         self.src_node, self.dest_node = self.service.nodes
-        self.remote_scratch_dir = self.service.scratch_dir
+        self.remote_scratch_dir = self.service.worker_scratch_dir
 
         self.logger.info("src_node: %s" % str(self.src_node.account))
         self.logger.info("dest_node: %s" % str(self.dest_node.account))
@@ -388,22 +389,33 @@ class RemoteAccountTest(Test):
         self.account_service.start()
 
     @cluster(num_nodes=1)
+    def test_ssh_capture_combine_stderr(self):
+        """Test that ssh_capture correctly captures output from ssh subprocess.
+        Also, verify that the ssh command is run before the user iterates through
+        the generator returned by ssh_capture.
+        """
+        node = self.account_service.nodes[0]
+
+        # swap stdout and stderr in the echo process
+        cmd = "for i in $(seq 1 5); do echo $i 3>&1 1>&2 2>&3; done"
+
+        ssh_output = node.account.ssh_capture(cmd, combine_stderr=True)
+        bad_ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)  # Same command, but don't capture stderr
+
+        lines = [int(l.strip()) for l in ssh_output]
+        assert lines == [i for i in range(1, 6)]
+        bad_lines = [int(l.strip()) for l in bad_ssh_output]
+        assert bad_lines == []
+
+    @cluster(num_nodes=1)
     def test_ssh_capture(self):
         """Test that ssh_capture correctly captures output from ssh subprocess.
         Also, verify that the ssh command is run before the user iterates through
         the generator returned by ssh_capture.
         """
         node = self.account_service.nodes[0]
-        hello_file = os.path.join(self.account_service.temp_dir, "hello.txt")
-
-        assert node.account.ssh("test -f %s" % hello_file, allow_fail=True) != 0
-        cmd = "touch %s; for i in $(seq 1 5); do echo $i; done" % hello_file
-        ssh_output = node.account.ssh_capture(cmd)
-
-        # Here we check that the remote command gets run before we iterate through the output from the process
-        # Use wait_until because it can a little time for the subprocess to get scheduled and run
-        wait_until(lambda: node.account.ssh("test -f %s" % hello_file, allow_fail=True) == 0,
-            timeout_sec=2, err_msg="Timed out waiting for %s to be created." % hello_file)
+        cmd = "for i in $(seq 1 5); do echo $i; done"
+        ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)
 
         lines = [int(l.strip()) for l in ssh_output]
         assert lines == [i for i in range(1, 6)]
