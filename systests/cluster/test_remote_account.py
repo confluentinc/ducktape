@@ -390,9 +390,7 @@ class RemoteAccountTest(Test):
 
     @cluster(num_nodes=1)
     def test_ssh_capture_combine_stderr(self):
-        """Test that ssh_capture correctly captures output from ssh subprocess.
-        Also, verify that the ssh command is run before the user iterates through
-        the generator returned by ssh_capture.
+        """Test that ssh_capture correctly captures stderr and stdout from remote process.
         """
         node = self.account_service.nodes[0]
 
@@ -408,10 +406,23 @@ class RemoteAccountTest(Test):
         assert bad_lines == []
 
     @cluster(num_nodes=1)
+    def test_ssh_output_combine_stderr(self):
+        """Test that ssh_output correctly captures stderr and stdout from remote process.
+        """
+        node = self.account_service.nodes[0]
+
+        # swap stdout and stderr in the echo process
+        cmd = "for i in $(seq 1 5); do echo $i 3>&1 1>&2 2>&3; done"
+
+        ssh_output = node.account.ssh_output(cmd, combine_stderr=True)
+        bad_ssh_output = node.account.ssh_output(cmd, combine_stderr=False)  # Same command, but don't capture stderr
+
+        assert ssh_output == "\n".join([str(i) for i in range(1, 6)]) + "\n"
+        assert bad_ssh_output == ""
+
+    @cluster(num_nodes=1)
     def test_ssh_capture(self):
         """Test that ssh_capture correctly captures output from ssh subprocess.
-        Also, verify that the ssh command is run before the user iterates through
-        the generator returned by ssh_capture.
         """
         node = self.account_service.nodes[0]
         cmd = "for i in $(seq 1 5); do echo $i; done"
@@ -419,6 +430,16 @@ class RemoteAccountTest(Test):
 
         lines = [int(l.strip()) for l in ssh_output]
         assert lines == [i for i in range(1, 6)]
+
+    @cluster(num_nodes=1)
+    def test_ssh_output(self):
+        """Test that ssh_output correctly captures output from ssh subprocess.
+        """
+        node = self.account_service.nodes[0]
+        cmd = "for i in $(seq 1 5); do echo $i; done"
+        ssh_output = node.account.ssh_output(cmd, combine_stderr=False)
+
+        assert ssh_output == "\n".join([str(i) for i in range(1, 6)]) + "\n", ssh_output
 
     @cluster(num_nodes=1)
     def test_monitor_log(self):

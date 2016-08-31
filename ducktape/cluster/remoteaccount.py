@@ -266,6 +266,7 @@ class RemoteAccount(HttpMixin):
         :param cmd The remote ssh command
         :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
         :param callback If set, the iterator returns callback(line) for each line of output instead of the raw output
+        :param combine_stderr If True, return output from both stderr and stdout of the remote process.
         :param timeout_sec Set timeout on blocking reads/writes. Default None. For more details see
             http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.settimeout
 
@@ -305,11 +306,14 @@ class RemoteAccount(HttpMixin):
 
         return SSHOutputIter(output_generator(), stdout)
 
-    def ssh_output(self, cmd, allow_fail=False):
+    def ssh_output(self, cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
         """Runs the command via SSH and captures the output, returning it as a string.
 
         :param cmd The remote ssh command.
         :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
+        :param combine_stderr If True, return output from both stderr and stdout of the remote process.
+        :param timeout_sec Set timeout on blocking reads/writes. Default None. For more details see
+            http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.settimeout
 
         :return The stdout output from the ssh command.
         :raise RemoteCommandError If allow_fail is False and the command returns a non-zero exit status, raises
@@ -318,7 +322,15 @@ class RemoteAccount(HttpMixin):
         self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
         client = self.ssh_client
-        stdin, stdout, stderr = client.exec_command(cmd)
+        chan = client.get_transport().open_session(timeout=timeout_sec)
+
+        chan.settimeout(timeout_sec)
+        chan.exec_command(cmd)
+        chan.set_combine_stderr(combine_stderr)
+
+        stdin = chan.makefile('wb', -1)  # set bufsize to -1
+        stdout = chan.makefile('r', -1)
+        stderr = chan.makefile_stderr('r', -1)
 
         try:
             stdoutdata = stdout.read()
