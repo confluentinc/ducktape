@@ -152,13 +152,14 @@ class RunnerClient(object):
 
             result.report()
 
-            # Release test_context resources only after creating the result and finishing logging activity
-            self.test_context.close()
-            self.test_context = None
-            self.test = None
-
         # Tell the server we are finished
         self._do_safely(lambda: self.send(self.message.finished(result=result)), "Problem sending FINISHED message:")
+
+        # Release test_context resources only after creating the result and finishing logging activity
+        # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
+        self.test_context.close()
+        self.test_context = None
+        self.test = None
 
     def setup_test(self):
         """start services etc"""
