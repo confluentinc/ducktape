@@ -188,6 +188,8 @@ class TestRunner(object):
                         raise
             except KeyboardInterrupt:
                 # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
+                self._log(logging.INFO,
+                          "Received KeyboardInterrupt. Now waiting for currently running tests to finish...")
                 self.stop_testing = True
 
         for proc in self._client_procs.values():
