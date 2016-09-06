@@ -209,7 +209,6 @@ class RunnerClient(object):
             self._do_safely(services.clean_all, "Error cleaning services:")
 
         self._do_safely(self.test.free_nodes, "Error freeing nodes:")
-        self.test_context.close()
 
     def log(self, log_level, msg, *args, **kwargs):
         """Log to the service log and the test log of the current test."""
