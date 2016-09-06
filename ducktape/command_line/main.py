@@ -23,9 +23,10 @@ import pysistence
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
 from ducktape.tests.loader import TestLoader, LoaderException
+from ducktape.tests.loggermaker import close_logger
 from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, HTMLSummaryReporter
 from ducktape.tests.runner import TestRunner
-from ducktape.tests.session import SessionContext, SessionLogger
+from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
@@ -138,7 +139,7 @@ def main():
     setup_results_directory(results_dir)
 
     session_context = SessionContext(session_id=session_id, results_dir=results_dir, **args_dict)
-    session_logger = SessionLogger(session_context).logger
+    session_logger = SessionLoggerMaker(session_context).logger
     for k, v in args_dict.iteritems():
         session_logger.debug("Configuration: %s=%s", k, v)
 
@@ -188,5 +189,6 @@ def main():
     reporter.report()
 
     update_latest_symlink(args_dict["results_root"], results_dir)
+    close_logger(session_logger)
     if not test_results.get_aggregate_success():
         sys.exit(1)
