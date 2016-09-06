@@ -20,7 +20,7 @@ import shutil
 import sys
 import tempfile
 
-from ducktape.tests.logger import Logger
+from ducktape.tests.loggermaker import LoggerMaker, close_logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
@@ -192,12 +192,12 @@ def test_logger(logger_name, log_dir, debug):
     Note that if this method is called multiple times with the same logger_name, it returns the same logger object.
     Note also, that for a fixed logger_name, configuration occurs only the first time this function is called.
     """
-    return TestLogger(logger_name, log_dir, debug).logger
+    return TestLoggerMaker(logger_name, log_dir, debug).logger
 
 
-class TestLogger(Logger):
+class TestLoggerMaker(LoggerMaker):
     def __init__(self, logger_name, log_dir, debug):
-        self.logger_name = logger_name
+        super(TestLoggerMaker, self).__init__(logger_name)
         self.log_dir = log_dir
         self.debug = debug
 
@@ -413,4 +413,4 @@ class TestContext(object):
 
         # Release file handles held by logger
         if self._logger:
-            Logger.close_logger(self._logger)
+            close_logger(self._logger)

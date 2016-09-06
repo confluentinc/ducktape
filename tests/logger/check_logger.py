@@ -18,10 +18,10 @@ import psutil
 import shutil
 import tempfile
 
-from ducktape.tests.logger import Logger
+from ducktape.tests.loggermaker import LoggerMaker, close_logger
 
 
-class DummyFileLogger(Logger):
+class DummyFileLoggerMaker(LoggerMaker):
     def __init__(self, log_dir, n_handles):
         """Create a logger with n_handles file handles, with files in log_dir"""
         self.log_dir = log_dir
@@ -52,12 +52,12 @@ class CheckLogger(object):
         initial_open_files = open_files()
 
         n_handles = 100
-        l = DummyFileLogger(self.temp_dir, n_handles)
+        l = DummyFileLoggerMaker(self.temp_dir, n_handles)
         # accessing logger attribute lazily triggers configuration of logger
         the_logger = l.logger
 
         assert len(open_files()) == len(initial_open_files) + n_handles
-        Logger.close_logger(the_logger)
+        close_logger(the_logger)
         assert len(open_files()) == len(initial_open_files)
 
     def teardown_method(self, _):

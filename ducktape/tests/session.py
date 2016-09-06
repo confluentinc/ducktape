@@ -17,7 +17,7 @@ import os
 import sys
 import time
 
-from ducktape.tests.logger import Logger
+from ducktape.tests.loggermaker import LoggerMaker
 from ducktape.command_line.defaults import ConsoleDefaults
 
 
@@ -45,11 +45,11 @@ class SessionContext(object):
         return self._globals
 
 
-class SessionLogger(Logger):
+class SessionLoggerMaker(LoggerMaker):
     def __init__(self, session_context):
+        super(SessionLoggerMaker, self).__init__(session_context.session_id + ".session_logger")
         self.log_dir = session_context.results_dir
         self.debug = session_context.debug
-        self.logger_name = session_context.session_id + ".session_logger"
 
     def configure_logger(self):
         """Set up the logger to log to stdout and files. This creates a few files as a side-effect. """
