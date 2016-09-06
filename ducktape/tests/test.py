@@ -273,12 +273,12 @@ class TestContext(object):
         self.log_collect = {}
 
         self._logger = None
-        self._scratch_dir = None
+        self._local_scratch_dir = None
 
     def __repr__(self):
         return "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s>" % \
-               (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file), str(self.ignore),
-                str(self.expected_num_nodes))
+               (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file),
+                str(self.ignore), str(self.expected_num_nodes))
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object
@@ -290,11 +290,11 @@ class TestContext(object):
         return ctx_copy
 
     @property
-    def scratch_dir(self):
-        """This local scratch directory is created/destroyed before/after each test is run."""
-        if not self._scratch_dir:
-            self._scratch_dir = tempfile.mkdtemp()
-        return self._scratch_dir
+    def local_scratch_dir(self):
+        """This local scratch directory is created/destroyed on the test driver before/after each test is run."""
+        if not self._local_scratch_dir:
+            self._local_scratch_dir = tempfile.mkdtemp()
+        return self._local_scratch_dir
 
     @property
     def test_metadata(self):
@@ -361,7 +361,6 @@ class TestContext(object):
             params = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
             return _escape_pathname(params)
 
-
     @property
     def results_dir(self):
         d = self.session_context.results_dir
@@ -401,13 +400,16 @@ class TestContext(object):
 
     def close(self):
         """Release resources, etc."""
+        for service in self.services:
+            service.close()
+
         # Remove reference to services. This is important to prevent potential memory leaks if users write services
         # which themselves have references to large memory-intensive objects
         del self.services
 
         # Remove local scratch directory
-        if self._scratch_dir and os.path.exists(self._scratch_dir):
-            shutil.rmtree(self._scratch_dir)
+        if self._local_scratch_dir and os.path.exists(self._local_scratch_dir):
+            shutil.rmtree(self._local_scratch_dir)
 
         # Release file handles held by logger
         if self._logger:

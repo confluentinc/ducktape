@@ -17,6 +17,8 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.template import TemplateRenderer
 from ducktape.errors import TimeoutError
 
+import shutil
+import tempfile
 import time
 
 
@@ -63,12 +65,22 @@ class Service(TemplateRenderer):
         # after the service if something goes wrong.
         self.context.services.append(self)
 
+        # Each service instance has its own local scratch directory on the test driver
+        self._local_scratch_dir = None
+
         self.nodes = []
         self.allocate_nodes()
 
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
                              (self.num_nodes, [n.account.hostname for n in self.nodes]))
+
+    @property
+    def local_scratch_dir(self):
+        """This local scratch directory is created/destroyed on the test driver before/after each test is run."""
+        if not self._local_scratch_dir:
+            self._local_scratch_dir = tempfile.mkdtemp()
+        return self._local_scratch_dir
 
     @property
     def service_id(self):
@@ -258,6 +270,12 @@ class Service(TemplateRenderer):
             if self.get_node(idx) == node:
                 return idx
         return -1
+
+    def close(self):
+        """Release resources."""
+        # Remove local scratch directory
+        if self._local_scratch_dir and os.path.exists(self._local_scratch_dir):
+            shutil.rmtree(self._local_scratch_dir)
 
     @staticmethod
     def run_parallel(*args):
