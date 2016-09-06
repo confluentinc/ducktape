@@ -56,8 +56,7 @@ class InstrumentedTestRunner(TestRunner):
         current_memory = _get_memory(pid)
         self.queue.put(current_memory)
 
-        data = super(InstrumentedTestRunner, self)._run_single_test(test_context)
-        return data
+        super(InstrumentedTestRunner, self)._run_single_test(test_context)
 
 
 class CheckMemoryUsage(object):
