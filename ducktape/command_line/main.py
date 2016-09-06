@@ -24,7 +24,8 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.loggermaker import close_logger
-from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, HTMLSummaryReporter
+from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, \
+    HTMLSummaryReporter, JSONReporter
 from ducktape.tests.runner import TestRunner
 from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
