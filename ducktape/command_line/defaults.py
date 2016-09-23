@@ -49,5 +49,5 @@ class ConsoleDefaults(object):
     # Ducktape will try to pick a random open port in the range [TEST_DRIVER_PORT_MIN, TEST_DRIVER_PORT_MAX]
     # this range is *inclusive*
     TEST_DRIVER_MIN_PORT = 5556
-    TEST_DRIVER_MAX_PORT = 5586
+    TEST_DRIVER_MAX_PORT = 5656
 
