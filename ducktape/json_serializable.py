@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test
-from ducktape.mark import matrix
 
-"""All tests in this module fail"""
+from json import JSONEncoder
 
 
-class FailingTest(Test):
-    def __init__(self, test_context):
-        super(FailingTest, self).__init__(test_context)
-
-    @matrix(x=[_ for _ in range(2)])
-    def test_fail(self, x):
-        print "Test %s fails!" % x
-        raise RuntimeError("This test throws an error!")
+class DucktapeJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj, "to_json"):
+            # to_json may return a dict or array or other naturally json serializable object
+            # this allows serialization to work correctly on nested items
+            return obj.to_json()
+        else:
+            # Let the base class default method raise the TypeError
+            return JSONEncoder.default(self, obj)

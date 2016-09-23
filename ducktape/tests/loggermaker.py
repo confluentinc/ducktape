@@ -15,7 +15,11 @@
 import logging
 
 
-class Logger(object):
+class LoggerMaker(object):
+    """This class helps ensure programmatically configured loggers are configured only once."""
+    def __init__(self, logger_name):
+        self.logger_name = logger_name
+
     @property
     def logger(self):
         """Read-only logger attribute."""
@@ -38,3 +42,12 @@ class Logger(object):
 
     def configure_logger(self):
         raise NotImplementedError("configure_logger property must be implemented by a subclass")
+
+
+def close_logger(logger):
+    """Filehandles etc are not closed automatically, so close them here"""
+    if logger is not None:
+        handlers = logger.handlers[:]
+        for handler in handlers:
+            handler.close()
+            logger.removeHandler(handler)

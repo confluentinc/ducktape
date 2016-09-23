@@ -16,14 +16,16 @@ from __future__ import absolute_import
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterSlot
-from .remoteaccount import RemoteAccount
+from .remoteaccount import RemoteAccount, RemoteAccountSSHConfig
+
 import collections
 import json
 import os
+import traceback
 
 
 class JsonCluster(Cluster):
-    """ An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
+    """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
     def __init__(self, cluster_json=None, *args, **kwargs):
@@ -37,25 +39,34 @@ class JsonCluster(Cluster):
             If cluster_json is None, load from file
         :param cluster_file (optional): Overrides the default location of the json cluster file
 
-        Example json:
+        Example json with a local Vagrant cluster:
         {
-            "nodes": [
-                {
-                    "hostname": "worker1",
-                    "user": "vagrant",
-                    "ssh_args": "-o 'HostName 127.0.0.1' -o 'Port 2222' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile \".vagrant/machines/machine123/virtualbox/private_key\"' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL' ",
-                    "ssh_hostname": "127.0.0.1",
-                    "externally_routable_ip": "192.168.50.151"
-                },
-                {
-                    "hostname": "worker2",
-                    "user": "vagrant",
-                    "ssh_args": "-o 'HostName 127.0.0.1' -o 'Port 2223' -o 'UserKnownHostsFile /dev/null' -o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' -o 'IdentityFile \".vagrant/machines/machine123/virtualbox/private_key\"' -o 'IdentitiesOnly yes' -o 'LogLevel FATAL' ",
-                    "ssh_hostname": "127.0.0.1",
-                    "externally_routable_ip": "192.168.50.152"
-                },
-                ...
-            ]
+          "nodes": [
+            {
+              "externally_routable_ip": "192.168.50.151",
+
+              "ssh_config": {
+                "host": "worker1",
+                "hostname": "127.0.0.1",
+                "identityfile": "/path/to/private_key",
+                "password": null,
+                "port": 2222,
+                "user": "vagrant"
+              }
+            },
+            {
+              "externally_routable_ip": "192.168.50.151",
+
+              "ssh_config": {
+                "host": "worker2",
+                "hostname": "127.0.0.1",
+                "identityfile": "/path/to/private_key",
+                "password": null,
+                "port": 2223,
+                "user": "vagrant"
+              }
+            }
+          ]
         }
         """
         super(JsonCluster, self).__init__()
@@ -65,17 +76,26 @@ class JsonCluster(Cluster):
             if cluster_file is None:
                 cluster_file = ConsoleDefaults.CLUSTER_FILE
             cluster_json = json.load(open(os.path.abspath(cluster_file)))
-
         try:
-            node_accounts = [RemoteAccount(ninfo["hostname"], ninfo.get("user"), ninfo.get("ssh_args"),
-                                           ssh_hostname=ninfo.get("ssh_hostname"),
-                                           externally_routable_ip=ninfo.get("externally_routable_ip"))
-                                           for ninfo in cluster_json["nodes"]]
+            node_accounts = []
+            for ninfo in cluster_json["nodes"]:
+                ssh_config_dict = ninfo.get("ssh_config")
+                assert ssh_config_dict is not None, \
+                    "Cluster json has a node without an ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
+
+                ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
+                node_accounts.append(
+                    RemoteAccount(
+                        ssh_config=ssh_config,
+                        externally_routable_ip=ninfo.get("externally_routable_ip")))
+
             for node_account in node_accounts:
                 if node_account.externally_routable_ip is None:
                     node_account.externally_routable_ip = self._externally_routable_ip(node_account)
+
         except BaseException as e:
-            raise ValueError("JSON cluster definition invalid", e)
+            msg = "JSON cluster definition invalid: %s: %s" % (e, traceback.format_exc(limit=16))
+            raise ValueError(msg)
 
         self.available_nodes = collections.deque(node_accounts)
         self.in_use_nodes = set()
@@ -102,10 +122,12 @@ class JsonCluster(Cluster):
             result.append(cluster_slot)
             self.in_use_nodes.add(node)
             self._id_supplier += 1
+
         return result
 
     def free_single(self, slot):
         assert(slot.account in self.in_use_nodes)
+        slot.account.close()
         self.in_use_nodes.remove(slot.account)
         self.available_nodes.append(slot.account)
 

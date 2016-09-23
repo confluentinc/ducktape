@@ -15,7 +15,7 @@
 from ducktape.errors import TimeoutError
 from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
-from ducktape.cluster.remoteaccount import RemoteAccount
+from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountSSHConfig
 
 import logging
 from threading import Thread
@@ -23,7 +23,6 @@ import SimpleHTTPServer
 import SocketServer
 import threading
 import time
-import random
 
 
 class SimpleServer(object):
@@ -58,46 +57,6 @@ class SimpleServer(object):
             raise Exception("SimpleServer failed to stop quickly")
 
 
-class CheckIterWrapper(object):
-    def setup(self):
-        self.line_num = 6
-        self.eps = 0.01
-        self.account = MockAccount()
-        self.account.ssh("mkdir -p /tmp")
-        self.temp_file = "/tmp/ducktape-test-" + str(random.randint(0, 100000))
-        for i in range(self.line_num):
-            self.account.ssh("echo " + str(i) + " >> " + self.temp_file)
-
-    def check_iter_wrapper(self):
-        output = self.account.ssh_capture("tail " + self.temp_file)
-        for i in range(self.line_num):
-            assert output.has_next()
-            assert output.next().strip() == str(i)
-        start = time.time()
-        assert output.has_next() == False
-        stop = time.time()
-        assert stop - start < self.eps, "has_next() should return immediately"
-
-    def check_iter_wrapper_timeout(self):
-        output = self.account.ssh_capture("tail -F " + self.temp_file)
-        # allow command to be executed before we check output with timeout_sec = 0
-        time.sleep(1)
-        for i in range(self.line_num):
-            assert output.has_next(timeout_sec=0)
-            assert output.next().strip() == str(i)
-        start = time.time()
-        assert output.has_next(timeout_sec=1) == False
-        stop = time.time()
-        assert (stop - start >= 1) and (stop - start) < 1 + self.eps, "has_next() should return right after 1 second"
-
-        # the tail -F call above can leave stray processes, so clean up
-        cmd = "for p in $(ps ax | grep -v grep | grep \"%s\" | awk '{print $1}'); do kill $p; done" % self.temp_file
-        self.account.ssh(cmd)
-
-    def teardown(self):
-        self.account.ssh("rm -f " + self.temp_file)
-
-
 class CheckRemoteAccount(object):
     def setup(self):
         self.server = SimpleServer()
@@ -130,13 +89,14 @@ class CheckRemoteAccount(object):
 
 
 class CheckRemoteAccountEquality(object):
+
     def check_remote_account_equality(self):
         """Different instances of remote account initialized with the same parameters should be equal."""
+
+        ssh_config = RemoteAccountSSHConfig(host="thehost", hostname="localhost", port=22)
+
         kwargs = {
-            "hostname": "hello",
-            "user": "vagrant",
-            "ssh_args": "asdf",
-            "ssh_hostname": "123",
+            "ssh_config": ssh_config,
             "externally_routable_ip": "345",
             "logger": logging.getLogger(__name__)
         }

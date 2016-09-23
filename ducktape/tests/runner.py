@@ -29,17 +29,28 @@ from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler
-from ducktape.tests.result import FAIL
+from ducktape.tests.result import FAIL, TestResult
 
 
 class Receiver(object):
-    def __init__(self, port):
-        self.port = port
+    def __init__(self, min_port, max_port):
+        assert min_port <= max_port, "Expected min_port <= max_port, but instead: min_port: %s, max_port %s" % \
+                                     (min_port, max_port)
+        self.port = None
+        self.min_port = min_port
+        self.max_port = max_port
+
         self.serde = SerDe()
 
         self.zmq_context = zmq.Context()
         self.socket = self.zmq_context.socket(zmq.REP)
-        self.socket.bind("tcp://*:%s" % str(self.port))
+
+    def start(self):
+        """Bind to a random port in the range [self.min_port, self.max_port], inclusive
+        """
+        # note: bind_to_random_port may retry the same port multiple times
+        self.port = self.socket.bind_to_random_port(addr="tcp://*", min_port=self.min_port, max_port=self.max_port + 1,
+                                                    max_tries=2 * (self.max_port + 1 - self.min_port))
 
     def recv(self):
         message = self.socket.recv()
@@ -48,25 +59,32 @@ class Receiver(object):
     def send(self, event):
         self.socket.send(self.serde.serialize(event))
 
+    def close(self):
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close()
+
 
 class TestRunner(object):
-    """Runs tests serially."""
 
     # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
     stop_testing = False
 
-    def __init__(self, cluster, session_context, session_logger, tests, port=ConsoleDefaults.TEST_DRIVER_PORT):
-        # Set handlers for SIGTERM and SIGINT (kill -15, and Ctrl-C, respectively)
+    def __init__(self, cluster, session_context, session_logger, tests,
+                 min_port=ConsoleDefaults.TEST_DRIVER_MIN_PORT,
+                 max_port=ConsoleDefaults.TEST_DRIVER_MAX_PORT):
+
+        # Set handler for SIGTERM (aka kill -15)
+        # Note: it doesn't work to set a handler for SIGINT (Ctrl-C) in this parent process because the
+        # handler is inherited by all forked child processes, and it prevents the default python behavior
+        # of translating SIGINT into a KeyboardInterrupt exception
         signal.signal(signal.SIGTERM, self._propagate_sigterm)
-        signal.signal(signal.SIGINT, self._propagate_sigterm)
 
         # session_logger, message logger,
         self.session_logger = session_logger
         self.cluster = cluster
         self.event_response = EventResponseFactory()
         self.hostname = "localhost"
-        self.port = port
-        self.receiver = Receiver(port)
+        self.receiver = Receiver(min_port, max_port)
 
         self.session_context = session_context
         self.max_parallel = session_context.max_parallel
@@ -95,7 +113,6 @@ class TestRunner(object):
         However, it is possible that the main process (and not the process group) receives a SIGINT or SIGTERM
         directly. Propagating SIGTERM to client processes is necessary in this case.
         """
-
         if os.getpid() != self.main_process_pid:
             # since we're using the multiprocessing module to create client processes,
             # this signal handler is also attached client processes, so we only want to propagate TERM signals
@@ -127,29 +144,58 @@ class TestRunner(object):
         return len(self.active_tests) > 0
 
     def run_all_tests(self):
+        self.receiver.start()
         self.results.start_time = time.time()
+
+        # Report tests which cannot be run
+        if len(self.scheduler.unschedulable) > 0:
+            self._log(logging.ERROR,
+                      "There are %d tests which cannot be run due to insufficient cluster resources" %
+                      len(self.scheduler.unschedulable))
+
+            for tc in self.scheduler.unschedulable:
+                msg = "Test %s expects more nodes than are available in the entire cluster: " % tc.test_id
+                msg += "expected_num_nodes: %s, cluster size: %s." % (str(tc.expected_num_nodes), str(len(self.cluster)))
+                self._log(logging.ERROR, msg)
+
+                self.results.append(TestResult(
+                    tc,
+                    self.session_context,
+                    test_status=FAIL,
+                    summary=msg,
+                    start_time=time.time(),
+                    stop_time=time.time()))
+
+        # Run the tests!
         self._log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
         self._log(logging.INFO, "running %d tests..." % len(self.scheduler))
-
         while self._ready_to_trigger_more_tests or self._expect_client_requests:
+            try:
+                while self._ready_to_trigger_more_tests:
+                    next_test_context = self.scheduler.next()
+                    self._preallocate_subcluster(next_test_context)
+                    self._run_single_test(next_test_context)
 
-            while self._ready_to_trigger_more_tests:
-                next_test_context = self.scheduler.next()
-                self._preallocate_subcluster(next_test_context)
-                self._run_single_test(next_test_context)
+                if self._expect_client_requests:
+                    try:
+                        event = self.receiver.recv()
+                        self._handle(event)
+                    except Exception as e:
+                        err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
+                        err_str += "\n" + traceback.format_exc(limit=16)
+                        self._log(logging.ERROR, err_str)
 
-            if self._expect_client_requests:
-                try:
-                    event = self.receiver.recv()
-                    self._handle(event)
-                except Exception as e:
-                    err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
-                    err_str += "\n" + traceback.format_exc(limit=16)
-                    self._log(logging.ERROR, err_str)
-                    continue
+                        # All processes are on the same machine, so treat communication failure as a fatal error
+                        raise
+            except KeyboardInterrupt:
+                # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
+                self._log(logging.INFO,
+                          "Received KeyboardInterrupt. Now waiting for currently running tests to finish...")
+                self.stop_testing = True
 
         for proc in self._client_procs.values():
             proc.join()
+        self.receiver.close()
 
         return self.results
 
@@ -165,7 +211,7 @@ class TestRunner(object):
             target=run_client,
             args=[
                 self.hostname,
-                self.port,
+                self.receiver.port,
                 test_context.test_id,
                 test_context.logger_name,
                 test_context.results_dir,
@@ -183,6 +229,8 @@ class TestRunner(object):
         :param test_context
         :return None
         """
+        assert test_context.expected_num_nodes <= len(self.cluster)
+
         if test_context.expected_num_nodes == len(self.cluster) and self.max_parallel > 1:
             self._log(logging.WARNING,
                       "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
@@ -208,7 +256,6 @@ class TestRunner(object):
         test_id = event["test_id"]
         test_context = self._test_context[test_id]
         subcluster = self._test_cluster[test_id]
-
         self.receiver.send(
                 self.event_response.ready(event, self.session_context, test_context, subcluster))
 

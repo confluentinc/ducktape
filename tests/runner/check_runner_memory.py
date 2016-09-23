@@ -18,10 +18,12 @@ from ducktape.cluster.localhost import LocalhostCluster
 
 from .resources.test_memory_leak import MemoryLeakTest
 
-import os
+import math
 from memory_profiler import _get_memory
+import os
 import Queue
 import statistics
+from statistics import mean
 
 import tests.ducktape_mock
 
@@ -54,8 +56,7 @@ class InstrumentedTestRunner(TestRunner):
         current_memory = _get_memory(pid)
         self.queue.put(current_memory)
 
-        data = super(InstrumentedTestRunner, self)._run_single_test(test_context)
-        return data
+        super(InstrumentedTestRunner, self)._run_single_test(test_context)
 
 
 class CheckMemoryUsage(object):
@@ -110,5 +111,31 @@ class CheckMemoryUsage(object):
 
         # we want to make sure that max usage doesn't exceed median usage by very much
         relative_diff = (max_usage - median_usage) / median_usage
-        assert relative_diff <= .05, "max usage exceeded median usage by too much; there may be a memory leak: %s" % usage_stats
+        slope = self._linear_regression_slope(measurements)
 
+        if slope > 0:
+            # check max memory usage iff the memory measurements seem to be increasing overall
+            assert relative_diff <= .05, "max usage exceeded median usage by too much; there may be a memory leak: %s" % usage_stats
+
+    def _linear_regression_slope(self, arr):
+        """Return the sign of the slope of the least squares fit line.
+        """
+        assert len(arr) > 0
+
+        x_vals = [i for i in range(len(arr))]
+        mean_x = mean(x_vals)
+        mean_y = mean(arr)
+
+        #            mean([x_i * y_i]) - mean_x * mean_y
+        # slope =    -----------------------------------
+        #                       variance([x_i])
+        #
+        # where variance is (1/N) * sum([(x_i - mean_x)^2])
+        #
+        # the denominator in regression formula is always positive, so it's enough to compute the numerator
+
+        slope_numerator = mean([i * arr[i] for i in x_vals])
+        slope_numerator = slope_numerator - (mean_x * mean_y)
+
+        # return the sign
+        return math.copysign(slope_numerator, 1)

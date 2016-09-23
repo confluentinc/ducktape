@@ -16,9 +16,11 @@ import copy
 import logging
 import os
 import re
+import shutil
 import sys
+import tempfile
 
-from ducktape.tests.logger import Logger
+from ducktape.tests.loggermaker import LoggerMaker, close_logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
@@ -52,12 +54,22 @@ class Test(TemplateRenderer):
         """
         return self.test_context.services.num_nodes()
 
-    def setUp(self):
+    def setup(self):
         """Override this for custom setup logic."""
+
+        # for backward compatibility
+        self.setUp()
+
+    def teardown(self):
+        """Override this for custom teardown logic."""
+
+        # for backward compatibility
+        self.tearDown()
+
+    def setUp(self):
         pass
 
     def tearDown(self):
-        """Override this for custom teardown logic."""
         pass
 
     def free_nodes(self):
@@ -87,7 +99,7 @@ class Test(TemplateRenderer):
 
             except Exception as e:
                 self.test_context.logger.warn(
-                    "Error compressing log %s: service %(service)s: %(message)s" % (nlog, service, str(e))
+                    "Error compressing log %s: service %s: %s" % (nlog, service, str(e))
                 )
 
         return compressed_logs
@@ -120,7 +132,8 @@ class Test(TemplateRenderer):
 
                     # Try to copy the service logs
                     try:
-                        node.account.scp_from(node_logs, dest, recursive=True)
+                        for log in node_logs:
+                            node.account.copy_from(log, dest)
                     except Exception as e:
                         self.test_context.logger.warn(
                             "Error copying log %(log_name)s from %(source)s to %(dest)s. \
@@ -179,12 +192,12 @@ def test_logger(logger_name, log_dir, debug):
     Note that if this method is called multiple times with the same logger_name, it returns the same logger object.
     Note also, that for a fixed logger_name, configuration occurs only the first time this function is called.
     """
-    return TestLogger(logger_name, log_dir, debug).logger
+    return TestLoggerMaker(logger_name, log_dir, debug).logger
 
 
-class TestLogger(Logger):
+class TestLoggerMaker(LoggerMaker):
     def __init__(self, logger_name, log_dir, debug):
-        self.logger_name = logger_name
+        super(TestLoggerMaker, self).__init__(logger_name)
         self.log_dir = log_dir
         self.debug = debug
 
@@ -260,11 +273,12 @@ class TestContext(object):
         self.log_collect = {}
 
         self._logger = None
+        self._local_scratch_dir = None
 
     def __repr__(self):
         return "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s>" % \
-               (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file), str(self.ignore),
-                str(self.expected_num_nodes))
+               (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file),
+                str(self.ignore), str(self.expected_num_nodes))
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object
@@ -274,6 +288,13 @@ class TestContext(object):
         ctx_copy.__dict__.update(**kwargs)
 
         return ctx_copy
+
+    @property
+    def local_scratch_dir(self):
+        """This local scratch directory is created/destroyed on the test driver before/after each test is run."""
+        if not self._local_scratch_dir:
+            self._local_scratch_dir = tempfile.mkdtemp()
+        return self._local_scratch_dir
 
     @property
     def test_metadata(self):
@@ -340,7 +361,6 @@ class TestContext(object):
             params = ".".join(["%s=%s" % (k, self.injected_args[k]) for k in self.injected_args])
             return _escape_pathname(params)
 
-
     @property
     def results_dir(self):
         d = self.session_context.results_dir
@@ -356,9 +376,7 @@ class TestContext(object):
 
     @property
     def test_id(self):
-        name_components = [self.session_context.session_id,
-                           self.test_name]
-        return ".".join(filter(lambda x: x is not None, name_components))
+        return self.test_name
 
     @property
     def test_name(self):
@@ -380,3 +398,19 @@ class TestContext(object):
                 self.logger_name, self.results_dir, self.session_context.debug)
         return self._logger
 
+    def close(self):
+        """Release resources, etc."""
+        for service in self.services:
+            service.close()
+
+        # Remove reference to services. This is important to prevent potential memory leaks if users write services
+        # which themselves have references to large memory-intensive objects
+        del self.services
+
+        # Remove local scratch directory
+        if self._local_scratch_dir and os.path.exists(self._local_scratch_dir):
+            shutil.rmtree(self._local_scratch_dir)
+
+        # Release file handles held by logger
+        if self._logger:
+            close_logger(self._logger)

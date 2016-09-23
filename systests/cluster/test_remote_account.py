@@ -17,8 +17,13 @@ from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
 from ducktape.utils.util import wait_until
 from ducktape.mark.resource import cluster
+from ducktape.mark import matrix
 
 import os
+import pytest
+import random
+import shutil
+import tempfile
 from threading import Thread
 import time
 
@@ -61,35 +66,380 @@ class RemoteAccountTestService(Service):
         self.nodes[0].account.ssh("echo -e -n " + repr(msg) + " >> " + self.log_file)
 
 
-class RemoteAccountTest(Test):
+class GenericService(Service):
+    """Service which doesn't do anything - just a group of nodes, each of which has a scratch directory."""
+    def __init__(self, context, num_nodes):
+        super(GenericService, self).__init__(context, num_nodes)
+        self.worker_scratch_dir = "scratch"
+        for node in self.nodes:
+            node.account.mkdirs(self.worker_scratch_dir)
 
+    def clean_node(self, node):
+        node.account.remove(self.worker_scratch_dir, allow_fail=True)
+
+
+class FileSystemTest(Test):
+    """
+    Note that in an attempt to isolate the file system methods, validation should be done with ssh/shell commands.
+    """
+
+    def setup(self):
+        self.service = GenericService(self.test_context, 1)
+        self.node = self.service.nodes[0]
+        self.scratch_dir = self.service.worker_scratch_dir
+
+    @cluster(num_nodes=1)
+    def create_file_test(self):
+        expected_contents = "hello world"
+        fname = "myfile.txt"
+        fpath = "%s/%s" % (self.scratch_dir, fname)
+
+        self.node.account.create_file(fpath, expected_contents)
+
+        # validate existence and contents
+        self.node.account.ssh("test -f %s" % fpath)
+        contents = "\n".join([l for l in self.node.account.ssh_capture("cat %s" % fpath)])
+        assert contents == expected_contents
+
+        # TODO also check absolute path
+
+    @cluster(num_nodes=1)
+    def mkdir_test(self):
+        dirname = "%s/mydir" % self.scratch_dir
+        self.node.account.mkdir(dirname)
+
+        # TODO - important!! check mode
+        self.node.account.ssh("test -d %s" % dirname, allow_fail=False)
+
+        # mkdir should not succeed if the base directories do not already exist
+        dirname = "%s/a/b/c/d" % self.scratch_dir
+        with pytest.raises(IOError):
+            self.node.account.mkdir(dirname)
+
+        # TODO also check absolute path
+
+    @cluster(num_nodes=1)
+    def mkdirs_nested_test(self):
+        dirname = "%s/a/b/c/d" % self.scratch_dir
+
+        # TODO important!! check mode
+        self.node.account.mkdirs(dirname)
+        self.node.account.ssh("test -d %s" % dirname, allow_fail=False)
+
+        # TODO also check absolute path
+
+    @cluster(num_nodes=1)
+    def open_test(self):
+        """Try opening, writing, reading a file."""
+        fname = "%s/myfile.txt" % self.scratch_dir
+        expected_contents = "hello world\nhooray!"
+        with self.node.account.open(fname, "w") as f:
+            f.write(expected_contents)
+
+        with self.node.account.open(fname, "r") as f:
+            contents = f.read()
+        assert contents == expected_contents
+
+        # Now try opening in append mode
+        append = "hithere"
+        expected_contents = expected_contents + append
+        with self.node.account.open(fname, "a") as f:
+            f.write(append)
+
+        with self.node.account.open(fname, "r") as f:
+            contents = f.read()
+
+        assert contents == expected_contents
+
+    @cluster(num_nodes=1)
+    def exists_file_test(self):
+        """
+        Create various kinds of files and symlinks, verifying that exists works as expected.
+
+        Note that because
+        """
+
+        # create file, test existence with relative and absolute path
+        self.node.account.ssh("touch %s/hi" % self.scratch_dir)
+        assert self.node.account.exists("%s/hi" % self.scratch_dir)
+        # TODO abspath
+
+        # create symlink, test existence with relative and absolute path
+        self.node.account.ssh("ln -s %s/hi %s/hi-link" % (self.scratch_dir, self.scratch_dir))
+        assert self.node.account.exists("%s/hi-link" % self.scratch_dir)
+        # TODO abspath
+
+    def exists_dir_test(self):
+        # check bad path doesn't exist
+        assert not self.node.account.exists("a/b/c/d")
+
+        # create dir, test existence with relative and absolute path
+        dpath = "%s/mydir" % self.scratch_dir
+        self.node.account.ssh("mkdir %s" % dpath)
+        assert self.node.account.exists(dpath)
+        # TODO abspath
+
+        # create symlink, test existence with relative and absolute path
+        self.node.account.ssh("ln -s %s %s/mydir-link" % (dpath, self.scratch_dir))
+        assert self.node.account.exists("%s/mydir-link" % self.scratch_dir)
+        # # TODO abspath
+
+    def remove_test(self):
+        """Test functionality of remove method"""
+        # remove a non-empty directory
+        dpath = "%s/mydir" % self.scratch_dir
+        self.node.account.ssh("mkdir %s" % dpath)
+        self.node.account.ssh("touch %s/hi.txt" % dpath)
+        self.node.account.ssh("test -d %s" % dpath)
+        self.node.account.remove(dpath)
+        self.node.account.ssh("test ! -d %s" % dpath)
+
+        # remove a file
+        fpath = "%s/hello.txt" % self.scratch_dir
+        self.node.account.ssh("echo 'hello world' > %s" % fpath)
+        self.node.account.remove(fpath)
+
+        # remove non-existent path
+        with pytest.raises(RuntimeError):
+            self.node.account.remove("a/b/c/d")
+
+        # remove non-existent path with allow_fail = True should be ok
+        self.node.account.remove("a/b/c/d", allow_fail=True)
+
+
+# Representation of a somewhat arbitrary directory structure for testing copy functionality
+# A key which has a string as its value represents a file
+# A key which has a dict as its value represents a subdirectory
+DIR_STRUCTURE = {
+    "d00": {
+        "another_file": "1\n2\n3\n4\ncats and dogs",
+        "d10": {
+            "fasdf": "lasdf;asfd\nahoppoqnbasnb"
+        },
+        "d11": {
+            "f65": "afasdfsafdsadf"
+        }
+    },
+    "a_file": "hello world!"
+}
+
+
+def make_dir_structure(base_dir, dir_structure, node=None):
+    """Make a file tree starting at base_dir with structure specified by dir_structure.
+
+    if node is None, make the structure locally, else make it on the given node
+    """
+    for k, v in dir_structure.iteritems():
+        if isinstance(v, dict):
+            # it's a subdirectory
+            subdir_name = k
+            subdir_path = os.path.join(base_dir, subdir_name)
+            subdir_structure = v
+
+            if node:
+                node.account.mkdir(subdir_path)
+            else:
+                os.mkdir(subdir_path)
+
+            make_dir_structure(subdir_path, subdir_structure, node)
+        else:
+            # it's a file
+            file_name = k
+            file_path = os.path.join(base_dir, file_name)
+            file_contents = v
+
+            if node:
+                with node.account.open(file_path, "w") as f:
+                    f.write(file_contents)
+            else:
+                with open(file_path, "w") as f:
+                    f.write(file_contents)
+
+
+def verify_dir_structure(base_dir, dir_structure, node=None):
+    """Verify locally or on the given node whether the file subtree at base_dir matches dir_structure."""
+    for k, v in dir_structure.iteritems():
+        if isinstance(v, dict):
+            # it's a subdirectory
+            subdir_name = k
+            subdir_path = os.path.join(base_dir, subdir_name)
+            subdir_structure = v
+
+            if node:
+                assert node.account.isdir(subdir_path)
+            else:
+                assert os.path.isdir(subdir_path)
+
+            verify_dir_structure(subdir_path, subdir_structure, node)
+        else:
+            # it's a file
+            file_name = k
+            file_path = os.path.join(base_dir, file_name)
+            expected_file_contents = v
+
+            if node:
+                with node.account.open(file_path, "r") as f:
+                    contents = f.read()
+            else:
+                with open(file_path, "r") as f:
+                    contents = f.read()
+            assert expected_file_contents == contents
+
+
+class CopyToAndFroTest(Test):
+    """These tests check copy_to, and copy_from functionality."""
+    def setup(self):
+        self.service = GenericService(self.test_context, 1)
+        self.node = self.service.nodes[0]
+        self.remote_scratch_dir = self.service.worker_scratch_dir
+
+        self.local_temp_dir = tempfile.mkdtemp()
+
+        self.logger.info("local_temp_dir: %s" % self.local_temp_dir)
+        self.logger.info("node: %s" % str(self.node.account))
+
+    @cluster(num_nodes=1)
+    def test_copy_to_dir_with_rename(self):
+        # make dir structure locally
+        make_dir_structure(self.local_temp_dir, DIR_STRUCTURE)
+        dest = os.path.join(self.remote_scratch_dir, "renamed")
+        self.node.account.copy_to(self.local_temp_dir, dest)
+
+        # now validate the directory structure on the remote machine
+        verify_dir_structure(dest, DIR_STRUCTURE, node=self.node)
+
+    @cluster(num_nodes=1)
+    def test_copy_to_dir_as_subtree(self):
+        # copy directory "into" a directory; this should preserve the original directoryname
+        make_dir_structure(self.local_temp_dir, DIR_STRUCTURE)
+        self.node.account.copy_to(self.local_temp_dir, self.remote_scratch_dir)
+        local_temp_dir_name = self.local_temp_dir
+        if local_temp_dir_name.endswith(os.path.sep):
+            local_temp_dir_name = local_temp_dir_name[:-len(os.path.sep)]
+
+        verify_dir_structure(os.path.join(self.remote_scratch_dir, local_temp_dir_name), DIR_STRUCTURE)
+
+    @cluster(num_nodes=1)
+    def test_copy_from_dir_with_rename(self):
+        # make dir structure remotely
+        make_dir_structure(self.remote_scratch_dir, DIR_STRUCTURE, node=self.node)
+        dest = os.path.join(self.local_temp_dir, "renamed")
+        self.node.account.copy_from(self.remote_scratch_dir, dest)
+
+        # now validate the directory structure locally
+        verify_dir_structure(dest, DIR_STRUCTURE)
+
+    @cluster(num_nodes=1)
+    def test_copy_from_dir_as_subtree(self):
+        # copy directory "into" a directory; this should preserve the original directoryname
+        make_dir_structure(self.remote_scratch_dir, DIR_STRUCTURE, node=self.node)
+        self.node.account.copy_from(self.remote_scratch_dir, self.local_temp_dir)
+
+        verify_dir_structure(os.path.join(self.local_temp_dir, "scratch"), DIR_STRUCTURE)
+
+    def teardown(self):
+        # allow_fail in case scratch dir was not successfully created
+        if os.path.exists(self.local_temp_dir):
+            shutil.rmtree(self.local_temp_dir)
+
+
+class CopyDirectTest(Test):
+
+    def setup(self):
+        self.service = GenericService(self.test_context, 2)
+        self.src_node, self.dest_node = self.service.nodes
+        self.remote_scratch_dir = self.service.worker_scratch_dir
+
+        self.logger.info("src_node: %s" % str(self.src_node.account))
+        self.logger.info("dest_node: %s" % str(self.dest_node.account))
+
+    @cluster(num_nodes=2)
+    def test_copy_file(self):
+        """Verify that a file can be correctly copied directly between nodes.
+
+        This should work with or without the recursive flag.
+        """
+        file_path = os.path.join(self.remote_scratch_dir, "myfile.txt")
+        expected_contents = "123"
+        self.src_node.account.create_file(file_path, expected_contents)
+
+        self.src_node.account.copy_between(file_path, file_path, self.dest_node)
+
+        assert self.dest_node.account.isfile(file_path)
+        with self.dest_node.account.open(file_path, "r") as f:
+            contents = f.read()
+            assert expected_contents == contents
+
+    @cluster(num_nodes=2)
+    def test_copy_directory(self):
+        """Verify that a directory can be correctly copied directly between nodes.
+        """
+
+        make_dir_structure(self.remote_scratch_dir, DIR_STRUCTURE, node=self.src_node)
+        self.src_node.account.copy_between(self.remote_scratch_dir, self.remote_scratch_dir, self.dest_node)
+        verify_dir_structure(os.path.join(self.remote_scratch_dir, "scratch"), DIR_STRUCTURE, node=self.dest_node)
+
+
+class RemoteAccountTest(Test):
     def __init__(self, test_context):
         super(RemoteAccountTest, self).__init__(test_context)
         self.account_service = RemoteAccountTestService(test_context)
 
-    def setUp(self):
+    def setup(self):
         self.account_service.start()
+
+    @cluster(num_nodes=1)
+    def test_ssh_capture_combine_stderr(self):
+        """Test that ssh_capture correctly captures stderr and stdout from remote process.
+        """
+        node = self.account_service.nodes[0]
+
+        # swap stdout and stderr in the echo process
+        cmd = "for i in $(seq 1 5); do echo $i 3>&1 1>&2 2>&3; done"
+
+        ssh_output = node.account.ssh_capture(cmd, combine_stderr=True)
+        bad_ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)  # Same command, but don't capture stderr
+
+        lines = [int(l.strip()) for l in ssh_output]
+        assert lines == [i for i in range(1, 6)]
+        bad_lines = [int(l.strip()) for l in bad_ssh_output]
+        assert bad_lines == []
+
+    @cluster(num_nodes=1)
+    def test_ssh_output_combine_stderr(self):
+        """Test that ssh_output correctly captures stderr and stdout from remote process.
+        """
+        node = self.account_service.nodes[0]
+
+        # swap stdout and stderr in the echo process
+        cmd = "for i in $(seq 1 5); do echo $i 3>&1 1>&2 2>&3; done"
+
+        ssh_output = node.account.ssh_output(cmd, combine_stderr=True)
+        bad_ssh_output = node.account.ssh_output(cmd, combine_stderr=False)  # Same command, but don't capture stderr
+
+        assert ssh_output == "\n".join([str(i) for i in range(1, 6)]) + "\n"
+        assert bad_ssh_output == ""
 
     @cluster(num_nodes=1)
     def test_ssh_capture(self):
         """Test that ssh_capture correctly captures output from ssh subprocess.
-        Also, verify that the ssh command is run before the user iterates through
-        the generator returned by ssh_capture.
         """
         node = self.account_service.nodes[0]
-        hello_file = os.path.join(self.account_service.temp_dir, "hello.txt")
-
-        assert node.account.ssh("test -f %s" % hello_file, allow_fail=True) != 0
-        cmd = "touch %s; for i in $(seq 1 5); do echo $i; done" % hello_file
-        ssh_output = node.account.ssh_capture(cmd)
-
-        # Here we check that the remote command gets run before we iterate through the output from the process
-        # Use wait_until because it can a little time for the subprocess to get scheduled and run
-        wait_until(lambda: node.account.ssh("test -f %s" % hello_file, allow_fail=True) == 0,
-            timeout_sec=2, err_msg="Timed out waiting for %s to be created." % hello_file)
+        cmd = "for i in $(seq 1 5); do echo $i; done"
+        ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)
 
         lines = [int(l.strip()) for l in ssh_output]
         assert lines == [i for i in range(1, 6)]
+
+    @cluster(num_nodes=1)
+    def test_ssh_output(self):
+        """Test that ssh_output correctly captures output from ssh subprocess.
+        """
+        node = self.account_service.nodes[0]
+        cmd = "for i in $(seq 1 5); do echo $i; done"
+        ssh_output = node.account.ssh_output(cmd, combine_stderr=False)
+
+        assert ssh_output == "\n".join([str(i) for i in range(1, 6)]) + "\n", ssh_output
 
     @cluster(num_nodes=1)
     def test_monitor_log(self):
@@ -140,3 +490,54 @@ class RemoteAccountTest(Test):
             end = time.time()
             assert end - start > timeout, "Should have waited full timeout period while monitoring the log"
 
+
+class TestIterWrapper(Test):
+    def setup(self):
+        self.line_num = 6
+        self.eps = 0.01
+
+        self.service = GenericService(self.test_context, num_nodes=1)
+        self.node = self.service.nodes[0]
+
+        self.temp_file = "ducktape-test-" + str(random.randint(0, 100000))
+        contents = ""
+        for i in range(self.line_num):
+            contents += "%d\n" % i
+
+        self.node.account.create_file(self.temp_file, contents)
+
+    def test_iter_wrapper(self):
+        """Test has_next functionality on the returned iterable item."""
+        output = self.node.account.ssh_capture("cat " + self.temp_file)
+        for i in range(self.line_num):
+            assert output.has_next()  # with timeout in case of hang
+            assert output.next().strip() == str(i)
+        start = time.time()
+        assert output.has_next() == False
+        stop = time.time()
+        assert stop - start < self.eps, "has_next() should return immediately"
+
+    def test_iter_wrapper_timeout(self):
+        """Test has_next with timeout"""
+        output = self.node.account.ssh_capture("tail -F " + self.temp_file)
+        # allow command to be executed before we check output with timeout_sec = 0
+        time.sleep(.5)
+        for i in range(self.line_num):
+            assert output.has_next(timeout_sec=0)
+            assert output.next().strip() == str(i)
+
+        timeout = .25
+        start = time.time()
+        # This check will last for the duration of the timeout because the the remote tail -F process
+        # remains running, and the output stream is not closed.
+        assert output.has_next(timeout_sec=timeout) == False
+        stop = time.time()
+        assert (stop - start >= timeout) and (stop - start) < timeout + self.eps, \
+            "has_next() should return right after %s second" % str(timeout)
+
+    def teardown(self):
+        # tail -F call above will leave stray processes, so clean up
+        cmd = "for p in $(ps ax | grep -v grep | grep \"%s\" | awk '{print $1}'); do kill $p; done" % self.temp_file
+        self.node.account.ssh(cmd, allow_fail=True)
+
+        self.node.account.ssh("rm -f " + self.temp_file, allow_fail=True)

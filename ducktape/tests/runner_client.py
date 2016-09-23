@@ -69,7 +69,6 @@ class RunnerClient(object):
         os.kill(os.getpid(), signal.SIGINT)
 
     def _collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
-        # TODO - different logger for TestLoader object
         loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)
         loaded_context_list = loader.discover(directory, file_name, cls_name, method_name)
 
@@ -119,6 +118,7 @@ class RunnerClient(object):
             self.setup_test()
 
             data = self.run_test()
+
             test_status = PASS
             self.log(logging.INFO, "PASS")
 
@@ -131,6 +131,7 @@ class RunnerClient(object):
 
         finally:
             self.teardown_test(teardown_services=not self.session_context.no_teardown)
+
             stop_time = time.time()
 
             result = TestResult(
@@ -149,15 +150,12 @@ class RunnerClient(object):
             test_reporter.report()
 
         # Tell the server we are finished
-        try:
-            self.send(self.message.finished(result=result))
-        except Exception as e:
-            self.logger.error("Problem sending FINISHED message:", str(e))
+        self._do_safely(lambda: self.send(self.message.finished(result=result)), "Problem sending FINISHED message:")
 
     def setup_test(self):
         """start services etc"""
         self.log(logging.INFO, "Setting up...")
-        self.test.setUp()
+        self.test.setup()
 
     def run_test(self):
         """Run the test!
@@ -168,6 +166,12 @@ class RunnerClient(object):
         self.log(logging.INFO, "Running...")
         return self.test_context.function(self.test)
 
+    def _do_safely(self, action, err_msg):
+        try:
+            action()
+        except BaseException as e:
+            self.log(logging.WARN, err_msg + " " + e.message + "\n" + traceback.format_exc(limit=16))
+
     def teardown_test(self, teardown_services=True):
         """teardown method which stops services, gathers log data, removes persistent state, and releases cluster nodes.
 
@@ -175,42 +179,28 @@ class RunnerClient(object):
         should stop if a keyboard interrupt is caught.
         """
         self.log(logging.INFO, "Tearing down...")
-        exceptions = []
-        if hasattr(self.test_context, 'services'):
-            services = self.test_context.services
+        if not self.test:
+            self.log(logging.WARN, "%s failed to instantiate" % self.test_id)
+            self.test_context.close()
+            return
 
+        services = self.test_context.services
+
+        if teardown_services:
+            self._do_safely(self.test.teardown, "Error running teardown method:")
             # stop services
-            if teardown_services:
-                try:
-                    services.stop_all()
-                except BaseException as e:
-                    exceptions.append(e)
-                    self.log(logging.WARN, "Error stopping services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+            self._do_safely(services.stop_all, "Error stopping services:")
 
-            # always collect service logs
-            try:
-                self.test.copy_service_logs()
-            except BaseException as e:
-                exceptions.append(e)
-                self.log(logging.WARN, "Error copying service logs: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+        # always collect service logs whether or not we tear down
+        # logs are typically removed during "clean" phase, so collect logs before cleaning
+        self._do_safely(self.test.copy_service_logs, "Error copying service logs:")
 
-            # clean up stray processes and persistent state
-            if teardown_services:
-                try:
-                    services.clean_all()
-                except BaseException as e:
-                    exceptions.append(e)
-                    self.log(logging.WARN, "Error cleaning services: %s" % e.message + "\n" + traceback.format_exc(limit=16))
+        # clean up stray processes and persistent state
+        if teardown_services:
+            self._do_safely(services.clean_all, "Error cleaning services:")
 
-        try:
-            self.test.free_nodes()
-        except BaseException as e:
-            exceptions.append(e)
-            self.log(logging.WARN, "Error freeing nodes: %s" % e.message + "\n" + traceback.format_exc(limit=16))
-
-        # Remove reference to services. This is important to prevent potential memory leaks if users write services
-        # which themselves have references to large memory-intensive objects
-        del self.test_context.services
+        self._do_safely(self.test.free_nodes, "Error freeing nodes:")
+        self.test_context.close()
 
     def log(self, log_level, msg, *args, **kwargs):
         """Log to the service log and the test log of the current test."""
@@ -251,27 +241,22 @@ class Sender(object):
         retries_left = Sender.NUM_RETRIES
 
         while retries_left > 0:
-            self.logger.debug("client: sending event: " + str(event))
             serialized_event = self.serde.serialize(event)
             self.socket.send(serialized_event)
             retries_left -= 1
             waiting_for_reply = True
 
             while waiting_for_reply:
-                self.logger.debug("polling for response")
                 sockets = dict(self.poller.poll(Sender.REQUEST_TIMEOUT_MS))
 
                 if sockets.get(self.socket) == zmq.POLLIN:
-                    self.logger.debug("POLLIN")
                     reply = self.socket.recv()
                     if reply:
-                        self.logger.debug("received " + str(self.serde.deserialize(reply)))
                         return self.serde.deserialize(reply)
                     else:
                         # send another request...
                         break
                 else:
-                    self.logger.debug("NO-POLLIN")
                     self.close()
                     self._init_socket()
                     waiting_for_reply = False
