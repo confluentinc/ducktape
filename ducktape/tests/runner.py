@@ -34,6 +34,8 @@ from ducktape.tests.result import FAIL, TestResult
 
 class Receiver(object):
     def __init__(self, min_port, max_port):
+        assert min_port <= max_port, "Expected min_port <= max_port, but instead: min_port: %s, max_port %s" % \
+                                     (min_port, max_port)
         self.port = None
         self.min_port = min_port
         self.max_port = max_port
@@ -46,7 +48,7 @@ class Receiver(object):
     def start(self):
         """Bind to a random port in the range [self.min_port, self.max_port], inclusive
         """
-        # note: bind_to_random port may retry the same port multiple times
+        # note: bind_to_random_port may retry the same port multiple times
         self.port = self.socket.bind_to_random_port(addr="tcp://*", min_port=self.min_port, max_port=self.max_port + 1,
                                                     max_tries=2 * (self.max_port + 1 - self.min_port))
 
@@ -63,7 +65,6 @@ class Receiver(object):
 
 
 class TestRunner(object):
-    """Runs tests serially."""
 
     # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
     stop_testing = False
