@@ -57,6 +57,7 @@ class Service(TemplateRenderer):
                           when start() is called, or when allocate_nodes() is called, whichever happens first.
         """
         super(Service, self).__init__(*args, **kwargs)
+        self._initialized = False
         self.num_nodes = num_nodes
         self.context = context
 
@@ -66,10 +67,13 @@ class Service(TemplateRenderer):
         # Every time a service instance is created, it registers itself with its
         # context object. This makes it possible for external mechanisms to clean up
         # after the service if something goes wrong.
+        #
+        # Note: Allocate nodes *before* registering self with the service registry
         self.context.services.append(self)
 
         # Each service instance has its own local scratch directory on the test driver
         self._local_scratch_dir = None
+        self._initialized = True
 
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
@@ -103,9 +107,15 @@ class Service(TemplateRenderer):
                 context.services[4]._order == 0  # "0th" MirrorMaker instance
         """
         if hasattr(self.context, "services"):
-            same_services = [s for s in self.context.services if type(s) == type(self)]
-            index = same_services.index(self)
-            assert index >= 0
+            same_services = [id(s) for s in self.context.services if type(s) == type(self)]
+
+            if self not in self.context.services and not self._initialized:
+                # It's possible that _order will be invoked in the constructor *before* self has been registered with
+                # the service registry (aka self.context.services).
+                return len(same_services)
+
+            # Note: index raises ValueError if the item is not in the list
+            index = same_services.index(id(self))
             return index
         else:
             return 0
@@ -158,7 +168,7 @@ class Service(TemplateRenderer):
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.logger = self.logger
 
-        self.logger.debug("Successfully allocated %d nodes to %s" % (self.num_nodes, self.__class__.__name__))
+        self.logger.debug("Successfully allocated %d nodes to %s" % (self.num_nodes, self.who_am_i()))
 
     def start(self):
         """Start the service on all nodes."""
