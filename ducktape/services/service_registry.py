@@ -33,9 +33,7 @@ class ServiceRegistry(object):
         self._nodes[id(service)] = [str(n.account) for n in service.nodes]
 
     def to_json(self):
-        return {
-            self._services[k].service_id: self._nodes[k] for k in self._services
-        }
+        return [self._services[k].to_json() for k in self._services]
 
     def stop_all(self):
         """Stop all currently registered services in the reverse of the order in which they were added.
