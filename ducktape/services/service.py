@@ -17,6 +17,7 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.template import TemplateRenderer
 from ducktape.errors import TimeoutError
 
+import os
 import shutil
 import tempfile
 import time
@@ -57,12 +58,24 @@ class Service(TemplateRenderer):
                           when start() is called, or when allocate_nodes() is called, whichever happens first.
         """
         super(Service, self).__init__(*args, **kwargs)
+        # Keep track of significant events in the lifetime of this service
+        self._init_time = time.time()
+        self._start_time = -1
+        self._start_duration_seconds = -1
+        self._stop_time = -1
+        self._stop_duration_seconds = -1
+        self._clean_time = -1
+
         self._initialized = False
         self.num_nodes = num_nodes
         self.context = context
 
         self.nodes = []
         self.allocate_nodes()
+
+        # Keep track of which nodes nodes were allocated to this service, even after nodes are freed
+        # Note: only keep references to representations of the nodes, not the actual node objects themselves
+        self._nodes_formerly_allocated = [str(node.account) for node in self.nodes]
 
         # Every time a service instance is created, it registers itself with its
         # context object. This makes it possible for external mechanisms to clean up
@@ -173,6 +186,9 @@ class Service(TemplateRenderer):
     def start(self):
         """Start the service on all nodes."""
         self.logger.info("%s: starting service" % self.who_am_i())
+        if self._start_time < 0:
+            # Set self._start_time only the first time self.start is invoked
+            self._start_time = time.time()
 
         self.logger.debug(self.who_am_i() + ": killing processes and attempting to clean up before starting")
         for node in self.nodes:
@@ -193,6 +209,9 @@ class Service(TemplateRenderer):
         for node in self.nodes:
             self.logger.debug("%s: starting node" % self.who_am_i(node))
             self.start_node(node)
+
+        if self._start_duration_seconds < 0:
+            self._start_duration_seconds = time.time() - self._start_time
 
     def start_node(self, node):
         """Start service process(es) on the given node."""
@@ -229,10 +248,13 @@ class Service(TemplateRenderer):
         """Stop service processes on each node in this service.
         Subclasses must override stop_node.
         """
+        self._stop_time = time.time()  # The last time stop is invoked
         self.logger.info("%s: stopping service" % self.who_am_i())
         for node in self.nodes:
             self.logger.info("%s: stopping node" % self.who_am_i(node))
             self.stop_node(node)
+
+        self._stop_duration_seconds = time.time() - self._stop_time
 
     def stop_node(self, node):
         """Halt service process(es) on this node."""
@@ -242,6 +264,7 @@ class Service(TemplateRenderer):
         """Clean up persistent state on each node - e.g. logs, config files etc.
         Subclasses must override clean_node.
         """
+        self._clean_time = time.time()
         self.logger.info("%s: cleaning service" % self.who_am_i())
         for node in self.nodes:
             self.logger.info("%s: cleaning node" % self.who_am_i(node))
@@ -299,3 +322,20 @@ class Service(TemplateRenderer):
             svc.wait()
         for svc in args:
             svc.stop()
+
+    def to_json(self):
+        return {
+            "cls_name": self.__class__.__name__,
+            "module_name": self.__module__,
+
+            "lifecycle": {
+                "init_time": self._init_time,
+                "start_time": self._start_time,
+                "start_duration_seconds": self._start_duration_seconds,
+                "stop_time": self._stop_time,
+                "stop_duration_seconds": self._stop_duration_seconds,
+                "clean_time": self._clean_time
+            },
+            "service_id": self.service_id,
+            "nodes": self._nodes_formerly_allocated
+        }

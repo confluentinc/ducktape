@@ -74,6 +74,10 @@ class GenericService(Service):
         for node in self.nodes:
             node.account.mkdirs(self.worker_scratch_dir)
 
+    def stop_node(self, node):
+        # noop
+        pass
+
     def clean_node(self, node):
         node.account.remove(self.worker_scratch_dir, allow_fail=True)
 
