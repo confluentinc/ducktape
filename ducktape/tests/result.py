@@ -21,6 +21,7 @@ from ducktape.tests.test import TestContext
 from ducktape.json_serializable import DucktapeJSONEncoder
 from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.utils.util import ducktape_version
 from ducktape.tests.status import PASS, FAIL, IGNORE
 
 
@@ -204,6 +205,7 @@ class TestResults(object):
             parallelism = sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds
 
         return {
+            "ducktape_version": ducktape_version(),
             "session_context": self.session_context,
             "run_time_seconds": self.run_time_seconds,
             "start_time": self.start_time,
