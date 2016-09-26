@@ -24,6 +24,7 @@
                 System Test Report
               </h1>
               <p>Test Session: {this.props.heading.session}</p>
+              <p>Ducktape Version: {this.props.heading.ducktape_version}</p>
             </div>
           );
         }
@@ -178,6 +179,7 @@
       }];
       
       HEADING={
+        "ducktape_version": '%(ducktape_version)s',
         "session": '%(session)s'
       };
 

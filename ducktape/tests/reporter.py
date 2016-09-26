@@ -19,6 +19,7 @@ import shutil
 import pkg_resources
 
 from ducktape.utils.terminal_size import get_terminal_size
+from ducktape.utils.util import ducktape_version
 from ducktape.tests.status import PASS, FAIL, IGNORE
 from ducktape.json_serializable import DucktapeJSONEncoder
 
@@ -100,12 +101,13 @@ class SimpleSummaryReporter(SummaryReporter):
         header_lines = [
             "=" * self.width,
             "SESSION REPORT (ALL TESTS)",
-            "session_id: %s" % self.results.session_context.session_id,
-            "run time:   %s" % format_time(self.results.run_time_seconds),
-            "tests run:  %d" % len(self.results),
-            "passed:     %d" % self.results.num_passed,
-            "failed:     %d" % self.results.num_failed,
-            "ignored:    %d" % self.results.num_ignored,
+            "ducktape version: %s" % ducktape_version(),
+            "session_id:       %s" % self.results.session_context.session_id,
+            "run time:         %s" % format_time(self.results.run_time_seconds),
+            "tests run:        %d" % len(self.results),
+            "passed:           %d" % self.results.num_passed,
+            "failed:           %d" % self.results.num_failed,
+            "ignored:          %d" % self.results.num_ignored,
             "=" * self.width
         ]
 
@@ -197,6 +199,7 @@ class HTMLSummaryReporter(SummaryReporter):
             result_string += ","
 
         args = {
+            'ducktape_version': ducktape_version(),
             'num_tests': num_tests,
             'num_passes': self.results.num_passed,
             'num_failures': self.results.num_failed,
