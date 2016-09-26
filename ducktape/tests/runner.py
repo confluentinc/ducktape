@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections import namedtuple
+import copy
 import logging
 import multiprocessing
 import os
@@ -32,6 +33,7 @@ from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
+from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
 
 
 class Receiver(object):
@@ -298,6 +300,17 @@ class TestRunner(object):
 
         # Join on the finished test process
         self._client_procs[test_key].join()
+
+        # Report partial result summaries - it is helpful to have partial test reports available if the
+        # ducktape process is killed with a SIGKILL partway through
+        test_results = copy.copy(self.results)  # shallow copy
+        reporters = [
+            SimpleFileSummaryReporter(test_results),
+            HTMLSummaryReporter(test_results),
+            JSONReporter(test_results)
+        ]
+        for r in reporters:
+            r.report()
 
         if self._should_print_separator:
             terminal_width, y = get_terminal_size()
