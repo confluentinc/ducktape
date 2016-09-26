@@ -14,7 +14,6 @@
 
 import json
 import os
-import statistics
 import time
 
 from ducktape.tests.test import TestContext
@@ -188,7 +187,7 @@ class TestResults(object):
             }
 
         return {
-            "mean": statistics.mean(num_list),
+            "mean": sum(num_list) / float(len(num_list)),
             "min": min(num_list),
             "max": max(num_list)
         }
