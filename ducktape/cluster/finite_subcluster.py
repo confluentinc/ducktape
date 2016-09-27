@@ -28,7 +28,8 @@ class FiniteSubcluster(Cluster):
         return len(self.nodes)
 
     def alloc(self, num_nodes):
-        assert num_nodes <= self.num_available_nodes()
+        assert num_nodes <= self.num_available_nodes(), \
+            "num_nodes: %s, self.num_available_nodes(): %s" % (num_nodes, self.num_available_nodes())
 
         allocated_nodes = []
         for _ in range(num_nodes):
