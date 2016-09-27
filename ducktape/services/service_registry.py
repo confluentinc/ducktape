@@ -28,6 +28,9 @@ class ServiceRegistry(object):
     def __iter__(self):
         return iter(self._services.values())
 
+    def __repr__(self):
+        return str(self._services.values())
+
     def append(self, service):
         self._services[id(service)] = service
         self._nodes[id(service)] = [str(n.account) for n in service.nodes]
