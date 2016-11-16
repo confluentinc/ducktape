@@ -12,19 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
 from ducktape.errors import DucktapeError
 
-import collections, json, os, subprocess
+import collections, json, os, subprocess, six
+
 
 class DockerCluster(Cluster):
     """
     An implementation of Cluster that uses Docker containers.
     """
 
-    def __init__(self, cluster_file=None):
+    def __init__(self):
         super(DockerCluster, self).__init__()
 
         cids = subprocess.check_output('docker ps -q'.split(), stderr=subprocess.STDOUT).split()
@@ -76,56 +77,87 @@ class DockerCluster(Cluster):
 
 def validate_config(config):
     DEFAULTS = {
+        "machine": "ducktape",
+        # docker-machine settings are prefixed with "machine-"
+        "machine-driver": "virtualbox",
+
         "image": "kafkatest",
         "dockerfile": "Dockerfile",
         "network": "kafkatestnet",
     }
-    REQUIRED_KEYS = DEFAULTS.keys() + ["size"]
+    REQUIRED_KEYS = list(DEFAULTS.keys()) + ["size"]
 
-    for k,v_default in DEFAULTS.iteritems():
+    for k,v_default in six.iteritems(DEFAULTS):
         config[k] = config.get(k, v_default)
     for k in REQUIRED_KEYS:
         v = config.get(k, None)
         if v is None or v == "":
             raise DucktapeError("Invalid config: empty value for required key " + k)
 
+
+def ensure_machine(config):
+    """
+    Tries to ensure that if a docker daemon is not available, that a docker machine is started to provide one.
+    """
+
+    # First try to check if there is an accessible docker daemon running.
+    try:
+        status(config['size'])
+        return
+    except subprocess.CalledProcessError:
+        pass  # Fall through to create machine
+
+    print("Docker daemon not found, trying to create docker-machine")
+    try:
+        machine_keys = [k.split('machine-', 1)[1] for k in config.iterkeys() if k.startswith('machine-')]
+        machine_flags = ['--%s=%s' % (k, config[k]) for k in machine_keys]
+        subprocess.check_call(['docker-machine', 'create'] + machine_flags + [config['machine']])
+    except subprocess.CalledProcessError as e:
+        raise DucktapeError("Failed to create docker-machine", e)
+
+
 def build(dockerfile, image):
-    print "Building Docker image", image
+    print("Building Docker image", image)
     try:
         subprocess.check_call(['docker', 'build', '-f', dockerfile, '-t', image, '.'])
     except subprocess.CalledProcessError as e:
         raise DucktapeError("Failed to build Docker image", e)
 
+
 def ensure_network(name):
-    print "Checking whether network", name, "exists"
+    print("Checking whether network", name, "exists")
     try:
         subprocess.check_output(['docker', 'network', 'inspect', name], stderr=subprocess.STDOUT)
         return
     except subprocess.CalledProcessError:
         pass  # Fall through to create the network
 
-    print "Creating network", name
+    print("Creating network", name)
     try:
         subprocess.check_output(['docker', 'network', 'create', '--driver=bridge', name], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         raise DucktapeError("Failed to validate or create Docker network", e)
 
+
 def worker_names(count):
     return ["worker" + str(i) for i in range(count)]
 
+
 def up(image, network, size):
-    print "Starting cluster with of", size, image, "containers on", network
+    print("Starting cluster of", size, image, "containers on", network)
     statuses = status(size)
 
     for name in worker_names(size):
-        if statuses[name]["status"] == "running": continue # FIXME paused, other non-running states that shouldn't just create a new container?
+        if statuses[name]["status"] == "running":
+            continue  # FIXME paused, other non-running states that shouldn't just create a new container?
         subprocess.check_output(['docker', 'run',
                                  '--net=' + network,
                                  '--detach',
                                  '--publish-all',
-                                 '--volume=%s:/kafka-src' % os.getcwd(), # FIXME
+                                 '--volume=%s:/kafka-src' % os.getcwd(),  # FIXME
                                  '--name=' + name,
                                  image])
+
 
 def status(size):
     """Get list of currently running worker containers."""
@@ -143,12 +175,14 @@ def status(size):
     active_indexes = {name:idx for idx,name in enumerate(active_names_ordered)}
     return {name: {"status": cinfos[active_indexes[name]]["State"]["Status"]} if name in active_indexes else unstarted_state for name in worker_names(size)}
 
+
 def print_status(size):
     statuses = status(size)
-    print "Name\tStatus"
+    print("Name\tStatus")
     for name in sorted(statuses.keys()):
         s = statuses[name]
-        print "%s\t%s" % (name, s["status"])
+        print("%s\t%s" % (name, s["status"]))
+
 
 def down(size):
     """
@@ -158,6 +192,7 @@ def down(size):
     """
     nodes = status(size)
     subprocess.check_output(['docker', 'kill'] + nodes.keys())
+
 
 def main():
     """ducktape-docker - control program for Docker clusters used for Ducktape tests
@@ -192,12 +227,13 @@ def main():
     try:
         config = json.load(open('.docker-cluster'))
     except IOError:
-        print "Couldn't find .docker-cluster configuration file."
+        print("Couldn't find .docker-cluster configuration file.")
         sys.exit(1)
 
     validate_config(config)
+    ensure_machine(config)
     build(config["dockerfile"], config["image"])
     ensure_network(config["network"])
     up(config["image"], config["network"], config["size"])
     print_status(config["size"])
-    #down(config["size"])
+    down(config["size"])
