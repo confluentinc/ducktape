@@ -15,9 +15,11 @@
 from __future__ import absolute_import
 
 from .json import JsonCluster
-import os
 import json
+import os
+from .remoteaccount import RemoteAccountSSHConfig, RemoteAccount
 import subprocess
+from ducktape.json_serializable import DucktapeJSONEncoder
 
 
 class VagrantCluster(JsonCluster):
@@ -53,61 +55,49 @@ class VagrantCluster(JsonCluster):
 
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
-            nodes = [{"hostname": node_account.hostname,
-                      "ssh_hostname": node_account.ssh_hostname,
-                      "user": node_account.user,
-                      "ssh_args": node_account.ssh_args,
-                      "externally_routable_ip": node_account.externally_routable_ip}
-                      for node_account in self.available_nodes]
+            nodes = [
+                        {
+                            "ssh_config": node_account.ssh_config,
+                            "externally_routable_ip": node_account.externally_routable_ip
+                        }
+                        for node_account in self.available_nodes
+                    ]
             cluster_json["nodes"] = nodes
-            json.dump(cluster_json, open(cluster_file, 'w+'), indent=2, separators=(',', ': '), sort_keys=True)
+            with open(cluster_file, 'w+') as fd:
+                json.dump(cluster_json, fd, cls=DucktapeJSONEncoder, indent=2, separators=(',', ': '), sort_keys=True)
+
+        # Release any ssh clients used in querying the nodes for metadata
+        for node_account in self.available_nodes:
+            node_account.close()
 
     def _get_nodes_from_vagrant(self):
+        ssh_config_info, error = self._vagrant_ssh_config()
+
         nodes = []
-        hostname, ssh_hostname, username, flags = None, None, None, ""
-        # Parse ssh-config info on each running vagrant virtual machine into json
-        (ssh_config_info, error) = self._vagrant_ssh_config()
-        for line in ssh_config_info.split("\n"):
-            line = line.strip()
-            if len(line.strip()) == 0:
-                if hostname is not None:
-                    nodes.append({
-                        "hostname": hostname,
-                        "ssh_hostname": ssh_hostname,
-                        "user": username,
-                        "ssh_args": flags,
-                    })
-                    hostname, ssh_hostname, username, flags = None, None, None, ""
-                continue
+        node_info_arr = ssh_config_info.split("\n\n")
+        node_info_arr = [ninfo.strip() for ninfo in node_info_arr if ninfo.strip()]
+
+        for ninfo in node_info_arr:
+            ssh_config = RemoteAccountSSHConfig.from_string(ninfo)
+
             try:
-                key, val = line.split()
-            except ValueError:
-                # Sometimes Vagrant includes extra messages in the output that need to be ignored
-                continue
-            if key == "Host":
-                hostname = val
-            elif key == "HostName":
-                # This needs to be handled carefully because of the way SSH in Vagrant is setup. We don't want to rely
-                # on the Vagrant VM's hostname (e.g. 'worker1') having been added to the driver host's /etc/hosts file.
-                # This is why we use the output of 'vagrant ssh-config'. But that means we need to distinguish between
-                # the hostname and the value of hostname we use for SSH commands. We try to satisfy all use cases and
-                # keep things simple by a) storing the hostname the user probably expects above (the "Host" branch), b)
-                # saving the real value we use for running the SSH command in a place that's accessible and c) including
-                # the HostName as an SSH option, which overrides the name specified on the command line. The last part
-                # means that running ssh vagrant@worker1 -o 'HostName 127.0.0.1' -o 'Port 2222' will actually use
-                # 127.0.0.1 instead of worker1 as the hostname, but we'll be able to use the hostname worker1 pretty
-                # much everywhere else.
-                ssh_hostname = val
-                flags += "-o '" + line + "' "
-            elif key == "User":
-                username = val
-            else:
-                flags += "-o '" + line + "' "
+                account = RemoteAccount(ssh_config=ssh_config)
+                externally_routable_ip = self._externally_routable_ip(account)
+            finally:
+                account.close()
+                del account
+
+            nodes.append({
+                "ssh_config": ssh_config.to_json(),
+                "externally_routable_ip": externally_routable_ip
+            })
+
         return nodes
 
     def _vagrant_ssh_config(self):
-        return subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                close_fds=True).communicate()
+        ssh_config_info, error = subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE,
+                                                  stderr=subprocess.PIPE, close_fds=True).communicate()
+        return ssh_config_info, error
 
     @property
     def is_aws(self):
@@ -121,6 +111,7 @@ class VagrantCluster(JsonCluster):
             output, _ = proc.communicate()
             self._is_aws = output.find("aws") >= 0
         return self._is_aws
+
     def _externally_routable_ip(self, node_account):
         if self.is_aws:
             cmd = "/sbin/ifconfig eth0 "
@@ -130,4 +121,3 @@ class VagrantCluster(JsonCluster):
 
         output = "".join(node_account.ssh_capture(cmd))
         return output.strip()
-

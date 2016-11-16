@@ -46,5 +46,8 @@ class ConsoleDefaults(object):
     # Log this to indicate a test is misbehaving to help end user find which test is at fault
     BAD_TEST_MESSAGE = "BAD_TEST"
 
-
+    # Ducktape will try to pick a random open port in the range [TEST_DRIVER_PORT_MIN, TEST_DRIVER_PORT_MAX]
+    # this range is *inclusive*
+    TEST_DRIVER_MIN_PORT = 5556
+    TEST_DRIVER_MAX_PORT = 5656
 

@@ -32,6 +32,9 @@ def create_ducktape_parser():
     parser.add_argument("--compress", action="store_true", help="compress remote logs before collection.")
     parser.add_argument("--cluster", action="store", default=ConsoleDefaults.CLUSTER_TYPE,
                         help="cluster class to use to allocate nodes for tests.")
+    parser.add_argument("--default-num-nodes", action="store", type=int, default=None,
+                        help="Global hint for cluster usage. A test without the @cluster annotation will "
+                        "default to this value for expected cluster usage.")
     parser.add_argument("--cluster-file", action="store", default=None,
                         help="path to a json file which provides information needed to initialize a json cluster. "
                              "The file is used to read/write cached cluster info if "
@@ -51,7 +54,10 @@ def create_ducktape_parser():
     parser.add_argument("--globals", action="store",
                         help="user-defined globals go here. "
                              "This can be a file containing a JSON object, or a string representing a JSON object.")
-
+    parser.add_argument("--max-parallel", action="store", type=int, default=1,
+                        help="Upper bound on number of tests run simultaneously.")
+    parser.add_argument("--repeat", action="store", type=int, default=1,
+                        help="Use this flag to repeat all discovered tests the given number of times.")
     return parser
 
 

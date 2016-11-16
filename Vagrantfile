@@ -21,8 +21,8 @@ VAGRANTFILE_API_VERSION = "2"
 
 # General config
 enable_dns = false
-num_workers = 1
-ram_megabytes = 1280
+num_workers = 3
+ram_megabytes = 300
 base_box = "ubuntu/trusty64"
 
 local_config_file = File.join(File.dirname(__FILE__), "Vagrantfile.local")

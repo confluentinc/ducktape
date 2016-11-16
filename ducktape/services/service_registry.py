@@ -12,15 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.services.service import Service
-from ducktape.utils.local_filesystem_utils import mkdir_p
 
 from collections import OrderedDict
 
-import os
 
+class ServiceRegistry(object):
 
-class ServiceRegistry(list):
+    def __init__(self):
+        self._services = OrderedDict()
+        self._nodes = {}
+
+    def __contains__(self, item):
+        return id(item) in self._services
+
+    def __iter__(self):
+        return iter(self._services.values())
+
+    def __repr__(self):
+        return str(self._services.values())
+
+    def append(self, service):
+        self._services[id(service)] = service
+        self._nodes[id(service)] = [str(n.account) for n in service.nodes]
+
+    def to_json(self):
+        return [self._services[k].to_json() for k in self._services]
 
     def stop_all(self):
         """Stop all currently registered services in the reverse of the order in which they were added.
@@ -28,7 +44,7 @@ class ServiceRegistry(list):
         Note that this does not clean up persistent state or free the nodes back to the cluster.
         """
         keyboard_interrupt = None
-        for service in reversed(self):
+        for service in reversed(self._services.values()):
             try:
                 service.stop()
             except BaseException as e:
@@ -42,7 +58,7 @@ class ServiceRegistry(list):
     def clean_all(self):
         """Clean all services. This should only be called after services are stopped."""
         keyboard_interrupt = None
-        for service in self:
+        for service in self._services.values():
             try:
                 service.clean()
             except BaseException as e:
@@ -56,7 +72,7 @@ class ServiceRegistry(list):
     def free_all(self):
         """Release nodes back to the cluster."""
         keyboard_interrupt = None
-        for service in self:
+        for service in self._services.values():
             try:
                 service.free()
             except BaseException as e:

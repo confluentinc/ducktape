@@ -17,6 +17,9 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.template import TemplateRenderer
 from ducktape.errors import TimeoutError
 
+import os
+import shutil
+import tempfile
 import time
 
 
@@ -55,20 +58,46 @@ class Service(TemplateRenderer):
                           when start() is called, or when allocate_nodes() is called, whichever happens first.
         """
         super(Service, self).__init__(*args, **kwargs)
+        # Keep track of significant events in the lifetime of this service
+        self._init_time = time.time()
+        self._start_time = -1
+        self._start_duration_seconds = -1
+        self._stop_time = -1
+        self._stop_duration_seconds = -1
+        self._clean_time = -1
+
+        self._initialized = False
         self.num_nodes = num_nodes
         self.context = context
-
-        # Every time a service instance is created, it registers itself with its
-        # context object. This makes it possible for external mechanisms to clean up
-        # after the service if something goes wrong.
-        self.context.services.append(self)
 
         self.nodes = []
         self.allocate_nodes()
 
+        # Keep track of which nodes nodes were allocated to this service, even after nodes are freed
+        # Note: only keep references to representations of the nodes, not the actual node objects themselves
+        self._nodes_formerly_allocated = [str(node.account) for node in self.nodes]
+
+        # Every time a service instance is created, it registers itself with its
+        # context object. This makes it possible for external mechanisms to clean up
+        # after the service if something goes wrong.
+        #
+        # Note: Allocate nodes *before* registering self with the service registry
+        self.context.services.append(self)
+
+        # Each service instance has its own local scratch directory on the test driver
+        self._local_scratch_dir = None
+        self._initialized = True
+
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
                              (self.num_nodes, [n.account.hostname for n in self.nodes]))
+
+    @property
+    def local_scratch_dir(self):
+        """This local scratch directory is created/destroyed on the test driver before/after each test is run."""
+        if not self._local_scratch_dir:
+            self._local_scratch_dir = tempfile.mkdtemp()
+        return self._local_scratch_dir
 
     @property
     def service_id(self):
@@ -91,9 +120,15 @@ class Service(TemplateRenderer):
                 context.services[4]._order == 0  # "0th" MirrorMaker instance
         """
         if hasattr(self.context, "services"):
-            same_services = [s for s in self.context.services if type(s) == type(self)]
-            index = same_services.index(self)
-            assert index >= 0
+            same_services = [id(s) for s in self.context.services if type(s) == type(self)]
+
+            if self not in self.context.services and not self._initialized:
+                # It's possible that _order will be invoked in the constructor *before* self has been registered with
+                # the service registry (aka self.context.services).
+                return len(same_services)
+
+            # Note: index raises ValueError if the item is not in the list
+            index = same_services.index(id(self))
             return index
         else:
             return 0
@@ -128,7 +163,7 @@ class Service(TemplateRenderer):
         self.logger.debug("Requesting %d nodes from the cluster." % self.num_nodes)
 
         try:
-            self.nodes = self.cluster.request(self.num_nodes)
+            self.nodes = self.cluster.alloc(self.num_nodes)
         except RuntimeError as e:
             msg = str(e.message)
             if hasattr(self.context, "services"):
@@ -137,7 +172,7 @@ class Service(TemplateRenderer):
 
         for idx, node in enumerate(self.nodes, 1):
             # Remote accounts utilities should log where this service logs
-            if node.account.logger is not None:
+            if node.account._logger is not None:
                 # This log message help test-writer identify which test and/or service didn't clean up after itself
                 node.account.logger.critical(ConsoleDefaults.BAD_TEST_MESSAGE)
                 raise RuntimeError(
@@ -151,6 +186,9 @@ class Service(TemplateRenderer):
     def start(self):
         """Start the service on all nodes."""
         self.logger.info("%s: starting service" % self.who_am_i())
+        if self._start_time < 0:
+            # Set self._start_time only the first time self.start is invoked
+            self._start_time = time.time()
 
         self.logger.debug(self.who_am_i() + ": killing processes and attempting to clean up before starting")
         for node in self.nodes:
@@ -171,6 +209,9 @@ class Service(TemplateRenderer):
         for node in self.nodes:
             self.logger.debug("%s: starting node" % self.who_am_i(node))
             self.start_node(node)
+
+        if self._start_duration_seconds < 0:
+            self._start_duration_seconds = time.time() - self._start_time
 
     def start_node(self, node):
         """Start service process(es) on the given node."""
@@ -197,7 +238,6 @@ class Service(TemplateRenderer):
             raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec) +
                                "These nodes are still alive: " + str(unfinished_nodes))
 
-
     def wait_node(self, node, timeout_sec=None):
         """Wait for the service on the given node to finish. 
         Return True if the node finished shutdown, False otherwise.
@@ -208,10 +248,13 @@ class Service(TemplateRenderer):
         """Stop service processes on each node in this service.
         Subclasses must override stop_node.
         """
+        self._stop_time = time.time()  # The last time stop is invoked
         self.logger.info("%s: stopping service" % self.who_am_i())
         for node in self.nodes:
             self.logger.info("%s: stopping node" % self.who_am_i(node))
             self.stop_node(node)
+
+        self._stop_duration_seconds = time.time() - self._stop_time
 
     def stop_node(self, node):
         """Halt service process(es) on this node."""
@@ -221,6 +264,7 @@ class Service(TemplateRenderer):
         """Clean up persistent state on each node - e.g. logs, config files etc.
         Subclasses must override clean_node.
         """
+        self._clean_time = time.time()
         self.logger.info("%s: cleaning service" % self.who_am_i())
         for node in self.nodes:
             self.logger.info("%s: cleaning node" % self.who_am_i(node))
@@ -236,7 +280,7 @@ class Service(TemplateRenderer):
         for node in self.nodes:
             self.logger.info("%s: freeing node" % self.who_am_i(node))
             node.account.logger = None
-            node.free()
+            self.cluster.free(node)
 
         self.nodes = []
 
@@ -260,6 +304,12 @@ class Service(TemplateRenderer):
                 return idx
         return -1
 
+    def close(self):
+        """Release resources."""
+        # Remove local scratch directory
+        if self._local_scratch_dir and os.path.exists(self._local_scratch_dir):
+            shutil.rmtree(self._local_scratch_dir)
+
     @staticmethod
     def run_parallel(*args):
         """Helper to run a set of services in parallel. This is useful if you want
@@ -272,3 +322,20 @@ class Service(TemplateRenderer):
             svc.wait()
         for svc in args:
             svc.stop()
+
+    def to_json(self):
+        return {
+            "cls_name": self.__class__.__name__,
+            "module_name": self.__module__,
+
+            "lifecycle": {
+                "init_time": self._init_time,
+                "start_time": self._start_time,
+                "start_duration_seconds": self._start_duration_seconds,
+                "stop_time": self._stop_time,
+                "stop_duration_seconds": self._stop_duration_seconds,
+                "clean_time": self._clean_time
+            },
+            "service_id": self.service_id,
+            "nodes": self._nodes_formerly_allocated
+        }
