@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import collections
+from .remoteaccount import RemoteAccount
 
 
 class ClusterSlot(object):
@@ -20,6 +21,10 @@ class ClusterSlot(object):
         self.account = account
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    @property
+    def operating_system(self):
+        return self.account.operating_system
 
 
 class Cluster(object):
@@ -34,7 +39,7 @@ class Cluster(object):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         raise NotImplementedError()
 
-    def alloc(self, num_nodes):
+    def alloc(self, node_spec):
         """Try to allocate the specified number of nodes, which will be reserved until they are freed by the caller."""
         raise NotImplementedError()
 
@@ -62,3 +67,21 @@ class Cluster(object):
 
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
+
+    def num_nodes_for_operating_system(self, operating_system):
+        return self.in_use_nodes_for_operating_system(operating_system) + self.num_available_nodes(operating_system)
+
+    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
+        """Number of available nodes."""
+        return Cluster._node_count_helper(self._available_nodes, operating_system)
+
+    def in_use_nodes_for_operating_system(self, operating_system):
+        return Cluster._node_count_helper(self._in_use_nodes, operating_system)
+
+    @staticmethod
+    def _node_count_helper(nodes, operating_system):
+        return len([node for node in nodes if node.operating_system == operating_system])
+
+    @staticmethod
+    def _next_available_node(nodes, operating_system):
+        return next(node for node in nodes if node.operating_system == operating_system)

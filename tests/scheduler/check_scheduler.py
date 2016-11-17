@@ -18,6 +18,7 @@ import pytest
 
 from tests.ducktape_mock import FakeCluster
 from ducktape.tests.scheduler import TestScheduler
+from ducktape.services.service import Service
 
 FakeContext = collections.namedtuple('FakeContext', ['test_id', 'expected_num_nodes'])
 
@@ -48,7 +49,7 @@ class CheckScheduler(object):
         assert scheduler.peek() is not None
 
         # alloc all cluster nodes so none are available
-        self.cluster.alloc(len(self.cluster))
+        self.cluster.alloc(Service.setup_node_spec(num_nodes=len(self.cluster)))
         assert self.cluster.num_available_nodes() == 0
 
         # peeking etc should not yield an object
@@ -79,7 +80,7 @@ class CheckScheduler(object):
         scheduler = TestScheduler(self.tc_list, self.cluster)
 
         # allocate 60 nodes; only test_id 0 should be available
-        slots = self.cluster.alloc(60)
+        slots = self.cluster.alloc(Service.setup_node_spec(num_nodes=60))
         assert self.cluster.num_available_nodes() == 40
         t = scheduler.next()
         assert t.test_id == 0

@@ -17,7 +17,8 @@ from __future__ import absolute_import
 from .json import JsonCluster
 import json
 import os
-from .remoteaccount import RemoteAccountSSHConfig, RemoteAccount
+from .linux_remoteaccount import RemoteAccountSSHConfig
+from .remoteaccount import RemoteAccount
 import subprocess
 from ducktape.json_serializable import DucktapeJSONEncoder
 
@@ -53,6 +54,8 @@ class VagrantCluster(JsonCluster):
 
         super(VagrantCluster, self).__init__(cluster_json)
 
+        # TODO: move this away from "ssh_config" and towards "remote_command_config" -- to not be linux specific. This will require a lot of changes.
+
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
             nodes = [
@@ -60,14 +63,14 @@ class VagrantCluster(JsonCluster):
                             "ssh_config": node_account.ssh_config,
                             "externally_routable_ip": node_account.externally_routable_ip
                         }
-                        for node_account in self.available_nodes
+                        for node_account in self._available_nodes
                     ]
             cluster_json["nodes"] = nodes
             with open(cluster_file, 'w+') as fd:
                 json.dump(cluster_json, fd, cls=DucktapeJSONEncoder, indent=2, separators=(',', ': '), sort_keys=True)
 
         # Release any ssh clients used in querying the nodes for metadata
-        for node_account in self.available_nodes:
+        for node_account in self._available_nodes:
             node_account.close()
 
     def _get_nodes_from_vagrant(self):
@@ -81,8 +84,8 @@ class VagrantCluster(JsonCluster):
             ssh_config = RemoteAccountSSHConfig.from_string(ninfo)
 
             try:
-                account = RemoteAccount(ssh_config=ssh_config)
-                externally_routable_ip = self._externally_routable_ip(account)
+                account = JsonCluster.make_remote_account(ssh_config)
+                externally_routable_ip = account.fetch_externally_routable_ip(self.is_aws)
             finally:
                 account.close()
                 del account
@@ -111,13 +114,3 @@ class VagrantCluster(JsonCluster):
             output, _ = proc.communicate()
             self._is_aws = output.find("aws") >= 0
         return self._is_aws
-
-    def _externally_routable_ip(self, node_account):
-        if self.is_aws:
-            cmd = "/sbin/ifconfig eth0 "
-        else:
-            cmd = "/sbin/ifconfig eth1 "
-        cmd += "| grep 'inet addr' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1"
-
-        output = "".join(node_account.ssh_capture(cmd))
-        return output.strip()

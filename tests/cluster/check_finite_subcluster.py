@@ -13,8 +13,16 @@
 # limitations under the License.
 
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
+from ducktape.services.service import Service
+from ducktape.cluster.remoteaccount import RemoteAccount
 import pickle
 import pytest
+
+
+class MockFiniteSubclusterNode:
+    @property
+    def operating_system(self):
+        return RemoteAccount.LINUX
 
 
 class CheckFiniteSubcluster(object):
@@ -25,25 +33,25 @@ class CheckFiniteSubcluster(object):
         assert len(cluster) == 0
 
         n = 10
-        cluster = FiniteSubcluster([object() for _ in range(n)])
+        cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(n)])
         assert len(cluster) == n
 
     def check_pickleable(self):
-        cluster = FiniteSubcluster([object() for _ in range(10)])
+        cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(10)])
         pickle.dumps(cluster)
 
     def check_allocate_free(self):
         n = 10
-        cluster = FiniteSubcluster([object() for _ in range(n)])
+        cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(n)])
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n
 
-        nodes = cluster.alloc(1)
+        nodes = cluster.alloc(Service.setup_node_spec(num_nodes=1))
         assert len(nodes) == 1
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n - 1
 
-        nodes2 = cluster.alloc(2)
+        nodes2 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
         assert len(nodes2) == 2
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n - 3
@@ -56,14 +64,14 @@ class CheckFiniteSubcluster(object):
 
     def check_alloc_too_many(self):
         n = 10
-        cluster = FiniteSubcluster([object() for _ in range(n)])
+        cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(n)])
         with pytest.raises(AssertionError):
-            cluster.alloc(n + 1)
+            cluster.alloc(Service.setup_node_spec(num_nodes=(n + 1)))
 
     def check_free_too_many(self):
         n = 10
-        cluster = FiniteSubcluster([object() for _ in range(n)])
-        nodes = cluster.alloc(n)
+        cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(n)])
+        nodes = cluster.alloc(Service.setup_node_spec(num_nodes=n))
         with pytest.raises(AssertionError):
             nodes.append(object())
             cluster.free(nodes)
