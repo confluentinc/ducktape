@@ -16,7 +16,8 @@ from __future__ import absolute_import
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterSlot
-from .remoteaccount import RemoteAccount, RemoteAccountSSHConfig
+from .remoteaccount import RemoteAccount
+from .linux_remoteaccount import RemoteAccountSSHConfig
 
 import collections
 import json
@@ -84,10 +85,7 @@ class JsonCluster(Cluster):
                     "Cluster json has a node without an ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
 
                 ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
-                node_accounts.append(
-                    RemoteAccount(
-                        ssh_config=ssh_config,
-                        externally_routable_ip=ninfo.get("externally_routable_ip")))
+                node_accounts.append(RemoteAccount.make_remote_account(ssh_config, ninfo.get("externally_routable_ip")))
 
             for node_account in node_accounts:
                 if node_account.externally_routable_ip is None:
@@ -108,6 +106,7 @@ class JsonCluster(Cluster):
         return len(self.available_nodes)
 
     def alloc(self, num_nodes):
+        # TODO: this is where it requests how many machines it wants. Will need tags for linux and windows. And will probably want different lists, one for Linux and another for Windows
         if num_nodes > self.num_available_nodes():
             err_msg = "There aren't enough available nodes to satisfy the resource request. " \
                 "Total cluster size: %d, Requested: %d, Already allocated: %d, Available: %d. " % \

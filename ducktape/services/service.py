@@ -71,7 +71,7 @@ class Service(TemplateRenderer):
         self.context = context
 
         self.nodes = []
-        self.allocate_nodes()
+        self.allocate_nodes() # TODO: will want to change this to be about how many windows vs linux machines to allocate.
 
         # Keep track of which nodes nodes were allocated to this service, even after nodes are freed
         # Note: only keep references to representations of the nodes, not the actual node objects themselves

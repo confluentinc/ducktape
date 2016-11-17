@@ -59,7 +59,7 @@ class CheckVagrantCluster(object):
     def _set_monkeypatch_attr(self, monkeypatch):
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
+        monkeypatch.setattr("ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.fetch_externally_routable_ip", lambda vc, node_account: "127.0.0.1")
 
     def check_pickleable(self, monkeypatch):
         self._set_monkeypatch_attr(monkeypatch)

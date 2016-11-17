@@ -15,7 +15,7 @@
 from ducktape.cluster.cluster import Cluster
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
-from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountSSHConfig
+from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount, RemoteAccountSSHConfig
 from mock import MagicMock
 
 
@@ -74,8 +74,8 @@ class MockNode(object):
         self.account = MockAccount()
 
 
-class MockAccount(RemoteAccount):
-    """Mock node.account object"""
+class MockAccount(LinuxRemoteAccount):
+    """Mock node.account object. It's Linux because tests are run in Linux."""
     def __init__(self):
 
         ssh_config = RemoteAccountSSHConfig(
