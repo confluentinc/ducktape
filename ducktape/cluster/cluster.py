@@ -21,6 +21,10 @@ class ClusterSlot(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+    # TODO: may not need this.
+    def has_operating_system(self, operating_system):
+        return self.account.has_operating_system(operating_system)
+
 
 class Cluster(object):
     """ Interface for a cluster -- a collection of nodes with login credentials.
@@ -34,7 +38,7 @@ class Cluster(object):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         raise NotImplementedError()
 
-    def alloc(self, num_nodes):
+    def alloc(self, node_spec):
         """Try to allocate the specified number of nodes, which will be reserved until they are freed by the caller."""
         raise NotImplementedError()
 
@@ -62,3 +66,20 @@ class Cluster(object):
 
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
+
+    @staticmethod
+    def _node_count_helper(nodes, operating_system):
+        count = 0
+        for node in nodes:
+            if node.has_operating_system(operating_system):
+                count += 1
+        return count
+
+    @staticmethod
+    def _next_available_node(nodes, operating_system):
+        node_to_return = None
+        for node in nodes:
+            if node.has_operating_system(operating_system):
+                node_to_return = node
+
+        return node_to_return

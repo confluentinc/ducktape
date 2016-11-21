@@ -31,6 +31,7 @@ from ducktape.tests.result import TestResults
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
+from ducktape.services.service import Service
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
 from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
@@ -252,7 +253,10 @@ class TestRunner(object):
                       "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
                       % test_context.test_id)
 
-        self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = FiniteSubcluster(self.cluster.alloc(test_context.expected_num_nodes))
+        # TODO: right now this blindly converts the expected number of nodes into a node_spec. This won't work. The node_spec
+        #       will need to come from the tests.
+        self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = \
+            FiniteSubcluster(self.cluster.alloc(Service.setup_node_spec(test_context.expected_num_nodes)))
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))
@@ -295,7 +299,8 @@ class TestRunner(object):
 
         # Free nodes used by the test
         subcluster = self._test_cluster[test_key]
-        self.cluster.free(subcluster.alloc(len(subcluster)))
+        # TODO: same here. This node spec shouldn't be generic.
+        self.cluster.free(subcluster.alloc(Service.setup_node_spec(len(subcluster))))
         del self._test_cluster[test_key]
 
         # Join on the finished test process

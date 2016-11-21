@@ -16,6 +16,7 @@ from ducktape.cluster.cluster import Cluster
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount, RemoteAccountSSHConfig
+from ducktape.cluster.remoteaccount import RemoteAccount
 from mock import MagicMock
 
 
@@ -27,6 +28,11 @@ def mock_cluster():
     return MagicMock()
 
 
+class FakeClusterSlot(object):
+    def has_operating_system(self, operating_system):
+        return True
+
+
 class FakeCluster(Cluster):
     """A cluster class with counters, but no actual node objects"""
     def __init__(self, num_nodes):
@@ -36,10 +42,12 @@ class FakeCluster(Cluster):
     def __len__(self):
         return self._num_nodes
 
-    def alloc(self, nslots):
+    def alloc(self, node_spec):
         """Request the specified number of slots, which will be reserved until they are freed by the caller."""
-        self._available_nodes -= nslots
-        return [object() for _ in range(nslots)]
+        # assume Linux.
+        linux_node_count = node_spec[RemoteAccount.linux]
+        self._available_nodes -= linux_node_count
+        return [FakeClusterSlot() for _ in range(linux_node_count)]
 
     def num_available_nodes(self):
         return self._available_nodes

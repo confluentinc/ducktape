@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape.cluster.cluster import Cluster
+from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class FiniteSubcluster(Cluster):
@@ -27,23 +28,26 @@ class FiniteSubcluster(Cluster):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         return len(self.nodes)
 
-    def alloc(self, num_nodes):
-        assert num_nodes <= self.num_available_nodes(), \
-            "Not enough nodes available to allocate the requested nodes. Nodes requested: %s, Nodes available: %s" % \
-            (num_nodes, self.num_available_nodes())
+    def alloc(self, node_spec):
+        for operating_system, num_nodes in node_spec.iteritems():
+            assert num_nodes <= self.num_available_nodes(operating_system=operating_system), \
+                "Not enough nodes available to allocate the requested %s nodes. Nodes requested: %s, Nodes available: %s" % \
+                (operating_system, num_nodes, self.num_available_nodes())
 
         allocated_nodes = []
-        for _ in range(num_nodes):
-            node = self._available.pop()
-            self._in_use.add(node)
+        for operating_system, num_nodes in node_spec.iteritems():
+            for _ in range(num_nodes):
+                node = Cluster._next_available_node(self._available, operating_system)
+                self._available.remove(node)
+                self._in_use.add(node)
 
-            allocated_nodes.append(node)
+                allocated_nodes.append(node)
 
         return allocated_nodes
 
-    def num_available_nodes(self):
+    def num_available_nodes(self, operating_system=RemoteAccount.linux):
         """Number of available nodes."""
-        return len(self._available)
+        return Cluster._node_count_helper(self._available, operating_system)
 
     def free_single(self, node):
         assert node in self._in_use

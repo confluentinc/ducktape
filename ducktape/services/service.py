@@ -16,6 +16,7 @@
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.template import TemplateRenderer
 from ducktape.errors import TimeoutError
+from ducktape.cluster.remoteaccount import RemoteAccount
 
 import os
 import shutil
@@ -51,11 +52,16 @@ class Service(TemplateRenderer):
     # }
     logs = {}
 
-    def __init__(self, context, num_nodes, *args, **kwargs):
+    def __init__(self, context, nodes, *args, **kwargs):
         """
-        :param context    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a TestContext object.
-        :param num_nodes  Number of nodes to allocate to this service from the cluster. Node allocation takes place
-                          when start() is called, or when allocate_nodes() is called, whichever happens first.
+        :param context    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a
+                          TestContext object.
+        :param nodes  Can either be an integer or a dictionary. If an integer, that number of Linux machines are
+                      allocated. If a dictionary, the dictionary must contain two keys: num_linux, num_windows. Each
+                      key must have an integer value, representing how many nodes of that type to allocate.
+                      In both cases, the number of nodes specifies how many to allocate to this service from the
+                      cluster. Node allocation takes place when start() is called, or when allocate_nodes() is called,
+                      whichever happens first.
         """
         super(Service, self).__init__(*args, **kwargs)
         # Keep track of significant events in the lifetime of this service
@@ -67,11 +73,11 @@ class Service(TemplateRenderer):
         self._clean_time = -1
 
         self._initialized = False
-        self.num_nodes = num_nodes
+        self.node_spec = Service.setup_node_spec(nodes)
         self.context = context
 
         self.nodes = []
-        self.allocate_nodes() # TODO: will want to change this to be about how many windows vs linux machines to allocate.
+        self.allocate_nodes()
 
         # Keep track of which nodes nodes were allocated to this service, even after nodes are freed
         # Note: only keep references to representations of the nodes, not the actual node objects themselves
@@ -88,9 +94,23 @@ class Service(TemplateRenderer):
         self._local_scratch_dir = None
         self._initialized = True
 
+    # TODO: the windows client should have its own service. WindowsClientService
+
+    @staticmethod
+    def setup_node_spec(nodes):
+        """If nodes as an int, converts it to a dict. If it's a dict, verifies keys and returns it."""
+        if isinstance(nodes, int):
+            return dict(linux=nodes)
+        elif isinstance(nodes, dict):
+            if not nodes[RemoteAccount.linux] or not nodes[RemoteAccount.windows]:
+                raise Exception("When nodes is a dictionary, it must contain `linux` and `windows` keys.")
+            return nodes
+        else:
+            raise Exception("nodes must either be an integer or a dictionary.")
+
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
-                             (self.num_nodes, [n.account.hostname for n in self.nodes]))
+                             (len(self.nodes), [n.account.hostname for n in self.nodes]))
 
     @property
     def local_scratch_dir(self):
@@ -160,10 +180,10 @@ class Service(TemplateRenderer):
         if self.allocated:
             raise Exception("Requesting nodes for a service that has already been allocated nodes.")
 
-        self.logger.debug("Requesting %d nodes from the cluster." % self.num_nodes)
+        self.logger.debug("Requesting nodes from the cluster: %s" % self.node_spec)
 
         try:
-            self.nodes = self.cluster.alloc(self.num_nodes)
+            self.nodes = self.cluster.alloc(self.node_spec)
         except RuntimeError as e:
             msg = str(e.message)
             if hasattr(self.context, "services"):
@@ -181,7 +201,7 @@ class Service(TemplateRenderer):
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.logger = self.logger
 
-        self.logger.debug("Successfully allocated %d nodes to %s" % (self.num_nodes, self.who_am_i()))
+        self.logger.debug("Successfully allocated %d nodes to %s" % (len(self.nodes), self.who_am_i()))
 
     def start(self):
         """Start the service on all nodes."""

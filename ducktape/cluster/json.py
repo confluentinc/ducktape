@@ -102,25 +102,33 @@ class JsonCluster(Cluster):
     def __len__(self):
         return len(self.available_nodes) + len(self.in_use_nodes)
 
-    def num_available_nodes(self):
-        return len(self.available_nodes)
+    def in_use_nodes_for_operating_system(self, operating_system):
+        return Cluster._node_count_helper(self.in_use_nodes, operating_system)
 
-    def alloc(self, num_nodes):
-        # TODO: this is where it requests how many machines it wants. Will need tags for linux and windows. And will probably want different lists, one for Linux and another for Windows
-        if num_nodes > self.num_available_nodes():
-            err_msg = "There aren't enough available nodes to satisfy the resource request. " \
-                "Total cluster size: %d, Requested: %d, Already allocated: %d, Available: %d. " % \
-                      (len(self), num_nodes, len(self.in_use_nodes), self.num_available_nodes())
-            err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
-            raise RuntimeError(err_msg)
+    def num_available_nodes(self, operating_system=RemoteAccount.linux):
+        return Cluster._node_count_helper(self.available_nodes, operating_system)
+
+    def alloc(self, node_spec):
+        # first check that nodes are available.
+        for operating_system, num_nodes in node_spec.iteritems():
+            if num_nodes > self.num_available_nodes(operating_system=operating_system):
+                err_msg = "There aren't enough available nodes to satisfy the resource request. " \
+                    "Total cluster size for %s: %d, Requested: %d, Already allocated: %d, Available: %d. " % \
+                          (operating_system, len(self), num_nodes,
+                           self.in_use_nodes_for_operating_system(operating_system=operating_system),
+                           self.num_available_nodes(operating_system=operating_system))
+                err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
+                raise RuntimeError(err_msg)
 
         result = []
-        for i in range(num_nodes):
-            node = self.available_nodes.popleft()
-            cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
-            result.append(cluster_slot)
-            self.in_use_nodes.add(node)
-            self._id_supplier += 1
+        for operating_system, num_nodes in node_spec.iteritems():
+            for i in range(num_nodes):
+                node = Cluster._next_available_node(self.available_nodes, operating_system)
+                self.available_nodes.remove(node)
+                cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
+                result.append(cluster_slot)
+                self.in_use_nodes.add(node)
+                self._id_supplier += 1
 
         return result
 

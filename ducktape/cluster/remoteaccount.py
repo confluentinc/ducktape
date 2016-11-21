@@ -55,6 +55,10 @@ class RemoteAccount(HttpMixin):
 
     Each operating system has its own RemoteAccount implementation.
     """
+
+    linux = "linux"
+    windows = "windows"
+
     def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
         # be hashable
@@ -86,6 +90,14 @@ class RemoteAccount(HttpMixin):
         else:
             return LinuxRemoteAccount(ssh_config=ssh_config,
                                       externally_routable_ip=externally_routable_ip)
+
+    def has_operating_system(self, operating_system):
+        # import here to avoid a circular import. TODO: Is there a better way to do this?
+        from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
+        from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
+
+        return (operating_system == RemoteAccount.linux and isinstance(self, LinuxRemoteAccount) or
+                (operating_system == RemoteAccount.windows and isinstance(self, WindowsRemoteAccount)))
 
     @property
     def logger(self):
