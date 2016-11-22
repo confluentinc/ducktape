@@ -33,9 +33,12 @@ Prerequisites:
 
 Install ducktape: `pip install ducktape`
 
+On macOS you may need to `brew install openssl` and then install using `C_INCLUDE_PATH=/usr/local/opt/openssl/include
+LIBRARY_PATH=/usr/local/opt/openssl/lib pip install ducktape`.
+
 Use
 ---
-ducktape discovers and runs tests in the path provided. 
+ducktape discovers and runs tests in the path provided.
 
     ducktape <relative_path_to_testdirectory>               # e.g. ducktape dir/tests
     ducktape <relative_path_to_file>                        # e.g. ducktape dir/tests/my_test.py
