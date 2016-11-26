@@ -114,6 +114,36 @@ class CheckTestLoader(object):
         for t in tests:
             assert t.injected_args == parameters
 
+    def check_test_loader_with_subsets(self):
+        """Check that computation of subsets work properly. This validates both that the division of tests is correct
+        (i.e. as even a distribution as we can get but uneven in the expected way when necessary) and that the division
+        happens after the expansion of tests marked for possible expansion (e.g. matrix, parametrize)."""
+
+        file = os.path.join(discover_dir(), "test_decorated.py")
+
+        # The test file contains 15 tests. With 4 subsets, first three subsets should have an "extra"
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=0, subsets=4)
+        tests = loader.load([file])
+        assert len(tests) == 4
+
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=1, subsets=4)
+        tests = loader.load([file])
+        assert len(tests) == 4
+
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=2, subsets=4)
+        tests = loader.load([file])
+        assert len(tests) == 4
+
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=3, subsets=4)
+        tests = loader.load([file])
+        assert len(tests) == 3
+
+    def check_test_loader_with_invalid_subsets(self):
+        """Check that the TestLoader throws an exception if the requests subset is larger than the number of subsets"""
+        with pytest.raises(ValueError):
+            TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=4, subsets=4)
+        with pytest.raises(ValueError):
+            TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=5, subsets=4)
 
 def join_parsed_symbol_components(parsed):
     """

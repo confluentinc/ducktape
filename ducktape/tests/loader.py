@@ -15,6 +15,7 @@
 import collections
 import importlib
 import inspect
+import itertools
 import os
 import re
 
@@ -38,7 +39,7 @@ DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 class TestLoader(object):
     """Class used to discover and load tests."""
 
-    def __init__(self, session_context, logger, repeat=1, injected_args=None, cluster=None):
+    def __init__(self, session_context, logger, repeat=1, injected_args=None, cluster=None, subset=0, subsets=1):
         self.session_context = session_context
         self.cluster = cluster
         assert logger is not None
@@ -46,6 +47,11 @@ class TestLoader(object):
 
         assert repeat >= 1
         self.repeat = repeat
+
+        if subset >= subsets:
+            raise ValueError("The subset to execute must be in the range [0, subsets-1]")
+        self.subset = subset
+        self.subsets = subsets
 
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
@@ -80,7 +86,15 @@ class TestLoader(object):
                 raise LoaderException("Didn't find any tests for symbol %s." % symbol)
 
         self.logger.debug("Discovered these tests: " + str(all_test_context_list))
-        return all_test_context_list * self.repeat
+
+        # Select the subset of tests. Select every nth test instead of blocks of n to avoid groups of tests that are
+        # parametrizations of the same test being grouped together since that can lead to a single, parameterized,
+        # long-running test causing a very imbalanced workload across different subsets. Imbalance is still possible,
+        # but much less likely using this heuristic.
+        subset_test_context_list = list(itertools.islice(all_test_context_list, self.subset, None, self.subsets))
+
+        self.logger.debug("Selected this subset of tests: " + str(subset_test_context_list))
+        return subset_test_context_list * self.repeat
 
     def discover(self, directory, module_name, cls_name, method_name):
         """Discover and unpack parametrized tests tied to the given module/class/method
