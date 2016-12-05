@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.loader import TestLoader, LoaderException
+from ducktape.tests.loader import TestLoader, LoaderException, _requests_session
 
 import tests.ducktape_mock
 
@@ -20,13 +20,33 @@ import os
 import os.path
 import pytest
 import re
+import requests
 
 from mock import Mock
+from requests_testadapter import Resp
 
+class LocalFileAdapter(requests.adapters.HTTPAdapter):
+    def build_response_from_file(self, request):
+        file_path = request.url[7:]
+        with open(file_path, 'rb') as file:
+            buff = bytearray(os.path.getsize(file_path))
+            file.readinto(buff)
+            resp = Resp(buff)
+            r = self.build_response(request, resp)
+
+            return r
+
+    def send(self, request, stream=False, timeout=None,
+             verify=True, cert=None, proxies=None):
+
+        return self.build_response_from_file(request)
+
+def resources_dir():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
 
 def discover_dir():
     """Return the absolute path to the directory to use with discovery tests."""
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources", "loader_test_directory")
+    return os.path.join(resources_dir(), "loader_test_directory")
 
 
 def num_tests_in_file(fpath):
@@ -59,6 +79,9 @@ def num_tests_in_dir(dpath):
 class CheckTestLoader(object):
     def setup_method(self, method):
         self.SESSION_CONTEXT = tests.ducktape_mock.session_context()
+        # To simplify unit tests, add file:// support to the test loader's functionality for loading previous
+        # report.json files
+        _requests_session.mount('file://', LocalFileAdapter())
 
     def check_test_loader_with_directory(self):
         """Check discovery on a directory."""
@@ -114,6 +137,56 @@ class CheckTestLoader(object):
         for t in tests:
             assert t.injected_args == parameters
 
+    def check_test_loader_with_subsets(self):
+        """Check that computation of subsets work properly. This validates both that the division of tests is correct
+        (i.e. as even a distribution as we can get but uneven in the expected way when necessary) and that the division
+        happens after the expansion of tests marked for possible expansion (e.g. matrix, parametrize)."""
+
+        file = os.path.join(discover_dir(), "test_decorated.py")
+
+        # The test file contains 15 tests. With 4 subsets, first three subsets should have an "extra"
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=0, subsets=4)
+        tests = loader.load([file])
+        assert len(tests) == 4
+
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=1, subsets=4)
+        tests = loader.load([file])
+        assert len(tests) == 4
+
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=2, subsets=4)
+        tests = loader.load([file])
+        assert len(tests) == 4
+
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=3, subsets=4)
+        tests = loader.load([file])
+        assert len(tests) == 3
+
+    def check_test_loader_with_invalid_subsets(self):
+        """Check that the TestLoader throws an exception if the requests subset is larger than the number of subsets"""
+        with pytest.raises(ValueError):
+            TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=4, subsets=4)
+        with pytest.raises(ValueError):
+            TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=5, subsets=4)
+
+    def check_test_loader_with_time_based_subsets(self):
+        """Check that computation of subsets using a report with timing information correctly generates subsets that
+        are optimized based on timing rather than number of tests.
+        """
+
+        file = os.path.join(discover_dir(), "test_b.py")
+        report_url = "file://" + os.path.join(resources_dir(), "report.json")
+
+        # The expected behavior of the current implementation is to add tests to each subset from largest to smallest,
+        # using the least full subset each time. The test data with times of (10, 5, 1) should result in the first
+        # subset containing 1 test and the second containing 2 (the opposite of the simple count-based strategy)
+
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=0, subsets=2, historical_report=report_url)
+        tests = loader.load([file])
+        assert len(tests) == 1
+
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=1, subsets=2, historical_report=report_url)
+        tests = loader.load([file])
+        assert len(tests) == 2
 
 def join_parsed_symbol_components(parsed):
     """

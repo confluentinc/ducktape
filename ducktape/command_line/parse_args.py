@@ -58,6 +58,16 @@ def create_ducktape_parser():
                         help="Upper bound on number of tests run simultaneously.")
     parser.add_argument("--repeat", action="store", type=int, default=1,
                         help="Use this flag to repeat all discovered tests the given number of times.")
+    parser.add_argument("--subsets", action="store", type=int, default=1,
+                        help="Number of subsets of tests to statically break the tests into to allow for parallel "
+                             "execution without coordination between test runner processes.")
+    parser.add_argument("--subset", action="store", type=int, default=0,
+                        help="Which subset of the tests to run, based on the breakdown using the parameter for "
+                             "--subsets")
+    parser.add_argument("--historical-report", action="store", type=str,
+                        help="URL of a JSON report file containing stats from a previous test run. If specified, "
+                             "this will be used when creating subsets of tests to divide evenly by total run time "
+                             "instead of by number of tests.")
     return parser
 
 

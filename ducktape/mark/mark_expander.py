@@ -33,20 +33,13 @@ class MarkedFunctionExpander(object):
         """
         f = self.seed_context.function
 
+        # If the user has specified that they want to run tests with specific parameters, apply the parameters first,
+        # then subsequently strip any parametrization decorators. Otherwise, everything gets applied normally.
         if test_parameters is not None:
-            # User has specified that they want to run tests with specific parameters
-            # Strip existing parametrize and matrix marks, and parametrize it only with the given test_parameters
-            marks = []
-            if hasattr(f, "marks"):
-                marks = [m for m in f.marks if not _is_parametrize_mark(m)]
-                Mark.clear_marks(f)
+            self.context_list = Parametrize(**test_parameters).apply(self.seed_context, self.context_list)
 
-            Mark.mark(f, Parametrize(**test_parameters))
-            for m in marks:
-                Mark.mark(f, m)
-
-        if hasattr(f, "marks"):
-            for m in f.marks:
+        for m in getattr(f, "marks", []):
+            if test_parameters is None or not _is_parametrize_mark(m):
                 self.context_list = m.apply(self.seed_context, self.context_list)
 
         return self.context_list

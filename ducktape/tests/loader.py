@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from operator import attrgetter
+
 import collections
 import importlib
 import inspect
+import itertools
 import os
 import re
+import requests
 
 from ducktape.tests.test import Test, TestContext
 from ducktape.mark import parametrized
@@ -26,7 +30,6 @@ from ducktape.mark.mark_expander import MarkedFunctionExpander
 class LoaderException(Exception):
     pass
 
-
 # A helper container class
 ModuleAndFile = collections.namedtuple('ModuleAndFile', ['module', 'file'])
 
@@ -34,11 +37,14 @@ ModuleAndFile = collections.namedtuple('ModuleAndFile', ['module', 'file'])
 DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
 DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 
+# Included for unit tests to be able to add support for loading local file:/// URLs.
+_requests_session = requests.session()
 
 class TestLoader(object):
     """Class used to discover and load tests."""
 
-    def __init__(self, session_context, logger, repeat=1, injected_args=None, cluster=None):
+    def __init__(self, session_context, logger, repeat=1, injected_args=None, cluster=None, subset=0, subsets=1,
+                 historical_report=None):
         self.session_context = session_context
         self.cluster = cluster
         assert logger is not None
@@ -46,6 +52,13 @@ class TestLoader(object):
 
         assert repeat >= 1
         self.repeat = repeat
+
+        if subset >= subsets:
+            raise ValueError("The subset to execute must be in the range [0, subsets-1]")
+        self.subset = subset
+        self.subsets = subsets
+
+        self.historical_report = historical_report
 
         self.test_file_pattern = DEFAULT_TEST_FILE_PATTERN
         self.test_function_pattern = DEFAULT_TEST_FUNCTION_PATTERN
@@ -80,7 +93,39 @@ class TestLoader(object):
                 raise LoaderException("Didn't find any tests for symbol %s." % symbol)
 
         self.logger.debug("Discovered these tests: " + str(all_test_context_list))
-        return all_test_context_list * self.repeat
+
+        # Sort to make sure we get a consistent order for when we create subsets
+        all_test_context_list = sorted(all_test_context_list, key=attrgetter("test_id"))
+
+        # Select the subset of tests.
+        if self.historical_report:
+            # With timing info, try to pack the subsets reasonably evenly based on timing. To do so, get timing info
+            # for each test (using avg as a fallback for missing data), sort in descending order, then start greedily
+            # packing tests into bins based on the least full bin at the time.
+            raw_results = _requests_session.get(self.historical_report).json()["results"]
+            time_results = {r['test_id']:r['run_time_seconds'] for r in raw_results}
+            avg_result_time = sum(time_results.itervalues()) / len(time_results)
+            time_results = {tc.test_id:time_results.get(tc.test_id, avg_result_time) for tc in all_test_context_list}
+            all_test_context_list = sorted(all_test_context_list, key=lambda x: time_results[x.test_id], reverse=True)
+
+            subsets = [[] for _ in range(self.subsets)]
+            subsets_accumulated_time = [0] * self.subsets
+
+            for tc in all_test_context_list:
+                min_subset_idx = min(range(len(subsets_accumulated_time)), key=lambda i: subsets_accumulated_time[i])
+                subsets[min_subset_idx].append(tc.test_id)
+                subsets_accumulated_time[min_subset_idx] += time_results[tc.test_id]
+
+            subset_test_context_list = subsets[self.subset]
+        else:
+            # Without timing info, select every nth test instead of blocks of n to avoid groups of tests that are
+            # parametrizations of the same test being grouped together since that can lead to a single, parameterized,
+            # long-running test causing a very imbalanced workload across different subsets. Imbalance is still
+            # possible, but much less likely using this heuristic.
+            subset_test_context_list = list(itertools.islice(all_test_context_list, self.subset, None, self.subsets))
+
+        self.logger.debug("Selected this subset of tests: " + str(subset_test_context_list))
+        return subset_test_context_list * self.repeat
 
     def discover(self, directory, module_name, cls_name, method_name):
         """Discover and unpack parametrized tests tied to the given module/class/method
