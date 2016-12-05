@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "test_id": "tests.loader.resources.loader_test_directory.test_b.TestB.test_b",
+      "run_time_seconds": 10
+    },
+    {
+      "test_id": "tests.loader.resources.loader_test_directory.test_b.TestBB.test_bb_one",
+      "run_time_seconds": 5
+    },
+    {
+      "test_id": "tests.loader.resources.loader_test_directory.test_b.TestBB.bb_two_test",
+      "run_time_seconds": 1
+    }
+  ]
+}

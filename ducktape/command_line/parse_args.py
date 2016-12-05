@@ -64,6 +64,10 @@ def create_ducktape_parser():
     parser.add_argument("--subset", action="store", type=int, default=0,
                         help="Which subset of the tests to run, based on the breakdown using the parameter for "
                              "--subsets")
+    parser.add_argument("--historical-report", action="store", type=str,
+                        help="URL of a JSON report file containing stats from a previous test run. If specified, "
+                             "this will be used when creating subsets of tests to divide evenly by total run time "
+                             "instead of by number of tests.")
     return parser
 
 
