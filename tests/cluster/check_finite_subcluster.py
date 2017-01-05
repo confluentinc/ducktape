@@ -46,12 +46,12 @@ class CheckFiniteSubcluster(object):
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n
 
-        nodes = cluster.alloc(Service.setup_node_spec(1))
+        nodes = cluster.alloc(Service.setup_node_spec(num_nodes=1))
         assert len(nodes) == 1
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n - 1
 
-        nodes2 = cluster.alloc(Service.setup_node_spec(2))
+        nodes2 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
         assert len(nodes2) == 2
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n - 3
@@ -66,12 +66,12 @@ class CheckFiniteSubcluster(object):
         n = 10
         cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(n)])
         with pytest.raises(AssertionError):
-            cluster.alloc(Service.setup_node_spec(n + 1))
+            cluster.alloc(Service.setup_node_spec(num_nodes=(n + 1)))
 
     def check_free_too_many(self):
         n = 10
         cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(n)])
-        nodes = cluster.alloc(Service.setup_node_spec(n))
+        nodes = cluster.alloc(Service.setup_node_spec(num_nodes=n))
         with pytest.raises(AssertionError):
             nodes.append(object())
             cluster.free(nodes)

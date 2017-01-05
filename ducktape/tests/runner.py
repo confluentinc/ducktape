@@ -256,7 +256,7 @@ class TestRunner(object):
         # TODO: right now this blindly converts the expected number of nodes into a node_spec. This won't work. The node_spec
         #       will need to come from the tests.
         self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = \
-            FiniteSubcluster(self.cluster.alloc(Service.setup_node_spec(test_context.expected_num_nodes)))
+            FiniteSubcluster(self.cluster.alloc(Service.setup_node_spec(num_nodes=test_context.expected_num_nodes)))
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))
@@ -300,7 +300,7 @@ class TestRunner(object):
         # Free nodes used by the test
         subcluster = self._test_cluster[test_key]
         # TODO: same here. This node spec shouldn't be generic.
-        self.cluster.free(subcluster.alloc(Service.setup_node_spec(len(subcluster))))
+        self.cluster.free(subcluster.alloc(Service.setup_node_spec(num_nodes=len(subcluster))))
         del self._test_cluster[test_key]
 
         # Join on the finished test process

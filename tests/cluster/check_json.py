@@ -70,12 +70,12 @@ class CheckJsonCluster(object):
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 3)
 
-        nodes = cluster.alloc(Service.setup_node_spec(1))
+        nodes = cluster.alloc(Service.setup_node_spec(num_nodes=1))
         nodes_hostnames = self.cluster_hostnames(nodes)
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 2)
 
-        nodes2 = cluster.alloc(Service.setup_node_spec(2))
+        nodes2 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
         nodes2_hostnames = self.cluster_hostnames(nodes2)
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 0)
@@ -94,7 +94,7 @@ class CheckJsonCluster(object):
         node = JsonCluster(
             {
                 "nodes": [
-                    {"ssh_config": {"host": "hostname"}}]}).alloc(Service.setup_node_spec(1))[0]
+                    {"ssh_config": {"host": "hostname"}}]}).alloc(Service.setup_node_spec(num_nodes=1))[0]
 
         assert node.account.hostname == "hostname"
         assert node.account.user is None
@@ -107,7 +107,7 @@ class CheckJsonCluster(object):
         }
         node = JsonCluster({"nodes":[{"hostname": "hostname",
                                       "user": "user",
-                                      "ssh_config": ssh_config}]}).alloc(Service.setup_node_spec(1))[0]
+                                      "ssh_config": ssh_config}]}).alloc(Service.setup_node_spec(num_nodes=1))[0]
 
         assert node.account.hostname == "hostname"
         assert node.account.user == "user"
@@ -121,4 +121,4 @@ class CheckJsonCluster(object):
     def check_exhausts_supply(self):
         cluster = JsonCluster(self.single_node_cluster_json)
         with pytest.raises(RuntimeError):
-            cluster.alloc(Service.setup_node_spec(2))
+            cluster.alloc(Service.setup_node_spec(num_nodes=2))

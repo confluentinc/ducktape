@@ -52,17 +52,17 @@ class Service(TemplateRenderer):
     # }
     logs = {}
 
-    # TODO: I changed this from num_nodes to nodes but I may not have updated all places where this constructor is called.
-    def __init__(self, context, nodes, *args, **kwargs):
+    def __init__(self, context, num_nodes=None, node_spec=None, *args, **kwargs):
         """
         :param context    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a
                           TestContext object.
-        :param nodes  Can either be an integer or a dictionary. If an integer, that number of Linux machines are
-                      allocated. If a dictionary, the dictionary must contain two keys: num_linux, num_windows. Each
-                      key must have an integer value, representing how many nodes of that type to allocate.
-                      In both cases, the number of nodes specifies how many to allocate to this service from the
-                      cluster. Node allocation takes place when start() is called, or when allocate_nodes() is called,
-                      whichever happens first.
+        :param num_nodes  An integer representing the number of Linux nodes to allocate. If node_spec is not None, it
+                          will be used and num_nodes will be ignored.
+        :param node_spec  A dictionary where the key is an operating system (possible values are in
+                          ducktape.cluster.remoteaccount.RemoteAccount.SUPPORTED_OS_TYPES) and the value is the number
+                          of nodes to allocate for the associated operating system. Values must be integers. Node
+                          allocation takes place when start() is called, or when allocate_nodes() is called, whichever
+                          happens first.
         """
         super(Service, self).__init__(*args, **kwargs)
         # Keep track of significant events in the lifetime of this service
@@ -74,7 +74,7 @@ class Service(TemplateRenderer):
         self._clean_time = -1
 
         self._initialized = False
-        self.node_spec = Service.setup_node_spec(nodes)
+        self.node_spec = Service.setup_node_spec(num_nodes, node_spec)
         self.context = context
 
         self.nodes = []
@@ -98,19 +98,23 @@ class Service(TemplateRenderer):
     # TODO: the windows client should have its own service. WindowsClientService
 
     @staticmethod
-    def setup_node_spec(nodes):
-        """If nodes as an int, converts it to a dict. If it's a dict, verifies keys and returns it."""
-        if isinstance(nodes, (int, long)):
-            return dict(linux=nodes)
+    def setup_node_spec(num_nodes=None, node_spec=None):
+        if not num_nodes and not node_spec:
+            raise Exception("Either num_nodes or node_spec must not be None.")
+
+        # If node_spec is none, convert num_nodes to a node_spec dict and assume Linux machines.
+        if not node_spec:
+            return {RemoteAccount.LINUX: num_nodes}
         else:
             try:
                 for os_type in RemoteAccount.SUPPORTED_OS_TYPES:
-                    if not nodes[os_type]:
+                    if not node_spec[os_type]:
                         raise Exception("When nodes is a dictionary, it must contain a key for all each " +
                                         "supported OS. '%s' is missing." % os_type)
-                return nodes
+                return node_spec
             except:
-                raise Exception("nodes must either be an integer or a dictionary.")
+                raise Exception("The node_spec must have a key for all supported operating systems: %s." %
+                                RemoteAccount.SUPPORTED_OS_TYPES)
 
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
