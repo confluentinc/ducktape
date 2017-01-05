@@ -12,17 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.cluster.cluster import Cluster
-from ducktape.cluster.remoteaccount import RemoteAccount
+from ducktape.cluster.mixed_os_cluster import MixedOsCluster
 
 
-class FiniteSubcluster(Cluster):
+class FiniteSubcluster(MixedOsCluster):
     """This cluster class gives us a mechanism for allocating finite blocks of nodes from another cluster.
     """
     def __init__(self, nodes):
         self.nodes = nodes
-        self._available = set(self.nodes)
-        self._in_use = set()
+        self.available_nodes = set(self.nodes)
+        self.in_use_nodes = set()
 
     def __len__(self):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
@@ -31,25 +30,22 @@ class FiniteSubcluster(Cluster):
     def alloc(self, node_spec):
         for operating_system, num_nodes in node_spec.iteritems():
             assert num_nodes <= self.num_available_nodes(operating_system=operating_system), \
-                "Not enough nodes available to allocate the requested %s nodes. Nodes requested: %s, Nodes available: %s" % \
-                (operating_system, num_nodes, self.num_available_nodes())
+                "Not enough nodes available to allocate the requested %s nodes. " % operating_system + \
+                "Nodes requested: %s " % num_nodes + \
+                "Nodes available: %s" % self.num_available_nodes(operating_system=operating_system)
 
         allocated_nodes = []
         for operating_system, num_nodes in node_spec.iteritems():
             for _ in range(num_nodes):
-                node = Cluster._next_available_node(self._available, operating_system)
-                self._available.remove(node)
-                self._in_use.add(node)
+                node = MixedOsCluster._next_available_node(self.available_nodes, operating_system)
+                self.available_nodes.remove(node)
+                self.in_use_nodes.add(node)
 
                 allocated_nodes.append(node)
 
         return allocated_nodes
 
-    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
-        """Number of available nodes."""
-        return Cluster._node_count_helper(self._available, operating_system)
-
     def free_single(self, node):
-        assert node in self._in_use
-        self._in_use.remove(node)
-        self._available.add(node)
+        assert node in self.in_use_nodes
+        self.in_use_nodes.remove(node)
+        self.available_nodes.add(node)

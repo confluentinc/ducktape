@@ -51,6 +51,8 @@ class Test(TemplateRenderer):
 
         Note this is not a reliable indicator of the true minimum cluster size, since new service instances may
         be added at any time. However, it does provide a lower bound on the minimum cluster size.
+
+        A dictionary is returned where the key is the operating system and the value is the number of nodes for said OS.
         """
         return self.test_context.services.num_nodes()
 

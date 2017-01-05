@@ -15,7 +15,8 @@
 from __future__ import absolute_import
 
 from ducktape.command_line.defaults import ConsoleDefaults
-from .cluster import Cluster, ClusterSlot
+from .cluster import ClusterSlot
+from ducktape.cluster.mixed_os_cluster import MixedOsCluster
 from .remoteaccount import RemoteAccount
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
@@ -27,7 +28,7 @@ import os
 import traceback
 
 
-class JsonCluster(Cluster):
+class JsonCluster(MixedOsCluster):
     """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
@@ -115,12 +116,6 @@ class JsonCluster(Cluster):
     def __len__(self):
         return len(self.available_nodes) + len(self.in_use_nodes)
 
-    def in_use_nodes_for_operating_system(self, operating_system):
-        return Cluster._node_count_helper(self.in_use_nodes, operating_system)
-
-    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
-        return Cluster._node_count_helper(self.available_nodes, operating_system)
-
     def alloc(self, node_spec):
         # first check that nodes are available.
         for operating_system, num_nodes in node_spec.iteritems():
@@ -136,7 +131,7 @@ class JsonCluster(Cluster):
         result = []
         for operating_system, num_nodes in node_spec.iteritems():
             for i in range(num_nodes):
-                node = Cluster._next_available_node(self.available_nodes, operating_system)
+                node = MixedOsCluster._next_available_node(self.available_nodes, operating_system)
                 self.available_nodes.remove(node)
                 cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
                 result.append(cluster_slot)

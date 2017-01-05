@@ -66,20 +66,3 @@ class Cluster(object):
 
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
-
-    @staticmethod
-    def _node_count_helper(nodes, operating_system):
-        count = 0
-        for node in nodes:
-            if node.operating_system == operating_system:
-                count += 1
-        return count
-
-    @staticmethod
-    def _next_available_node(nodes, operating_system):
-        node_to_return = None
-        for node in nodes:
-            if node.operating_system == operating_system:
-                node_to_return = node
-
-        return node_to_return
