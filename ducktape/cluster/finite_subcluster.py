@@ -45,7 +45,7 @@ class FiniteSubcluster(Cluster):
 
         return allocated_nodes
 
-    def num_available_nodes(self, operating_system=RemoteAccount.linux):
+    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
         """Number of available nodes."""
         return Cluster._node_count_helper(self._available, operating_system)
 

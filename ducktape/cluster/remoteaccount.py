@@ -56,8 +56,9 @@ class RemoteAccount(HttpMixin):
     Each operating system has its own RemoteAccount implementation.
     """
 
-    linux = "linux"
-    windows = "windows"
+    LINUX = "linux"
+    WINDOWS = "windows"
+    SUPPORTED_OS_TYPES = [LINUX, WINDOWS]
 
     def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
@@ -75,29 +76,11 @@ class RemoteAccount(HttpMixin):
         self.user = ssh_config.user
         self.externally_routable_ip = externally_routable_ip
         self._logger = logger
+        self.os = None
 
-    @staticmethod
-    def make_remote_account(ssh_config, externally_routable_ip=None):
-        """Factory function for creating the correct RemoteAccount implementation."""
-
-        # import here to avoid a circular import.
-        from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
-        from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
-
-        if ssh_config.host and "windows" in ssh_config.host:
-            return WindowsRemoteAccount(ssh_config=ssh_config,
-                                        externally_routable_ip=externally_routable_ip)
-        else:
-            return LinuxRemoteAccount(ssh_config=ssh_config,
-                                      externally_routable_ip=externally_routable_ip)
-
-    def has_operating_system(self, operating_system):
-        # import here to avoid a circular import. TODO: Is there a better way to do this?
-        from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
-        from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
-
-        return (operating_system == RemoteAccount.linux and isinstance(self, LinuxRemoteAccount) or
-                (operating_system == RemoteAccount.windows and isinstance(self, WindowsRemoteAccount)))
+    @property
+    def operating_system(self):
+        return self.os
 
     @property
     def logger(self):

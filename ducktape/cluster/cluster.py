@@ -21,9 +21,9 @@ class ClusterSlot(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    # TODO: may not need this.
-    def has_operating_system(self, operating_system):
-        return self.account.has_operating_system(operating_system)
+    @property
+    def operating_system(self):
+        return self.account.operating_system
 
 
 class Cluster(object):
@@ -71,7 +71,7 @@ class Cluster(object):
     def _node_count_helper(nodes, operating_system):
         count = 0
         for node in nodes:
-            if node.has_operating_system(operating_system):
+            if node.operating_system == operating_system:
                 count += 1
         return count
 
@@ -79,7 +79,7 @@ class Cluster(object):
     def _next_available_node(nodes, operating_system):
         node_to_return = None
         for node in nodes:
-            if node.has_operating_system(operating_system):
+            if node.operating_system == operating_system:
                 node_to_return = node
 
         return node_to_return

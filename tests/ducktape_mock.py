@@ -29,8 +29,9 @@ def mock_cluster():
 
 
 class FakeClusterSlot(object):
-    def has_operating_system(self, operating_system):
-        return True
+    @property
+    def operating_system(self):
+        return RemoteAccount.LINUX
 
 
 class FakeCluster(Cluster):
@@ -45,7 +46,7 @@ class FakeCluster(Cluster):
     def alloc(self, node_spec):
         """Request the specified number of slots, which will be reserved until they are freed by the caller."""
         # assume Linux.
-        linux_node_count = node_spec[RemoteAccount.linux]
+        linux_node_count = node_spec[RemoteAccount.LINUX]
         self._available_nodes -= linux_node_count
         return [FakeClusterSlot() for _ in range(linux_node_count)]
 

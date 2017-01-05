@@ -90,11 +90,13 @@ class IgnoreMissingHostKeyPolicy(MissingHostKeyPolicy):
 
 
 class LinuxRemoteAccount(RemoteAccount):
+
     def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
         super(LinuxRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
                                                  logger=logger)
         self._ssh_client = None
         self._sftp_client = None
+        self.os = RemoteAccount.LINUX
 
     @property
     def ssh_client(self):

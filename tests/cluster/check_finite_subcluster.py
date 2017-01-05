@@ -14,13 +14,15 @@
 
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.services.service import Service
+from ducktape.cluster.remoteaccount import RemoteAccount
 import pickle
 import pytest
 
 
 class MockFiniteSubclusterNode:
-    def has_operating_system(self, operating_system):
-        return True
+    @property
+    def operating_system(self):
+        return RemoteAccount.LINUX
 
 
 class CheckFiniteSubcluster(object):

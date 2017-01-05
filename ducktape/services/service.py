@@ -52,6 +52,7 @@ class Service(TemplateRenderer):
     # }
     logs = {}
 
+    # TODO: I changed this from num_nodes to nodes but I may not have updated all places where this constructor is called.
     def __init__(self, context, nodes, *args, **kwargs):
         """
         :param context    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a
@@ -99,14 +100,17 @@ class Service(TemplateRenderer):
     @staticmethod
     def setup_node_spec(nodes):
         """If nodes as an int, converts it to a dict. If it's a dict, verifies keys and returns it."""
-        if isinstance(nodes, int):
+        if isinstance(nodes, (int, long)):
             return dict(linux=nodes)
-        elif isinstance(nodes, dict):
-            if not nodes[RemoteAccount.linux] or not nodes[RemoteAccount.windows]:
-                raise Exception("When nodes is a dictionary, it must contain `linux` and `windows` keys.")
-            return nodes
         else:
-            raise Exception("nodes must either be an integer or a dictionary.")
+            try:
+                for os_type in RemoteAccount.SUPPORTED_OS_TYPES:
+                    if not nodes[os_type]:
+                        raise Exception("When nodes is a dictionary, it must contain a key for all each " +
+                                        "supported OS. '%s' is missing." % os_type)
+                return nodes
+            except:
+                raise Exception("nodes must either be an integer or a dictionary.")
 
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %

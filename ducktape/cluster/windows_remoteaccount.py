@@ -16,9 +16,12 @@ from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class WindowsRemoteAccount(RemoteAccount):
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
-        super(WindowsRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
+
+    def __init__(self, winrm_config, externally_routable_ip=None, logger=None):
+        super(WindowsRemoteAccount, self).__init__(winrm_config, externally_routable_ip=externally_routable_ip,
                                                    logger=logger)
+
+        self.os = RemoteAccount.WINDOWS
 
     def fetch_externally_routable_ip(self, is_aws):
         return "52.90.218.68" # TODO: implement this
