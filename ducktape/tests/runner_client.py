@@ -110,11 +110,13 @@ class RunnerClient(object):
             self.test = self.test_context.cls(self.test_context)
 
             self.log(logging.DEBUG, "Checking if there are enough nodes...")
-            if self.test.min_cluster_size() > len(self.cluster):
-                raise RuntimeError(
-                    "There are not enough nodes available in the cluster to run this test. "
-                    "Cluster size: %d, Need at least: %d. Services currently registered: %s" %
-                    (len(self.cluster), self.test.min_cluster_size(), self.test_context.services))
+            for (operating_system, node_count) in self.test.min_cluster_size().iteritems():
+                if node_count > self.cluster.num_nodes_for_operating_system(operating_system):
+                    raise RuntimeError(
+                        "There are not enough nodes available in the cluster to run this test. "
+                        "Cluster size for %s: %d, Need at least: %d. Services currently registered: %s" %
+                        (operating_system, self.cluster.num_nodes_for_operating_system(operating_system), node_count,
+                         self.test_context.services))
 
             # Run the test unit
             start_time = time.time()

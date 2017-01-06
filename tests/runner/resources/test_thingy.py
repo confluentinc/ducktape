@@ -14,6 +14,7 @@
 
 from ducktape.tests.test import Test
 from ducktape.mark import ignore, parametrize
+from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class TestThingy(Test):
@@ -21,7 +22,7 @@ class TestThingy(Test):
 
     def min_cluster_size(self):
         """ This test uses many nodes, wow!"""
-        return 1000
+        return {RemoteAccount.LINUX: 1000}
 
     def test_pi(self):
         return {"data": 3.14159}

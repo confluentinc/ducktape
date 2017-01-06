@@ -15,7 +15,7 @@
 from ducktape.errors import TimeoutError
 from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
-from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountSSHConfig
+from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount, RemoteAccountSSHConfig
 
 import logging
 from threading import Thread
@@ -100,8 +100,8 @@ class CheckRemoteAccountEquality(object):
             "externally_routable_ip": "345",
             "logger": logging.getLogger(__name__)
         }
-        r1 = RemoteAccount(**kwargs)
-        r2 = RemoteAccount(**kwargs)
+        r1 = LinuxRemoteAccount(**kwargs)
+        r2 = LinuxRemoteAccount(**kwargs)
 
         assert r1 == r2
 

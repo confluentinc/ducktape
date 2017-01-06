@@ -13,7 +13,8 @@
 # limitations under the License.
 
 from .cluster import Cluster, ClusterSlot
-from .remoteaccount import RemoteAccount, RemoteAccountSSHConfig
+from .linux_remoteaccount import LinuxRemoteAccount, RemoteAccountSSHConfig
+from .remoteaccount import RemoteAccount
 import sys
 
 
@@ -33,17 +34,19 @@ class LocalhostCluster(Cluster):
     def __len__(self):
         return self._size
 
-    def alloc(self, num_nodes):
-        assert self._available >= num_nodes
-        self._available -= num_nodes
+    def alloc(self, node_spec):
+        # first check that nodes are available. Assume Linux.
+        assert self._available >= node_spec[RemoteAccount.LINUX]
+        self._available -= node_spec[RemoteAccount.LINUX]
 
         allocated_nodes = []
-        for _ in range(num_nodes):
+        # assume Linux.
+        for _ in range(node_spec[RemoteAccount.LINUX]):
             ssh_config = RemoteAccountSSHConfig(
                 "localhost%d" % self._id_supplier,
                 hostname="localhost",
                 port=22)
-            allocated_nodes.append(ClusterSlot(RemoteAccount(ssh_config), slot_id=self._id_supplier))
+            allocated_nodes.append(ClusterSlot(LinuxRemoteAccount(ssh_config), slot_id=self._id_supplier))
             self._id_supplier += 1
         return allocated_nodes
 
