@@ -15,8 +15,7 @@
 from __future__ import absolute_import
 
 from ducktape.command_line.defaults import ConsoleDefaults
-from .cluster import ClusterSlot
-from ducktape.cluster.mixed_os_cluster import MixedOsCluster
+from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
@@ -28,7 +27,7 @@ import os
 import traceback
 
 
-class JsonCluster(MixedOsCluster):
+class JsonCluster(Cluster):
     """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
@@ -98,8 +97,8 @@ class JsonCluster(MixedOsCluster):
             msg = "JSON cluster definition invalid: %s: %s" % (e, traceback.format_exc(limit=16))
             raise ValueError(msg)
 
-        self.available_nodes = collections.deque(node_accounts)
-        self.in_use_nodes = set()
+        self._available_nodes = collections.deque(node_accounts)
+        self._in_use_nodes = set()
         self._id_supplier = 0
 
     @staticmethod
@@ -114,7 +113,7 @@ class JsonCluster(MixedOsCluster):
                                       externally_routable_ip=externally_routable_ip)
 
     def __len__(self):
-        return len(self.available_nodes) + len(self.in_use_nodes)
+        return len(self._available_nodes) + len(self._in_use_nodes)
 
     def alloc(self, node_spec):
         # first check that nodes are available.
@@ -123,7 +122,7 @@ class JsonCluster(MixedOsCluster):
                 err_msg = "There aren't enough available nodes to satisfy the resource request. " \
                     "Total cluster size for %s: %d, Requested: %d, Already allocated: %d, Available: %d. " % \
                           (operating_system, len(self), num_nodes,
-                           self.in_use_nodes_for_operating_system(operating_system=operating_system),
+                           self.in_use_nodes_for_operating_system(operating_system),
                            self.num_available_nodes(operating_system=operating_system))
                 err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
                 raise RuntimeError(err_msg)
@@ -131,20 +130,20 @@ class JsonCluster(MixedOsCluster):
         result = []
         for operating_system, num_nodes in node_spec.iteritems():
             for i in range(num_nodes):
-                node = MixedOsCluster._next_available_node(self.available_nodes, operating_system)
-                self.available_nodes.remove(node)
+                node = Cluster._next_available_node(self._available_nodes, operating_system)
+                self._available_nodes.remove(node)
                 cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
                 result.append(cluster_slot)
-                self.in_use_nodes.add(node)
+                self._in_use_nodes.add(node)
                 self._id_supplier += 1
 
         return result
 
     def free_single(self, slot):
-        assert(slot.account in self.in_use_nodes)
+        assert(slot.account in self._in_use_nodes)
         slot.account.close()
-        self.in_use_nodes.remove(slot.account)
-        self.available_nodes.append(slot.account)
+        self._in_use_nodes.remove(slot.account)
+        self._available_nodes.append(slot.account)
 
     def _externally_routable_ip(self, account):
         return None

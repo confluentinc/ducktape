@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import collections
+from .remoteaccount import RemoteAccount
 
 
 class ClusterSlot(object):
@@ -66,3 +67,30 @@ class Cluster(object):
 
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
+
+    def num_nodes_for_operating_system(self, operating_system):
+        return self.in_use_nodes_for_operating_system(operating_system) + self.num_available_nodes(operating_system)
+
+    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
+        """Number of available nodes."""
+        return Cluster._node_count_helper(self._available_nodes, operating_system)
+
+    def in_use_nodes_for_operating_system(self, operating_system):
+        return Cluster._node_count_helper(self._in_use_nodes, operating_system)
+
+    @staticmethod
+    def _node_count_helper(nodes, operating_system):
+        count = 0
+        for node in nodes:
+            if node.operating_system == operating_system:
+                count += 1
+        return count
+
+    @staticmethod
+    def _next_available_node(nodes, operating_system):
+        node_to_return = None
+        for node in nodes:
+            if node.operating_system == operating_system:
+                node_to_return = node
+
+        return node_to_return

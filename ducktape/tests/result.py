@@ -22,6 +22,7 @@ from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
 from ducktape.tests.status import PASS, FAIL, IGNORE
+from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class TestResult(object):
@@ -48,7 +49,7 @@ class TestResult(object):
             self.nodes_used = test_context.services.num_nodes()
         else:
             self.services = {}
-            self.nodes_used = {"": 0}
+            self.nodes_used = {RemoteAccount.LINUX: 0}
 
         self.test_id = test_context.test_id
         self.module_name = test_context.module_name

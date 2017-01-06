@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.cluster.mixed_os_cluster import MixedOsCluster
+from ducktape.cluster.cluster import Cluster
 
 
-class FiniteSubcluster(MixedOsCluster):
+class FiniteSubcluster(Cluster):
     """This cluster class gives us a mechanism for allocating finite blocks of nodes from another cluster.
     """
     def __init__(self, nodes):
         self.nodes = nodes
-        self.available_nodes = set(self.nodes)
-        self.in_use_nodes = set()
+        self._available_nodes = set(self.nodes)
+        self._in_use_nodes = set()
 
     def __len__(self):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
@@ -37,15 +37,15 @@ class FiniteSubcluster(MixedOsCluster):
         allocated_nodes = []
         for operating_system, num_nodes in node_spec.iteritems():
             for _ in range(num_nodes):
-                node = MixedOsCluster._next_available_node(self.available_nodes, operating_system)
-                self.available_nodes.remove(node)
-                self.in_use_nodes.add(node)
+                node = Cluster._next_available_node(self._available_nodes, operating_system)
+                self._available_nodes.remove(node)
+                self._in_use_nodes.add(node)
 
                 allocated_nodes.append(node)
 
         return allocated_nodes
 
     def free_single(self, node):
-        assert node in self.in_use_nodes
-        self.in_use_nodes.remove(node)
-        self.available_nodes.add(node)
+        assert node in self._in_use_nodes
+        self._in_use_nodes.remove(node)
+        self._available_nodes.add(node)
