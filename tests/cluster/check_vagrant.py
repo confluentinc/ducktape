@@ -78,13 +78,13 @@ class CheckVagrantCluster(object):
         assert cluster.num_available_nodes() == 2
         node1, node2 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
 
-        assert node1.account.hostname == "worker2"
+        assert node1.account.hostname == "worker1"
         assert node1.account.user == "vagrant"
-        assert node1.account.ssh_hostname == '127.0.0.2'
+        assert node1.account.ssh_hostname == '127.0.0.1'
 
-        assert node2.account.hostname == "worker1"
+        assert node2.account.hostname == "worker2"
         assert node2.account.user == "vagrant"
-        assert node2.account.ssh_hostname == '127.0.0.1'
+        assert node2.account.ssh_hostname == '127.0.0.2'
 
     def check_cluster_file_write(self, monkeypatch):
         """check the behavior of VagrantCluster when cluster_file is specified but the file doesn't exist. VagrantCluster
@@ -161,12 +161,12 @@ class CheckVagrantCluster(object):
         assert cluster.num_available_nodes() == 2
         node2, node3 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
 
-        assert node3.account.hostname == "worker3"
+        assert node3.account.hostname == "worker2"
         assert node3.account.user == "vagrant"
-        assert node3.account.ssh_hostname == '127.0.0.3'
-        assert node3.account.ssh_config.to_json() == node1_expected["ssh_config"]
+        assert node3.account.ssh_hostname == '127.0.0.2'
+        assert node3.account.ssh_config.to_json() == node2_expected["ssh_config"]
 
-        assert node2.account.hostname == "worker2"
+        assert node2.account.hostname == "worker3"
         assert node2.account.user == "vagrant"
-        assert node2.account.ssh_hostname == '127.0.0.2'
-        assert node2.account.ssh_config.to_json() == node2_expected["ssh_config"]
+        assert node2.account.ssh_hostname == '127.0.0.3'
+        assert node2.account.ssh_config.to_json() == node1_expected["ssh_config"]
