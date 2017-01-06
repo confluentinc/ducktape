@@ -95,8 +95,6 @@ class Service(TemplateRenderer):
         self._local_scratch_dir = None
         self._initialized = True
 
-    # TODO: the windows client should have its own service. WindowsClientService
-
     @staticmethod
     def setup_node_spec(num_nodes=None, node_spec=None):
         if not num_nodes and not node_spec:
@@ -108,13 +106,13 @@ class Service(TemplateRenderer):
         else:
             try:
                 for os_type in RemoteAccount.SUPPORTED_OS_TYPES:
-                    if not node_spec[os_type]:
+                    if os_type not in node_spec:
                         raise Exception("When nodes is a dictionary, it must contain a key for all each " +
                                         "supported OS. '%s' is missing." % os_type)
                 return node_spec
             except:
-                raise Exception("The node_spec must have a key for all supported operating systems: %s." %
-                                RemoteAccount.SUPPORTED_OS_TYPES)
+                raise Exception("The node_spec must have a key for all supported operating systems: " +
+                                "%s, node_spec: %s" % (RemoteAccount.SUPPORTED_OS_TYPES, str(node_spec)))
 
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %

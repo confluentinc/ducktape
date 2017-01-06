@@ -70,6 +70,8 @@ def cluster(**kwargs):
 
     """
 
+    # TODO: should I change this to also support node_spec in addition to num_nodes?
+
     def cluster_use_metadata_adder(f):
         Mark.mark(f, ClusterUseMetadata(**kwargs))
         return f

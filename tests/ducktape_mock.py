@@ -39,6 +39,7 @@ class FakeCluster(Cluster):
     def __init__(self, num_nodes):
         self._num_nodes = num_nodes
         self._available_nodes = self._num_nodes
+        self._in_use_nodes = []
 
     def __len__(self):
         return self._num_nodes
@@ -50,7 +51,7 @@ class FakeCluster(Cluster):
         self._available_nodes -= linux_node_count
         return [FakeClusterSlot() for _ in range(linux_node_count)]
 
-    def num_available_nodes(self):
+    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
         return self._available_nodes
 
     def free(self, slots):

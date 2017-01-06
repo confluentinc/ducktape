@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 from ducktape.cluster.remoteaccount import RemoteAccount
 
 
@@ -29,4 +31,5 @@ class WindowsRemoteAccount(RemoteAccount):
     def close(self):
         return # TODO: implement this
 
-    # NOTE TO SELF: as I implement parent methods, only implement the methods needed for my work. Don't implement all of them for the sake of doing so
+    def run_command(self, cmd):
+        self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
