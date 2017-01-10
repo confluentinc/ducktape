@@ -22,7 +22,7 @@ class CheckJsonCluster(object):
     single_node_cluster_json = {
         "nodes": [
             {
-                "ssh_config": {"host": "localhost"}
+                "remote_command_config": {"host": "localhost"}
             }
         ]
     }
@@ -47,25 +47,25 @@ class CheckJsonCluster(object):
         n = 10
         cluster = JsonCluster(
             {"nodes": [
-                {"ssh_config": {"hostname": "localhost%d" % x}} for x in range(n)]})
+                {"remote_command_config": {"hostname": "localhost%d" % x}} for x in range(n)]})
 
         assert len(cluster) == n
 
     def check_pickleable(self):
         cluster = JsonCluster(
             {"nodes": [
-                {"ssh_config": {"host": "localhost1"}},
-                {"ssh_config": {"host": "localhost2"}},
-                {"ssh_config": {"host": "localhost3"}}]})
+                {"remote_command_config": {"host": "localhost1"}},
+                {"remote_command_config": {"host": "localhost2"}},
+                {"remote_command_config": {"host": "localhost3"}}]})
 
         pickle.dumps(cluster)
 
     def check_allocate_free(self):
         cluster = JsonCluster(
             {"nodes": [
-                {"ssh_config": {"host": "localhost1"}},
-                {"ssh_config": {"host": "localhost2"}},
-                {"ssh_config": {"host": "localhost3"}}]})
+                {"remote_command_config": {"host": "localhost1"}},
+                {"remote_command_config": {"host": "localhost2"}},
+                {"remote_command_config": {"host": "localhost3"}}]})
 
         assert len(cluster) == 3
         assert(cluster.num_available_nodes() == 3)
@@ -94,12 +94,12 @@ class CheckJsonCluster(object):
         node = JsonCluster(
             {
                 "nodes": [
-                    {"ssh_config": {"host": "hostname"}}]}).alloc(Service.setup_node_spec(num_nodes=1))[0]
+                    {"remote_command_config": {"host": "hostname"}}]}).alloc(Service.setup_node_spec(num_nodes=1))[0]
 
         assert node.account.hostname == "hostname"
         assert node.account.user is None
 
-        ssh_config = {
+        remote_command_config = {
             "host": "hostname",
             "user": "user",
             "hostname": "localhost",
@@ -107,16 +107,16 @@ class CheckJsonCluster(object):
         }
         node = JsonCluster({"nodes":[{"hostname": "hostname",
                                       "user": "user",
-                                      "ssh_config": ssh_config}]}).alloc(Service.setup_node_spec(num_nodes=1))[0]
+                                      "remote_command_config": remote_command_config}]}).alloc(Service.setup_node_spec(num_nodes=1))[0]
 
         assert node.account.hostname == "hostname"
         assert node.account.user == "user"
 
         # check ssh configs
-        assert node.account.ssh_config.host == "hostname"
-        assert node.account.ssh_config.user == "user"
-        assert node.account.ssh_config.hostname == "localhost"
-        assert node.account.ssh_config.port == 22
+        assert node.account.remote_command_config.host == "hostname"
+        assert node.account.remote_command_config.user == "user"
+        assert node.account.remote_command_config.hostname == "localhost"
+        assert node.account.remote_command_config.port == 22
 
     def check_exhausts_supply(self):
         cluster = JsonCluster(self.single_node_cluster_json)

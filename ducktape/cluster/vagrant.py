@@ -17,8 +17,7 @@ from __future__ import absolute_import
 from .json import JsonCluster
 import json
 import os
-from .linux_remoteaccount import RemoteAccountSSHConfig
-from .remoteaccount import RemoteAccount
+from .remoteaccount import RemoteAccountRemoteCommandConfig
 import subprocess
 from ducktape.json_serializable import DucktapeJSONEncoder
 
@@ -54,13 +53,11 @@ class VagrantCluster(JsonCluster):
 
         super(VagrantCluster, self).__init__(cluster_json)
 
-        # TODO: move this away from "ssh_config" and towards "remote_command_config" -- to not be linux specific. This will require a lot of changes.
-
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
             nodes = [
                         {
-                            "ssh_config": node_account.ssh_config,
+                            "remote_command_config": node_account.remote_command_config,
                             "externally_routable_ip": node_account.externally_routable_ip
                         }
                         for node_account in self._available_nodes
@@ -74,34 +71,35 @@ class VagrantCluster(JsonCluster):
             node_account.close()
 
     def _get_nodes_from_vagrant(self):
-        ssh_config_info, error = self._vagrant_ssh_config()
+        remote_command_config_info, error = self._vagrant_remote_command_config()
 
         nodes = []
-        node_info_arr = ssh_config_info.split("\n\n")
+        node_info_arr = remote_command_config_info.split("\n\n")
         node_info_arr = [ninfo.strip() for ninfo in node_info_arr if ninfo.strip()]
 
         for ninfo in node_info_arr:
-            ssh_config = RemoteAccountSSHConfig.from_string(ninfo)
+            remote_command_config = RemoteAccountRemoteCommandConfig.from_string(ninfo)
 
             try:
-                account = JsonCluster.make_remote_account(ssh_config)
+                account = JsonCluster.make_remote_account(remote_command_config)
                 externally_routable_ip = account.fetch_externally_routable_ip(self.is_aws)
             finally:
                 account.close()
                 del account
 
             nodes.append({
-                "ssh_config": ssh_config.to_json(),
+                "remote_command_config": remote_command_config.to_json(),
                 "externally_routable_ip": externally_routable_ip
             })
 
         return nodes
 
-    def _vagrant_ssh_config(self):
-        ssh_config_info, error = subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE,
+    def _vagrant_remote_command_config(self):
+        remote_command_config_info, error = subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE,
                                                   stderr=subprocess.PIPE, close_fds=True).communicate()
-        return ssh_config_info, error
+        return remote_command_config_info, error
 
+    # TODO: HERE
     @property
     def is_aws(self):
         """Heuristic to detect whether the slave nodes are local or aws.

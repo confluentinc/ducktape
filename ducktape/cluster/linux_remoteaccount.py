@@ -15,7 +15,7 @@
 from contextlib import contextmanager
 import logging
 import os
-from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
+from paramiko import SSHClient, MissingHostKeyPolicy
 import shutil
 import signal
 import socket
@@ -25,60 +25,6 @@ import warnings
 
 from ducktape.utils.util import wait_until
 from ducktape.cluster.remoteaccount import RemoteAccount, RemoteCommandError
-
-
-class RemoteAccountSSHConfig(object):
-    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
-        """Wrapper for ssh configs used by ducktape to connect to remote machines.
-
-        The fields in this class are lowercase versions of a small selection of ssh config properties
-        (see man page: "man ssh_config")
-        """
-        self.host = host
-        self.hostname = hostname or 'localhost'
-        self.user = user
-        self.port = port or 22
-        self.port = int(self.port)
-        self.password = password
-        self.identityfile = identityfile
-
-    @staticmethod
-    def from_string(config_str):
-        """Construct RemoteAccountSSHConfig object from a string that looks like
-
-        Host the-host
-            Hostname the-hostname
-            Port 22
-            User ubuntu
-            IdentityFile /path/to/key
-        """
-        config = SSHConfig()
-        config.parse(config_str.split("\n"))
-
-        hostnames = config.get_hostnames()
-        if '*' in hostnames:
-            hostnames.remove('*')
-        assert len(hostnames) == 1, "Expected hostnames to have single entry: %s" % hostnames
-        host = hostnames.pop()
-
-        config_dict = config.lookup(host)
-        if config_dict.get("identityfile") is not None:
-            # paramiko.SSHConfig parses this in as a list, but we only want a single string
-            config_dict["identityfile"] = config_dict["identityfile"][0]
-
-        return RemoteAccountSSHConfig(host, **config_dict)
-
-    def to_json(self):
-        return self.__dict__
-
-    def __repr__(self):
-        return str(self.to_json())
-
-    def __eq__(self, other):
-        return other and other.__dict__ == self.__dict__
-
-    def __hash__(self):
-        return hash(tuple(sorted(self.__dict__.items())))
 
 
 class IgnoreMissingHostKeyPolicy(MissingHostKeyPolicy):
@@ -97,6 +43,10 @@ class LinuxRemoteAccount(RemoteAccount):
         self._ssh_client = None
         self._sftp_client = None
         self.os = RemoteAccount.LINUX
+
+    @property
+    def ssh_config(self):
+        return self.remote_command_config
 
     @property
     def ssh_client(self):

@@ -14,11 +14,65 @@
 
 from contextlib import contextmanager
 import logging
+from paramiko import SSHConfig
 
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
 
+
+class RemoteAccountRemoteCommandConfig(object):
+    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
+        """Wrapper for ssh configs used by ducktape to connect to remote machines.
+
+        The fields in this class are lowercase versions of a small selection of ssh config properties
+        (see man page: "man ssh_config")
+        """
+        self.host = host
+        self.hostname = hostname or 'localhost'
+        self.user = user
+        self.port = port or 22
+        self.port = int(self.port)
+        self.password = password
+        self.identityfile = identityfile
+
+    @staticmethod
+    def from_string(config_str):
+        """Construct RemoteAccountSSHConfig object from a string that looks like
+
+        Host the-host
+            Hostname the-hostname
+            Port 22
+            User ubuntu
+            IdentityFile /path/to/key
+        """
+        config = SSHConfig()
+        config.parse(config_str.split("\n"))
+
+        hostnames = config.get_hostnames()
+        if '*' in hostnames:
+            hostnames.remove('*')
+        assert len(hostnames) == 1, "Expected hostnames to have single entry: %s" % hostnames
+        host = hostnames.pop()
+
+        config_dict = config.lookup(host)
+        if config_dict.get("identityfile") is not None:
+            # paramiko.SSHConfig parses this in as a list, but we only want a single string
+            config_dict["identityfile"] = config_dict["identityfile"][0]
+
+        return RemoteAccountRemoteCommandConfig(host, **config_dict)
+
+    def to_json(self):
+        return self.__dict__
+
+    def __repr__(self):
+        return str(self.to_json())
+
+    def __eq__(self, other):
+        return other and other.__dict__ == self.__dict__
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.__dict__.items())))
 
 class RemoteAccountError(DucktapeError):
     """This exception is raised when an attempted action on a remote node fails.
@@ -60,20 +114,20 @@ class RemoteAccount(HttpMixin):
     WINDOWS = "windows"
     SUPPORTED_OS_TYPES = [LINUX, WINDOWS]
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
+    def __init__(self, remote_command_config, externally_routable_ip=None, logger=None):
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
         # be hashable
-        self.ssh_config = ssh_config
+        self.remote_command_config = remote_command_config
 
         # We don't want to rely on the hostname (e.g. 'worker1') having been added to the driver host's /etc/hosts file.
         # But that means we need to distinguish between the hostname and the value of hostname we use for SSH commands.
         # We try to satisfy all use cases and keep things simple by
         #   a) storing the hostname the user probably expects (the "Host" value in .ssh/config)
         #   b) saving the real value we use for running the SSH command
-        self.hostname = ssh_config.host
-        self.ssh_hostname = ssh_config.hostname
+        self.hostname = remote_command_config.host
+        self.ssh_hostname = remote_command_config.hostname
 
-        self.user = ssh_config.user
+        self.user = remote_command_config.user
         self.externally_routable_ip = externally_routable_ip
         self._logger = logger
         self.os = None

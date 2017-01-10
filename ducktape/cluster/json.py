@@ -19,7 +19,7 @@ from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
-from .linux_remoteaccount import RemoteAccountSSHConfig
+from .remoteaccount import RemoteAccountRemoteCommandConfig
 
 import collections
 import json
@@ -48,7 +48,7 @@ class JsonCluster(Cluster):
             {
               "externally_routable_ip": "192.168.50.151",
 
-              "ssh_config": {
+              "remote_command_config": {
                 "host": "worker1",
                 "hostname": "127.0.0.1",
                 "identityfile": "/path/to/private_key",
@@ -60,7 +60,7 @@ class JsonCluster(Cluster):
             {
               "externally_routable_ip": "192.168.50.151",
 
-              "ssh_config": {
+              "remote_command_config": {
                 "host": "worker2",
                 "hostname": "127.0.0.1",
                 "identityfile": "/path/to/private_key",
@@ -82,11 +82,11 @@ class JsonCluster(Cluster):
         try:
             node_accounts = []
             for ninfo in cluster_json["nodes"]:
-                remote_command_config_dict = ninfo.get("ssh_config")
+                remote_command_config_dict = ninfo.get("remote_command_config")
                 assert remote_command_config_dict is not None, \
-                    "Cluster json has a node without an ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
+                    "Cluster json has a node without a remote_command_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
 
-                remote_command_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
+                remote_command_config = RemoteAccountRemoteCommandConfig(**ninfo.get("remote_command_config", {}))
                 node_accounts.append(JsonCluster.make_remote_account(remote_command_config, ninfo.get("externally_routable_ip")))
 
             for node_account in node_accounts:

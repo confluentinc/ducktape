@@ -39,8 +39,8 @@ class CheckLocalhostCluster(object):
         for i, slot in enumerate(slots):
             assert slot.account.hostname == 'localhost%d' % i
             assert slot.account.ssh_hostname == 'localhost'
-            assert slot.account.ssh_config.hostname == 'localhost'
-            assert slot.account.ssh_config.port == 22
+            assert slot.account.remote_command_config.hostname == 'localhost'
+            assert slot.account.remote_command_config.port == 22
             assert slot.account.user is None
 
         assert(self.cluster.num_available_nodes() == (available - 100))
