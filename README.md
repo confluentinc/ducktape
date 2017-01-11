@@ -204,7 +204,7 @@ Ducktape supports `Service`s that run on Windows, but only in EC2.
 
 When a `Service` requires a Windows machine, AWS credentials must be configured on the machine running ducktape.
 
-Ducktape uses the [boto3](https://aws.amazon.com/sdk-for-python/) Python library to connect to AWS. And `boto3` supports many different [configuration options](https://boto3.readthedocs.io/en/latest/guide/configuration.html#guide-configuration).
+Ducktape uses the [boto3](https://aws.amazon.com/sdk-for-python/) Python module to connect to AWS. And `boto3` supports many different [configuration options](https://boto3.readthedocs.io/en/latest/guide/configuration.html#guide-configuration).
 
 Here's an example bare minimum configuration using environment variables:
 
