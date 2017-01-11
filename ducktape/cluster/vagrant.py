@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from .json import JsonCluster
 import json
 import os
-from .remoteaccount import RemoteAccountRemoteCommandConfig
+from .remoteaccount import RemoteAccountConfig
 import subprocess
 from ducktape.json_serializable import DucktapeJSONEncoder
 
@@ -78,14 +78,16 @@ class VagrantCluster(JsonCluster):
         node_info_arr = [ninfo.strip() for ninfo in node_info_arr if ninfo.strip()]
 
         for ninfo in node_info_arr:
-            remote_command_config = RemoteAccountRemoteCommandConfig.from_string(ninfo)
+            remote_command_config = RemoteAccountConfig.from_string(ninfo)
 
+            account = None
             try:
                 account = JsonCluster.make_remote_account(remote_command_config)
                 externally_routable_ip = account.fetch_externally_routable_ip(self.is_aws)
             finally:
-                account.close()
-                del account
+                if account:
+                    account.close()
+                    del account
 
             nodes.append({
                 "remote_command_config": remote_command_config.to_json(),

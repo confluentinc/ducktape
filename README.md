@@ -197,6 +197,22 @@ Alternatively, if you've installed pytest (`sudo pip install pytest`) you can ru
 it directly on the `tests` directory`:
 
     py.test tests
+
+Windows
+-------
+Ducktape supports `Service`s that run on Windows, but only in EC2.
+
+When a `Service` requires a Windows machine, AWS credentials must be configured on the machine running ducktape.
+
+Ducktape uses the [boto3](https://aws.amazon.com/sdk-for-python/) Python library to connect to AWS. And `boto3` supports many different [configuration options](https://boto3.readthedocs.io/en/latest/guide/configuration.html#guide-configuration).
+
+Here's an example bare minimum configuration using environment variables:
+
+    export AWS_ACCESS_KEY_ID="ABC123"
+    export AWS_SECRET_ACCESS_KEY="secret"
+    export AWS_DEFAULT_REGION="us-east-1"
+
+The region can be any AWS region, not just `us-east-1`.
     
 Contribute
 ----------

@@ -19,7 +19,7 @@ from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
-from .remoteaccount import RemoteAccountRemoteCommandConfig
+from .remoteaccount import RemoteAccountConfig
 
 import collections
 import json
@@ -86,7 +86,7 @@ class JsonCluster(Cluster):
                 assert remote_command_config_dict is not None, \
                     "Cluster json has a node without a remote_command_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
 
-                remote_command_config = RemoteAccountRemoteCommandConfig(**ninfo.get("remote_command_config", {}))
+                remote_command_config = RemoteAccountConfig(**ninfo.get("remote_command_config", {}))
                 node_accounts.append(JsonCluster.make_remote_account(remote_command_config, ninfo.get("externally_routable_ip")))
 
             for node_account in node_accounts:

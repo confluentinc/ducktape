@@ -21,7 +21,7 @@ from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
 
 
-class RemoteAccountRemoteCommandConfig(object):
+class RemoteAccountConfig(object):
     def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
         """Wrapper for ssh configs used by ducktape to connect to remote machines.
 
@@ -60,7 +60,7 @@ class RemoteAccountRemoteCommandConfig(object):
             # paramiko.SSHConfig parses this in as a list, but we only want a single string
             config_dict["identityfile"] = config_dict["identityfile"][0]
 
-        return RemoteAccountRemoteCommandConfig(host, **config_dict)
+        return RemoteAccountConfig(host, **config_dict)
 
     def to_json(self):
         return self.__dict__

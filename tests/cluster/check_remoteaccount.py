@@ -16,7 +16,7 @@ from ducktape.errors import TimeoutError
 from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
 from ducktape.cluster.remoteaccount import RemoteAccount
-from ducktape.cluster.remoteaccount import RemoteAccountRemoteCommandConfig
+from ducktape.cluster.remoteaccount import RemoteAccountConfig
 
 import logging
 from threading import Thread
@@ -94,7 +94,7 @@ class CheckRemoteAccountEquality(object):
     def check_remote_account_equality(self):
         """Different instances of remote account initialized with the same parameters should be equal."""
 
-        remote_command_config = RemoteAccountRemoteCommandConfig(host="thehost", hostname="localhost", port=22)
+        remote_command_config = RemoteAccountConfig(host="thehost", hostname="localhost", port=22)
 
         kwargs = {
             "remote_command_config": remote_command_config,
