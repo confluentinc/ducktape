@@ -29,6 +29,8 @@ class WindowsRemoteAccount(RemoteAccount):
     """
     Windows remote accounts are currently only supported in EC2. See _setup_winrm() for how the WinRM password
     is fetched, which is currently specific to AWS.
+
+    The Windows AMI needs to also have an SSH server running to support SSH commands, SCP, and rsync.
     """
 
     WINRM_USERNAME = "Administrator"
@@ -41,6 +43,10 @@ class WindowsRemoteAccount(RemoteAccount):
 
     @property
     def winrm_config(self):
+        return self.remote_command_config
+
+    @property
+    def ssh_config(self):
         return self.remote_command_config
 
     @property
@@ -104,11 +110,7 @@ class WindowsRemoteAccount(RemoteAccount):
         # EC2 windows machines aren't given an externally routable IP. Use the hostname instead.
         return self.winrm_config.hostname
 
-    def close(self):
-        # the winrm client doesn't need to be closed.
-        pass
-
-    def run_command(self, cmd, allow_fail=False):
+    def run_winrm_command(self, cmd, allow_fail=False):
         self._log(logging.DEBUG, "Running winrm command: %s" % cmd)
         result = self.winrm_client.run_cmd(cmd)
         if not allow_fail and result.status_code != 0:
