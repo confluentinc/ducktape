@@ -101,7 +101,6 @@ class VagrantCluster(JsonCluster):
                                                   stderr=subprocess.PIPE, close_fds=True).communicate()
         return remote_command_config_info, error
 
-    # TODO: HERE
     @property
     def is_aws(self):
         """Heuristic to detect whether the slave nodes are local or aws.
