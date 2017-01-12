@@ -46,10 +46,6 @@ class WindowsRemoteAccount(RemoteAccount):
         return self.remote_command_config
 
     @property
-    def ssh_config(self):
-        return self.remote_command_config
-
-    @property
     def winrm_client(self):
         # TODO: currently this only works in AWS EC2 provisioned by Vagrant. Add support for other environments.
 

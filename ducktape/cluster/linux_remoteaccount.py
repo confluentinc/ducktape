@@ -25,10 +25,6 @@ class LinuxRemoteAccount(RemoteAccount):
         self.os = RemoteAccount.LINUX
 
     @property
-    def ssh_config(self):
-        return self.remote_command_config
-
-    @property
     def local(self):
         """Returns True if this 'remote' account is probably local.
         This is an imperfect heuristic, but should work for simple local testing."""

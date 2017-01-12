@@ -146,6 +146,10 @@ class RemoteAccount(HttpMixin):
         return self.os
 
     @property
+    def ssh_config(self):
+        return self.remote_command_config
+
+    @property
     def logger(self):
         if self._logger:
             return self._logger
@@ -165,6 +169,8 @@ class RemoteAccount(HttpMixin):
         if not self._ssh_client:
             client = SSHClient()
             client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
+
+            self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
 
             client.connect(
                 hostname=self.ssh_config.hostname,
