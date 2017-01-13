@@ -58,7 +58,7 @@ class CheckVagrantCluster(object):
             os.remove(self.cluster_file)
 
     def _set_monkeypatch_attr(self, monkeypatch):
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_remote_command_config", lambda vc: (TWO_HOSTS, None))
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
         monkeypatch.setattr("ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.fetch_externally_routable_ip", lambda vc, node_account: "127.0.0.1")
 
@@ -69,7 +69,7 @@ class CheckVagrantCluster(object):
 
     def check_one_host_parsing(self, monkeypatch):
         """check the behavior of VagrantCluster when cluster_file is not specified. VagrantCluster should read
-        cluster information from _vagrant_remote_command_config().
+        cluster information from _vagrant_ssh_config().
         """
         self._set_monkeypatch_attr(monkeypatch)
 
@@ -88,7 +88,7 @@ class CheckVagrantCluster(object):
 
     def check_cluster_file_write(self, monkeypatch):
         """check the behavior of VagrantCluster when cluster_file is specified but the file doesn't exist. VagrantCluster
-        should read cluster information from _vagrant_remote_command_config() and write the information to cluster_file.
+        should read cluster information from _vagrant_ssh_config() and write the information to cluster_file.
         """
         self._set_monkeypatch_attr(monkeypatch)
         assert not os.path.exists(self.cluster_file)
@@ -98,13 +98,13 @@ class CheckVagrantCluster(object):
         nodes = [
             {
                 "externally_routable_ip": node_account.externally_routable_ip,
-                "remote_command_config": {
-                    "host": node_account.remote_command_config.host,
-                    "hostname": node_account.remote_command_config.hostname,
-                    "user": node_account.remote_command_config.user,
-                    "identityfile": node_account.remote_command_config.identityfile,
-                    "password": node_account.remote_command_config.password,
-                    "port": node_account.remote_command_config.port
+                "ssh_config": {
+                    "host": node_account.ssh_config.host,
+                    "hostname": node_account.ssh_config.hostname,
+                    "user": node_account.ssh_config.user,
+                    "identityfile": node_account.ssh_config.identityfile,
+                    "password": node_account.ssh_config.password,
+                    "port": node_account.ssh_config.port
                 }
             }
             for node_account in cluster._available_nodes
@@ -122,11 +122,11 @@ class CheckVagrantCluster(object):
         self._set_monkeypatch_attr(monkeypatch)
 
         # To verify that VagrantCluster reads cluster information from the cluster_file, the
-        # content in the file is intentionally made different from that returned by _vagrant_remote_command_config().
+        # content in the file is intentionally made different from that returned by _vagrant_ssh_config().
         nodes_expected = []
         node1_expected = {
             "externally_routable_ip": "127.0.0.3",
-            "remote_command_config": {
+            "ssh_config": {
                 "host": "worker3",
                 "hostname": "127.0.0.3",
                 "user": "vagrant",
@@ -139,7 +139,7 @@ class CheckVagrantCluster(object):
 
         node2_expected = {
             "externally_routable_ip": "127.0.0.2",
-            "remote_command_config": {
+            "ssh_config": {
                 "host": "worker2",
                 "hostname": "127.0.0.2",
                 "user": "vagrant",
@@ -164,9 +164,9 @@ class CheckVagrantCluster(object):
         assert node3.account.hostname == "worker2"
         assert node3.account.user == "vagrant"
         assert node3.account.ssh_hostname == '127.0.0.2'
-        assert node3.account.remote_command_config.to_json() == node2_expected["remote_command_config"]
+        assert node3.account.ssh_config.to_json() == node2_expected["ssh_config"]
 
         assert node2.account.hostname == "worker3"
         assert node2.account.user == "vagrant"
         assert node2.account.ssh_hostname == '127.0.0.3'
-        assert node2.account.remote_command_config.to_json() == node1_expected["remote_command_config"]
+        assert node2.account.ssh_config.to_json() == node1_expected["ssh_config"]

@@ -19,7 +19,7 @@ from .cluster import Cluster, ClusterSlot
 from .remoteaccount import RemoteAccount
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
-from .remoteaccount import RemoteAccountConfig
+from .remoteaccount import RemoteAccountSSHConfig
 
 import collections
 import json
@@ -48,7 +48,7 @@ class JsonCluster(Cluster):
             {
               "externally_routable_ip": "192.168.50.151",
 
-              "remote_command_config": {
+              "ssh_config": {
                 "host": "worker1",
                 "hostname": "127.0.0.1",
                 "identityfile": "/path/to/private_key",
@@ -60,7 +60,7 @@ class JsonCluster(Cluster):
             {
               "externally_routable_ip": "192.168.50.151",
 
-              "remote_command_config": {
+              "ssh_config": {
                 "host": "worker2",
                 "hostname": "127.0.0.1",
                 "identityfile": "/path/to/private_key",
@@ -82,12 +82,12 @@ class JsonCluster(Cluster):
         try:
             node_accounts = []
             for ninfo in cluster_json["nodes"]:
-                remote_command_config_dict = ninfo.get("remote_command_config")
-                assert remote_command_config_dict is not None, \
-                    "Cluster json has a node without a remote_command_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
+                ssh_config_dict = ninfo.get("ssh_config")
+                assert ssh_config_dict is not None, \
+                    "Cluster json has a node without a ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
 
-                remote_command_config = RemoteAccountConfig(**ninfo.get("remote_command_config", {}))
-                node_accounts.append(JsonCluster.make_remote_account(remote_command_config, ninfo.get("externally_routable_ip")))
+                ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
+                node_accounts.append(JsonCluster.make_remote_account(ssh_config, ninfo.get("externally_routable_ip")))
 
             for node_account in node_accounts:
                 if node_account.externally_routable_ip is None:
@@ -102,14 +102,14 @@ class JsonCluster(Cluster):
         self._id_supplier = 0
 
     @staticmethod
-    def make_remote_account(remote_command_config, externally_routable_ip=None):
+    def make_remote_account(ssh_config, externally_routable_ip=None):
         """Factory function for creating the correct RemoteAccount implementation."""
 
-        if remote_command_config.host and RemoteAccount.WINDOWS in remote_command_config.host:
-            return WindowsRemoteAccount(winrm_config=remote_command_config,
+        if ssh_config.host and RemoteAccount.WINDOWS in ssh_config.host:
+            return WindowsRemoteAccount(ssh_config=ssh_config,
                                         externally_routable_ip=externally_routable_ip)
         else:
-            return LinuxRemoteAccount(ssh_config=remote_command_config,
+            return LinuxRemoteAccount(ssh_config=ssh_config,
                                       externally_routable_ip=externally_routable_ip)
 
     def __len__(self):

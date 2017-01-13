@@ -14,7 +14,7 @@
 
 from .cluster import Cluster, ClusterSlot
 from .linux_remoteaccount import LinuxRemoteAccount
-from .remoteaccount import RemoteAccountConfig
+from .remoteaccount import RemoteAccountSSHConfig
 from .remoteaccount import RemoteAccount
 import sys
 
@@ -44,7 +44,7 @@ class LocalhostCluster(Cluster):
         allocated_nodes = []
         # assume Linux.
         for _ in range(node_spec[RemoteAccount.LINUX]):
-            ssh_config = RemoteAccountConfig(
+            ssh_config = RemoteAccountSSHConfig(
                 "localhost%d" % self._id_supplier,
                 hostname="localhost",
                 port=22)

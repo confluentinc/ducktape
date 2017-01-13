@@ -35,15 +35,11 @@ class WindowsRemoteAccount(RemoteAccount):
 
     WINRM_USERNAME = "Administrator"
 
-    def __init__(self, winrm_config, externally_routable_ip=None, logger=None):
-        super(WindowsRemoteAccount, self).__init__(winrm_config, externally_routable_ip=externally_routable_ip,
+    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
+        super(WindowsRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
                                                    logger=logger)
         self.os = RemoteAccount.WINDOWS
         self._winrm_client = None
-
-    @property
-    def winrm_config(self):
-        return self.remote_command_config
 
     @property
     def winrm_client(self):
@@ -54,7 +50,7 @@ class WindowsRemoteAccount(RemoteAccount):
             return self._winrm_client
 
         # first get the instance ID of this machine from Vagrant's metadata.
-        ec2_instance_id_path = os.path.join(os.getcwd(), ".vagrant", "machines", self.winrm_config.host, "aws", "id")
+        ec2_instance_id_path = os.path.join(os.getcwd(), ".vagrant", "machines", self.ssh_config.host, "aws", "id")
         instance_id_file = None
         try:
             instance_id_file = open(ec2_instance_id_path, 'r')
@@ -81,17 +77,17 @@ class WindowsRemoteAccount(RemoteAccount):
                 raise ce
 
         self._log(logging.INFO, "Fetched encrypted winrm password and will decrypt with private key: %s"
-                  % self.winrm_config.identityfile)
+                  % self.ssh_config.identityfile)
 
         # then decrypt the password using the private key.
         key_file = None
         try:
-            key_file = open(self.winrm_config.identityfile, 'r')
+            key_file = open(self.ssh_config.identityfile, 'r')
             key = key_file.read()
             rsa_key = RSA.importKey(key)
             cipher = PKCS1_v1_5.new(rsa_key)
             winrm_password = cipher.decrypt(base64.b64decode(response["PasswordData"]), None)
-            self._winrm_client = winrm.Session(self.winrm_config.hostname, auth=(WindowsRemoteAccount.WINRM_USERNAME,
+            self._winrm_client = winrm.Session(self.ssh_config.hostname, auth=(WindowsRemoteAccount.WINRM_USERNAME,
                                                                                  winrm_password))
         finally:
             if key_file:
@@ -104,7 +100,7 @@ class WindowsRemoteAccount(RemoteAccount):
             raise NotImplemented("Windows is only supported in AWS.")
 
         # EC2 windows machines aren't given an externally routable IP. Use the hostname instead.
-        return self.winrm_config.hostname
+        return self.ssh_config.hostname
 
     def run_winrm_command(self, cmd, allow_fail=False):
         self._log(logging.DEBUG, "Running winrm command: %s" % cmd)

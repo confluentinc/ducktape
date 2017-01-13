@@ -28,7 +28,7 @@ from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
 
 
-class RemoteAccountConfig(object):
+class RemoteAccountSSHConfig(object):
     def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
         """Wrapper for ssh configs used by ducktape to connect to remote machines.
 
@@ -67,7 +67,7 @@ class RemoteAccountConfig(object):
             # paramiko.SSHConfig parses this in as a list, but we only want a single string
             config_dict["identityfile"] = config_dict["identityfile"][0]
 
-        return RemoteAccountConfig(host, **config_dict)
+        return RemoteAccountSSHConfig(host, **config_dict)
 
     def to_json(self):
         return self.__dict__
@@ -121,20 +121,20 @@ class RemoteAccount(HttpMixin):
     WINDOWS = "windows"
     SUPPORTED_OS_TYPES = [LINUX, WINDOWS]
 
-    def __init__(self, remote_command_config, externally_routable_ip=None, logger=None):
+    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
         # be hashable
-        self.remote_command_config = remote_command_config
+        self.ssh_config = ssh_config
 
         # We don't want to rely on the hostname (e.g. 'worker1') having been added to the driver host's /etc/hosts file.
         # But that means we need to distinguish between the hostname and the value of hostname we use for SSH commands.
         # We try to satisfy all use cases and keep things simple by
         #   a) storing the hostname the user probably expects (the "Host" value in .ssh/config)
         #   b) saving the real value we use for running the SSH command
-        self.hostname = remote_command_config.host
-        self.ssh_hostname = remote_command_config.hostname
+        self.hostname = ssh_config.host
+        self.ssh_hostname = ssh_config.hostname
 
-        self.user = remote_command_config.user
+        self.user = ssh_config.user
         self.externally_routable_ip = externally_routable_ip
         self._logger = logger
         self.os = None
@@ -144,10 +144,6 @@ class RemoteAccount(HttpMixin):
     @property
     def operating_system(self):
         return self.os
-
-    @property
-    def ssh_config(self):
-        return self.remote_command_config
 
     @property
     def logger(self):

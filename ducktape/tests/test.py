@@ -362,14 +362,7 @@ class TestContext(object):
         Return None if undefined.
         """
 
-        # TODO: closely code review this, please. I can't find anything in ducktape or muckrake that
-        #       uses `CLUSTER_SIZE_KEYWORD` or `default_expected_num_nodes` so it's hard for me to know if
-        #       I got this right.
-
         expected = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
-
-        if expected is None:
-            expected = self.session_context.default_expected_num_nodes
 
         if expected is not None:
             node_spec = {}
