@@ -37,6 +37,10 @@ class MemoryEater(Service):
     def clean_node(self, node):
         pass
 
+    @property
+    def num_nodes(self):
+        return 1
+
 
 class MemoryLeakTest(Test):
     """A group of identical "memory-hungry" ducktape tests.

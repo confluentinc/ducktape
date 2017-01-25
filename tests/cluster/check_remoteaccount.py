@@ -15,7 +15,8 @@
 from ducktape.errors import TimeoutError
 from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
-from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountSSHConfig
+from ducktape.cluster.remoteaccount import RemoteAccount
+from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
 
 import logging
 from threading import Thread

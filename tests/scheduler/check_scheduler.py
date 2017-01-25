@@ -18,17 +18,19 @@ import pytest
 
 from tests.ducktape_mock import FakeCluster
 from ducktape.tests.scheduler import TestScheduler
+from ducktape.services.service import Service
+from ducktape.cluster.remoteaccount import RemoteAccount
 
-FakeContext = collections.namedtuple('FakeContext', ['test_id', 'expected_num_nodes'])
+FakeContext = collections.namedtuple('FakeContext', ['test_id', 'expected_num_nodes', 'expected_node_spec'])
 
 
 class CheckScheduler(object):
     def setup_method(self, _):
         self.cluster = FakeCluster(100)
         self.tc_list = [
-            FakeContext(0, expected_num_nodes=10),
-            FakeContext(1, expected_num_nodes=50),
-            FakeContext(2, expected_num_nodes=100),
+            FakeContext(0, expected_num_nodes=10, expected_node_spec={RemoteAccount.LINUX: 10}),
+            FakeContext(1, expected_num_nodes=50, expected_node_spec={RemoteAccount.LINUX: 50}),
+            FakeContext(2, expected_num_nodes=100, expected_node_spec={RemoteAccount.LINUX: 100}),
         ]
 
     def check_empty(self):
@@ -48,7 +50,7 @@ class CheckScheduler(object):
         assert scheduler.peek() is not None
 
         # alloc all cluster nodes so none are available
-        self.cluster.alloc(len(self.cluster))
+        self.cluster.alloc(Service.setup_node_spec(num_nodes=len(self.cluster)))
         assert self.cluster.num_available_nodes() == 0
 
         # peeking etc should not yield an object
@@ -79,7 +81,7 @@ class CheckScheduler(object):
         scheduler = TestScheduler(self.tc_list, self.cluster)
 
         # allocate 60 nodes; only test_id 0 should be available
-        slots = self.cluster.alloc(60)
+        slots = self.cluster.alloc(Service.setup_node_spec(num_nodes=60))
         assert self.cluster.num_available_nodes() == 40
         t = scheduler.next()
         assert t.test_id == 0

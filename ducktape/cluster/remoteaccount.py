@@ -81,7 +81,6 @@ class RemoteAccountSSHConfig(object):
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
 
-
 class RemoteAccountError(DucktapeError):
     """This exception is raised when an attempted action on a remote node fails.
     """
@@ -109,20 +108,19 @@ class RemoteCommandError(RemoteAccountError):
         return msg
 
 
-class IgnoreMissingHostKeyPolicy(MissingHostKeyPolicy):
-    """Policy for ignoring missing host keys.
-    Many examples show use of AutoAddPolicy, but this clutters up the known_hosts file unnecessarily.
-    """
-    def missing_host_key(self, client, hostname, key):
-        return
-
-
 class RemoteAccount(HttpMixin):
     """RemoteAccount is the heart of interaction with cluster nodes,
     and every allocated cluster node has a reference to an instance of RemoteAccount.
 
     It wraps metadata such as ssh configs, and provides methods for file system manipulation and shell commands.
+
+    Each operating system has its own RemoteAccount implementation.
     """
+
+    LINUX = "linux"
+    WINDOWS = "windows"
+    SUPPORTED_OS_TYPES = [LINUX, WINDOWS]
+
     def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
         # be hashable
@@ -139,8 +137,13 @@ class RemoteAccount(HttpMixin):
         self.user = ssh_config.user
         self.externally_routable_ip = externally_routable_ip
         self._logger = logger
+        self.os = None
         self._ssh_client = None
         self._sftp_client = None
+
+    @property
+    def operating_system(self):
+        return self.os
 
     @property
     def logger(self):
@@ -162,6 +165,8 @@ class RemoteAccount(HttpMixin):
         if not self._ssh_client:
             client = SSHClient()
             client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
+
+            self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
 
             client.connect(
                 hostname=self.ssh_config.hostname,
@@ -206,12 +211,6 @@ class RemoteAccount(HttpMixin):
 
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
-
-    @property
-    def local(self):
-        """Returns True if this 'remote' account is probably local.
-        This is an imperfect heuristic, but should work for simple local testing."""
-        return self.hostname == "localhost" and self.user is None and self.ssh_config is None
 
     def wait_for_http_service(self, port, headers, timeout=20, path='/'):
         """Wait until this service node is available/awake."""
@@ -564,7 +563,6 @@ class RemoteAccount(HttpMixin):
             offset = 0
         yield LogMonitor(self, log, offset)
 
-
 class SSHOutputIter(object):
     """Helper class that wraps around an iterable object to provide has_next() in addition to next()
     """
@@ -640,3 +638,10 @@ class LogMonitor(object):
         are passed directly to ducktape.utils.util.wait_until
         """
         return wait_until(lambda: self.acct.ssh("tail -c +%d %s | grep '%s'" % (self.offset+1, self.log, pattern), allow_fail=True) == 0, **kwargs)
+
+class IgnoreMissingHostKeyPolicy(MissingHostKeyPolicy):
+    """Policy for ignoring missing host keys.
+    Many examples show use of AutoAddPolicy, but this clutters up the known_hosts file unnecessarily.
+    """
+    def missing_host_key(self, client, hostname, key):
+        return

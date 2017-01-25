@@ -20,32 +20,32 @@ class FiniteSubcluster(Cluster):
     """
     def __init__(self, nodes):
         self.nodes = nodes
-        self._available = set(self.nodes)
-        self._in_use = set()
+        self._available_nodes = set(self.nodes)
+        self._in_use_nodes = set()
 
     def __len__(self):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         return len(self.nodes)
 
-    def alloc(self, num_nodes):
-        assert num_nodes <= self.num_available_nodes(), \
-            "Not enough nodes available to allocate the requested nodes. Nodes requested: %s, Nodes available: %s" % \
-            (num_nodes, self.num_available_nodes())
+    def alloc(self, node_spec):
+        for operating_system, num_nodes in node_spec.iteritems():
+            assert num_nodes <= self.num_available_nodes(operating_system=operating_system), \
+                "Not enough nodes available to allocate the requested %s nodes. " % operating_system + \
+                "Nodes requested: %s " % num_nodes + \
+                "Nodes available: %s" % self.num_available_nodes(operating_system=operating_system)
 
         allocated_nodes = []
-        for _ in range(num_nodes):
-            node = self._available.pop()
-            self._in_use.add(node)
+        for operating_system, num_nodes in node_spec.iteritems():
+            for _ in range(num_nodes):
+                node = Cluster._next_available_node(self._available_nodes, operating_system)
+                self._available_nodes.remove(node)
+                self._in_use_nodes.add(node)
 
-            allocated_nodes.append(node)
+                allocated_nodes.append(node)
 
         return allocated_nodes
 
-    def num_available_nodes(self):
-        """Number of available nodes."""
-        return len(self._available)
-
     def free_single(self, node):
-        assert node in self._in_use
-        self._in_use.remove(node)
-        self._available.add(node)
+        assert node in self._in_use_nodes
+        self._in_use_nodes.remove(node)
+        self._available_nodes.add(node)

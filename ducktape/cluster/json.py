@@ -16,7 +16,10 @@ from __future__ import absolute_import
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterSlot
-from .remoteaccount import RemoteAccount, RemoteAccountSSHConfig
+from .remoteaccount import RemoteAccount
+from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
+from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
+from .remoteaccount import RemoteAccountSSHConfig
 
 import collections
 import json
@@ -81,13 +84,10 @@ class JsonCluster(Cluster):
             for ninfo in cluster_json["nodes"]:
                 ssh_config_dict = ninfo.get("ssh_config")
                 assert ssh_config_dict is not None, \
-                    "Cluster json has a node without an ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
+                    "Cluster json has a node without a ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
 
                 ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
-                node_accounts.append(
-                    RemoteAccount(
-                        ssh_config=ssh_config,
-                        externally_routable_ip=ninfo.get("externally_routable_ip")))
+                node_accounts.append(JsonCluster.make_remote_account(ssh_config, ninfo.get("externally_routable_ip")))
 
             for node_account in node_accounts:
                 if node_account.externally_routable_ip is None:
@@ -97,39 +97,53 @@ class JsonCluster(Cluster):
             msg = "JSON cluster definition invalid: %s: %s" % (e, traceback.format_exc(limit=16))
             raise ValueError(msg)
 
-        self.available_nodes = collections.deque(node_accounts)
-        self.in_use_nodes = set()
+        self._available_nodes = collections.deque(node_accounts)
+        self._in_use_nodes = set()
         self._id_supplier = 0
 
+    @staticmethod
+    def make_remote_account(ssh_config, externally_routable_ip=None):
+        """Factory function for creating the correct RemoteAccount implementation."""
+
+        if ssh_config.host and RemoteAccount.WINDOWS in ssh_config.host:
+            return WindowsRemoteAccount(ssh_config=ssh_config,
+                                        externally_routable_ip=externally_routable_ip)
+        else:
+            return LinuxRemoteAccount(ssh_config=ssh_config,
+                                      externally_routable_ip=externally_routable_ip)
+
     def __len__(self):
-        return len(self.available_nodes) + len(self.in_use_nodes)
+        return len(self._available_nodes) + len(self._in_use_nodes)
 
-    def num_available_nodes(self):
-        return len(self.available_nodes)
-
-    def alloc(self, num_nodes):
-        if num_nodes > self.num_available_nodes():
-            err_msg = "There aren't enough available nodes to satisfy the resource request. " \
-                "Total cluster size: %d, Requested: %d, Already allocated: %d, Available: %d. " % \
-                      (len(self), num_nodes, len(self.in_use_nodes), self.num_available_nodes())
-            err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
-            raise RuntimeError(err_msg)
+    def alloc(self, node_spec):
+        # first check that nodes are available.
+        for operating_system, num_nodes in node_spec.iteritems():
+            if num_nodes > self.num_available_nodes(operating_system=operating_system):
+                err_msg = "There aren't enough available nodes to satisfy the resource request. " \
+                    "Total cluster size for %s: %d, Requested: %d, Already allocated: %d, Available: %d. " % \
+                          (operating_system, len(self), num_nodes,
+                           self.in_use_nodes_for_operating_system(operating_system),
+                           self.num_available_nodes(operating_system=operating_system))
+                err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
+                raise RuntimeError(err_msg)
 
         result = []
-        for i in range(num_nodes):
-            node = self.available_nodes.popleft()
-            cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
-            result.append(cluster_slot)
-            self.in_use_nodes.add(node)
-            self._id_supplier += 1
+        for operating_system, num_nodes in node_spec.iteritems():
+            for i in range(num_nodes):
+                node = Cluster._next_available_node(self._available_nodes, operating_system)
+                self._available_nodes.remove(node)
+                cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
+                result.append(cluster_slot)
+                self._in_use_nodes.add(node)
+                self._id_supplier += 1
 
         return result
 
     def free_single(self, slot):
-        assert(slot.account in self.in_use_nodes)
+        assert(slot.account in self._in_use_nodes)
         slot.account.close()
-        self.in_use_nodes.remove(slot.account)
-        self.available_nodes.append(slot.account)
+        self._in_use_nodes.remove(slot.account)
+        self._available_nodes.append(slot.account)
 
     def _externally_routable_ip(self, account):
         return None

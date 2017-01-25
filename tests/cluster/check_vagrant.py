@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from ducktape.cluster.vagrant import VagrantCluster
+from ducktape.services.service import Service
 import json
 import pickle
 import os
@@ -59,7 +60,7 @@ class CheckVagrantCluster(object):
     def _set_monkeypatch_attr(self, monkeypatch):
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._externally_routable_ip", lambda vc, node_account: "127.0.0.1")
+        monkeypatch.setattr("ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.fetch_externally_routable_ip", lambda vc, node_account: "127.0.0.1")
 
     def check_pickleable(self, monkeypatch):
         self._set_monkeypatch_attr(monkeypatch)
@@ -75,7 +76,7 @@ class CheckVagrantCluster(object):
         cluster = VagrantCluster()
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
-        node1, node2 = cluster.alloc(2)
+        node1, node2 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
 
         assert node1.account.hostname == "worker1"
         assert node1.account.user == "vagrant"
@@ -106,7 +107,7 @@ class CheckVagrantCluster(object):
                     "port": node_account.ssh_config.port
                 }
             }
-            for node_account in cluster.available_nodes
+            for node_account in cluster._available_nodes
         ]
 
         cluster_json_expected["nodes"] = nodes
@@ -124,23 +125,23 @@ class CheckVagrantCluster(object):
         # content in the file is intentionally made different from that returned by _vagrant_ssh_config().
         nodes_expected = []
         node1_expected = {
-            "externally_routable_ip": "127.0.0.2",
+            "externally_routable_ip": "127.0.0.3",
             "ssh_config": {
-                "host": "worker2",
-                "hostname": "127.0.0.2",
+                "host": "worker3",
+                "hostname": "127.0.0.3",
                 "user": "vagrant",
                 "port": 2222,
                 "password": "password",
-                "identityfile": "/path/to/identfile1"
+                "identityfile": "/path/to/identfile3"
             }
         }
         nodes_expected.append(node1_expected)
 
         node2_expected = {
-            "externally_routable_ip": "127.0.0.3",
+            "externally_routable_ip": "127.0.0.2",
             "ssh_config": {
-                "host": "worker3",
-                "hostname": "127.0.0.3",
+                "host": "worker2",
+                "hostname": "127.0.0.2",
                 "user": "vagrant",
                 "port": 2223,
                 "password": None,
@@ -158,14 +159,14 @@ class CheckVagrantCluster(object):
 
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
-        node1, node2 = cluster.alloc(2)
+        node2, node3 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
 
-        assert node1.account.hostname == "worker2"
-        assert node1.account.user == "vagrant"
-        assert node1.account.ssh_hostname == '127.0.0.2'
-        assert node1.account.ssh_config.to_json() == node1_expected["ssh_config"]
+        assert node3.account.hostname == "worker2"
+        assert node3.account.user == "vagrant"
+        assert node3.account.ssh_hostname == '127.0.0.2'
+        assert node3.account.ssh_config.to_json() == node2_expected["ssh_config"]
 
         assert node2.account.hostname == "worker3"
         assert node2.account.user == "vagrant"
         assert node2.account.ssh_hostname == '127.0.0.3'
-        assert node2.account.ssh_config.to_json() == node2_expected["ssh_config"]
+        assert node2.account.ssh_config.to_json() == node1_expected["ssh_config"]
