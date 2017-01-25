@@ -165,9 +165,9 @@ functionality: normal services might provide a `bounce` method.
 
 Most of the code you'll write for a service will just be series of SSH commands
 and tests of output. You should request the number of nodes you'll need using
-the `num_nodes` parameter to the Service base class's constructor. Then, in your
-Service's methods you'll have access to `self.nodes` to access the nodes
-allocated to your service. Each node has an associated
+the `num_nodes` or `node_spec` parameter to the Service base class's constructor.
+Then, in your Service's methods you'll have access to `self.nodes` to access the
+nodes allocated to your service. Each node has an associated
 `ducktape.cluster.RemoteAccount` instance which lets you easily perform remote
 operations such as running commands via SSH or creating files. By default, these
 operations try to hide output (but provide it to you if you need to extract
