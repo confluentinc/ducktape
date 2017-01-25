@@ -43,6 +43,6 @@ setup(name="ducktape",
       packages=find_packages(),
       package_data={'ducktape': ['templates/report/*']},
       install_requires=['jinja2', 'requests', 'paramiko', 'pysistence', 'pyzmq'],
-      tests_require=['pytest', 'mock', 'psutil==4.1.0', 'memory_profiler==0.41', 'statistics', 'requests-testadapter'],
+      tests_require=['pytest', 'mock', 'psutil==4.1.0', 'memory_profiler==0.41', 'statistics', 'requests-testadapter', 'boto3', 'pycrypto', 'pywinrm'],
       cmdclass={'test': PyTest},
       )

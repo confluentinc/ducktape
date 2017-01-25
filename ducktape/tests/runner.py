@@ -164,7 +164,8 @@ class TestRunner(object):
 
             for tc in self.scheduler.unschedulable:
                 msg = "Test %s expects more nodes than are available in the entire cluster: " % tc.test_id
-                msg += "expected_num_nodes: %s, cluster size: %s." % (str(tc.expected_num_nodes), str(len(self.cluster)))
+                msg += "expected_num_nodes: %s, " % str(tc.expected_node_spec)
+                msg += "cluster size: %s." % str(self.cluster.node_spec)
                 self._log(logging.ERROR, msg)
 
                 result = TestResult(
@@ -246,17 +247,16 @@ class TestRunner(object):
         :param test_context
         :return None
         """
-        assert test_context.expected_num_nodes <= len(self.cluster)
+        test_cluster_compare = self.cluster.test_capacity_comparison(test_context)
+        assert test_cluster_compare >= 0
 
-        if test_context.expected_num_nodes == len(self.cluster) and self.max_parallel > 1:
+        if test_cluster_compare == 0 and self.max_parallel > 1:
             self._log(logging.WARNING,
                       "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
                       % test_context.test_id)
 
-        # TODO: right now this blindly converts the expected number of nodes into a node_spec. This won't work. The node_spec
-        #       will need to come from the tests.
         self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = \
-            FiniteSubcluster(self.cluster.alloc(Service.setup_node_spec(num_nodes=test_context.expected_num_nodes)))
+            FiniteSubcluster(self.cluster.alloc(Service.setup_node_spec(node_spec=test_context.expected_node_spec)))
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))
@@ -299,8 +299,8 @@ class TestRunner(object):
 
         # Free nodes used by the test
         subcluster = self._test_cluster[test_key]
-        # TODO: same here. This node spec shouldn't be generic.
-        self.cluster.free(subcluster.alloc(Service.setup_node_spec(num_nodes=len(subcluster))))
+        test_context = self._test_context[event["test_id"]]
+        self.cluster.free(subcluster.alloc(Service.setup_node_spec(node_spec=test_context.expected_node_spec)))
         del self._test_cluster[test_key]
 
         # Join on the finished test process

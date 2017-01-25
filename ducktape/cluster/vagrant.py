@@ -17,8 +17,7 @@ from __future__ import absolute_import
 from .json import JsonCluster
 import json
 import os
-from .linux_remoteaccount import RemoteAccountSSHConfig
-from .remoteaccount import RemoteAccount
+from .remoteaccount import RemoteAccountSSHConfig
 import subprocess
 from ducktape.json_serializable import DucktapeJSONEncoder
 
@@ -54,8 +53,6 @@ class VagrantCluster(JsonCluster):
 
         super(VagrantCluster, self).__init__(cluster_json)
 
-        # TODO: move this away from "ssh_config" and towards "remote_command_config" -- to not be linux specific. This will require a lot of changes.
-
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
             nodes = [
@@ -83,12 +80,14 @@ class VagrantCluster(JsonCluster):
         for ninfo in node_info_arr:
             ssh_config = RemoteAccountSSHConfig.from_string(ninfo)
 
+            account = None
             try:
                 account = JsonCluster.make_remote_account(ssh_config)
                 externally_routable_ip = account.fetch_externally_routable_ip(self.is_aws)
             finally:
-                account.close()
-                del account
+                if account:
+                    account.close()
+                    del account
 
             nodes.append({
                 "ssh_config": ssh_config.to_json(),

@@ -13,7 +13,8 @@
 # limitations under the License.
 
 from .cluster import Cluster, ClusterSlot
-from .linux_remoteaccount import LinuxRemoteAccount, RemoteAccountSSHConfig
+from .linux_remoteaccount import LinuxRemoteAccount
+from .remoteaccount import RemoteAccountSSHConfig
 from .remoteaccount import RemoteAccount
 import sys
 
@@ -29,6 +30,7 @@ class LocalhostCluster(Cluster):
         # Use a very large number, but fixed value so accounting for # of available nodes works
         self._size = kwargs.get("num_nodes", sys.maxint)
         self._available = self._size
+        self._in_use_nodes = []
         self._id_supplier = 0
 
     def __len__(self):
@@ -50,7 +52,7 @@ class LocalhostCluster(Cluster):
             self._id_supplier += 1
         return allocated_nodes
 
-    def num_available_nodes(self):
+    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
         return self._available
 
     def free_single(self, slot):

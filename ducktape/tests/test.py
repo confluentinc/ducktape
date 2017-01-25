@@ -26,6 +26,7 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
 from ducktape.mark.resource import CLUSTER_SIZE_KEYWORD
+from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class Test(TemplateRenderer):
@@ -280,9 +281,10 @@ class TestContext(object):
         self._local_scratch_dir = None
 
     def __repr__(self):
-        return "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s>" % \
-               (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file),
-                str(self.ignore), str(self.expected_num_nodes))
+        return \
+            "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s, node_spec=%s>" % \
+            (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file),
+            str(self.ignore), str(self.expected_num_nodes), str(self.expected_node_spec))
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object
@@ -334,18 +336,48 @@ class TestContext(object):
 
     @property
     def expected_num_nodes(self):
-        """How many nodes we expect this test to consume when run.
+        """
+        How many nodes we expect this test to consume when run.
+
+        This default implementation assumes all nodes are Linux.
+
         Return None if undefined.
         """
+        node_spec = self.expected_node_spec
+        if node_spec is None:
+            return None
+
+        count = 0
+        for (_, node_count) in node_spec.iteritems():
+            count += node_count
+        return count
+
+    @property
+    def expected_node_spec(self):
+        """
+        How many nodes we expect for each operating system.
+
+        This default implementation assumes all nodes are Linux.
+
+        Return None if undefined.
+        """
+
         expected = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
 
-        if expected is None:
-            expected = self.session_context.default_expected_num_nodes
+        if expected is not None:
+            node_spec = {}
+            for operating_system in RemoteAccount.SUPPORTED_OS_TYPES:
+                if operating_system == RemoteAccount.LINUX:
+                    node_spec[operating_system] = expected
+                else:
+                    node_spec[operating_system] = 0
+
+            return node_spec
 
         if expected is None and self.cluster is not None:
-            expected = len(self.cluster)
+            return self.cluster.node_spec
 
-        return expected
+        return None
 
     @property
     def globals(self):

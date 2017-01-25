@@ -47,10 +47,6 @@ class Cluster(object):
         """Identical to alloc. Keeping for compatibility"""
         return self.alloc(num_nodes)
 
-    def num_available_nodes(self):
-        """Number of available nodes."""
-        raise NotImplementedError()
-
     def free(self, nodes):
         """Free the given node or list of nodes"""
         if isinstance(nodes, collections.Iterable):
@@ -69,7 +65,8 @@ class Cluster(object):
         return hash(tuple(sorted(self.__dict__.items())))
 
     def num_nodes_for_operating_system(self, operating_system):
-        return self.in_use_nodes_for_operating_system(operating_system) + self.num_available_nodes(operating_system)
+        return self.in_use_nodes_for_operating_system(operating_system) + \
+               self.num_available_nodes(operating_system=operating_system)
 
     def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
         """Number of available nodes."""
@@ -77,6 +74,31 @@ class Cluster(object):
 
     def in_use_nodes_for_operating_system(self, operating_system):
         return Cluster._node_count_helper(self._in_use_nodes, operating_system)
+
+    @property
+    def node_spec(self):
+        node_spec = {}
+        for operating_system in RemoteAccount.SUPPORTED_OS_TYPES:
+            node_spec[operating_system] = self.num_nodes_for_operating_system(operating_system)
+        return node_spec
+
+    def test_capacity_comparison(self, test):
+        """
+        Checks if the test can 'fit' into the cluster, using the test's node_spec.
+
+        A negative return value (int) means the test needs more capacity than is available in the cluster.
+        A return value of 0 means the cluster has exactly the right number of resources as the test needs.
+        A positive return value (int) means the cluster has more capacity than the test needs.
+        """
+        num_available = 0
+        for (operating_system, node_count) in test.expected_node_spec.iteritems():
+            if node_count > self.num_nodes_for_operating_system(operating_system):
+                # return -1 immediately if the cluster doesn't have enough capacity for any operating system.
+                return -1
+            else:
+                num_available += self.num_nodes_for_operating_system(operating_system) - node_count
+
+        return num_available
 
     @staticmethod
     def _node_count_helper(nodes, operating_system):

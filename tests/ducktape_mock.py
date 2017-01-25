@@ -15,7 +15,8 @@
 from ducktape.cluster.cluster import Cluster
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
-from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount, RemoteAccountSSHConfig
+from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
+from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
 from ducktape.cluster.remoteaccount import RemoteAccount
 from mock import MagicMock
 
@@ -39,6 +40,7 @@ class FakeCluster(Cluster):
     def __init__(self, num_nodes):
         self._num_nodes = num_nodes
         self._available_nodes = self._num_nodes
+        self._in_use_nodes = []
 
     def __len__(self):
         return self._num_nodes
@@ -50,7 +52,7 @@ class FakeCluster(Cluster):
         self._available_nodes -= linux_node_count
         return [FakeClusterSlot() for _ in range(linux_node_count)]
 
-    def num_available_nodes(self):
+    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
         return self._available_nodes
 
     def free(self, slots):
@@ -86,7 +88,6 @@ class MockNode(object):
 class MockAccount(LinuxRemoteAccount):
     """Mock node.account object. It's Linux because tests are run in Linux."""
     def __init__(self):
-
         ssh_config = RemoteAccountSSHConfig(
             host="localhost",
             user=None,

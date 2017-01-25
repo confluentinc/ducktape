@@ -44,11 +44,17 @@ def cluster(**kwargs):
 
     Keywords used by ducktape:
     - num_nodes: provide hint about how many nodes the test will consume
+    - node_spec: provide hint about how many nodes for each operating system the test will consume
 
 
     Example::
-        # basic usage
+        # basic usage with num_nodes
         @cluster(num_nodes=10)
+        def the_test(...):
+            ...
+
+        # basic usage with node_spec
+        @cluster(node_spec={ducktape.cluster.remoteaccount.RemoteAccount.LINUX: 10})
         def the_test(...):
             ...
 

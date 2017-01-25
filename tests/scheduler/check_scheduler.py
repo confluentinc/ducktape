@@ -19,17 +19,18 @@ import pytest
 from tests.ducktape_mock import FakeCluster
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.services.service import Service
+from ducktape.cluster.remoteaccount import RemoteAccount
 
-FakeContext = collections.namedtuple('FakeContext', ['test_id', 'expected_num_nodes'])
+FakeContext = collections.namedtuple('FakeContext', ['test_id', 'expected_num_nodes', 'expected_node_spec'])
 
 
 class CheckScheduler(object):
     def setup_method(self, _):
         self.cluster = FakeCluster(100)
         self.tc_list = [
-            FakeContext(0, expected_num_nodes=10),
-            FakeContext(1, expected_num_nodes=50),
-            FakeContext(2, expected_num_nodes=100),
+            FakeContext(0, expected_num_nodes=10, expected_node_spec={RemoteAccount.LINUX: 10}),
+            FakeContext(1, expected_num_nodes=50, expected_node_spec={RemoteAccount.LINUX: 50}),
+            FakeContext(2, expected_num_nodes=100, expected_node_spec={RemoteAccount.LINUX: 100}),
         ]
 
     def check_empty(self):
