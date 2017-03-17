@@ -56,8 +56,8 @@ class TemplateRenderer(object):
         template files referenced in file f should be in a sibling directory of f called "templates".
 
         :param path: path, relative to the search paths, to the template file
-        :param kwargs:
-        :return:
+        :param kwargs: optional override parameters
+        :return: the rendered template
         """
         if not hasattr(self, 'template_loader'):
             class_dir = os.path.dirname(inspect.getfile(self.__class__))

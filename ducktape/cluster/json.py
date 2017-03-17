@@ -38,39 +38,40 @@ class JsonCluster(Cluster):
             - a json-serializeable dict
             - a "cluster_file" containing json
 
-        :param cluster_json: a json-serializeable dict containing node information.
-            If cluster_json is None, load from file
+        :param cluster_json: a json-serializeable dict containing node information. If ``cluster_json`` is None, load from file
         :param cluster_file (optional): Overrides the default location of the json cluster file
 
-        Example json with a local Vagrant cluster:
-        {
-          "nodes": [
-            {
-              "externally_routable_ip": "192.168.50.151",
+        Example json with a local Vagrant cluster::
 
-              "ssh_config": {
-                "host": "worker1",
-                "hostname": "127.0.0.1",
-                "identityfile": "/path/to/private_key",
-                "password": null,
-                "port": 2222,
-                "user": "vagrant"
-              }
-            },
             {
-              "externally_routable_ip": "192.168.50.151",
+              "nodes": [
+                {
+                  "externally_routable_ip": "192.168.50.151",
 
-              "ssh_config": {
-                "host": "worker2",
-                "hostname": "127.0.0.1",
-                "identityfile": "/path/to/private_key",
-                "password": null,
-                "port": 2223,
-                "user": "vagrant"
-              }
+                  "ssh_config": {
+                    "host": "worker1",
+                    "hostname": "127.0.0.1",
+                    "identityfile": "/path/to/private_key",
+                    "password": null,
+                    "port": 2222,
+                    "user": "vagrant"
+                  }
+                },
+                {
+                  "externally_routable_ip": "192.168.50.151",
+
+                  "ssh_config": {
+                    "host": "worker2",
+                    "hostname": "127.0.0.1",
+                    "identityfile": "/path/to/private_key",
+                    "password": null,
+                    "port": 2223,
+                    "user": "vagrant"
+                  }
+                }
+              ]
             }
-          ]
-        }
+
         """
         super(JsonCluster, self).__init__()
         if cluster_json is None:

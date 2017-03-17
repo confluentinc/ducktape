@@ -231,12 +231,11 @@ class RemoteAccount(HttpMixin):
     def ssh(self, cmd, allow_fail=False):
         """Run the given command on the remote host, and block until the command has finished running.
 
-        :param cmd The remote ssh command
-        :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
+        :param cmd: The remote ssh command
+        :param allow_fail: If True, ignore nonzero exit status of the remote command, else raise an ``RemoteCommandError``
 
-        :return The exit status of the command.
-        :raise RemoteCommandError If allow_fail is False and the command returns a non-zero exit status, raises
-            RemoteCommandError.
+        :return: The exit status of the command.
+        :raise RemoteCommandError: If allow_fail is False and the command returns a non-zero exit status
         """
         self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
@@ -262,16 +261,15 @@ class RemoteAccount(HttpMixin):
 
         Does *not* block
 
-        :param cmd The remote ssh command
-        :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
-        :param callback If set, the iterator returns callback(line) for each line of output instead of the raw output
-        :param combine_stderr If True, return output from both stderr and stdout of the remote process.
-        :param timeout_sec Set timeout on blocking reads/writes. Default None. For more details see
+        :param cmd: The remote ssh command
+        :param allow_fail: If True, ignore nonzero exit status of the remote command, else raise an ``RemoteCommandError``
+        :param callback: If set, the iterator returns ``callback(line)`` for each line of output instead of the raw output
+        :param combine_stderr: If True, return output from both stderr and stdout of the remote process.
+        :param timeout_sec: Set timeout on blocking reads/writes. Default None. For more details see
             http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.settimeout
 
-        :return SSHOutputIter object which allows iteration through each line of output.
-        :raise RemoteCommandError If allow_fail is False and the command returns a non-zero exit status, raises
-            RemoteCommandError.
+        :return SSHOutputIter: object which allows iteration through each line of output.
+        :raise RemoteCommandError: If ``allow_fail`` is False and the command returns a non-zero exit status
         """
         self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
@@ -308,15 +306,14 @@ class RemoteAccount(HttpMixin):
     def ssh_output(self, cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
         """Runs the command via SSH and captures the output, returning it as a string.
 
-        :param cmd The remote ssh command.
-        :param allow_fail If True, ignore nonzero exit status of the remote command, else raise an RemoteCommandError
-        :param combine_stderr If True, return output from both stderr and stdout of the remote process.
-        :param timeout_sec Set timeout on blocking reads/writes. Default None. For more details see
+        :param cmd: The remote ssh command.
+        :param allow_fail: If True, ignore nonzero exit status of the remote command, else raise an ``RemoteCommandError``
+        :param combine_stderr: If True, return output from both stderr and stdout of the remote process.
+        :param timeout_sec: Set timeout on blocking reads/writes. Default None. For more details see
             http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.settimeout
 
-        :return The stdout output from the ssh command.
-        :raise RemoteCommandError If allow_fail is False and the command returns a non-zero exit status, raises
-            RemoteCommandError.
+        :return: The stdout output from the ssh command.
+        :raise RemoteCommandError: If ``allow_fail`` is False and the command returns a non-zero exit status
         """
         self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
@@ -370,16 +367,11 @@ class RemoteAccount(HttpMixin):
     def copy_between(self, src, dest, dest_node):
         """Copy src to dest on dest_node
 
-        :param src Path to the file or directory we want to copy
-        :param dest The destination path
-        :param dest_node The node to which we want to copy the file/directory
+        :param src: Path to the file or directory we want to copy
+        :param dest: The destination path
+        :param dest_node: The node to which we want to copy the file/directory
 
         Note that if src is a directory, this will automatically copy recursively.
-
-        Example:
-
-        path/to/file, path/to/renamed_file, node
-            file will be copied to renamed_file on node
 
         """
         # TODO: if dest is an existing file, what is the behavior?
@@ -408,10 +400,11 @@ class RemoteAccount(HttpMixin):
 
         Helper for the various copy_* methods.
 
-        :param path Path to a file or directory. Could be on the driver machine or a worker machine.
-        :param directory Path to a directory. Could be on the driver machine or a worker machine.
+        :param path: Path to a file or directory. Could be on the driver machine or a worker machine.
+        :param directory: Path to a directory. Could be on the driver machine or a worker machine.
 
-        Example:
+        Example::
+
             path/to/the_basename, another/path/ -> another/path/the_basename
         """
         path_basename = path
@@ -505,8 +498,8 @@ class RemoteAccount(HttpMixin):
     def isfile(self, path):
         """Imitates semantics of os.path.isfile
 
-        :path Path to the thing to check
-        :return True iff path is a file or a symlink to a file, else False. Note False can mean path does not exist.
+        :param path: Path to the thing to check
+        :return: True iff path is a file or a symlink to a file, else False. Note False can mean path does not exist.
         """
         try:
             # stat should follow symlinks
@@ -555,7 +548,7 @@ class RemoteAccount(HttpMixin):
         be used to start a process, then wait for a log message indicating the
         process is in a ready state.
 
-        See LogMonitor for more usage information.
+        See ``LogMonitor`` for more usage information.
         """
         try:
             offset = int(self.ssh_output("wc -c %s" % log).split()[0])
@@ -568,8 +561,8 @@ class SSHOutputIter(object):
     """
     def __init__(self, iter_obj, channel_file=None):
         """
-        :param iter_obj An iterator
-        :param channel_file A paramiko ChannelFile object
+        :param iter_obj: An iterator
+        :param channel_file: A paramiko ``ChannelFile`` object
         """
         self.iter_obj = iter_obj
         self.channel_file = channel_file
@@ -617,11 +610,11 @@ class SSHOutputIter(object):
 
 class LogMonitor(object):
     """
-    Helper class returned by monitor_log. Should be used as:
+    Helper class returned by monitor_log. Should be used as::
 
-    with remote_account.monitor_log("/path/to/log") as monitor:
-        remote_account.ssh("/command/to/start")
-        monitor.wait_until("pattern.*to.*grep.*for", timeout_sec=5)
+        with remote_account.monitor_log("/path/to/log") as monitor:
+            remote_account.ssh("/command/to/start")
+            monitor.wait_until("pattern.*to.*grep.*for", timeout_sec=5)
 
     to run the command and then wait for the pattern to appear in the log.
     """
@@ -635,7 +628,7 @@ class LogMonitor(object):
         """
         Wait until the specified pattern is found in the log, after the initial
         offset recorded when the LogMonitor was created. Additional keyword args
-        are passed directly to ducktape.utils.util.wait_until
+        are passed directly to ``ducktape.utils.util.wait_until``
         """
         return wait_until(lambda: self.acct.ssh("tail -c +%d %s | grep '%s'" % (self.offset+1, self.log, pattern), allow_fail=True) == 0, **kwargs)
 

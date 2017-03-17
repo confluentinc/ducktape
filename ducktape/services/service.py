@@ -54,14 +54,14 @@ class Service(TemplateRenderer):
 
     def __init__(self, context, num_nodes=None, node_spec=None, *args, **kwargs):
         """
-        :param context    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a
+        :param context:    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a
                           TestContext object.
-        :param num_nodes  An integer representing the number of Linux nodes to allocate. If node_spec is not None, it
-                          will be used and num_nodes will be ignored.
-        :param node_spec  A dictionary where the key is an operating system (possible values are in
-                          ducktape.cluster.remoteaccount.RemoteAccount.SUPPORTED_OS_TYPES) and the value is the number
+        :param num_nodes:  An integer representing the number of Linux nodes to allocate. If node_spec is not None, it
+                          will be used and ``num_nodes`` will be ignored.
+        :param node_spec:  A dictionary where the key is an operating system (possible values are in
+                          ``ducktape.cluster.remoteaccount.RemoteAccount.SUPPORTED_OS_TYPES``) and the value is the number
                           of nodes to allocate for the associated operating system. Values must be integers. Node
-                          allocation takes place when start() is called, or when allocate_nodes() is called, whichever
+                          allocation takes place when ``start()`` is called, or when ``allocate_nodes()`` is called, whichever
                           happens first.
         """
         super(Service, self).__init__(*args, **kwargs)
@@ -135,7 +135,8 @@ class Service(TemplateRenderer):
         """Index of this service instance with respect to other services of the same type registered with self.context.
         When used with a test_context, this lets the user know
 
-        Example:
+        Example::
+
             suppose the services registered with the same context looks like
                 context.services == [Zookeeper, Kafka, Zookeeper, Kafka, MirrorMaker]
             then:
@@ -144,6 +145,7 @@ class Service(TemplateRenderer):
                 context.services[1]._order == 1  # "1st" Zookeeper instance
                 context.services[3]._order == 1  # "1st" Kafka instance
                 context.services[4]._order == 0  # "0th" MirrorMaker instance
+
         """
         if hasattr(self.context, "services"):
             same_services = [id(s) for s in self.context.services if type(s) == type(self)]

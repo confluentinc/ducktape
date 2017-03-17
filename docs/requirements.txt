@@ -1,0 +1,10 @@
+avro
+boto3
+pytz
+elasticsearch
+jinja2
+pyjks
+sphinx
+sphinx_rtd_theme
+paramiko
+pywinrm

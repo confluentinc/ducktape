@@ -85,11 +85,11 @@ class Test(TemplateRenderer):
     def compress_service_logs(self, node, service, node_logs):
         """Compress logs on a node corresponding to the given service.
 
-        :param node The node on which to compress the given logs
-        :param service The service to which the node belongs
-        :param node_logs Paths to logs (or log directories) which will be compressed
+        :param node: The node on which to compress the given logs
+        :param service: The service to which the node belongs
+        :param node_logs: Paths to logs (or log directories) which will be compressed
+        :return: a list of paths to compressed logs.
 
-        :return a list of paths to compressed logs.
         """
         compressed_logs = []
         for nlog in node_logs:
@@ -193,8 +193,8 @@ def _escape_pathname(s):
 def test_logger(logger_name, log_dir, debug):
     """Helper method for getting a test logger object
 
-    Note that if this method is called multiple times with the same logger_name, it returns the same logger object.
-    Note also, that for a fixed logger_name, configuration occurs only the first time this function is called.
+    Note that if this method is called multiple times with the same ``logger_name``, it returns the same logger object.
+    Note also, that for a fixed ``logger_name``, configuration occurs only the first time this function is called.
     """
     return TestLoggerMaker(logger_name, log_dir, debug).logger
 
@@ -244,14 +244,14 @@ class TestContext(object):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
     def __init__(self, **kwargs):
         """
-        :param session_context
+        :param session_context:
         :param cluster: the cluster object which will be used by this test
         :param module: name of the module containing the test class/method
         :param cls: class object containing the test method
         :param function: the test method
         :param file: file containing this module
         :param injected_args: a dict containing keyword args which will be passed to the test method
-        :param cluster_use_metadata
+        :param cluster_use_metadata: dict containing information about how this test will use cluster resources, to date, this only includes "num_nodes"
         """
 
         self.session_context = kwargs.get("session_context")
@@ -341,7 +341,7 @@ class TestContext(object):
 
         This default implementation assumes all nodes are Linux.
 
-        Return None if undefined.
+        :return: number of nodes or None if undefined.
         """
         node_spec = self.expected_node_spec
         if node_spec is None:
@@ -359,7 +359,7 @@ class TestContext(object):
 
         This default implementation assumes all nodes are Linux.
 
-        Return None if undefined.
+        :return: expected nodes or None if undefined.
         """
 
         expected = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)

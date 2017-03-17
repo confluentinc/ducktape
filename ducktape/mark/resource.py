@@ -42,12 +42,14 @@ class ClusterUseMetadata(Mark):
 def cluster(**kwargs):
     """Test method decorator used to provide hints about how the test will use the given cluster.
 
-    Keywords used by ducktape:
-    - num_nodes: provide hint about how many nodes the test will consume
-    - node_spec: provide hint about how many nodes for each operating system the test will consume
+    :Keywords used by ducktape:
+
+        - ``num_nodes`` provide hint about how many nodes the test will consume
+        - ``node_spec`` provide hint about how many nodes for each operating system the test will consume
 
 
     Example::
+
         # basic usage with num_nodes
         @cluster(num_nodes=10)
         def the_test(...):
