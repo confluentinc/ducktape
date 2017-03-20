@@ -7,7 +7,7 @@ New Tests
 Writing ducktape Tests
 ======================
 
-Subclass ``ducktape.tests.test.Test and implement`` as many ``test`` methods as you
+Subclass :class:`~ducktape.tests.test.Test` and implement as many ``test`` methods as you
 want. The name of each test method must start or end with ``test``,
 e.g. ``test_functionality`` or ``example_test``. Typically, a test will
 start a few services, collect and/or validate some data, and then finish.
@@ -34,15 +34,15 @@ Test Parameters
 
 Use test decorators to parametrize tests, examples are provided below
 
-.. autofunction:: ducktape.mark._mark.parametrize
-.. autofunction:: ducktape.mark._mark.matrix
+.. autofunction:: ducktape.mark.parametrize
+.. autofunction:: ducktape.mark.matrix
 .. autofunction:: ducktape.mark.resource.cluster
-.. autofunction:: ducktape.mark._mark.ignore
+.. autofunction:: ducktape.mark.ignore
 
 Logging
 =======
 
-The ``test`` base class sets up logger you can use which is tagged by class name,
+The :class:`~ducktape.tests.test.Test` base class sets up logger you can use which is tagged by class name,
 so adding some logging for debugging or to track the progress of tests is easy::
 
     self.logger.debug("End-to-end latency %d: %s", idx, line.strip())

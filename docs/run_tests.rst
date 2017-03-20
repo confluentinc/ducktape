@@ -21,85 +21,10 @@ To see a complete listing of options run::
 
     ducktape --help
 
-
-Here is a list of run options:
-
-* **--collect-only**
-
-    display collected tests, but do not run
-
-* **--parameters**
-
-    inject these arguments into the specified test(s). Specify parameters as a JSON string.
-
-    For example::
-
-        ducktape path/to/test.py::TestClass.test_method --parameters '{"x": 1, "y": 20}'
-
-* **--repeat**
-
-    use this flag to repeat all discovered tests the given number of times
-
-* **--debug**
-
-    turn on debug mode, pipe more verbose test output to stdout
-
-* **--exit-first**
-
-    exit after first failure
-
-* **--no-teardown**
-
-    don't kill running processes or remove log files when a test has finished running. "
-
-    .. note:: This is primarily useful for test developers who want to interact with running services after a test has run
-
-* **--max-parallel**
-
-    upper bound on number of tests run simultaneously
-
-* **--subsets**
-
-    number of subsets of tests to statically break the tests into to allow for parallel execution without coordination between test runner processes
-
-* **--subset**
-
-    which subset of the tests to run, based on the breakdown using the parameter for ``--subsets``
-
-* **--results-root**
-
-    path to custom root results directory. Running ducktape with this root specified will result in new test results being stored in a subdirectory of this root directory
-    defaults to ``./results``
-
-* **--default-num-nodes**
-
-    global hint for cluster usage. A test without the @cluster annotation will default to this value for expected cluster usage
-
-* **--config-file**
-
-    path to project-specific configuration file.
-    defaults to ``~/.ducktape/config``
-
-* **--historical-report**
-
-    URL of a JSON report file containing stats from a previous test run. If specified, this will be used when creating subsets of tests to divide evenly by total run time instead of by number of tests
-
-* **--compress**
-
-    compress remote logs before collection
-
-* **--cluster**
-
-    cluster class to use to allocate nodes for tests
-
-* **--cluster-file**
-
-    path to a json file which provides information needed to initialize a json cluster.
-    The file is used to read/write cached cluster info if cluster is ``ducktape.cluster.vagrant.VagrantCluster``
-
-* **--globals**
-
-    user defined globals. This can be a file containing a JSON object, or a string representing a JSON object
+.. argparse::
+   :module: ducktape.command_line.parse_args
+   :func: create_ducktape_parser
+   :prog: ducktape
 
 Configuration File
 ==================
@@ -142,4 +67,6 @@ structured like so::
         ...
 
 
-To see an example of the output structure, go to http://testing.confluent.io/confluent_platform/latest and click on one of the details links.
+To see an example of the output structure, go `here`_ and click on one of the details links.
+
+.. _here: http://testing.confluent.io/confluent-kafka-system-test-results/

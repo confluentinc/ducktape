@@ -3,7 +3,14 @@
 ============================================================
 Distributed System Integration & Performance Testing Library
 ============================================================
-ducktape contain tools for running system integration and performance tests. It provides utilities for pulling up and tearing down services easily, using Vagrant to let you test things on local VMs or run on EC2 nodes. Tests are just Python scripts that run a set of services, possibly triggering special events (e.g. bouncing a service), collect results (such as logs or console output) and report results (expected conditions met, performance results, etc.).
+Ducktape contains tools for running system integration and performance tests. It provides the following features:
+
+   * Isolation by default so system tests are as reliable as possible.
+   * Utilities for pulling up and tearing down services easily in clusters in different environments (e.g. local, custom cluster, Vagrant, K8s, Mesos, Docker, cloud providers, etc.)
+   * Easy to write unit tests for distributed systems
+   * Trigger special events (e.g. bouncing a service)
+   * Collect results (e.g. logs, console output)
+   * Report results (e.g. expected conditions met, performance results, etc.)
 
 .. toctree::
    install

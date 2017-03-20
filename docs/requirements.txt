@@ -1,10 +1,6 @@
-avro
+Sphinx
+sphinx-rtd-theme
+sphinx-argparse
 boto3
-pytz
-elasticsearch
-jinja2
-pyjks
-sphinx
-sphinx_rtd_theme
-paramiko
+pycrypto
 pywinrm

@@ -33,11 +33,14 @@ it directly on the ``tests`` directory::
 Windows
 =======
 
-Ducktape supports Service`s that run on Windows, but only in EC2.
+Ducktape support Services that run on Windows, but only in EC2.
 
 When a ``Service`` requires a Windows machine, AWS credentials must be configured on the machine running ducktape.
 
-Ducktape uses the [boto3](https://aws.amazon.com/sdk-for-python/) Python module to connect to AWS. And ``boto3`` supports many different [configuration options](https://boto3.readthedocs.io/en/latest/guide/configuration.html#guide-configuration).
+Ducktape uses the `boto3`_ Python module to connect to AWS. And ``boto3`` support many different `configuration options`_
+
+.. _boto3: https://aws.amazon.com/sdk-for-python/
+.. _configuration options: https://boto3.readthedocs.io/en/latest/guide/configuration.html#guide-configuration
 
 Here's an example bare minimum configuration using environment variables::
 
@@ -46,14 +49,3 @@ Here's an example bare minimum configuration using environment variables::
     export AWS_DEFAULT_REGION="us-east-1"
 
 The region can be any AWS region, not just ``us-east-1``.
-
-Contribute
-==========
-
-- Source Code: https://github.com/confluentinc/ducktape
-- Issue Tracker: https://github.com/confluentinc/ducktape/issues
-
-License
-=======
-
-The project is licensed under the Apache 2 license.

@@ -4,28 +4,32 @@
 Install
 =======
 
-.. note:: As a general rule, it's recommended to use an isolation tool such as ``virtualenv``.
+1. Install `cryptography`_ (used by `paramiko` which Ducktape depends on), this may have non-python external requirements
 
-Prerequisites:
+.. _cryptography: https://cryptography.io/en/latest/installation
 
-* ducktape uses paramiko, which depends upon cryptography (https://cryptography.io/en/latest/installation/), which has non-python external requirements
+    * OSX (if needed)::
 
-    * OSX should just work
+        brew install openssl
 
     * Ubuntu::
 
-        $ sudo apt-get install build-essential libssl-dev libffi-dev python-dev
+        sudo apt-get install build-essential libssl-dev libffi-dev python-dev
 
     * Fedora and RHEL-derivatives::
 
-        $ sudo yum install gcc libffi-devel python-devel openssl-devel
+        sudo yum install gcc libffi-devel python-devel openssl-devel
 
-* Install ducktape::
+
+2. As a general rule, it's recommended to use an isolation tool such as ``virtualenv``
+
+3. Install Ducktape::
 
     pip install ducktape
 
+.. note::
 
+    On OSX you may need to::
 
-* On macOS you may need to ``brew install openssl`` and then install using::
+        C_INCLUDE_PATH=/usr/local/opt/openssl/include LIBRARY_PATH=/usr/local/opt/openssl/lib pip install ducktape
 
-    C_INCLUDE_PATH=/usr/local/opt/openssl/include LIBRARY_PATH=/usr/local/opt/openssl/lib pip install ducktape

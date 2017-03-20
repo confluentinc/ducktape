@@ -7,6 +7,4 @@ Services
 .. autoclass:: ducktape.services.background_thread.BackgroundThreadService
     :members:
 
-.. autoclass:: ducktape.services.service_registry.ServiceRegistry
-    :members:
 
