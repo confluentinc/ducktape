@@ -1,6 +1,6 @@
-Sphinx
-sphinx-rtd-theme
-sphinx-argparse
-boto3
-pycrypto
-pywinrm
+Sphinx==1.5.3
+sphinx-argparse==0.1.17
+sphinx-rtd-theme==0.2.4
+boto3==1.4.4
+pycrypto==2.6.1
+pywinrm==0.2.2

@@ -1,7 +1,7 @@
 .. _topics-new_services:
 
-New Services
-============
+Create New Services
+===================
 
 ``Service`` refers generally to multiple processes, possibly long-running, which you
 want to run on the test cluster.

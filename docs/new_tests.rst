@@ -1,8 +1,8 @@
 .. _topics-new_tests:
 
-=========
-New Tests
-=========
+================
+Create New Tests
+================
 
 Writing ducktape Tests
 ======================
