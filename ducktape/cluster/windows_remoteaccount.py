@@ -27,7 +27,7 @@ from ducktape.cluster.remoteaccount import RemoteAccount, RemoteCommandError
 
 class WindowsRemoteAccount(RemoteAccount):
     """
-    Windows remote accounts are currently only supported in EC2. See _setup_winrm() for how the WinRM password
+    Windows remote accounts are currently only supported in EC2. See ``_setup_winrm()`` for how the WinRM password
     is fetched, which is currently specific to AWS.
 
     The Windows AMI needs to also have an SSH server running to support SSH commands, SCP, and rsync.

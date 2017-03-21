@@ -12,3 +12,5 @@ dist/
 # ducktape
 .ducktape/
 *results/
+
+docs/_build/

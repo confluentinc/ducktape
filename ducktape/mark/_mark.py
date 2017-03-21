@@ -218,8 +218,8 @@ def cartesian_product_dict(d):
 
 def matrix(**kwargs):
     """Function decorator used to parametrize with a matrix of values.
-    Decorating a function or method with @matrix marks it with the Matrix mark. When expanded using the
-    MarkedFunctionExpander, it yields a list of TestContext objects, one for every possible combination
+    Decorating a function or method with ``@matrix`` marks it with the Matrix mark. When expanded using the
+    ``MarkedFunctionExpander``, it yields a list of TestContext objects, one for every possible combination
     of arguments.
 
     Example::
@@ -245,7 +245,7 @@ def matrix(**kwargs):
 
 def parametrize(**kwargs):
     """Function decorator used to parametrize its arguments.
-    Decorating a function or method with @parametrize marks it with the Parametrize mark.
+    Decorating a function or method with ``@parametrize`` marks it with the Parametrize mark.
 
     Example::
 
