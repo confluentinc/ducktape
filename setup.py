@@ -30,19 +30,21 @@ class PyTest(TestCommand):
         errno = pytest.main(self.pytest_args)
         sys.exit(errno)
 
+
 setup(name="ducktape",
       version=version,
       description="Distributed system test tools",
       author="Confluent",
-      platforms=["any"], 
+      platforms=["any"],
       entry_points={
-        'console_scripts': ['ducktape=ducktape.command_line.main:main'],
+          'console_scripts': ['ducktape=ducktape.command_line.main:main'],
       },
       license="apache2.0",
       url="http://github.com/confluentinc/ducktape",
       packages=find_packages(),
       package_data={'ducktape': ['templates/report/*']},
       install_requires=['jinja2', 'requests', 'paramiko', 'pysistence', 'pyzmq'],
-      tests_require=['pytest', 'mock', 'psutil==4.1.0', 'memory_profiler==0.41', 'statistics', 'requests-testadapter', 'boto3', 'pycrypto', 'pywinrm'],
+      tests_require=['pytest', 'mock', 'psutil==4.1.0', 'memory_profiler==0.41',
+                     'statistics', 'requests-testadapter', 'boto3', 'pycrypto', 'pywinrm'],
       cmdclass={'test': PyTest},
       )

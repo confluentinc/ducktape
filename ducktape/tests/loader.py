@@ -30,6 +30,7 @@ from ducktape.mark.mark_expander import MarkedFunctionExpander
 class LoaderException(Exception):
     pass
 
+
 # A helper container class
 ModuleAndFile = collections.namedtuple('ModuleAndFile', ['module', 'file'])
 
@@ -39,6 +40,7 @@ DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 
 # Included for unit tests to be able to add support for loading local file:/// URLs.
 _requests_session = requests.session()
+
 
 class TestLoader(object):
     """Class used to discover and load tests."""
@@ -103,9 +105,9 @@ class TestLoader(object):
             # for each test (using avg as a fallback for missing data), sort in descending order, then start greedily
             # packing tests into bins based on the least full bin at the time.
             raw_results = _requests_session.get(self.historical_report).json()["results"]
-            time_results = {r['test_id']:r['run_time_seconds'] for r in raw_results}
+            time_results = {r['test_id']: r['run_time_seconds'] for r in raw_results}
             avg_result_time = sum(time_results.itervalues()) / len(time_results)
-            time_results = {tc.test_id:time_results.get(tc.test_id, avg_result_time) for tc in all_test_context_list}
+            time_results = {tc.test_id: time_results.get(tc.test_id, avg_result_time) for tc in all_test_context_list}
             all_test_context_list = sorted(all_test_context_list, key=lambda x: time_results[x.test_id], reverse=True)
 
             subsets = [[] for _ in range(self.subsets)]
@@ -266,9 +268,13 @@ class TestLoader(object):
                                 expected_error = (missing_module_pieces == path_pieces[-len(missing_module_pieces):])
 
                     if expected_error:
-                        self.logger.debug("Failed to import %s. This is likely an artifact of the ducktape module loading process: %s: %s", module_name, e.__class__.__name__, e)
+                        self.logger.debug(
+                            "Failed to import %s. This is likely an artifact of the "
+                            "ducktape module loading process: %s: %s", module_name, e.__class__.__name__, e)
                     else:
-                        self.logger.error("Failed to import %s, which may indicate a broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
+                        self.logger.error(
+                            "Failed to import %s, which may indicate a "
+                            "broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
                 finally:
                     path_pieces = path_pieces[1:]
 
@@ -289,11 +295,11 @@ class TestLoader(object):
         for cls in test_classes:
             test_context_list.extend(self._expand_class(
                 TestContext(
-                        session_context=self.session_context,
-                        cluster=self.cluster,
-                        module=module.__name__,
-                        cls=cls,
-                        file=file_name)))
+                    session_context=self.session_context,
+                    cluster=self.cluster,
+                    module=module.__name__,
+                    cls=cls,
+                    file=file_name)))
 
         return test_context_list
 

@@ -20,6 +20,7 @@ from ducktape.cluster.remoteaccount import RemoteAccount
 FakeTestContext = collections.namedtuple('FakeTestContext', ['expected_node_spec'])
 FakeRemoteAccount = collections.namedtuple('FakeRemoteAccount', ['operating_system'])
 
+
 class CheckCluster(object):
 
     def setup_method(self, _):

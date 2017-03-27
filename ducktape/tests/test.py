@@ -32,6 +32,7 @@ from ducktape.cluster.remoteaccount import RemoteAccount
 class Test(TemplateRenderer):
     """Base class for tests.
     """
+
     def __init__(self, test_context, *args, **kwargs):
         """
         :type test_context: ducktape.tests.test.TestContext
@@ -112,7 +113,7 @@ class Test(TemplateRenderer):
         for service in self.test_context.services:
             if not hasattr(service, 'logs') or len(service.logs) == 0:
                 self.test_context.logger.debug("Won't collect service logs from %s - no logs to collect." %
-                    service.service_id)
+                                               service.service_id)
                 continue
 
             log_dirs = service.logs
@@ -242,6 +243,7 @@ class TestLoggerMaker(LoggerMaker):
 
 class TestContext(object):
     """Wrapper class for state variables needed to properly run a single 'test unit'."""
+
     def __init__(self, **kwargs):
         """
         :param session_context:
@@ -251,7 +253,8 @@ class TestContext(object):
         :param function: the test method
         :param file: file containing this module
         :param injected_args: a dict containing keyword args which will be passed to the test method
-        :param cluster_use_metadata: dict containing information about how this test will use cluster resources, to date, this only includes "num_nodes"
+        :param cluster_use_metadata: dict containing information about how this test will use cluster resources,
+               to date, this only includes "num_nodes"
         """
 
         self.session_context = kwargs.get("session_context")
@@ -284,7 +287,7 @@ class TestContext(object):
         return \
             "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s, node_spec=%s>" % \
             (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file),
-            str(self.ignore), str(self.expected_num_nodes), str(self.expected_node_spec))
+             str(self.ignore), str(self.expected_num_nodes), str(self.expected_node_spec))
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object

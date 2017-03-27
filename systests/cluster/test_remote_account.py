@@ -15,9 +15,7 @@
 from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
-from ducktape.utils.util import wait_until
 from ducktape.mark.resource import cluster
-from ducktape.mark import matrix
 
 import os
 import pytest
@@ -68,6 +66,7 @@ class RemoteAccountTestService(Service):
 
 class GenericService(Service):
     """Service which doesn't do anything - just a group of nodes, each of which has a scratch directory."""
+
     def __init__(self, context, num_nodes):
         super(GenericService, self).__init__(context, num_nodes)
         self.worker_scratch_dir = "scratch"
@@ -292,6 +291,7 @@ def verify_dir_structure(base_dir, dir_structure, node=None):
 
 class CopyToAndFroTest(Test):
     """These tests check copy_to, and copy_from functionality."""
+
     def setup(self):
         self.service = GenericService(self.test_context, 1)
         self.node = self.service.nodes[0]
@@ -456,6 +456,7 @@ class RemoteAccountTest(Test):
 
         # Background thread that simulates a process writing to the log
         self.wrote_log_line = False
+
         def background_logging_thread():
             # This needs to be large enough that we can verify we've actually
             # waited some time for the data to be written, but not too long that
@@ -517,7 +518,7 @@ class TestIterWrapper(Test):
             assert output.has_next()  # with timeout in case of hang
             assert output.next().strip() == str(i)
         start = time.time()
-        assert output.has_next() == False
+        assert output.has_next() is False
         stop = time.time()
         assert stop - start < self.eps, "has_next() should return immediately"
 
@@ -534,7 +535,7 @@ class TestIterWrapper(Test):
         start = time.time()
         # This check will last for the duration of the timeout because the the remote tail -F process
         # remains running, and the output stream is not closed.
-        assert output.has_next(timeout_sec=timeout) == False
+        assert output.has_next(timeout_sec=timeout) is False
         stop = time.time()
         assert (stop - start >= timeout) and (stop - start) < timeout + self.eps, \
             "has_next() should return right after %s second" % str(timeout)

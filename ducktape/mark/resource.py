@@ -21,6 +21,7 @@ CLUSTER_SIZE_KEYWORD = "num_nodes"
 
 class ClusterUseMetadata(Mark):
     """Provide a hint about how a given test will use the cluster."""
+
     def __init__(self, **kwargs):
         # shallow copy
         self.metadata = copy.copy(kwargs)

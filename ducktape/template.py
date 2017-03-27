@@ -29,7 +29,8 @@ class TemplateRenderer(object):
         :param kwargs: optional override parameters
         :return: the rendered template
         """
-        if not hasattr(template, 'render'): template = Template(template)
+        if not hasattr(template, 'render'):
+            template = Template(template)
         ctx = dict(self.__class__.__dict__)
         ctx.update(self.__dict__)
         return template.render(ctx, **kwargs)

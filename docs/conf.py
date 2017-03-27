@@ -18,6 +18,7 @@
 #
 import os
 import sys
+import sphinx_rtd_theme
 from ducktape import __version__
 
 sys.path.insert(0, os.path.abspath('..'))
@@ -81,8 +82,6 @@ todo_include_todos = False
 
 
 # -- Options for HTML output ----------------------------------------------
-
-import sphinx_rtd_theme
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
@@ -165,11 +164,12 @@ texinfo_documents = [
 
 autodoc_default_flags = ['show-inheritance']
 
+
 def skip(app, what, name, obj, skip, options):
     if name == "__init__":
         return False
     return skip
 
+
 def setup(app):
     app.connect("autodoc-skip-member", skip)
-

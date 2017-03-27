@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import socket
 import urllib2
 
 
@@ -35,4 +34,3 @@ class HttpMixin(object):
             response = opener.open(req, timeout=timeout)
 
         return response
-

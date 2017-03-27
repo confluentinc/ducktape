@@ -50,4 +50,3 @@ class ConsoleDefaults(object):
     # this range is *inclusive*
     TEST_DRIVER_MIN_PORT = 5556
     TEST_DRIVER_MAX_PORT = 5656
-

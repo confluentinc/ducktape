@@ -45,6 +45,7 @@ class InstrumentedTestRunner(TestRunner):
     """Identical to TestRunner, except dump memory used by the current process
     before running each test.
     """
+
     def __init__(self, *args, **kwargs):
         self.queue = kwargs.get("queue")
         del kwargs["queue"]
@@ -115,7 +116,8 @@ class CheckMemoryUsage(object):
 
         if slope > 0:
             # check max memory usage iff the memory measurements seem to be increasing overall
-            assert relative_diff <= .05, "max usage exceeded median usage by too much; there may be a memory leak: %s" % usage_stats
+            assert relative_diff <= .05, "max usage exceeded median usage by too much; there may " \
+                                         "be a memory leak: %s" % usage_stats
 
     def _linear_regression_slope(self, arr):
         """Return the sign of the slope of the least squares fit line.

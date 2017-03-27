@@ -81,9 +81,11 @@ class RemoteAccountSSHConfig(object):
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
 
+
 class RemoteAccountError(DucktapeError):
     """This exception is raised when an attempted action on a remote node fails.
     """
+
     def __init__(self, account, msg):
         self.account_str = str(account)
         self.msg = msg
@@ -95,6 +97,7 @@ class RemoteAccountError(DucktapeError):
 class RemoteCommandError(RemoteAccountError):
     """This exception is raised when a process run by ssh*() returns a non-zero exit status.
     """
+
     def __init__(self, account, cmd, exit_status, msg):
         self.account_str = str(account)
         self.exit_status = exit_status
@@ -217,7 +220,7 @@ class RemoteAccount(HttpMixin):
         url = "http://%s:%s%s" % (self.externally_routable_ip, str(port), path)
 
         err_msg = "Timed out trying to contact service on %s. " % url + \
-                            "Either the service failed to start, or there is a problem with the url."
+            "Either the service failed to start, or there is a problem with the url."
         wait_until(lambda: self._can_ping_url(url, headers), timeout_sec=timeout, backoff_sec=.25, err_msg=err_msg)
 
     def _can_ping_url(self, url, headers):
@@ -232,7 +235,8 @@ class RemoteAccount(HttpMixin):
         """Run the given command on the remote host, and block until the command has finished running.
 
         :param cmd: The remote ssh command
-        :param allow_fail: If True, ignore nonzero exit status of the remote command, else raise an ``RemoteCommandError``
+        :param allow_fail: If True, ignore nonzero exit status of the remote command,
+               else raise an ``RemoteCommandError``
 
         :return: The exit status of the command.
         :raise RemoteCommandError: If allow_fail is False and the command returns a non-zero exit status
@@ -262,8 +266,10 @@ class RemoteAccount(HttpMixin):
         Does *not* block
 
         :param cmd: The remote ssh command
-        :param allow_fail: If True, ignore nonzero exit status of the remote command, else raise an ``RemoteCommandError``
-        :param callback: If set, the iterator returns ``callback(line)`` for each line of output instead of the raw output
+        :param allow_fail: If True, ignore nonzero exit status of the remote command,
+               else raise an ``RemoteCommandError``
+        :param callback: If set, the iterator returns ``callback(line)``
+               for each line of output instead of the raw output
         :param combine_stderr: If True, return output from both stderr and stdout of the remote process.
         :param timeout_sec: Set timeout on blocking reads/writes. Default None. For more details see
             http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.settimeout
@@ -307,7 +313,8 @@ class RemoteAccount(HttpMixin):
         """Runs the command via SSH and captures the output, returning it as a string.
 
         :param cmd: The remote ssh command.
-        :param allow_fail: If True, ignore nonzero exit status of the remote command, else raise an ``RemoteCommandError``
+        :param allow_fail: If True, ignore nonzero exit status of the remote command,
+               else raise an ``RemoteCommandError``
         :param combine_stderr: If True, return output from both stderr and stdout of the remote process.
         :param timeout_sec: Set timeout on blocking reads/writes. Default None. For more details see
             http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.settimeout
@@ -556,9 +563,11 @@ class RemoteAccount(HttpMixin):
             offset = 0
         yield LogMonitor(self, log, offset)
 
+
 class SSHOutputIter(object):
     """Helper class that wraps around an iterable object to provide has_next() in addition to next()
     """
+
     def __init__(self, iter_obj, channel_file=None):
         """
         :param iter_obj: An iterator
@@ -630,11 +639,14 @@ class LogMonitor(object):
         offset recorded when the LogMonitor was created. Additional keyword args
         are passed directly to ``ducktape.utils.util.wait_until``
         """
-        return wait_until(lambda: self.acct.ssh("tail -c +%d %s | grep '%s'" % (self.offset+1, self.log, pattern), allow_fail=True) == 0, **kwargs)
+        return wait_until(lambda: self.acct.ssh("tail -c +%d %s | grep '%s'" % (self.offset + 1, self.log, pattern),
+                                                allow_fail=True) == 0, **kwargs)
+
 
 class IgnoreMissingHostKeyPolicy(MissingHostKeyPolicy):
     """Policy for ignoring missing host keys.
     Many examples show use of AutoAddPolicy, but this clutters up the known_hosts file unnecessarily.
     """
+
     def missing_host_key(self, client, hostname, key):
         return

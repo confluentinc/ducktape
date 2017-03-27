@@ -38,7 +38,8 @@ class JsonCluster(Cluster):
             - a json-serializeable dict
             - a "cluster_file" containing json
 
-        :param cluster_json: a json-serializeable dict containing node information. If ``cluster_json`` is None, load from file
+        :param cluster_json: a json-serializeable dict containing node information. If ``cluster_json`` is None,
+               load from file
         :param cluster_file (optional): Overrides the default location of the json cluster file
 
         Example json with a local Vagrant cluster::

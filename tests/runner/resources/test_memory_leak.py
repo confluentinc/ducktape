@@ -46,6 +46,7 @@ class MemoryLeakTest(Test):
     """A group of identical "memory-hungry" ducktape tests.
     Each test holds a reference to a service which itself holds a reference to a large (memory intensive) object.
     """
+
     def __init__(self, test_context):
         super(MemoryLeakTest, self).__init__(test_context)
         self.memory_eater = MemoryEater(test_context)

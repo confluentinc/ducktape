@@ -17,6 +17,7 @@ import logging
 
 class LoggerMaker(object):
     """This class helps ensure programmatically configured loggers are configured only once."""
+
     def __init__(self, logger_name):
         self.logger_name = logger_name
 

@@ -19,12 +19,13 @@ NUM_TESTS = 1
 
 class TestA(Test):
     """Loader should discover this."""
+
     def test_a(self):
         pass
 
 
 class TestInvisible(object):
     """Loader should not discover this."""
+
     def test_invisible(self):
         pass
-

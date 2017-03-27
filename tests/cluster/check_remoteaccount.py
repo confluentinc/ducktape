@@ -29,6 +29,7 @@ import time
 class SimpleServer(object):
     """Helper class which starts a simple server listening on localhost at the specified port
     """
+
     def __init__(self):
         self.port = find_available_port()
         self.handler = SimpleHTTPServer.SimpleHTTPRequestHandler
@@ -105,4 +106,3 @@ class CheckRemoteAccountEquality(object):
         r2 = RemoteAccount(**kwargs)
 
         assert r1 == r2
-

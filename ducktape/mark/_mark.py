@@ -100,6 +100,7 @@ class Ignore(Mark):
 
 class IgnoreAll(Ignore):
     """This mark signals to ignore all parametrizations of a test."""
+
     def __init__(self):
         super(IgnoreAll, self).__init__()
         self.injected_args = None
@@ -109,6 +110,7 @@ class Matrix(Mark):
     """Parametrize with a matrix of arguments.
     Assume each values in self.injected_args is iterable
     """
+
     def __init__(self, **kwargs):
         self.injected_args = kwargs
         for k in self.injected_args:
@@ -134,6 +136,7 @@ class Matrix(Mark):
 
 class Parametrize(Mark):
     """Parametrize a test function"""
+
     def __init__(self, **kwargs):
         self.injected_args = kwargs
 
@@ -326,5 +329,3 @@ def _inject(*args, **kwargs):
 
         return wrapper
     return injector
-
-

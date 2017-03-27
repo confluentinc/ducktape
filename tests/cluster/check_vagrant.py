@@ -60,7 +60,9 @@ class CheckVagrantCluster(object):
     def _set_monkeypatch_attr(self, monkeypatch):
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
-        monkeypatch.setattr("ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.fetch_externally_routable_ip", lambda vc, node_account: "127.0.0.1")
+        monkeypatch.setattr(
+            "ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.fetch_externally_routable_ip",
+            lambda vc, node_account: "127.0.0.1")
 
     def check_pickleable(self, monkeypatch):
         self._set_monkeypatch_attr(monkeypatch)
@@ -87,8 +89,9 @@ class CheckVagrantCluster(object):
         assert node2.account.ssh_hostname == '127.0.0.2'
 
     def check_cluster_file_write(self, monkeypatch):
-        """check the behavior of VagrantCluster when cluster_file is specified but the file doesn't exist. VagrantCluster
-        should read cluster information from _vagrant_ssh_config() and write the information to cluster_file.
+        """check the behavior of VagrantCluster when cluster_file is specified but the file doesn't exist.
+        VagrantCluster should read cluster information from _vagrant_ssh_config() and write the information to
+        cluster_file.
         """
         self._set_monkeypatch_attr(monkeypatch)
         assert not os.path.exists(self.cluster_file)
@@ -116,8 +119,8 @@ class CheckVagrantCluster(object):
         assert cluster_json_actual == cluster_json_expected
 
     def check_cluster_file_read(self, monkeypatch):
-        """check the behavior of VagrantCluster when cluster_file is specified and the file exists. VagrantCluster should
-        read cluster information from cluster_file.
+        """check the behavior of VagrantCluster when cluster_file is specified and the file exists.
+        VagrantCluster should read cluster information from cluster_file.
         """
         self._set_monkeypatch_attr(monkeypatch)
 
@@ -152,7 +155,8 @@ class CheckVagrantCluster(object):
 
         cluster_json_expected = {}
         cluster_json_expected["nodes"] = nodes_expected
-        json.dump(cluster_json_expected, open(self.cluster_file, 'w+'), indent=2, separators=(',', ': '), sort_keys=True)
+        json.dump(cluster_json_expected, open(self.cluster_file, 'w+'),
+                  indent=2, separators=(',', ': '), sort_keys=True)
 
         # Load the cluster from the json file we just created
         cluster = VagrantCluster(cluster_file=self.cluster_file)
