@@ -28,6 +28,7 @@ class PyTest(TestCommand):
         # import here, cause outside the eggs aren't loaded
         import pytest
         errno = pytest.main(self.pytest_args)
+        self.run_command('flake8')
         sys.exit(errno)
 
 
@@ -46,5 +47,6 @@ setup(name="ducktape",
       install_requires=['jinja2', 'requests', 'paramiko', 'pysistence', 'pyzmq'],
       tests_require=['pytest', 'mock', 'psutil==4.1.0', 'memory_profiler==0.41',
                      'statistics', 'requests-testadapter', 'boto3', 'pycrypto', 'pywinrm'],
+      setup_requires=['flake8'],
       cmdclass={'test': PyTest},
       )
