@@ -15,6 +15,7 @@
 from ducktape.services.service import Service
 from tests.ducktape_mock import test_context
 
+
 class CheckTemplateRenderingService(object):
     """
     Tests rendering of templates, using input from a Service

@@ -19,8 +19,10 @@ NUM_TESTS = 3
 
 class TestB(Test):
     """Loader should discover this."""
+
     def test_b(self):
         pass
+
 
 class TestBB(Test):
     """Loader should discover this with 2 tests."""
@@ -35,7 +37,9 @@ class TestBB(Test):
     def other_method(self):
         pass
 
+
 class TestInvisible(object):
     """Loader should not discover this."""
+
     def test_invisible(self):
         pass

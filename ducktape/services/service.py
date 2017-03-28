@@ -59,10 +59,10 @@ class Service(TemplateRenderer):
         :param num_nodes:  An integer representing the number of Linux nodes to allocate. If node_spec is not None, it
                           will be used and ``num_nodes`` will be ignored.
         :param node_spec:  A dictionary where the key is an operating system (possible values are in
-                          ``ducktape.cluster.remoteaccount.RemoteAccount.SUPPORTED_OS_TYPES``) and the value is the number
-                          of nodes to allocate for the associated operating system. Values must be integers. Node
-                          allocation takes place when ``start()`` is called, or when ``allocate_nodes()`` is called, whichever
-                          happens first.
+                          ``ducktape.cluster.remoteaccount.RemoteAccount.SUPPORTED_OS_TYPES``) and the value
+                          is the number of nodes to allocate for the associated operating system.
+                          Values must be integers. Node allocation takes place when ``start()`` is called,
+                          or when ``allocate_nodes()`` is called, whichever happens first.
         """
         super(Service, self).__init__(*args, **kwargs)
         # Keep track of significant events in the lifetime of this service
@@ -267,7 +267,7 @@ class Service(TemplateRenderer):
                                "These nodes are still alive: " + str(unfinished_nodes))
 
     def wait_node(self, node, timeout_sec=None):
-        """Wait for the service on the given node to finish. 
+        """Wait for the service on the given node to finish.
         Return True if the node finished shutdown, False otherwise.
         """
         raise NotImplementedError("%s: subclasses must implement wait_node." % self.who_am_i())
@@ -300,7 +300,8 @@ class Service(TemplateRenderer):
 
     def clean_node(self, node):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
-        self.logger.warn("%s: clean_node has not been overriden. This may be fine if the service leaves no persistent state."
+        self.logger.warn("%s: clean_node has not been overriden. "
+                         "This may be fine if the service leaves no persistent state."
                          % self.who_am_i())
 
     def free(self):

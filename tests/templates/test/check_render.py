@@ -48,6 +48,7 @@ class CheckPackageSearchPath(object):
     """
     Simple check on extracting package and search path based on module name.
     """
+
     def check_package_search_path(self):
         package, path = TemplateRenderer._package_search_path("a.b.c")
         # search path should be b/templates since templates is by convention a sibling of c

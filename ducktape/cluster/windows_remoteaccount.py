@@ -88,7 +88,7 @@ class WindowsRemoteAccount(RemoteAccount):
             cipher = PKCS1_v1_5.new(rsa_key)
             winrm_password = cipher.decrypt(base64.b64decode(response["PasswordData"]), None)
             self._winrm_client = winrm.Session(self.ssh_config.hostname, auth=(WindowsRemoteAccount.WINRM_USERNAME,
-                                                                                 winrm_password))
+                                                                               winrm_password))
         finally:
             if key_file:
                 key_file.close()

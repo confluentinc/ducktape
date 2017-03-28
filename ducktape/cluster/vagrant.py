@@ -56,12 +56,12 @@ class VagrantCluster(JsonCluster):
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
             nodes = [
-                        {
-                            "ssh_config": node_account.ssh_config,
-                            "externally_routable_ip": node_account.externally_routable_ip
-                        }
-                        for node_account in self._available_nodes
-                    ]
+                {
+                    "ssh_config": node_account.ssh_config,
+                    "externally_routable_ip": node_account.externally_routable_ip
+                }
+                for node_account in self._available_nodes
+            ]
             cluster_json["nodes"] = nodes
             with open(cluster_file, 'w+') as fd:
                 json.dump(cluster_json, fd, cls=DucktapeJSONEncoder, indent=2, separators=(',', ': '), sort_keys=True)

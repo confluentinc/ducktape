@@ -31,6 +31,7 @@ class Capturing(object):
             call_function()
         assert captured.output == expected_output
     """
+
     def __enter__(self):
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
@@ -102,7 +103,8 @@ class CheckParseArgs(object):
         ]
 
         try:
-            monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE", project_cfg_filename)
+            monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE",
+                                project_cfg_filename)
             monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.USER_CONFIG_FILE", user_cfg_filename)
 
             with open(project_cfg_filename, "w") as project_f:

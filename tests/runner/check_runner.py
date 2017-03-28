@@ -37,8 +37,8 @@ class CheckRunner(object):
         mock_cluster = FakeCluster(1)
         session_context = tests.ducktape_mock.session_context()
 
-        test_context = TestContext(session_context=session_context, module=None, cls=TestThingy, function=TestThingy.test_pi,
-                                   file=TEST_THINGY_FILE, cluster=mock_cluster)
+        test_context = TestContext(session_context=session_context, module=None, cls=TestThingy,
+                                   function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster)
         runner = TestRunner(mock_cluster, session_context, Mock(), [test_context])
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
@@ -91,4 +91,3 @@ class CheckRunner(object):
         results = runner.run_all_tests()
         assert len(ctx_list) > 1
         assert len(results) == 1
-

@@ -115,6 +115,7 @@ class ClientEventFactory(object):
 
 class EventResponseFactory(object):
     """Used by the test runner to create responses to events from client processes."""
+
     def _event_response(self, client_event, payload=None):
         if payload is None:
             payload = {}
@@ -126,7 +127,8 @@ class EventResponseFactory(object):
         }
 
         assert len(set(event_response.keys()).intersection(set(payload.keys()))) == 0, \
-            "Payload and base event should not share keys. base event: %s, payload: %s" % (str(event_response), str(payload))
+            "Payload and base event should not share keys. base event: %s, payload: %s" % (
+                str(event_response), str(payload))
 
         event_response.update(payload)
         return event_response
@@ -151,5 +153,3 @@ class EventResponseFactory(object):
 
     def log(self, client_event):
         return self._event_response(client_event)
-
-

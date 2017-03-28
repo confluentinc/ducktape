@@ -37,6 +37,7 @@ class FakeClusterSlot(object):
 
 class FakeCluster(Cluster):
     """A cluster class with counters, but no actual node objects"""
+
     def __init__(self, num_nodes):
         self._num_nodes = num_nodes
         self._available_nodes = self._num_nodes
@@ -81,12 +82,14 @@ def test_context(session_context=session_context(), cluster=mock_cluster()):
 
 class MockNode(object):
     """Mock cluster node"""
+
     def __init__(self):
         self.account = MockAccount()
 
 
 class MockAccount(LinuxRemoteAccount):
     """Mock node.account object. It's Linux because tests are run in Linux."""
+
     def __init__(self):
         ssh_config = RemoteAccountSSHConfig(
             host="localhost",

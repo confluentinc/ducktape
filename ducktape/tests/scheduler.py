@@ -19,6 +19,7 @@ class TestScheduler(object):
     The ordering is "on-demand"; calling next returns the largest cluster user which fits in the currently
     available cluster nodes.
     """
+
     def __init__(self, test_contexts, cluster):
         self.cluster = cluster
 

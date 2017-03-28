@@ -63,4 +63,3 @@ class CheckLogger(object):
     def teardown_method(self, _):
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
-

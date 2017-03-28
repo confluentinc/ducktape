@@ -71,4 +71,3 @@ class CheckAllocateFree(object):
         assert self.diffDummy0._order == 0
         assert self.diffDummy1._order == 1
         assert self.diffDummy2._order == 2
-

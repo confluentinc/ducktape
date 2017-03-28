@@ -84,4 +84,3 @@ class BackgroundThreadService(Service):
         worker_thread = self.worker_threads[idx]
         worker_thread.join(timeout_sec)
         return not(worker_thread.is_alive())
-

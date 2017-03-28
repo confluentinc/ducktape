@@ -25,6 +25,7 @@ from ducktape.tests.test import Test, TestContext, _escape_pathname, _compress_c
 
 class DummyTest(Test):
     """class description"""
+
     def test_class_description(self):
         pass
 
@@ -56,24 +57,29 @@ class CheckEscapePathname(object):
 
 class CheckDescription(object):
     """Check that pulling a description from a test works as expected."""
+
     def check_from_function(self):
         """If the function has a docstring, the description should come from the function"""
-        context = TestContext(session_context=ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_function_description)
+        context = TestContext(session_context=ducktape_mock.session_context(),
+                              cls=DummyTest, function=DummyTest.test_function_description)
         assert context.description == "function description"
 
     def check_from_class(self):
         """If the test method has no docstring, description should come from the class docstring"""
-        context = TestContext(session_context=ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_class_description)
+        context = TestContext(session_context=ducktape_mock.session_context(),
+                              cls=DummyTest, function=DummyTest.test_class_description)
         assert context.description == "class description"
 
     def check_no_description(self):
         """If nobody has a docstring, there shouldn't be an error, and description should be empty string"""
-        context = TestContext(session_context=ducktape_mock.session_context(), cls=DummyTestNoDescription, function=DummyTestNoDescription.test_this)
+        context = TestContext(session_context=ducktape_mock.session_context(),
+                              cls=DummyTestNoDescription, function=DummyTestNoDescription.test_this)
         assert context.description == ""
 
 
 class CheckCompressCmd(object):
     """Check expected behavior of compress command used before collecting service logs"""
+
     def setup_method(self, _):
         self.tempdir = tempfile.mkdtemp()
 

@@ -147,4 +147,3 @@ class CheckUserDefinedGlobals(object):
 
         with pytest.raises(ValueError):
             get_user_defined_globals(valid_json_not_dict)
-

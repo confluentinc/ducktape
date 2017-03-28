@@ -25,6 +25,7 @@ import requests
 from mock import Mock
 from requests_testadapter import Resp
 
+
 class LocalFileAdapter(requests.adapters.HTTPAdapter):
     def build_response_from_file(self, request):
         file_path = request.url[7:]
@@ -41,8 +42,10 @@ class LocalFileAdapter(requests.adapters.HTTPAdapter):
 
         return self.build_response_from_file(request)
 
+
 def resources_dir():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+
 
 def discover_dir():
     """Return the absolute path to the directory to use with discovery tests."""
@@ -109,7 +112,7 @@ class CheckTestLoader(object):
         """Check discovery on a non-existent path should throw LoaderException"""
         with pytest.raises(LoaderException):
             loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-            tests = loader.load([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+            loader.load([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
 
     def check_test_loader_with_class(self):
         """Check test discovery with discover class syntax."""
@@ -187,6 +190,7 @@ class CheckTestLoader(object):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=1, subsets=2, historical_report=report_url)
         tests = loader.load([file])
         assert len(tests) == 2
+
 
 def join_parsed_symbol_components(parsed):
     """
@@ -276,8 +280,3 @@ class CheckParseSymbol(object):
             )
 
             assert actually_parsed == expected_parsed, "%s did not parse as expected" % symbol
-
-
-
-
-

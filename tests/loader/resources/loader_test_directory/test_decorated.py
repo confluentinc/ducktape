@@ -44,4 +44,3 @@ class TestParametrized(Test):
     def test_thing(self, x, y):
         """2 tests"""
         pass
-

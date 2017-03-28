@@ -57,7 +57,7 @@ class SingleResultReporter(object):
         ]
 
         if self.result.test_status == FAIL:
-           # Add summary if the test failed
+            # Add summary if the test failed
             result_lines.append("\n")
             result_lines.append("    " + self.result.summary)
 
@@ -169,7 +169,8 @@ class HTMLSummaryReporter(SummaryReporter):
             "test_result": test_result,
             "description": result.description,
             "run_time": format_time(result.run_time_seconds),
-            "data": "" if result.data is None else json.dumps(result.data, sort_keys=True, indent=2, separators=(',', ': ')),
+            "data": "" if result.data is None else json.dumps(result.data, sort_keys=True,
+                                                              indent=2, separators=(',', ': ')),
             "test_log": self.test_results_dir(result)
         }
         return result_json

@@ -134,5 +134,3 @@ def generate_results_dir(results_root, session_id):
     :rtype: str
     """
     return os.path.join(os.path.abspath(results_root), session_id)
-
-

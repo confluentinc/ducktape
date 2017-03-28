@@ -263,7 +263,8 @@ class TestRunner(object):
 
         if event["event_type"] == ClientEventFactory.READY:
             self._handle_ready(event)
-        elif event["event_type"] in [ClientEventFactory.RUNNING, ClientEventFactory.SETTING_UP, ClientEventFactory.TEARING_DOWN]:
+        elif event["event_type"] in [ClientEventFactory.RUNNING,
+                                     ClientEventFactory.SETTING_UP, ClientEventFactory.TEARING_DOWN]:
             self._handle_lifecycle(event)
         elif event["event_type"] == ClientEventFactory.FINISHED:
             self._handle_finished(event)
@@ -278,7 +279,7 @@ class TestRunner(object):
         subcluster = self._test_cluster[test_key]
 
         self.receiver.send(
-                self.event_response.ready(event, self.session_context, test_context, subcluster))
+            self.event_response.ready(event, self.session_context, test_context, subcluster))
 
     def _handle_log(self, event):
         self.receiver.send(self.event_response.log(event))

@@ -131,6 +131,7 @@ class TestResult(object):
 
 class TestResults(object):
     """Class used to aggregate individual TestResult objects from many tests."""
+
     def __init__(self, session_context, cluster):
         """
         :type session_context: ducktape.tests.session.SessionContext
@@ -204,7 +205,7 @@ class TestResults(object):
             parallelism = 0
         else:
             cluster_utilization = (1.0 / len(self.cluster)) * (1.0 / self.run_time_seconds) * \
-                                  sum([r.total_nodes_used() * r.run_time_seconds for r in self])
+                sum([r.total_nodes_used() * r.run_time_seconds for r in self])
             parallelism = sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds
 
         return {
