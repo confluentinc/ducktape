@@ -8,4 +8,4 @@ API Doc
     api/test
     api/services
     api/remoteaccount
-    api/clusters
+
