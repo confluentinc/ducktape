@@ -9,3 +9,4 @@ API Doc
     api/services
     api/remoteaccount
     api/clusters
+    api/templates
