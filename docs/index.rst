@@ -17,6 +17,7 @@ Ducktape contains tools for running system integration and performance tests. It
    run_tests
    new_tests
    new_services
+   debug_tests
    api
    misc
 
