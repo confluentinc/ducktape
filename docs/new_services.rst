@@ -85,7 +85,7 @@ Log files will be collected on both successful and failed test runs, while files
 
 The ``start_node`` method first creates directories and the config file on the given node, and then invokes the start script to start a Zookeeper service. In this simple example, the config file is created from ``prop_file`` string. You can also create config file from a template, as described in :ref:`using-templates-ref`.
 
-A service may take time to start and get to a usable state. Using sleeps to let service start often leads to a flakey test, if we wait for too short or the service may fail to start altogether. It is useful to verify that the service starts properly before returning from the ``start_node``, and fail the test if the service fails to start. Otherwise, the test will likely fail later, and it would be harder to find the root cause of the failure. One way to check that the service starts successfully is to check whether a service’s process is alive. Although you will probably need another check to ensure that the service actually gets to a usable state. Our example checks whether a Zookeeper service is started successfully by searching for a particular output in a log file.
+A service may take time to start and get to a usable state. Using sleeps to wait for a service to start often leads to a flaky test. The sleep time may be too short, or the service may fail to start altogether. It is useful to verify that the service starts properly before returning from the ``start_node``, and fail the test if the service fails to start. Otherwise, the test will likely fail later, and it would be harder to find the root cause of the failure. One way to check that the service starts successfully is to check whether a service’s process is alive and one additional check that the service is usable such as querying the service or checking some metrics if they are available. Our example checks whether a Zookeeper service is started successfully by searching for a particular output in a log file.
 
 The :class:`~ducktape.cluster.remoteaccount.RemoteAccount` instance associated with each node provides you with :class:`~ducktape.cluster.remoteaccount.LogMonitor` that let you check or wait for a pattern to appear in the log. Our example waits for 100 seconds for “binding to port” string to appear in the ``self.LOG_FILE`` log file, and raises an exception if it does not.
 
@@ -119,7 +119,7 @@ The :class:`~ducktape.cluster.remoteaccount.RemoteAccount` instance associated w
 
 The ``stop_node`` method uses :meth:`~ducktape.cluster.remoteaccount.RemoteAccount.kill_process` to terminate the service process on the given node. If the remote command to terminate the process fails, :meth:`~ducktape.cluster.remoteaccount.RemoteAccount.kill_process` will raise an ``RemoteCommandError`` exception.
 
-The ``clean_node`` method forcefully kills the process if it is still alive, and then removes persistent state leftover from testing.
+The ``clean_node`` method forcefully kills the process if it is still alive, and then removes persistent state leftover from testing. Make sure to properly cleanup the state to avoid test order dependency and flaky tests. You can assume complete control of the machine, so it is safe to delete an entire temporary working space and kill all java processes, etc.
 
 .. _using-templates-ref:
 
