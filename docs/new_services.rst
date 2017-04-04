@@ -52,7 +52,7 @@ Let’s walk through an example of writing a simple Zookeeper service.
             super(ZookeeperService, self).__init__(context, num_nodes)
 
 
-Log files will be collected on both successful and failed test runs, while files from the data directory will be collected only on failed test runs. Zookeeper service requests the number of nodes passed to its constructor by passing ``num_nodes`` parameters to the Service base class’s constructor.
+``logs`` is a member of ``Service`` that provides a mechanism for locating and collecting log files produced by the service on its nodes. ``logs`` is a dict with entries that look like ``log_name: {"path": log_path, "collect_default": boolean}``. In our example, log files will be collected on both successful and failed test runs, while files from the data directory will be collected only on failed test runs. Zookeeper service requests the number of nodes passed to its constructor by passing ``num_nodes`` parameters to the Service base class’s constructor.
 
 .. code-block:: python
 
@@ -83,7 +83,7 @@ Log files will be collected on both successful and failed test runs, while files
             self.logger.debug("Zookeeper service is successfully started.")
 
 
-The ``start_node`` method first creates directories and the config file on the given node, and then invokes the start script to start a Zookeeper service. In this simple example, the config file is created from ``prop_file`` string. You can also create config file from a template, as described in :ref:`using-templates-ref`.
+The ``start_node`` method first creates directories and the config file on the given node, and then invokes the start script to start a Zookeeper service. In this simple example, the config file is created from manually constructed ``prop_file`` string, because it has only a couple of easy to construct lines. More complex config files can be created with templates, as described in :ref:`using-templates-ref`.
 
 A service may take time to start and get to a usable state. Using sleeps to wait for a service to start often leads to a flaky test. The sleep time may be too short, or the service may fail to start altogether. It is useful to verify that the service starts properly before returning from the ``start_node``, and fail the test if the service fails to start. Otherwise, the test will likely fail later, and it would be harder to find the root cause of the failure. One way to check that the service starts successfully is to check whether a service’s process is alive and one additional check that the service is usable such as querying the service or checking some metrics if they are available. Our example checks whether a Zookeeper service is started successfully by searching for a particular output in a log file.
 
@@ -127,7 +127,7 @@ The ``clean_node`` method forcefully kills the process if it is still alive, and
 Using Templates
 ===============
 
-Both ``Service`` and ``Test`` subclass :class:`~ducktape.template.TemplateRenderer` that lets you render templates directly from strings or from files loaded from *templates/* directory relative to the class. A template contains variables and/or expressions, which are replaced with values when a template is rendered. :class:`~ducktape.template.TemplateRenderer` renders templates using Jinja2 template engine. A good use-case for templates is a properties file that needs to be passed to a service process. In :ref:`service-example-ref`, the properties file is created by building a string and using it as contents as follows::
+Both ``Service`` and ``Test`` subclass :class:`~ducktape.template.TemplateRenderer` that lets you render templates directly from strings or from files loaded from *templates/* directory relative to the class. A template contains variables and/or expressions, which are replaced with values when a template is rendered. :class:`~ducktape.template.TemplateRenderer` renders templates using `Jinja2 <http://jinja.pocoo.org/docs/2.9/>`_ template engine. A good use-case for templates is a properties file that needs to be passed to a service process. In :ref:`service-example-ref`, the properties file is created by building a string and using it as contents as follows::
 
         prop_file = """\n dataDir=%s\n clientPort=2181""" % self.DATA_DIR
         for idx, node in enumerate(self.nodes):
