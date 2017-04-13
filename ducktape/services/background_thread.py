@@ -39,7 +39,7 @@ class BackgroundThreadService(Service):
                 self.logger.info(traceback.format_exc(limit=16))
                 self.worker_errors[threading.currentThread().name] = e
 
-            raise e
+            raise
 
     def start_node(self, node):
         idx = self.idx(node)

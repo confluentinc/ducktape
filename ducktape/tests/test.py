@@ -81,7 +81,7 @@ class Test(TemplateRenderer):
             self.test_context.services.free_all()
         except BaseException as e:
             if isinstance(e, KeyboardInterrupt):
-                raise e
+                raise
 
     def compress_service_logs(self, node, service, node_logs):
         """Compress logs on a node corresponding to the given service.
