@@ -27,6 +27,7 @@ from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
 from ducktape.mark.resource import CLUSTER_SIZE_KEYWORD
 from ducktape.cluster.remoteaccount import RemoteAccount
+from ducktape.tests.status import FAIL
 
 
 class Test(TemplateRenderer):
@@ -108,8 +109,12 @@ class Test(TemplateRenderer):
 
         return compressed_logs
 
-    def copy_service_logs(self):
-        """Copy logs from service nodes to the results directory."""
+    def copy_service_logs(self, test_status):
+        """
+        Copy logs from service nodes to the results directory.
+
+        If the test passed, only the default set will be collected. If the the test failed, all logs will be collected.
+        """
         for service in self.test_context.services:
             if not hasattr(service, 'logs') or len(service.logs) == 0:
                 self.test_context.logger.debug("Won't collect service logs from %s - no logs to collect." %
@@ -121,7 +126,7 @@ class Test(TemplateRenderer):
                 # Gather locations of logs to collect
                 node_logs = []
                 for log_name in log_dirs.keys():
-                    if self.should_collect_log(log_name, service):
+                    if test_status == FAIL or self.should_collect_log(log_name, service):
                         node_logs.append(log_dirs[log_name]["path"])
 
                 if self.test_context.session_context.compress:

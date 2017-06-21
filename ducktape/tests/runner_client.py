@@ -135,7 +135,7 @@ class RunnerClient(object):
             summary += err_trace
 
         finally:
-            self.teardown_test(teardown_services=not self.session_context.no_teardown)
+            self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
 
             stop_time = time.time()
 
@@ -183,7 +183,7 @@ class RunnerClient(object):
         except BaseException as e:
             self.log(logging.WARN, err_msg + " " + e.message + "\n" + traceback.format_exc(limit=16))
 
-    def teardown_test(self, teardown_services=True):
+    def teardown_test(self, teardown_services=True, test_status=None):
         """teardown method which stops services, gathers log data, removes persistent state, and releases cluster nodes.
 
         Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
@@ -204,7 +204,7 @@ class RunnerClient(object):
 
         # always collect service logs whether or not we tear down
         # logs are typically removed during "clean" phase, so collect logs before cleaning
-        self._do_safely(self.test.copy_service_logs, "Error copying service logs:")
+        self._do_safely(lambda: self.test.copy_service_logs(test_status), "Error copying service logs:")
 
         # clean up stray processes and persistent state
         if teardown_services:
