@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.cluster.cluster_spec import LINUX
 from ducktape.cluster.remoteaccount import RemoteAccount
 
 
@@ -22,7 +23,7 @@ class LinuxRemoteAccount(RemoteAccount):
                                                  logger=logger)
         self._ssh_client = None
         self._sftp_client = None
-        self.os = RemoteAccount.LINUX
+        self.os = LINUX
 
     @property
     def local(self):

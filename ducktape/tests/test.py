@@ -20,13 +20,13 @@ import shutil
 import sys
 import tempfile
 
+from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.loggermaker import LoggerMaker, close_logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
 from ducktape.mark.resource import CLUSTER_SIZE_KEYWORD
-from ducktape.cluster.remoteaccount import RemoteAccount
 from ducktape.tests.status import FAIL
 
 
@@ -49,15 +49,39 @@ class Test(TemplateRenderer):
     def logger(self):
         return self.test_context.logger
 
-    def min_cluster_size(self):
-        """Heuristic for guessing whether there are enough nodes in the cluster to run this test.
-
-        Note this is not a reliable indicator of the true minimum cluster size, since new service instances may
-        be added at any time. However, it does provide a lower bound on the minimum cluster size.
-
-        A dictionary is returned where the key is the operating system and the value is the number of nodes for said OS.
+    def min_cluster_spec(self):
         """
-        return self.test_context.services.num_nodes()
+        Returns a specification for the minimal cluster we need to run this test.
+
+        This method replaces the deprecated min_cluster_size.  Unlike min_cluster_size, it can handle
+        non-Linux operating systems.
+
+        In general, most Tests don't need to override this method.  The default implementation
+        seen here works well in most cases.  However, the default implementation only takes into account
+        the services that exist at the time of the call.  You may need to override this method if you add
+        new services during the course of your test.
+
+        :return:            A ClusterSpec object.
+        """
+        try:
+            # If the Test overrode the deprecated min_cluster_size method, we will use that.
+            num_linux_nodes = self.min_cluster_size()
+            return ClusterSpec.simple_linux(num_linux_nodes)
+        except NotImplementedError:
+            # Otherwise, ask the service registry what kind of cluster spec we need for currently
+            # extant services.
+            return self.test_context.services.min_cluster_spec()
+
+    def min_cluster_size(self):
+        """
+        Returns the number of linux nodes which this test needs.
+
+        THIS METHOD IS DEPRECATED, and provided only for backwards compatibility.
+        Please implement min_cluster_spec instead.
+
+        :return:            An integer.
+        """
+        raise NotImplementedError
 
     def setup(self):
         """Override this for custom setup logic."""
@@ -290,9 +314,10 @@ class TestContext(object):
 
     def __repr__(self):
         return \
-            "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, cluster_size=%s, node_spec=%s>" % \
+            "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, " \
+            "cluster_size=%s, cluster_spec=%s>" % \
             (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file),
-             str(self.ignore), str(self.expected_num_nodes), str(self.expected_node_spec))
+             str(self.ignore), str(self.expected_num_nodes), str(self.expected_cluster_spec))
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object
@@ -345,47 +370,26 @@ class TestContext(object):
     @property
     def expected_num_nodes(self):
         """
-        How many nodes we expect this test to consume when run.
+        How many nodes of any type we expect this test to consume when run.
 
-        This default implementation assumes all nodes are Linux.
-
-        :return: number of nodes or None if undefined.
+        :return:            an integer number of nodes.
         """
-        node_spec = self.expected_node_spec
-        if node_spec is None:
-            return None
-
-        count = 0
-        for (_, node_count) in node_spec.iteritems():
-            count += node_count
-        return count
+        return self.expected_cluster_spec.size()
 
     @property
-    def expected_node_spec(self):
+    def expected_cluster_spec(self):
         """
-        How many nodes we expect for each operating system.
+        The cluster spec we expect this test to consume when run.
 
-        This default implementation assumes all nodes are Linux.
-
-        :return: expected nodes or None if undefined.
+        :return:            A ClusterSpec object.
         """
-
-        expected = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
-
-        if expected is not None:
-            node_spec = {}
-            for operating_system in RemoteAccount.SUPPORTED_OS_TYPES:
-                if operating_system == RemoteAccount.LINUX:
-                    node_spec[operating_system] = expected
-                else:
-                    node_spec[operating_system] = 0
-
-            return node_spec
-
-        if expected is None and self.cluster is not None:
-            return self.cluster.node_spec
-
-        return None
+        cluster_size = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
+        if cluster_size is not None:
+            return ClusterSpec.simple_linux(cluster_size)
+        elif self.cluster is None:
+            return ClusterSpec.empty()
+        else:
+            return self.cluster.all()
 
     @property
     def globals(self):

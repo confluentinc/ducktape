@@ -34,7 +34,7 @@ class CheckLocalhostCluster(object):
         initial_size = len(self.cluster)
 
         # Should be able to allocate arbitrarily many nodes
-        nodes = self.cluster.alloc(Service.setup_node_spec(num_nodes=100))
+        nodes = self.cluster.alloc(Service.setup_cluster_spec(num_nodes=100))
         assert(len(nodes) == 100)
         for i, node in enumerate(nodes):
             assert node.account.hostname == 'localhost%d' % i

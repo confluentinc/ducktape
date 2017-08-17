@@ -1,4 +1,4 @@
-# Copyright 2016 Confluent Inc.
+# Copyright 2015 Confluent Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,25 +13,16 @@
 # limitations under the License.
 
 from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.tests.test import Test
-from ducktape.mark import ignore, parametrize
 
 
-class TestThingy(Test):
-    """Fake ducktape test class"""
+class CheckClusterSpec(object):
+    def check_cluster_spec_sizes(self):
+        simple_linux_2 = ClusterSpec.simple_linux(2)
+        assert 2 == len(simple_linux_2)
+        assert 0 == len(ClusterSpec.empty())
 
-    def min_cluster_spec(self):
-        """ This test uses many nodes, wow!"""
-        return ClusterSpec.simple_linux(1000)
-
-    def test_pi(self):
-        return {"data": 3.14159}
-
-    @ignore
-    def test_ignore1(self):
-        pass
-
-    @ignore(x=5)
-    @parametrize(x=5)
-    def test_ignore2(self, x=2):
-        pass
+    def check_to_string(self):
+        empty = ClusterSpec.empty()
+        assert "[]" == str(empty)
+        simple_linux_5 = ClusterSpec.simple_linux(5)
+        assert '[{"num_nodes": 5, "os": "linux"}]' == str(simple_linux_5)

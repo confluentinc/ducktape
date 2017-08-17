@@ -120,10 +120,6 @@ class RemoteAccount(HttpMixin):
     Each operating system has its own RemoteAccount implementation.
     """
 
-    LINUX = "linux"
-    WINDOWS = "windows"
-    SUPPORTED_OS_TYPES = [LINUX, WINDOWS]
-
     def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
         # be hashable

@@ -14,14 +14,14 @@
 
 from __future__ import absolute_import
 
+from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
+from ducktape.cluster.node_container import NodeContainer
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterNode
-from .remoteaccount import RemoteAccount
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
 from .remoteaccount import RemoteAccountSSHConfig
 
-import collections
 import json
 import os
 import traceback
@@ -75,6 +75,8 @@ class JsonCluster(Cluster):
 
         """
         super(JsonCluster, self).__init__()
+        self._available_accounts = NodeContainer()
+        self._in_use_nodes = NodeContainer()
         if cluster_json is None:
             # This is a directly instantiation of JsonCluster rather than from a subclass (e.g. VagrantCluster)
             cluster_file = kwargs.get("cluster_file")
@@ -82,70 +84,51 @@ class JsonCluster(Cluster):
                 cluster_file = ConsoleDefaults.CLUSTER_FILE
             cluster_json = json.load(open(os.path.abspath(cluster_file)))
         try:
-            node_accounts = []
             for ninfo in cluster_json["nodes"]:
                 ssh_config_dict = ninfo.get("ssh_config")
                 assert ssh_config_dict is not None, \
                     "Cluster json has a node without a ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
 
                 ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
-                node_accounts.append(JsonCluster.make_remote_account(ssh_config, ninfo.get("externally_routable_ip")))
-
-            for node_account in node_accounts:
-                if node_account.externally_routable_ip is None:
-                    node_account.externally_routable_ip = self._externally_routable_ip(node_account)
-
+                remote_account = JsonCluster.make_remote_account(ssh_config, ninfo.get("externally_routable_ip"))
+                if remote_account.externally_routable_ip is None:
+                    remote_account.externally_routable_ip = self._externally_routable_ip(remote_account)
+                self._available_accounts.add_node(remote_account)
         except BaseException as e:
             msg = "JSON cluster definition invalid: %s: %s" % (e, traceback.format_exc(limit=16))
             raise ValueError(msg)
-
-        self._available_nodes = collections.deque(node_accounts)
-        self._in_use_nodes = set()
         self._id_supplier = 0
 
     @staticmethod
     def make_remote_account(ssh_config, externally_routable_ip=None):
         """Factory function for creating the correct RemoteAccount implementation."""
 
-        if ssh_config.host and RemoteAccount.WINDOWS in ssh_config.host:
+        if ssh_config.host and WINDOWS in ssh_config.host:
             return WindowsRemoteAccount(ssh_config=ssh_config,
                                         externally_routable_ip=externally_routable_ip)
         else:
             return LinuxRemoteAccount(ssh_config=ssh_config,
                                       externally_routable_ip=externally_routable_ip)
 
-    def __len__(self):
-        return len(self._available_nodes) + len(self._in_use_nodes)
-
-    def alloc(self, node_spec):
-        # first check that nodes are available.
-        for operating_system, num_nodes in node_spec.iteritems():
-            if num_nodes > self.num_available_nodes(operating_system=operating_system):
-                err_msg = "There aren't enough available nodes to satisfy the resource request. " \
-                    "Total cluster size for %s: %d, Requested: %d, Already allocated: %d, Available: %d. " % \
-                          (operating_system, len(self), num_nodes,
-                           self.in_use_nodes_for_operating_system(operating_system),
-                           self.num_available_nodes(operating_system=operating_system))
-                err_msg += "Make sure your cluster has enough nodes to run your test or service(s)."
-                raise RuntimeError(err_msg)
-
-        result = []
-        for operating_system, num_nodes in node_spec.iteritems():
-            for i in range(num_nodes):
-                node = Cluster._next_available_node(self._available_nodes, operating_system)
-                self._available_nodes.remove(node)
-                cluster_node = ClusterNode(node, node_id=self._id_supplier)
-                result.append(cluster_node)
-                self._in_use_nodes.add(node)
-                self._id_supplier += 1
-
-        return result
+    def alloc(self, cluster_spec):
+        allocated_accounts = self._available_accounts.remove_spec(cluster_spec)
+        allocated_nodes = []
+        for account in allocated_accounts:
+            allocated_nodes.append(ClusterNode(account, slot_id=self._id_supplier))
+            self._id_supplier += 1
+        self._in_use_nodes.add_nodes(allocated_nodes)
+        return allocated_nodes
 
     def free_single(self, node):
-        assert(node.account in self._in_use_nodes)
+        self._in_use_nodes.remove_node(node)
+        self._available_accounts.add_node(node.account)
         node.account.close()
-        self._in_use_nodes.remove(node.account)
-        self._available_nodes.append(node.account)
 
     def _externally_routable_ip(self, account):
         return None
+
+    def available(self):
+        return ClusterSpec.from_nodes(self._available_accounts)
+
+    def used(self):
+        return ClusterSpec.from_nodes(self._in_use_nodes)

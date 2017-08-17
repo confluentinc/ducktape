@@ -60,14 +60,14 @@ class VagrantCluster(JsonCluster):
                     "ssh_config": node_account.ssh_config,
                     "externally_routable_ip": node_account.externally_routable_ip
                 }
-                for node_account in self._available_nodes
+                for node_account in self._available_accounts
             ]
             cluster_json["nodes"] = nodes
             with open(cluster_file, 'w+') as fd:
                 json.dump(cluster_json, fd, cls=DucktapeJSONEncoder, indent=2, separators=(',', ': '), sort_keys=True)
 
         # Release any ssh clients used in querying the nodes for metadata
-        for node_account in self._available_nodes:
+        for node_account in self._available_accounts:
             node_account.close()
 
     def _get_nodes_from_vagrant(self):

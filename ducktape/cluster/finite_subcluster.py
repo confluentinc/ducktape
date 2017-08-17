@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from ducktape.cluster.cluster import Cluster
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.node_container import NodeContainer
 
 
 class FiniteSubcluster(Cluster):
@@ -21,32 +23,20 @@ class FiniteSubcluster(Cluster):
 
     def __init__(self, nodes):
         self.nodes = nodes
-        self._available_nodes = set(self.nodes)
-        self._in_use_nodes = set()
+        self._available_nodes = NodeContainer(nodes)
+        self._in_use_nodes = NodeContainer()
 
-    def __len__(self):
-        """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
-        return len(self.nodes)
-
-    def alloc(self, node_spec):
-        for operating_system, num_nodes in node_spec.iteritems():
-            assert num_nodes <= self.num_available_nodes(operating_system=operating_system), \
-                "Not enough nodes available to allocate the requested %s nodes. " % operating_system + \
-                "Nodes requested: %s " % num_nodes + \
-                "Nodes available: %s" % self.num_available_nodes(operating_system=operating_system)
-
-        allocated_nodes = []
-        for operating_system, num_nodes in node_spec.iteritems():
-            for _ in range(num_nodes):
-                node = Cluster._next_available_node(self._available_nodes, operating_system)
-                self._available_nodes.remove(node)
-                self._in_use_nodes.add(node)
-
-                allocated_nodes.append(node)
-
-        return allocated_nodes
+    def alloc(self, cluster_spec):
+        allocated = self._available_nodes.remove_spec(cluster_spec)
+        self._in_use_nodes.add_nodes(allocated)
+        return allocated
 
     def free_single(self, node):
-        assert node in self._in_use_nodes
-        self._in_use_nodes.remove(node)
-        self._available_nodes.add(node)
+        self._in_use_nodes.remove_node(node)
+        self._available_nodes.add_node(node)
+
+    def available(self):
+        return ClusterSpec.from_nodes(self._available_nodes)
+
+    def used(self):
+        return ClusterSpec.from_nodes(self._in_use_nodes)
