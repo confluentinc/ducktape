@@ -81,7 +81,7 @@ class CheckScheduler(object):
         scheduler = TestScheduler(self.tc_list, self.cluster)
 
         # allocate 60 nodes; only test_id 0 should be available
-        slots = self.cluster.alloc(Service.setup_node_spec(num_nodes=60))
+        nodes = self.cluster.alloc(Service.setup_node_spec(num_nodes=60))
         assert self.cluster.num_available_nodes() == 40
         t = scheduler.next()
         assert t.test_id == 0
@@ -89,9 +89,9 @@ class CheckScheduler(object):
 
         # return 10 nodes, so 50 are available in the cluster
         # next test from the scheduler should be test id 1
-        return_slots = slots[: 10]
-        keep_slots = slots[10:]
-        self.cluster.free(return_slots)
+        return_nodes = nodes[: 10]
+        keep_nodes = nodes[10:]
+        self.cluster.free(return_nodes)
         assert self.cluster.num_available_nodes() == 50
         t = scheduler.next()
         assert t.test_id == 1
@@ -99,8 +99,8 @@ class CheckScheduler(object):
 
         # return remaining nodes, so cluster is fully available
         # next test from scheduler should be test id 2
-        return_slots = keep_slots
-        self.cluster.free(return_slots)
+        return_nodes = keep_nodes
+        self.cluster.free(return_nodes)
         assert self.cluster.num_available_nodes() == len(self.cluster)
         t = scheduler.next()
         assert t.test_id == 2

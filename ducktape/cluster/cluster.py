@@ -16,7 +16,7 @@ import collections
 from .remoteaccount import RemoteAccount
 
 
-class ClusterSlot(object):
+class ClusterNode(object):
     def __init__(self, account, **kwargs):
         self.account = account
         for k, v in kwargs.items():

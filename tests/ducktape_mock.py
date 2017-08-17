@@ -29,7 +29,7 @@ def mock_cluster():
     return MagicMock()
 
 
-class FakeClusterSlot(object):
+class FakeClusterNode(object):
     @property
     def operating_system(self):
         return RemoteAccount.LINUX
@@ -47,17 +47,17 @@ class FakeCluster(Cluster):
         return self._num_nodes
 
     def alloc(self, node_spec):
-        """Request the specified number of slots, which will be reserved until they are freed by the caller."""
+        """Request the specified number of nodes, which will be reserved until they are freed by the caller."""
         # assume Linux.
         linux_node_count = node_spec[RemoteAccount.LINUX]
         self._available_nodes -= linux_node_count
-        return [FakeClusterSlot() for _ in range(linux_node_count)]
+        return [FakeClusterNode() for _ in range(linux_node_count)]
 
     def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
         return self._available_nodes
 
-    def free(self, slots):
-        self._available_nodes += len(slots)
+    def free(self, nodes):
+        self._available_nodes += len(nodes)
 
     def free_single(self, _):
         self._available_nodes += 1
