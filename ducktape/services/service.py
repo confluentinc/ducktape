@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.template import TemplateRenderer
 from ducktape.errors import TimeoutError
-from ducktape.cluster.remoteaccount import RemoteAccount
 
 import os
 import shutil
@@ -52,17 +51,16 @@ class Service(TemplateRenderer):
     # }
     logs = {}
 
-    def __init__(self, context, num_nodes=None, node_spec=None, *args, **kwargs):
+    def __init__(self, context, num_nodes=None, cluster_spec=None, *args, **kwargs):
         """
-        :param context:    An object which has at minimum 'cluster' and 'logger' attributes. In tests, this is always a
-                          TestContext object.
-        :param num_nodes:  An integer representing the number of Linux nodes to allocate. If node_spec is not None, it
-                          will be used and ``num_nodes`` will be ignored.
-        :param node_spec:  A dictionary where the key is an operating system (possible values are in
-                          ``ducktape.cluster.remoteaccount.RemoteAccount.SUPPORTED_OS_TYPES``) and the value
-                          is the number of nodes to allocate for the associated operating system.
-                          Values must be integers. Node allocation takes place when ``start()`` is called,
-                          or when ``allocate_nodes()`` is called, whichever happens first.
+        Initialize the Service.
+
+        Note: only one of (num_nodes, cluster_spec) may be set.
+
+        :param context:         An object which has at minimum 'cluster' and 'logger' attributes. In tests, this
+                                is always a TestContext object.
+        :param num_nodes:       An integer representing the number of Linux nodes to allocate.
+        :param cluster_spec:    A ClusterSpec object representing the minimum cluster specification needed.
         """
         super(Service, self).__init__(*args, **kwargs)
         # Keep track of significant events in the lifetime of this service
@@ -74,7 +72,7 @@ class Service(TemplateRenderer):
         self._clean_time = -1
 
         self._initialized = False
-        self.node_spec = Service.setup_node_spec(num_nodes, node_spec)
+        self.cluster_spec = Service.setup_cluster_spec(num_nodes, cluster_spec)
         self.context = context
 
         self.nodes = []
@@ -96,27 +94,24 @@ class Service(TemplateRenderer):
         self._initialized = True
 
     @staticmethod
-    def setup_node_spec(num_nodes=None, node_spec=None):
-        if not num_nodes and not node_spec:
-            raise Exception("Either num_nodes or node_spec must not be None.")
-
-        # If node_spec is none, convert num_nodes to a node_spec dict and assume Linux machines.
-        if not node_spec:
-            return {RemoteAccount.LINUX: num_nodes}
+    def setup_cluster_spec(num_nodes=None, cluster_spec=None):
+        if num_nodes is None:
+            if cluster_spec is None:
+                raise RuntimeError("You must set either num_nodes or cluster_spec.")
+            else:
+                return cluster_spec
         else:
-            try:
-                for os_type, _ in node_spec.iteritems():
-                    if os_type not in RemoteAccount.SUPPORTED_OS_TYPES:
-                        raise Exception("When nodes is a dictionary, each key must be a " +
-                                        "supported OS. '%s' is unknown." % os_type)
-                return node_spec
-            except:
-                raise Exception("Each node_spec key must be a supported operating system: " +
-                                "%s, node_spec: %s" % (RemoteAccount.SUPPORTED_OS_TYPES, str(node_spec)))
+            if cluster_spec is not None:
+                raise RuntimeError("You must set only one of (num_nodes, cluster_spec)")
+            return ClusterSpec.simple_linux(num_nodes)
 
     def __repr__(self):
         return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
                              (len(self.nodes), [n.account.hostname for n in self.nodes]))
+
+    @property
+    def num_nodes(self):
+        return len(self.nodes)
 
     @property
     def local_scratch_dir(self):
@@ -188,10 +183,10 @@ class Service(TemplateRenderer):
         if self.allocated:
             raise Exception("Requesting nodes for a service that has already been allocated nodes.")
 
-        self.logger.debug("Requesting nodes from the cluster: %s" % self.node_spec)
+        self.logger.debug("Requesting nodes from the cluster: %s" % self.cluster_spec)
 
         try:
-            self.nodes = self.cluster.alloc(self.node_spec)
+            self.nodes = self.cluster.alloc(self.cluster_spec)
         except RuntimeError as e:
             msg = str(e.message)
             if hasattr(self.context, "services"):

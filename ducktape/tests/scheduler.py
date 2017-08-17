@@ -25,10 +25,14 @@ class TestScheduler(object):
 
         # Track tests which would never be offered up by the scheduling algorithm due to insufficient
         # cluster resources
-        self.unschedulable = [tc for tc in test_contexts if cluster.test_capacity_comparison(tc) < 0]
-
-        # these can be scheduled
-        self._test_context_list = [tc for tc in test_contexts if cluster.test_capacity_comparison(tc) >= 0]
+        self._test_context_list = []
+        self.unschedulable = []
+        available = cluster.available()
+        for test_context in test_contexts:
+            if available.nodes.can_remove_spec(test_context.expected_cluster_spec):
+                self._test_context_list.append(test_context)
+            else:
+                self.unschedulable.append(test_context)
         self._sort_test_context_list()
 
     def __len__(self):
@@ -55,7 +59,7 @@ class TestScheduler(object):
             If scheduler is empty, or no test can currently be scheduled, return None.
         """
         for tc in self._test_context_list:
-            if self.cluster.test_capacity_comparison(tc) >= 0:
+            if self.cluster.available().nodes.can_remove_spec(tc.expected_cluster_spec):
                 return tc
 
         return None

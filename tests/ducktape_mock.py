@@ -13,11 +13,12 @@
 # limitations under the License.
 
 from ducktape.cluster.cluster import Cluster
+from ducktape.cluster.cluster_spec import ClusterSpec, LINUX
+from ducktape.cluster.node_container import NodeContainer
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
-from ducktape.cluster.remoteaccount import RemoteAccount
 from mock import MagicMock
 
 
@@ -32,35 +33,32 @@ def mock_cluster():
 class FakeClusterNode(object):
     @property
     def operating_system(self):
-        return RemoteAccount.LINUX
+        return LINUX
 
 
 class FakeCluster(Cluster):
     """A cluster class with counters, but no actual node objects"""
 
     def __init__(self, num_nodes):
-        self._num_nodes = num_nodes
-        self._available_nodes = self._num_nodes
-        self._in_use_nodes = []
+        self._available_nodes = NodeContainer()
+        for i in range(0, num_nodes):
+            self._available_nodes.add_node(FakeClusterNode())
+        self._in_use_nodes = NodeContainer()
 
-    def __len__(self):
-        return self._num_nodes
+    def alloc(self, cluster_spec):
+        allocated = self._available_nodes.remove_spec(cluster_spec)
+        self._in_use_nodes.add_nodes(allocated)
+        return allocated
 
-    def alloc(self, node_spec):
-        """Request the specified number of nodes, which will be reserved until they are freed by the caller."""
-        # assume Linux.
-        linux_node_count = node_spec[RemoteAccount.LINUX]
-        self._available_nodes -= linux_node_count
-        return [FakeClusterNode() for _ in range(linux_node_count)]
+    def free_single(self, node):
+        self._in_use_nodes.remove_node(node)
+        self._available_nodes.add_node(node)
 
-    def num_available_nodes(self, operating_system=RemoteAccount.LINUX):
-        return self._available_nodes
+    def available(self):
+        return ClusterSpec.from_nodes(self._available_nodes)
 
-    def free(self, nodes):
-        self._available_nodes += len(nodes)
-
-    def free_single(self, _):
-        self._available_nodes += 1
+    def used(self):
+        return ClusterSpec.from_nodes(self._in_use_nodes)
 
 
 def session_context(**kwargs):

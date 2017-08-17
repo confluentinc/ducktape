@@ -22,6 +22,8 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 
 from botocore.exceptions import ClientError
+
+from ducktape.cluster.cluster_spec import WINDOWS
 from ducktape.cluster.remoteaccount import RemoteAccount, RemoteCommandError
 
 
@@ -38,7 +40,7 @@ class WindowsRemoteAccount(RemoteAccount):
     def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
         super(WindowsRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
                                                    logger=logger)
-        self.os = RemoteAccount.WINDOWS
+        self.os = WINDOWS
         self._winrm_client = None
 
     @property

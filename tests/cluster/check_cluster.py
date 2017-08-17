@@ -14,40 +14,36 @@
 
 import collections
 
-from ducktape.cluster.cluster import Cluster
-from ducktape.cluster.remoteaccount import RemoteAccount
+from ducktape.cluster.cluster import ClusterNode
+from ducktape.cluster.cluster_spec import NodeSpec, ClusterSpec, LINUX, WINDOWS
+from tests.ducktape_mock import FakeCluster
 
-FakeTestContext = collections.namedtuple('FakeTestContext', ['expected_node_spec'])
 FakeRemoteAccount = collections.namedtuple('FakeRemoteAccount', ['operating_system'])
 
 
 class CheckCluster(object):
 
     def setup_method(self, _):
-        self.cluster = Cluster()
-        self.cluster._in_use_nodes = []
-        self.cluster._available_nodes = [
-            FakeRemoteAccount(operating_system=RemoteAccount.LINUX),
-            FakeRemoteAccount(operating_system=RemoteAccount.LINUX),
-            FakeRemoteAccount(operating_system=RemoteAccount.LINUX),
-            FakeRemoteAccount(operating_system=RemoteAccount.WINDOWS),
-            FakeRemoteAccount(operating_system=RemoteAccount.WINDOWS),
-            FakeRemoteAccount(operating_system=RemoteAccount.WINDOWS)
-        ]
+        self.cluster = FakeCluster(0)
+        self.cluster._available_nodes.add_node(ClusterNode(FakeRemoteAccount(operating_system=LINUX)))
+        self.cluster._available_nodes.add_node(ClusterNode(FakeRemoteAccount(operating_system=LINUX)))
+        self.cluster._available_nodes.add_node(ClusterNode(FakeRemoteAccount(operating_system=WINDOWS)))
+        self.cluster._available_nodes.add_node(ClusterNode(FakeRemoteAccount(operating_system=WINDOWS)))
+        self.cluster._available_nodes.add_node(ClusterNode(FakeRemoteAccount(operating_system=WINDOWS)))
 
-        self.test_list = [
-            FakeTestContext(expected_node_spec={RemoteAccount.LINUX: 2, RemoteAccount.WINDOWS: 2}),
-            FakeTestContext(expected_node_spec={RemoteAccount.LINUX: 5, RemoteAccount.WINDOWS: 2}),
-            FakeTestContext(expected_node_spec={RemoteAccount.LINUX: 5, RemoteAccount.WINDOWS: 5}),
-            FakeTestContext(expected_node_spec={RemoteAccount.LINUX: 3, RemoteAccount.WINDOWS: 3}),
-        ]
+    def spec(self, linux_nodes, windows_nodes):
+        nodes = []
+        for i in range(linux_nodes):
+            nodes.append(NodeSpec(LINUX))
+        for i in range(windows_nodes):
+            nodes.append(NodeSpec(WINDOWS))
+        return ClusterSpec(nodes)
 
     def check_enough_capacity(self):
-        assert self.cluster.test_capacity_comparison(self.test_list[0]) > 0
+        assert self.cluster.available().nodes.can_remove_spec(self.spec(2, 2))
+        assert self.cluster.available().nodes.can_remove_spec(self.spec(2, 3))
 
     def check_not_enough_capacity(self):
-        assert self.cluster.test_capacity_comparison(self.test_list[1]) < 0
-        assert self.cluster.test_capacity_comparison(self.test_list[2]) < 0
-
-    def check_exact_capacity(self):
-        assert self.cluster.test_capacity_comparison(self.test_list[3]) == 0
+        assert not self.cluster.available().nodes.can_remove_spec(self.spec(5, 2))
+        assert not self.cluster.available().nodes.can_remove_spec(self.spec(5, 5))
+        assert not self.cluster.available().nodes.can_remove_spec(self.spec(3, 3))

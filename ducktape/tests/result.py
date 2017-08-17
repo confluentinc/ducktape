@@ -22,7 +22,6 @@ from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
 from ducktape.tests.status import PASS, FAIL, IGNORE
-from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class TestResult(object):
@@ -46,10 +45,10 @@ class TestResult(object):
         self.nodes_allocated = len(test_context.cluster)
         if hasattr(test_context, "services"):
             self.services = test_context.services.to_json()
-            self.nodes_used = test_context.services.num_nodes()
+            self.nodes_used = test_context.services.min_cluster_spec().size()
         else:
             self.services = {}
-            self.nodes_used = {RemoteAccount.LINUX: 0}
+            self.nodes_used = 0
 
         self.test_id = test_context.test_id
         self.module_name = test_context.module_name
@@ -80,9 +79,6 @@ class TestResult(object):
 
     def __repr__(self):
         return "<%s - test_status:%s, data:%s>" % (self.__class__.__name__, self.test_status, str(self.data))
-
-    def total_nodes_used(self):
-        return sum([node_count for (_, node_count) in self.nodes_used.iteritems()])
 
     @property
     def run_time_seconds(self):
@@ -124,7 +120,7 @@ class TestResult(object):
             "stop_time": self.stop_time,
             "run_time_seconds": self.run_time_seconds,
             "nodes_allocated": self.nodes_allocated,
-            "nodes_used": self.total_nodes_used(),
+            "nodes_used": self.nodes_used,
             "services": self.services
         }
 
@@ -198,14 +194,14 @@ class TestResults(object):
         }
 
     def to_json(self):
-        if self.run_time_seconds == 0:
+        if self.run_time_seconds == 0 or len(self.cluster) == 0:
             # If things go horribly wrong, the test run may be effectively instantaneous
             # Let's handle this case gracefully, and avoid divide-by-zero
             cluster_utilization = 0
             parallelism = 0
         else:
             cluster_utilization = (1.0 / len(self.cluster)) * (1.0 / self.run_time_seconds) * \
-                sum([r.total_nodes_used() * r.run_time_seconds for r in self])
+                sum([r.nodes_used * r.run_time_seconds for r in self])
             parallelism = sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds
 
         return {
@@ -215,7 +211,7 @@ class TestResults(object):
             "start_time": self.start_time,
             "stop_time": self.stop_time,
             "run_time_statistics": self._stats([r.run_time_seconds for r in self]),
-            "cluster_nodes_used": self._stats([r.total_nodes_used() for r in self]),
+            "cluster_nodes_used": self._stats([r.nodes_used for r in self]),
             "cluster_nodes_allocated": self._stats([r.nodes_allocated for r in self]),
             "cluster_utilization": cluster_utilization,
             "cluster_num_nodes": len(self.cluster),

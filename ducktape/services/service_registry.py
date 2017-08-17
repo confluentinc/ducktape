@@ -15,6 +15,8 @@
 
 from collections import OrderedDict
 
+from ducktape.cluster.cluster_spec import ClusterSpec
+
 
 class ServiceRegistry(object):
 
@@ -83,13 +85,12 @@ class ServiceRegistry(object):
         if keyboard_interrupt is not None:
             raise keyboard_interrupt
 
-    def num_nodes(self):
-        """Returns a dict where the key is the operating system and the value is the number of nodes for said OS."""
-        nodes_per_os = {}
-        for service in self:
-            for (operating_system, node_count) in service.node_spec.iteritems():
-                if operating_system in nodes_per_os:
-                    nodes_per_os[operating_system] += node_count
-                else:
-                    nodes_per_os[operating_system] = node_count
-        return nodes_per_os
+    def min_cluster_spec(self):
+        """
+        Returns the minimum cluster specification that would be required to run all the currently
+        extant services.
+        """
+        cluster_spec = ClusterSpec()
+        for service in self._services.values():
+            cluster_spec.add(service.cluster_spec)
+        return cluster_spec

@@ -31,7 +31,6 @@ from ducktape.tests.result import TestResults
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
-from ducktape.services.service import Service
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
 from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
@@ -163,9 +162,9 @@ class TestRunner(object):
                       len(self.scheduler.unschedulable))
 
             for tc in self.scheduler.unschedulable:
-                msg = "Test %s expects more nodes than are available in the entire cluster: " % tc.test_id
-                msg += "expected_num_nodes: %s, " % str(tc.expected_node_spec)
-                msg += "cluster size: %s." % str(self.cluster.node_spec)
+                msg = "Test %s requires more resources than are available in the whole cluster. " % tc.test_id
+                msg += self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)
+
                 self._log(logging.ERROR, msg)
 
                 result = TestResult(
@@ -247,16 +246,13 @@ class TestRunner(object):
         :param test_context
         :return None
         """
-        test_cluster_compare = self.cluster.test_capacity_comparison(test_context)
-        assert test_cluster_compare >= 0
-
-        if test_cluster_compare == 0 and self.max_parallel > 1:
+        allocated = self.cluster.alloc(test_context.expected_cluster_spec)
+        if len(self.cluster.available()) == 0 and self.max_parallel > 1:
             self._log(logging.WARNING,
                       "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
                       % test_context.test_id)
 
-        self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = \
-            FiniteSubcluster(self.cluster.alloc(Service.setup_node_spec(node_spec=test_context.expected_node_spec)))
+        self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = FiniteSubcluster(allocated)
 
     def _handle(self, event):
         self._log(logging.DEBUG, str(event))
@@ -300,8 +296,7 @@ class TestRunner(object):
 
         # Free nodes used by the test
         subcluster = self._test_cluster[test_key]
-        test_context = self._test_context[event["test_id"]]
-        self.cluster.free(subcluster.alloc(Service.setup_node_spec(node_spec=test_context.expected_node_spec)))
+        self.cluster.free(subcluster.nodes)
         del self._test_cluster[test_key]
 
         # Join on the finished test process

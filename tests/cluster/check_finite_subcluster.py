@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.cluster.cluster_spec import LINUX
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
+from ducktape.cluster.node_container import InsufficientResourcesError, NodeNotPresentError
 from ducktape.services.service import Service
-from ducktape.cluster.remoteaccount import RemoteAccount
 import pickle
 import pytest
 
@@ -22,7 +23,7 @@ import pytest
 class MockFiniteSubclusterNode:
     @property
     def operating_system(self):
-        return RemoteAccount.LINUX
+        return LINUX
 
 
 class CheckFiniteSubcluster(object):
@@ -46,12 +47,12 @@ class CheckFiniteSubcluster(object):
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n
 
-        nodes = cluster.alloc(Service.setup_node_spec(num_nodes=1))
+        nodes = cluster.alloc(Service.setup_cluster_spec(num_nodes=1))
         assert len(nodes) == 1
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n - 1
 
-        nodes2 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
+        nodes2 = cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
         assert len(nodes2) == 2
         assert len(cluster) == n
         assert cluster.num_available_nodes() == n - 3
@@ -65,13 +66,13 @@ class CheckFiniteSubcluster(object):
     def check_alloc_too_many(self):
         n = 10
         cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(n)])
-        with pytest.raises(AssertionError):
-            cluster.alloc(Service.setup_node_spec(num_nodes=(n + 1)))
+        with pytest.raises(InsufficientResourcesError):
+            cluster.alloc(Service.setup_cluster_spec(num_nodes=(n + 1)))
 
     def check_free_too_many(self):
         n = 10
         cluster = FiniteSubcluster([MockFiniteSubclusterNode() for _ in range(n)])
-        nodes = cluster.alloc(Service.setup_node_spec(num_nodes=n))
-        with pytest.raises(AssertionError):
-            nodes.append(object())
+        nodes = cluster.alloc(Service.setup_cluster_spec(num_nodes=n))
+        with pytest.raises(NodeNotPresentError):
+            nodes.append(MockFiniteSubclusterNode())
             cluster.free(nodes)

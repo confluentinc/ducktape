@@ -78,7 +78,7 @@ class CheckVagrantCluster(object):
         cluster = VagrantCluster()
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
-        node1, node2 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
+        node1, node2 = cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
 
         assert node1.account.hostname == "worker1"
         assert node1.account.user == "vagrant"
@@ -110,7 +110,7 @@ class CheckVagrantCluster(object):
                     "port": node_account.ssh_config.port
                 }
             }
-            for node_account in cluster._available_nodes
+            for node_account in cluster._available_accounts
         ]
 
         cluster_json_expected["nodes"] = nodes
@@ -163,7 +163,7 @@ class CheckVagrantCluster(object):
 
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
-        node2, node3 = cluster.alloc(Service.setup_node_spec(num_nodes=2))
+        node2, node3 = cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
 
         assert node3.account.hostname == "worker2"
         assert node3.account.user == "vagrant"
