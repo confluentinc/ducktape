@@ -15,7 +15,7 @@
 from __future__ import absolute_import
 
 from ducktape.command_line.defaults import ConsoleDefaults
-from .cluster import Cluster, ClusterSlot
+from .cluster import Cluster, ClusterNode
 from .remoteaccount import RemoteAccount
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
@@ -134,18 +134,18 @@ class JsonCluster(Cluster):
             for i in range(num_nodes):
                 node = Cluster._next_available_node(self._available_nodes, operating_system)
                 self._available_nodes.remove(node)
-                cluster_slot = ClusterSlot(node, slot_id=self._id_supplier)
-                result.append(cluster_slot)
+                cluster_node = ClusterNode(node, node_id=self._id_supplier)
+                result.append(cluster_node)
                 self._in_use_nodes.add(node)
                 self._id_supplier += 1
 
         return result
 
-    def free_single(self, slot):
-        assert(slot.account in self._in_use_nodes)
-        slot.account.close()
-        self._in_use_nodes.remove(slot.account)
-        self._available_nodes.append(slot.account)
+    def free_single(self, node):
+        assert(node.account in self._in_use_nodes)
+        node.account.close()
+        self._in_use_nodes.remove(node.account)
+        self._available_nodes.append(node.account)
 
     def _externally_routable_ip(self, account):
         return None
