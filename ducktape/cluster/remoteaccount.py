@@ -371,6 +371,35 @@ class RemoteAccount(HttpMixin):
         for pid in pids:
             self.signal(pid, sig, allow_fail=allow_fail)
 
+    def java_pids(self, match):
+        """
+        Get all the Java process IDs matching 'match'.
+
+        :param match:               The AWK expression to match
+        """
+        cmd = """jcmd | awk '/%s/ { print $1 }'""" % match
+        return [int(pid) for pid in self.ssh_capture(cmd, allow_fail=True)]
+
+    def kill_java_processes(self, match, clean_shutdown=True, allow_fail=False):
+        """
+        Kill all the java processes matching 'match'.
+
+        :param match:               The AWK expression to match
+        :param clean_shutdown:      True if we should shut down cleanly with SIGTERM;
+                                    false if we should shut down with SIGKILL.
+        :param allow_fail:          True if we should throw exceptions if the ssh commands fail.
+        """
+        cmd = """jcmd | awk '/%s/ { print $1 }'""" % match
+        pids = [pid for pid in self.ssh_capture(cmd, allow_fail=True)]
+
+        if clean_shutdown:
+            sig = signal.SIGTERM
+        else:
+            sig = signal.SIGKILL
+
+        for pid in pids:
+            self.signal(pid, sig, allow_fail=allow_fail)
+
     def copy_between(self, src, dest, dest_node):
         """Copy src to dest on dest_node
 
