@@ -45,6 +45,7 @@ class CheckLifecycle(object):
                               cls=DummyTest, function=DummyTest.test_function_description)
         context.close()
         context.close()
+        assert not hasattr(context, "services")
 
 
 class CheckEscapePathname(object):
