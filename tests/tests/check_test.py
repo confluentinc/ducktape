@@ -39,6 +39,15 @@ class DummyTestNoDescription(Test):
         pass
 
 
+class CheckLifecycle(object):
+    def check_test_context_double_close(self):
+        context = TestContext(session_context=ducktape_mock.session_context(),
+                              cls=DummyTest, function=DummyTest.test_function_description)
+        context.close()
+        context.close()
+        assert not hasattr(context, "services")
+
+
 class CheckEscapePathname(object):
 
     def check_illegal_path(self):

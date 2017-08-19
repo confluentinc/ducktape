@@ -451,12 +451,12 @@ class TestContext(object):
 
     def close(self):
         """Release resources, etc."""
-        for service in self.services:
-            service.close()
-
-        # Remove reference to services. This is important to prevent potential memory leaks if users write services
-        # which themselves have references to large memory-intensive objects
-        del self.services
+        if hasattr(self, "services"):
+            for service in self.services:
+                service.close()
+            # Remove reference to services. This is important to prevent potential memory leaks if users write services
+            # which themselves have references to large memory-intensive objects
+            del self.services
 
         # Remove local scratch directory
         if self._local_scratch_dir and os.path.exists(self._local_scratch_dir):
