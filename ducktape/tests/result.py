@@ -198,7 +198,7 @@ class TestResults(object):
         }
 
     def to_json(self):
-        if self.run_time_seconds == 0:
+        if self.run_time_seconds == 0 or sum([r.nodes_used * r.run_time_seconds for r in self]) == 0:
             # If things go horribly wrong, the test run may be effectively instantaneous
             # Let's handle this case gracefully, and avoid divide-by-zero
             cluster_utilization = 0
