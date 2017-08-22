@@ -31,7 +31,7 @@ class NodeSpec(object):
 
     :param operating_system:    The operating system of the node.
     """
-    def __init__(self, operating_system):
+    def __init__(self, operating_system=LINUX):
         self.operating_system = operating_system
         if self.operating_system not in SUPPORTED_OS_TYPES:
             raise RuntimeError("Unsupported os type %s" % self.operating_system)
@@ -57,7 +57,6 @@ class ClusterSpec(object):
         """
         Create a ClusterSpec containing some simple Linux nodes.
         """
-        """Convenience method to create a cluster of all linux nodes."""
         node_specs = [NodeSpec(LINUX)] * num_nodes
         return ClusterSpec(node_specs)
 
@@ -66,10 +65,7 @@ class ClusterSpec(object):
         """
         Create a ClusterSpec describing a list of nodes.
         """
-        node_specs = []
-        for node in nodes:
-            node_specs.append(NodeSpec(node.operating_system))
-        return ClusterSpec(node_specs)
+        return ClusterSpec(ClusterSpec([NodeSpec(node.operating_system) for node in nodes]))
 
     def __init__(self, nodes=None):
         """
