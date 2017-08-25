@@ -123,3 +123,13 @@ class CheckJsonCluster(object):
         cluster = JsonCluster(self.single_node_cluster_json)
         with pytest.raises(InsufficientResourcesError):
             cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
+
+    def check_node_names(self):
+        cluster = JsonCluster(
+            {"nodes": [
+                {"ssh_config": {"host": "localhost1"}},
+                {"ssh_config": {"host": "localhost2"}},
+                {"ssh_config": {"host": "localhost3"}}]})
+        hosts = set(["localhost1", "localhost2", "localhost3"])
+        nodes = cluster.alloc(cluster.available())
+        assert hosts == set(node.name for node in nodes)

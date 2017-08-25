@@ -23,7 +23,7 @@ class ClusterNode(object):
 
     @property
     def name(self):
-        return self.account.host
+        return self.account.hostname
 
     @property
     def operating_system(self):
