@@ -94,3 +94,13 @@ class ServiceRegistry(object):
         for service in self._services.values():
             cluster_spec.add(service.cluster_spec)
         return cluster_spec
+
+    def errors(self):
+        """
+        Gets a printable string containing any errors produced by the services.
+        """
+        all_errors = []
+        for service in self._services.values():
+            if hasattr(service, 'error') and service.error:
+                all_errors.append("%s: %s" % (service.who_am_i(), service.error))
+        return '\n\n'.join(all_errors)

@@ -24,6 +24,7 @@ class BackgroundThreadService(Service):
         super(BackgroundThreadService, self).__init__(context, num_nodes)
         self.worker_threads = {}
         self.worker_errors = {}
+        self.errors = ''
         self.lock = threading.RLock()
 
     def _protected_worker(self, idx, node):
@@ -39,6 +40,9 @@ class BackgroundThreadService(Service):
                 tb = traceback.format_exc()
                 self.logger.info(tb)
                 self.worker_errors[threading.currentThread().name] = tb
+                if self.errors:
+                    self.errors += "\n"
+                self.errors += "%s: %s" % (threading.currentThread().name, tb)
 
             raise
 
@@ -91,4 +95,4 @@ class BackgroundThreadService(Service):
         """
         with self.lock:
             if len(self.worker_errors) > 0:
-                raise Exception('\n'.join("%s: %s" % (k, v) for k, v in self.worker_errors.iteritems()))
+                raise Exception(self.errors)

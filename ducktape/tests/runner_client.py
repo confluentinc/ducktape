@@ -146,6 +146,10 @@ class RunnerClient(object):
 
             stop_time = time.time()
 
+            service_errors = self.test_context.services.errors()
+            if service_errors:
+                summary += "\n\n" + service_errors
+
             result = TestResult(
                 self.test_context,
                 self.test_index,

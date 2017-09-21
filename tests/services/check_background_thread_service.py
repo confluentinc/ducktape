@@ -101,3 +101,4 @@ class CheckBackgroundThreadService(object):
             self.service.wait(timeout_sec=1)
         with pytest.raises(Exception):
             self.service.stop(timeout_sec=1)
+        assert hasattr(self.service, 'errors')
