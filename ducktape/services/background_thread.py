@@ -24,6 +24,7 @@ class BackgroundThreadService(Service):
         super(BackgroundThreadService, self).__init__(context, num_nodes)
         self.worker_threads = {}
         self.worker_errors = {}
+        self.errors = ''
         self.lock = threading.RLock()
 
     def _protected_worker(self, idx, node):
@@ -33,11 +34,15 @@ class BackgroundThreadService(Service):
         """
         try:
             self._worker(idx, node)
-        except BaseException as e:
+        except BaseException:
             with self.lock:
                 self.logger.info("BackgroundThreadService threw exception: ")
-                self.logger.info(traceback.format_exc(limit=16))
-                self.worker_errors[threading.currentThread().name] = e
+                tb = traceback.format_exc()
+                self.logger.info(tb)
+                self.worker_errors[threading.currentThread().name] = tb
+                if self.errors:
+                    self.errors += "\n"
+                self.errors += "%s: %s" % (threading.currentThread().name, tb)
 
             raise
 
@@ -64,10 +69,7 @@ class BackgroundThreadService(Service):
         """
         super(BackgroundThreadService, self).wait(timeout_sec)
 
-        # Propagate exceptions thrown in background threads
-        with self.lock:
-            if len(self.worker_errors) > 0:
-                raise Exception(str(self.worker_errors))
+        self._propagate_exceptions()
 
     def stop(self):
         alive_workers = [worker for worker in self.worker_threads.itervalues() if worker.is_alive()]
@@ -79,8 +81,18 @@ class BackgroundThreadService(Service):
 
         super(BackgroundThreadService, self).stop()
 
+        self._propagate_exceptions()
+
     def wait_node(self, node, timeout_sec=600):
         idx = self.idx(node)
         worker_thread = self.worker_threads[idx]
         worker_thread.join(timeout_sec)
         return not(worker_thread.is_alive())
+
+    def _propagate_exceptions(self):
+        """
+        Propagate exceptions thrown in background threads
+        """
+        with self.lock:
+            if len(self.worker_errors) > 0:
+                raise Exception(self.errors)

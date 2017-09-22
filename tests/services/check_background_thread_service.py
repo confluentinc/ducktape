@@ -15,16 +15,18 @@
 from ducktape.services.background_thread import BackgroundThreadService
 from ducktape.errors import TimeoutError
 from tests.ducktape_mock import test_context, MockNode
+import pytest
 import time
 
 
 class DummyService(BackgroundThreadService):
     """Single node service that sleeps for self.run_time_sec seconds in a background thread."""
 
-    def __init__(self, context, run_time_sec):
+    def __init__(self, context, run_time_sec, exc=None):
         super(DummyService, self).__init__(context, 1)
         self.running = False
         self.run_time_sec = run_time_sec
+        self._exc = exc
 
     def who_am_i(self, node=None):
         return "DummyService"
@@ -36,6 +38,9 @@ class DummyService(BackgroundThreadService):
         self.nodes = [MockNode()]
 
     def _worker(self, idx, node):
+        if self._exc:
+            raise self._exc
+
         self.running = True
 
         end = time.time() + self.run_time_sec
@@ -88,3 +93,12 @@ class CheckBackgroundThreadService(object):
         assert not(self.service.wait_node(node, timeout_sec=.1))
         self.service.stop_node(node)
         assert self.service.wait_node(node)
+
+    def check_background_exception(self):
+        self.service = DummyService(self.context, float('inf'), Exception('failure'))
+        self.service.start()
+        with pytest.raises(Exception):
+            self.service.wait(timeout_sec=1)
+        with pytest.raises(Exception):
+            self.service.stop(timeout_sec=1)
+        assert hasattr(self.service, 'errors')
