@@ -22,7 +22,12 @@ import time
 def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg=""):
     """Block until condition evaluates as true or timeout expires, whichever comes first.
 
-    return silently if condition becomes true within the timeout window, otherwise raise Exception with the given
+    :param condition: callable that returns True if the condition is met, False otherwise
+    :param timeout_sec: number of seconds to check the condition for before failing
+    :param backoff_sec: number of seconds to back off between each failure to meet the condition before checking again
+    :param err_msg: a string or callable returning a string that will be included as the exception message if the
+                    condition is not met
+    :return: silently if condition becomes true within the timeout window, otherwise raise Exception with the given
     error message.
     """
     start = time.time()
@@ -33,7 +38,7 @@ def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg=""):
         else:
             time.sleep(backoff_sec)
 
-    raise TimeoutError(err_msg)
+    raise TimeoutError(err_msg() if callable(err_msg) else err_msg)
 
 
 def package_is_installed(package_name):
