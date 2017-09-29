@@ -132,6 +132,43 @@ class Matrix(Mark):
         return super(Matrix, self).__eq__(other) and self.injected_args == other.injected_args
 
 
+class Defaults(Mark):
+    """Parametrize with a default matrix of arguments on existing parametrizations.
+    Assume each values in self.injected_args is iterable
+    """
+
+    def __init__(self, **kwargs):
+        self.injected_args = kwargs
+        for k in self.injected_args:
+            try:
+                iter(self.injected_args[k])
+            except TypeError, te:
+                raise DucktapeError("Expected all values in @defaults decorator to be iterable: " + str(te))
+
+    @property
+    def name(self):
+        return "DEFAULTS"
+
+    def apply(self, seed_context, context_list):
+        new_context_list = []
+        if context_list:
+            for ctx in context_list:
+                for injected_args in cartesian_product_dict(
+                        {arg: self.injected_args[arg] for arg in self.injected_args if arg not in ctx.injected_args}):
+                    injected_args.update(ctx.injected_args)
+                    injected_fun = _inject(**injected_args)(seed_context.function)
+                    new_context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=injected_args))
+        else:
+            for injected_args in cartesian_product_dict(self.injected_args):
+                injected_fun = _inject(**injected_args)(seed_context.function)
+                new_context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=injected_args))
+
+        return new_context_list
+
+    def __eq__(self, other):
+        return super(Defaults, self).__eq__(other) and self.injected_args == other.injected_args
+
+
 class Parametrize(Mark):
     """Parametrize a test function"""
     def __init__(self, **kwargs):
@@ -152,16 +189,17 @@ class Parametrize(Mark):
 
 PARAMETRIZED = Parametrize()
 MATRIX = Matrix()
+DEFAULTS = Defaults()
 IGNORE = Ignore()
 
 
 def _is_parametrize_mark(m):
-    return m.name == PARAMETRIZED.name or m.name == MATRIX.name
+    return m.name == PARAMETRIZED.name or m.name == MATRIX.name or m.name == DEFAULTS.name
 
 
 def parametrized(f):
     """Is this function or object decorated with @parametrize or @matrix?"""
-    return Mark.marked(f, PARAMETRIZED) or Mark.marked(f, MATRIX)
+    return Mark.marked(f, PARAMETRIZED) or Mark.marked(f, MATRIX) or Mark.marked(f, DEFAULTS)
 
 
 def ignored(f):
@@ -239,6 +277,40 @@ def matrix(**kwargs):
     """
     def parametrizer(f):
         Mark.mark(f, Matrix(**kwargs))
+        return f
+    return parametrizer
+
+
+def defaults(**kwargs):
+    """Function decorator used to parametrize with a default matrix of values.
+    Decorating a function or method with ``@defaults`` marks it with the Defaults mark. When expanded using the
+    ``MarkedFunctionExpander``, it yields a list of TestContext objects, one for every possible combination
+    of defaults combined with ``@matrix`` and ``@parametrize``. If there are overlap between defaults
+    and parametrization, defaults will not be applied.
+
+    Example::
+
+        @defaults(z=[1, 2])
+        @matrix(x=[1], y=[1, 2])
+        @parametrize(x=3, y=4)
+        @parametrize(x=3, y=4, z=999)
+        def g(x, y, z):
+            print "x = %s, y = %s" % (x, y)
+
+        for ctx in MarkedFunctionExpander(..., function=g, ...).expand():
+            ctx.function()
+
+        # output:
+        # x = 1, y = 1, z = 1
+        # x = 1, y = 1, z = 2
+        # x = 1, y = 2, z = 1
+        # x = 1, y = 2, z = 2
+        # x = 3, y = 4, z = 1
+        # x = 3, y = 4, z = 2
+        # x = 3, y = 4, z = 999
+    """
+    def parametrizer(f):
+        Mark.mark(f, Defaults(**kwargs))
         return f
     return parametrizer
 
