@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.mark import parametrize, parametrized, matrix
+from ducktape.mark import parametrize, parametrized, matrix, defaults
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 
 
@@ -165,5 +165,132 @@ class CheckMatrix(object):
         output = set()
         for ctx in context_list:
             output.add(ctx.function(C()))
+
+        assert output == expected_output
+
+
+class CheckDefaults(object):
+    def check_defaults(self):
+
+        @defaults(z=[1, 2])
+        @matrix(x=[1], y=[1, 2])
+        @parametrize(x=3, y=4)
+        def function(x=1, y=2, z=-1):
+            return x, y, z
+
+        assert parametrized(function)
+        injected_args_list = [m.injected_args for m in function.marks]
+        assert len(injected_args_list) == 3
+
+        context_list = MarkedFunctionExpander(None, function=function).expand()
+        assert len(context_list) == 6
+
+        expected_output = {
+            (1, 1, 1), (1, 1, 2),
+            (1, 2, 1), (1, 2, 2),
+            (3, 4, 1), (3, 4, 2)
+        }
+        output = set()
+        for ctx in context_list:
+            output.add(ctx.function())
+
+        assert output == expected_output
+
+    def check_defaults_method(self):
+
+        class C(object):
+            @defaults(z=[1, 2])
+            @matrix(x=[1], y=[1, 2])
+            @parametrize(x=3, y=4)
+            def function(self, x=1, y=2, z=-1):
+                return x, y, z
+
+        assert parametrized(C.function)
+        injected_args_list = [m.injected_args for m in C.function.marks]
+        assert len(injected_args_list) == 3
+
+        context_list = MarkedFunctionExpander(None, function=C.function).expand()
+        assert len(context_list) == 6
+
+        expected_output = {
+            (1, 1, 1), (1, 1, 2),
+            (1, 2, 1), (1, 2, 2),
+            (3, 4, 1), (3, 4, 2)
+        }
+        output = set()
+
+        c = C()
+        for ctx in context_list:
+            f = ctx.function
+            injected_args = ctx.injected_args
+            assert f(c) == (injected_args['x'], injected_args['y'], injected_args['z'])
+            output.add(ctx.function(C()))
+
+        assert output == expected_output
+
+    def check_overlap_param(self):
+
+        @defaults(y=[3, 4], z=[1, 2])
+        @parametrize(w=1, x=2, y=3)
+        def function(w=10, x=20, y=30, z=40):
+            return w, x, y, z
+
+        assert parametrized(function)
+        injected_args_list = [m.injected_args for m in function.marks]
+        assert len(injected_args_list) == 2
+
+        context_list = MarkedFunctionExpander(None, function=function).expand()
+        assert len(context_list) == 2
+
+        expected_output = {(1, 2, 3, 1), (1, 2, 3, 2)}
+        output = set()
+        for ctx in context_list:
+            output.add(ctx.function())
+
+        assert output == expected_output
+
+    def check_overlap_matrix(self):
+
+        @defaults(y=[3, 4], z=[1, 2])
+        @matrix(x=[1, 2], y=[5, 6])
+        def function(x=20, y=30, z=40):
+            return x, y, z
+
+        assert parametrized(function)
+        injected_args_list = [m.injected_args for m in function.marks]
+        assert len(injected_args_list) == 2
+
+        context_list = MarkedFunctionExpander(None, function=function).expand()
+        assert len(context_list) == 8
+
+        expected_output = {
+            (1, 5, 1), (1, 5, 2),
+            (2, 5, 1), (2, 5, 2),
+            (1, 6, 1), (1, 6, 2),
+            (2, 6, 1), (2, 6, 2)
+        }
+        output = set()
+        for ctx in context_list:
+            output.add(ctx.function())
+
+        assert output == expected_output
+
+    def check_only_defaults(self):
+
+        @defaults(x=[3], z=[1, 2])
+        def function(x=1, y=2, z=-1):
+            return x, y, z
+
+        assert parametrized(function)
+        injected_args_list = [m.injected_args for m in function.marks]
+        assert len(injected_args_list) == 1
+
+        context_list = MarkedFunctionExpander(None, function=function).expand()
+        assert len(context_list) == 2
+
+        expected_output = {(3, 2, 1), (3, 2, 2)}
+        output = set()
+        for ctx in context_list:
+            output.add(ctx.function())
 
         assert output == expected_output
