@@ -247,8 +247,12 @@ class RemoteAccount(HttpMixin):
         stdout.read()
         exit_status = stdout.channel.recv_exit_status()
         try:
-            if not allow_fail and exit_status != 0:
-                raise RemoteCommandError(self, cmd, exit_status, stderr.read())
+            if exit_status != 0:
+                if not allow_fail:
+                    raise RemoteCommandError(self, cmd, exit_status, stderr.read())
+                else:
+                    msg = "Running ssh command exited with status %d and message '%s': %s" % (exit_status, stderr.read(), cmd)
+                    self._log(logging.DEBUG, msg)
         finally:
             stdin.close()
             stdout.close()
@@ -296,8 +300,12 @@ class RemoteAccount(HttpMixin):
                     yield callback(line)
             try:
                 exit_status = stdout.channel.recv_exit_status()
-                if not allow_fail and exit_status != 0:
-                    raise RemoteCommandError(self, cmd, exit_status, stderr.read())
+                if exit_status != 0:
+                    if not allow_fail:
+                        raise RemoteCommandError(self, cmd, exit_status, stderr.read())
+                    else:
+                        msg = "Running ssh command exited with status %d and message '%s': %s" % (exit_status, stderr.read(), cmd)
+                        self._log(logging.DEBUG, msg)
             finally:
                 stdin.close()
                 stdout.close()
@@ -334,8 +342,12 @@ class RemoteAccount(HttpMixin):
         try:
             stdoutdata = stdout.read()
             exit_status = stdin.channel.recv_exit_status()
-            if not allow_fail and exit_status != 0:
-                raise RemoteCommandError(self, cmd, exit_status, stderr.read())
+            if exit_status != 0:
+                if not allow_fail:
+                    raise RemoteCommandError(self, cmd, exit_status, stderr.read())
+                else:
+                    msg = "Running ssh command exited with status %d and message '%s': %s" % (exit_status, stderr.read(), cmd)
+                    self._log(logging.DEBUG, msg)
         finally:
             stdin.close()
             stdout.close()
