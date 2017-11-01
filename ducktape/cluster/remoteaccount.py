@@ -251,8 +251,8 @@ class RemoteAccount(HttpMixin):
                 if not allow_fail:
                     raise RemoteCommandError(self, cmd, exit_status, stderr.read())
                 else:
-                    msg = "Running ssh command exited with status %d and message '%s': %s" % (exit_status, stderr.read(), cmd)
-                    self._log(logging.DEBUG, msg)
+                    self._log(logging.DEBUG, "Running ssh command exited with status %d and message '%s': %s" % \
+                        (exit_status, stderr.read(), cmd)
         finally:
             stdin.close()
             stdout.close()
@@ -304,8 +304,8 @@ class RemoteAccount(HttpMixin):
                     if not allow_fail:
                         raise RemoteCommandError(self, cmd, exit_status, stderr.read())
                     else:
-                        msg = "Running ssh command exited with status %d and message '%s': %s" % (exit_status, stderr.read(), cmd)
-                        self._log(logging.DEBUG, msg)
+                        self._log(logging.DEBUG, "Running ssh command exited with status %d and message '%s': %s" % \
+                            (exit_status, stderr.read(), cmd)
             finally:
                 stdin.close()
                 stdout.close()
@@ -346,8 +346,8 @@ class RemoteAccount(HttpMixin):
                 if not allow_fail:
                     raise RemoteCommandError(self, cmd, exit_status, stderr.read())
                 else:
-                    msg = "Running ssh command exited with status %d and message '%s': %s" % (exit_status, stderr.read(), cmd)
-                    self._log(logging.DEBUG, msg)
+                    self._log(logging.DEBUG, "Running ssh command exited with status %d and message '%s': %s" % \
+                        (exit_status, stderr.read(), cmd)
         finally:
             stdin.close()
             stdout.close()
