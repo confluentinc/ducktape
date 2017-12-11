@@ -17,6 +17,7 @@ from ducktape.errors import DucktapeError
 
 import functools
 import itertools
+import os
 
 
 class Mark(object):
@@ -89,7 +90,6 @@ class Ignore(Mark):
 
     def apply(self, seed_context, context_list):
         assert len(context_list) > 0, "ignore annotation is not being applied to any test cases"
-
         for ctx in context_list:
             ctx.ignore = ctx.ignore or self.injected_args is None or self.injected_args == ctx.injected_args
         return context_list
@@ -190,10 +190,33 @@ class Parametrize(Mark):
         return super(Parametrize, self).__eq__(other) and self.injected_args == other.injected_args
 
 
+class Env(Mark):
+    def __init__(self, **kwargs):
+        self.injected_args = kwargs
+        self.should_ignore = False
+        for key, value in kwargs.iteritems():
+            if os.environ[key] != value:
+                self.should_ignore = True
+
+    @property
+    def name(self):
+        return "ENV"
+
+    def apply(self, seed_context, context_list):
+        for ctx in context_list:
+            ctx.ingore = ctx.ignore or self.should_ignore
+
+        return context_list
+
+    def __eq__(self, other):
+        return super(Env, self).__eq__(other) and self.injected_args == other.injected_args
+
+
 PARAMETRIZED = Parametrize()
 MATRIX = Matrix()
 DEFAULTS = Defaults()
 IGNORE = Ignore()
+ENV = Env()
 
 
 def _is_parametrize_mark(m):
@@ -208,6 +231,10 @@ def parametrized(f):
 def ignored(f):
     """Is this function or object decorated with @ignore?"""
     return Mark.marked(f, IGNORE)
+
+
+def is_env(f):
+    return Mark.marked(f, ENV)
 
 
 def cartesian_product_dict(d):
@@ -380,6 +407,14 @@ def ignore(*args, **kwargs):
         return f
 
     return ignorer
+
+
+def env(**kwargs):
+    def environment(f):
+        Mark.mark(f, Env(**kwargs))
+        return f
+
+    return environment
 
 
 def _inject(*args, **kwargs):
