@@ -204,7 +204,7 @@ class Env(Mark):
 
     def apply(self, seed_context, context_list):
         for ctx in context_list:
-            ctx.ingore = ctx.ignore or self.should_ignore
+            ctx.ignore = ctx.ignore or self.should_ignore
 
         return context_list
 
