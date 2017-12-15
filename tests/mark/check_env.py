@@ -15,8 +15,6 @@
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.mark import env, is_env
 
-import pytest
-
 
 class CheckEnv(object):
 
