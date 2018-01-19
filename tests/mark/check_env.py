@@ -15,6 +15,8 @@
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.mark import env, is_env
 
+import os
+
 
 class CheckEnv(object):
 
@@ -40,3 +42,14 @@ class CheckEnv(object):
 
         context_list = MarkedFunctionExpander(function=C.function, cls=C).expand()
         assert context_list[0].ignore
+
+    def check_is_not_ignore_if_correct_env(self):
+        os.environ['test_key'] = 'test'
+
+        class C(object):
+            @env(test_key='test')
+            def function(self):
+                return 1
+
+        context_list = MarkedFunctionExpander(function=C.function, cls=C).expand()
+        assert not context_list[0].ignore
