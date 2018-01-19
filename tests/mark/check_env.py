@@ -18,6 +18,12 @@ from ducktape.mark import env, is_env
 
 class CheckEnv(object):
 
+    def check_does_not_raise_exception_when_key_not_exists(self):
+        class C(object):
+            @env(BLAH='8')
+            def function(self):
+                return 1
+
     def check_has_env_annotation(self):
         class C(object):
             @env(JAVA_HOME="blah")
