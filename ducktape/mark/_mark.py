@@ -193,7 +193,7 @@ class Parametrize(Mark):
 class Env(Mark):
     def __init__(self, **kwargs):
         self.injected_args = kwargs
-        self.should_ignore = any(os.environ[key] != value for key, value in kwargs.iteritems())
+        self.should_ignore = any(os.environ.get(key) != value for key, value in kwargs.iteritems())
 
     @property
     def name(self):
