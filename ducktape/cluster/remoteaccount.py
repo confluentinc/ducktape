@@ -311,7 +311,7 @@ class RemoteAccount(HttpMixin):
                 stdout.close()
                 stderr.close()
 
-        return SSHOutputIter(output_generator(), stdout)
+        return SSHOutputIter(output_generator, stdout)
 
     def ssh_output(self, cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
         """Runs the command via SSH and captures the output, returning it as a string.
@@ -605,12 +605,13 @@ class SSHOutputIter(object):
     """Helper class that wraps around an iterable object to provide has_next() in addition to next()
     """
 
-    def __init__(self, iter_obj, channel_file=None):
+    def __init__(self, iter_obj_f, channel_file=None):
         """
         :param iter_obj: An iterator
         :param channel_file: A paramiko ``ChannelFile`` object
         """
-        self.iter_obj = iter_obj
+        self.iter_obj_f = iter_obj_f
+        self.iter_obj = iter_obj_f()
         self.channel_file = channel_file
 
         # sentinel is used as an indicator that there is currently nothing cached
@@ -645,6 +646,7 @@ class SSHOutputIter(object):
             try:
                 self.cached = next(self.iter_obj, self.sentinel)
             except socket.timeout:
+                self.iter_obj = self.iter_obj_f()
                 self.cached = self.sentinel
             finally:
                 if self.channel_file is not None:
