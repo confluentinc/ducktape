@@ -187,17 +187,31 @@ class HTMLSummaryReporter(SummaryReporter):
         test_results_dir = os.path.abspath(result.results_dir)
         return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
+    def append_result(self, result_string, result):
+        result_string += json.dumps(self.format_result(result))
+        result_string += ","
+
     def format_report(self):
         template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
 
         num_tests = len(self.results)
         num_passes = 0
-        result_string = ""
+        failed_result_string = ""
+        passed_result_string = ""
+        ignored_result_string = ""
+
         for result in self.results:
+            json_string = json.dumps(self.format_result(result))
             if result.test_status == PASS:
                 num_passes += 1
-            result_string += json.dumps(self.format_result(result))
-            result_string += ","
+                passed_result_string += json_string
+                passed_result_string += ","
+            elif result.test_status == FAIL:
+                failed_result_string += json_string
+                failed_result_string += ","
+            else:
+                ignored_result_string += json_string
+                ignored_result_string += ","
 
         args = {
             'ducktape_version': ducktape_version(),
@@ -207,7 +221,9 @@ class HTMLSummaryReporter(SummaryReporter):
             'num_ignored': self.results.num_ignored,
             'run_time': format_time(self.results.run_time_seconds),
             'session': self.results.session_context.session_id,
-            'tests': result_string,
+            'passed_tests': passed_result_string,
+            'failed_tests': failed_result_string,
+            'ignored_tests': ignored_result_string,
             'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE]])
         }
 
