@@ -187,10 +187,6 @@ class HTMLSummaryReporter(SummaryReporter):
         test_results_dir = os.path.abspath(result.results_dir)
         return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
-    def append_result(self, result_string, result):
-        result_string += json.dumps(self.format_result(result))
-        result_string += ","
-
     def format_report(self):
         template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
 
