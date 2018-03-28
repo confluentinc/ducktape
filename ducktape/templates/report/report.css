@@ -33,24 +33,24 @@ h1, h2, h3, h4, h5, h6 {
     padding: 2px;
 }
 
-#header_row {
+.header_row {
     font-weight: bold;
     color: white;
     background-color: #777;
 }
 
-#header_row th {
+.header_row th {
     border: 1px solid #777;
     padding: 2px; 
 }
 
-#report_table {
+.report_table {
     width: 80%;
     border-collapse: collapse;
     border: 1px solid #777;
 }
 
-#report_table td {
+.report_table td {
     border: 1px solid #777;
     padding: 2px;
 }
