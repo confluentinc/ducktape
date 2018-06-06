@@ -142,11 +142,11 @@ class RunnerClient(object):
             summary += err_trace
 
         finally:
+            service_errors = self.test_context.services.errors()
             self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
 
             stop_time = time.time()
 
-            service_errors = self.test_context.services.errors()
             if service_errors:
                 summary += "\n\n" + service_errors
 
