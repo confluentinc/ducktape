@@ -492,6 +492,8 @@ class RemoteAccount(HttpMixin):
 
     def copy_to(self, src, dest):
 
+        self.logger.debug("Copying %s to %s", src, dest)
+
         if self.isdir(dest):
             # dest is an existing directory, so assuming src looks like path/to/src_name,
             # in this case we'll copy as:
@@ -513,6 +515,8 @@ class RemoteAccount(HttpMixin):
                 else:
                     # TODO what about uncopyable file types?
                     pass
+        elif not os.path.exists(src):
+            raise IOError("No such file or directory: '{0}'".format(src))
 
     def islink(self, path):
         try:
