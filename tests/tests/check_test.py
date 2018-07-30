@@ -20,7 +20,7 @@ import sys
 import tempfile
 
 from tests import ducktape_mock
-from ducktape.tests.test import Test, TestContext, _escape_pathname, _compress_cmd
+from ducktape.tests.test import Test, TestContext, _escape_pathname, _compress_cmd, in_dir, in_temp_dir
 
 
 class DummyTest(Test):
@@ -116,9 +116,9 @@ class CheckCompressCmd(object):
         assert not os.path.exists(uncompressed_path)
 
         # verify that uncompressing gets us back the original
-        os.chdir(self.tempdir)
-        os.system("tar xzf %s" % (compressed_path))
-        assert os.path.exists(uncompressed_path)
+        with in_dir(self.tempdir):
+            os.system("tar xzf %s" % (compressed_path))
+            assert os.path.exists(uncompressed_path)
 
     def check_compress_service_logs_swallow_error(self):
         """Try compressing a non-existent service log, and check that it logs a message without throwing an error.
@@ -153,25 +153,28 @@ class CheckCompressCmd(object):
 
     def check_abs_path_file(self):
         """Check compress command on an absolute path to a file"""
-        filename = self._make_random_file(self.tempdir)
-        abspath_filename = os.path.abspath(filename)
+        with in_temp_dir() as dir1:
+            filename = self._make_random_file(self.tempdir)
+            abspath_filename = os.path.abspath(filename)
 
-        # since we're using absolute path to file, we should be able to run the compress command from anywhere
-        tempdir2 = tempfile.mkdtemp(dir=self.tempdir)
-        os.chdir(tempdir2)
-        os.system(_compress_cmd(abspath_filename))
-        self._validate_compressed(abspath_filename)
+            # since we're using absolute path to file, we should be able to run the compress command from anywhere
+            with in_temp_dir() as dir2:
+                assert dir1 != dir2
+
+                os.system(_compress_cmd(abspath_filename))
+                self._validate_compressed(abspath_filename)
 
     def check_relative_path_file(self):
         """Check compress command on a relative path to a file"""
-        filename = self._make_random_file(self.tempdir)
-        os.chdir(self.tempdir)
-        filename = os.path.basename(filename)
-        assert len(filename.split(os.path.sep)) == 1
+        with in_temp_dir():
+            filename = self._make_random_file(self.tempdir)
+            with in_dir(self.tempdir):
+                filename = os.path.basename(filename)
+                assert len(filename.split(os.path.sep)) == 1
 
-        # compress it!
-        os.system(_compress_cmd(filename))
-        self._validate_compressed(filename)
+            # compress it!
+            os.system(_compress_cmd(filename))
+            self._validate_compressed(filename)
 
     def check_abs_path_dir(self):
         """Validate compress command with absolute path to a directory"""
@@ -196,9 +199,9 @@ class CheckCompressCmd(object):
         assert len(dirname.split(os.path.sep)) == 1
 
         # compress it!
-        os.chdir(self.tempdir)
-        os.system(_compress_cmd(dirname))
-        self._validate_compressed(dirname)
+        with in_dir(self.tempdir):
+            os.system(_compress_cmd(dirname))
+            self._validate_compressed(dirname)
 
     def teardown_method(self, _):
         if os.path.exists(self.tempdir):

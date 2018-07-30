@@ -59,7 +59,7 @@ class WindowsRemoteAccount(RemoteAccount):
             ec2_instance_id = instance_id_file.read().strip()
             if not ec2_instance_id or ec2_instance_id == "":
                 raise Exception
-        except:
+        except Exception:
             raise Exception("Could not extract EC2 instance ID from local file: %s" % ec2_instance_id_path)
         finally:
             if instance_id_file:

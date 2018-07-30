@@ -171,7 +171,7 @@ def main():
             # Note that we're attaching a reference to cluster
             # only after test context objects have been instantiated
             ctx.cluster = cluster
-    except:
+    except Exception:
         print "Failed to load cluster: ", str(sys.exc_info()[0])
         print traceback.format_exc(limit=16)
         sys.exit(1)

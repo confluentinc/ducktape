@@ -46,7 +46,7 @@ def package_is_installed(package_name):
     try:
         importlib.import_module(package_name)
         return True
-    except:
+    except Exception:
         return False
 
 

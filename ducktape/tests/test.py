@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+from contextlib import contextmanager
 import logging
 import os
 import re
@@ -469,3 +470,36 @@ class TestContext(object):
         # Release file handles held by logger
         if self._logger:
             close_logger(self._logger)
+
+
+@contextmanager
+def in_dir(path):
+    """ Changes working directory to given path. On exit, restore to original working directory. """
+    cwd = os.getcwd()
+
+    try:
+        os.chdir(path)
+        yield
+
+    finally:
+        os.chdir(cwd)
+
+
+@contextmanager
+def in_temp_dir():
+    """ Creates a temporary directory as the working directory. On exit, it is removed. """
+    with _new_temp_dir() as tmpdir:
+        with in_dir(tmpdir):
+            yield tmpdir
+
+
+@contextmanager
+def _new_temp_dir():
+    """ Create a temporary directory that is removed automatically """
+    tmpdir = tempfile.mkdtemp()
+
+    try:
+        yield tmpdir
+
+    finally:
+        shutil.rmtree(tmpdir)

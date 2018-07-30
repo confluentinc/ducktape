@@ -224,7 +224,7 @@ class RemoteAccount(HttpMixin):
         try:
             self.http_request(url, "GET", "", headers, timeout=.75)
             return True
-        except:
+        except Exception:
             return False
 
     def ssh(self, cmd, allow_fail=False):
@@ -360,7 +360,7 @@ class RemoteAccount(HttpMixin):
         try:
             self.ssh("kill -0 %s" % str(pid), allow_fail=False)
             return True
-        except:
+        except Exception:
             return False
 
     def signal(self, pid, sig, allow_fail=False):
@@ -519,7 +519,7 @@ class RemoteAccount(HttpMixin):
             # stat should follow symlinks
             path_stat = self.sftp_client.lstat(path)
             return stat.S_ISLNK(path_stat.st_mode)
-        except:
+        except Exception:
             return False
 
     def isdir(self, path):
@@ -527,7 +527,7 @@ class RemoteAccount(HttpMixin):
             # stat should follow symlinks
             path_stat = self.sftp_client.stat(path)
             return stat.S_ISDIR(path_stat.st_mode)
-        except:
+        except Exception:
             return False
 
     def exists(self, path):
@@ -549,7 +549,7 @@ class RemoteAccount(HttpMixin):
             # stat should follow symlinks
             path_stat = self.sftp_client.stat(path)
             return stat.S_ISREG(path_stat.st_mode)
-        except:
+        except Exception:
             return False
 
     def open(self, path, mode='r'):
@@ -596,7 +596,7 @@ class RemoteAccount(HttpMixin):
         """
         try:
             offset = int(self.ssh_output("wc -c %s" % log).split()[0])
-        except:
+        except Exception:
             offset = 0
         yield LogMonitor(self, log, offset)
 
