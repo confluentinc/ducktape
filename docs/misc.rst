@@ -6,6 +6,7 @@ Misc
 
 Developer Install
 =================
+
 If you are are a ducktape developer, consider using the develop command instead of install. This allows you to make code changes without constantly reinstalling ducktape (see http://stackoverflow.com/questions/19048732/python-setup-py-develop-vs-install for more information)::
 
     cd ducktape
@@ -20,14 +21,15 @@ To uninstall::
 Unit Tests
 ==========
 
-You can run the tests via the setup.py script::
+You can run the tests with code coverage and style check using `tox <https://tox.readthedocs.io/en/latest/>`_::
 
-    python setup.py test
+    tox
 
-Alternatively, if you've installed pytest ``sudo pip install pytest`` you can run
-it directly on the ``tests`` directory::
+Alternatively, you can activate the virtualenv and run pytest and flake8 directly::
 
-    py.test tests
+    source ~/.virtualenvs/ducktape/bin/activate
+    pytest tests
+    flake8
 
 
 Windows

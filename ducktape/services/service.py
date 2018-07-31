@@ -221,12 +221,12 @@ class Service(TemplateRenderer):
 
             try:
                 self.stop_node(node)
-            except:
+            except Exception:
                 pass
 
             try:
                 self.clean_node(node)
-            except:
+            except Exception:
                 pass
 
         for node in self.nodes:
