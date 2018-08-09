@@ -37,7 +37,7 @@ class RemoteAccountTestService(Service):
     """Simple service that allocates one node for performing tests of RemoteAccount functionality"""
 
     def __init__(self, context):
-        super(RemoteAccountTestService, self).__init__(context, 1)
+        super(RemoteAccountTestService, self).__init__(context, num_nodes=1)
         self.temp_dir = generate_tempdir_name()
         self.logs = {
             "my_log": {

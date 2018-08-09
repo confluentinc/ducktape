@@ -72,7 +72,7 @@ class Service(TemplateRenderer):
         self._clean_time = -1
 
         self._initialized = False
-        self.cluster_spec = Service.setup_cluster_spec(num_nodes, cluster_spec)
+        self.cluster_spec = Service.setup_cluster_spec(num_nodes=num_nodes, cluster_spec=cluster_spec)
         self.context = context
 
         self.nodes = []
