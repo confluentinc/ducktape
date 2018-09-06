@@ -543,7 +543,7 @@ class RemoteAccount(HttpMixin):
         """Imitates semantics of os.path.isfile
 
         :param path: Path to the thing to check
-        :return: True iff path is a file or a symlink to a file, else False. Note False can mean path does not exist.
+        :return: True if path is a file or a symlink to a file, else False. Note False can mean path does not exist.
         """
         try:
             # stat should follow symlinks
@@ -630,7 +630,7 @@ class SSHOutputIter(object):
         return next_obj
 
     def has_next(self, timeout_sec=None):
-        """Return True iff next(iter_obj) would return another object within timeout_sec, else False.
+        """Return True if next(iter_obj) would return another object within timeout_sec, else False.
 
         If timeout_sec is None, next(iter_obj) may block indefinitely.
         """
