@@ -210,15 +210,15 @@ def _compress_cmd(log_path):
 def _escape_pathname(s):
     """Remove fishy characters, replace most with dots"""
     # Remove all whitespace completely
-    s = re.sub("\s+", "", s)
+    s = re.sub(r"\s+", "", s)
 
     # Replace bad characters with dots
-    blacklist = "[^\.\-=_\w\d]+"
+    blacklist = r"[^\.\-=_\w\d]+"
     s = re.sub(blacklist, ".", s)
 
     # Multiple dots -> single dot (and no leading or trailing dot)
-    s = re.sub("[\.]+", ".", s)
-    return re.sub("^\.|\.$", "", s)
+    s = re.sub(r"[\.]+", ".", s)
+    return re.sub(r"^\.|\.$", "", s)
 
 
 def test_logger(logger_name, log_dir, debug):
