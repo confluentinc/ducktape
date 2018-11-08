@@ -60,6 +60,26 @@ class CheckPackageSearchPath(object):
         package, path = TemplateRenderer._package_search_path("")
         assert package == "" and path == "templates"
 
+    def check_get_ctx(self):
+        class A(TemplateRenderer):
+            x = 'xxx'
+
+        class B(A):
+            y = 'yyy'
+
+        b = B()
+        b.instance = 'b instance'
+
+        ctx_a = A()._get_ctx()
+        assert ctx_a['x'] == 'xxx'
+        assert 'yyy' not in ctx_a
+        assert 'instance' not in ctx_a
+
+        ctx_b = b._get_ctx()
+        assert ctx_b['x'] == 'xxx'
+        assert ctx_b['y'] == 'yyy'
+        assert ctx_b['instance'] == 'b instance'
+
 
 class TemplateRenderingTest(Test):
     pass

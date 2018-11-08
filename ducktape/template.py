@@ -21,6 +21,11 @@ import inspect
 
 class TemplateRenderer(object):
 
+    def _get_ctx(self):
+        ctx = {k: getattr(self.__class__, k) for k in dir(self.__class__)}
+        ctx.update(self.__dict__)
+        return ctx
+
     def render_template(self, template, **kwargs):
         """
         Render a template using the context of the current object, optionally with overrides.
@@ -31,8 +36,7 @@ class TemplateRenderer(object):
         """
         if not hasattr(template, 'render'):
             template = Template(template)
-        ctx = dict(self.__class__.__dict__)
-        ctx.update(self.__dict__)
+        ctx = self._get_ctx()
         return template.render(ctx, **kwargs)
 
     @staticmethod
