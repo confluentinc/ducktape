@@ -250,12 +250,13 @@ class Service(TemplateRenderer):
         end = start + timeout_sec
         for node in self.nodes:
             now = time.time()
+            node_name = self.who_am_i(node)
             if end > now:
-                self.logger.debug("%s: waiting for node", self.who_am_i(node))
+                self.logger.debug("%s: waiting for node", node_name)
                 if not self.wait_node(node, end - now):
-                    unfinished_nodes.append(node)
+                    unfinished_nodes.append(node_name)
             else:
-                unfinished_nodes.append(node)
+                unfinished_nodes.append(node_name)
 
         if unfinished_nodes:
             raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec)
