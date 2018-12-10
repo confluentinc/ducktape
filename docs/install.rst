@@ -33,3 +33,7 @@ Install
 
         C_INCLUDE_PATH=/usr/local/opt/openssl/include LIBRARY_PATH=/usr/local/opt/openssl/lib pip install ducktape
 
+    If you got error message `failed with error code 1`, you may need to install ducktape by::
+
+        pip install --user ducktape
+
