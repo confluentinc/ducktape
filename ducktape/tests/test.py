@@ -27,6 +27,7 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
+from ducktape.mark.resource import CLUSTER_SPEC_KEYWORD
 from ducktape.mark.resource import CLUSTER_SIZE_KEYWORD
 from ducktape.tests.status import FAIL
 
@@ -384,8 +385,11 @@ class TestContext(object):
 
         :return:            A ClusterSpec object.
         """
+        cluster_spec = self.cluster_use_metadata.get(CLUSTER_SPEC_KEYWORD)
         cluster_size = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
-        if cluster_size is not None:
+        if cluster_spec is not None:
+            return cluster_spec
+        elif cluster_size is not None:
             return ClusterSpec.simple_linux(cluster_size)
         elif self.cluster is None:
             return ClusterSpec.empty()
