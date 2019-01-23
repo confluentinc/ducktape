@@ -172,9 +172,9 @@ class CheckCompressCmd(object):
                 filename = os.path.basename(filename)
                 assert len(filename.split(os.path.sep)) == 1
 
-            # compress it!
-            os.system(_compress_cmd(filename))
-            self._validate_compressed(filename)
+                # compress it!
+                os.system(_compress_cmd(filename))
+                self._validate_compressed(filename)
 
     def check_abs_path_dir(self):
         """Validate compress command with absolute path to a directory"""
