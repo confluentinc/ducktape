@@ -24,8 +24,8 @@ import shutil
 import tempfile
 from threading import Thread
 import time
-
 import logging
+
 
 def generate_tempdir_name():
     """Use this ad-hoc function instead of the tempfile module since we're creating and removing
@@ -559,6 +559,7 @@ class TestIterWrapper(Test):
         self.node.account.ssh(cmd, allow_fail=True)
 
         self.node.account.ssh("rm -f " + self.temp_file, allow_fail=True)
+
 
 class RemoteAccountCompressedTest(Test):
     def __init__(self, test_context):
