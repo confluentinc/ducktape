@@ -592,12 +592,8 @@ class CompressionErrorFilter(logging.Filter):
         self.test = test
 
     def filter(self, record):
-        record.msg = self.check(record.msg)
-        return True
-
-    def check(self, msg):
-        if 'tar czf' in msg:
+        if 'tar czf' in record.msg:
             self.test.tar_msg = True
-            if 'Error' in msg:
+            if 'Error' in record.msg:
                 self.test.tar_error = True
-        return msg
+        return True
