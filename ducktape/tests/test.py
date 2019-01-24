@@ -201,7 +201,7 @@ def _compress_cmd(log_path):
     """Return bash command which compresses the given path to a tarball."""
     compres_cmd = 'cd "$(dirname %s)" && ' % log_path
     compres_cmd += 'f="$(basename %s)" && ' % log_path
-    compres_cmd += 'tar czf "$f.tgz" "$f" && '
+    compres_cmd += 'if [ -e "$f" ]; then tar czf "$f.tgz" "$f"; fi && '
     compres_cmd += 'rm -rf %s' % log_path
 
     return compres_cmd
