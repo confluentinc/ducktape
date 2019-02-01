@@ -159,22 +159,33 @@ class RemoteAccount(HttpMixin):
         msg = "%s: %s" % (str(self), msg)
         self.logger.log(level, msg, *args, **kwargs)
 
+    def _new_ssh_client(self):
+        client = SSHClient()
+        client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
+
+        self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
+
+        client.connect(
+            hostname=self.ssh_config.hostname,
+            port=self.ssh_config.port,
+            username=self.ssh_config.user,
+            password=self.ssh_config.password,
+            key_filename=self.ssh_config.identityfile,
+            look_for_keys=False)
+        self._ssh_client = client
+
     @property
     def ssh_client(self):
-        if not self._ssh_client:
-            client = SSHClient()
-            client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
-
-            self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
-
-            client.connect(
-                hostname=self.ssh_config.hostname,
-                port=self.ssh_config.port,
-                username=self.ssh_config.user,
-                password=self.ssh_config.password,
-                key_filename=self.ssh_config.identityfile,
-                look_for_keys=False)
-            self._ssh_client = client
+        if not self._ssh_client or \
+           not self._ssh_client.get_transport() or \
+           not self._ssh_client.get_transport().is_active():
+            self._new_ssh_client()
+        else:
+            try:
+                transport = self._ssh_client.get_transport()
+                transport.send_ignore()
+            except:
+                self._new_ssh_client()
 
         return self._ssh_client
 
