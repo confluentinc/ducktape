@@ -184,7 +184,9 @@ class RemoteAccount(HttpMixin):
             try:
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
-            except:
+            except Exception as e:
+                self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
+                self._ssh_client.close()
                 self._new_ssh_client()
 
         return self._ssh_client
