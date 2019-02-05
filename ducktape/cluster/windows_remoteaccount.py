@@ -99,7 +99,7 @@ class WindowsRemoteAccount(RemoteAccount):
 
     def fetch_externally_routable_ip(self, is_aws):
         if not is_aws:
-            raise NotImplemented("Windows is only supported in AWS.")
+            raise NotImplementedError("Windows is only supported in AWS.")
 
         # EC2 windows machines aren't given an externally routable IP. Use the hostname instead.
         return self.ssh_config.hostname

@@ -24,6 +24,7 @@ import shutil
 import tempfile
 from threading import Thread
 import time
+import logging
 
 
 def generate_tempdir_name():
@@ -42,6 +43,10 @@ class RemoteAccountTestService(Service):
         self.logs = {
             "my_log": {
                 "path": self.log_file,
+                "collect_default": True
+            },
+            "non_existent_log": {
+                "path": os.path.join(self.temp_dir, "absent.log"),
                 "collect_default": True
             }
         }
@@ -554,3 +559,42 @@ class TestIterWrapper(Test):
         self.node.account.ssh(cmd, allow_fail=True)
 
         self.node.account.ssh("rm -f " + self.temp_file, allow_fail=True)
+
+
+class RemoteAccountCompressedTest(Test):
+    def __init__(self, test_context):
+        super(RemoteAccountCompressedTest, self).__init__(test_context)
+        self.account_service = RemoteAccountTestService(test_context)
+        self.test_context.session_context.compress = True
+        self.tar_msg = False
+        self.tar_error = False
+
+    def setup(self):
+        self.account_service.start()
+
+    @cluster(num_nodes=1)
+    def test_log_compression_with_non_existent_files(self):
+        """Test that log compression with tar works even when a specific log file has not been generated
+        (e.g. heap dump)
+        """
+        self.test_context.logger.addFilter(CompressionErrorFilter(self))
+        self.copy_service_logs(None)
+
+        if not self.tar_msg:
+            raise Exception("Never saw attempt to compress log")
+        if self.tar_error:
+            raise Exception("Failure when compressing logs")
+
+
+class CompressionErrorFilter(logging.Filter):
+
+    def __init__(self, test):
+        super(CompressionErrorFilter, self).__init__()
+        self.test = test
+
+    def filter(self, record):
+        if 'tar czf' in record.msg:
+            self.test.tar_msg = True
+            if 'Error' in record.msg:
+                self.test.tar_error = True
+        return True

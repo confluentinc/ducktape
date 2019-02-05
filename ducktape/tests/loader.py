@@ -35,7 +35,7 @@ class LoaderException(Exception):
 ModuleAndFile = collections.namedtuple('ModuleAndFile', ['module', 'file'])
 
 
-DEFAULT_TEST_FILE_PATTERN = "(^test_.*\.py$)|(^.*_test\.py$)"
+DEFAULT_TEST_FILE_PATTERN = r"(^test_.*\.py$)|(^.*_test\.py$)"
 DEFAULT_TEST_FUNCTION_PATTERN = "(^test.*)|(.*test$)"
 
 # Included for unit tests to be able to add support for loading local file:/// URLs.
@@ -246,7 +246,7 @@ class TestLoader(object):
 
                     expected_error = False
                     if isinstance(e, ImportError):
-                        match = re.search("No module named ([^\s]+)", e.message)
+                        match = re.search(r"No module named ([^\s]+)", e.message)
 
                         if match is not None:
                             missing_module = match.groups()[0]

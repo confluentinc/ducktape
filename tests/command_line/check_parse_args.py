@@ -60,7 +60,7 @@ class CheckParseArgs(object):
                 parse_args(["--version"])
         except SystemExit as e:
             assert e.code == 0
-            assert re.search("[\d]+\.[\d]+\.[\d]+", captured.output) is not None
+            assert re.search(r"[\d]+\.[\d]+\.[\d]+", captured.output) is not None
 
     def check_empty_test_path(self):
         """Check that default test_path is an array consisting of cwd."""

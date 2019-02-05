@@ -199,8 +199,8 @@ class Service(TemplateRenderer):
                 # This log message help test-writer identify which test and/or service didn't clean up after itself
                 node.account.logger.critical(ConsoleDefaults.BAD_TEST_MESSAGE)
                 raise RuntimeError(
-                    "logger was not None on service start. There may be a concurrency issue, " +
-                    "or some service which isn't properly cleaning up after itself. " +
+                    "logger was not None on service start. There may be a concurrency issue, "
+                    "or some service which isn't properly cleaning up after itself. "
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.logger = self.logger
 
@@ -250,16 +250,17 @@ class Service(TemplateRenderer):
         end = start + timeout_sec
         for node in self.nodes:
             now = time.time()
+            node_name = self.who_am_i(node)
             if end > now:
-                self.logger.debug("%s: waiting for node", self.who_am_i(node))
+                self.logger.debug("%s: waiting for node", node_name)
                 if not self.wait_node(node, end - now):
-                    unfinished_nodes.append(node)
+                    unfinished_nodes.append(node_name)
             else:
-                unfinished_nodes.append(node)
+                unfinished_nodes.append(node_name)
 
         if unfinished_nodes:
-            raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec) +
-                               "These nodes are still alive: " + str(unfinished_nodes))
+            raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec)
+                               + "These nodes are still alive: " + str(unfinished_nodes))
 
     def wait_node(self, node, timeout_sec=None):
         """Wait for the service on the given node to finish.

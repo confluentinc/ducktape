@@ -247,7 +247,7 @@ class TestRunner(object):
         :return None
         """
         allocated = self.cluster.alloc(test_context.expected_cluster_spec)
-        if len(self.cluster.available()) == 0 and self.max_parallel > 1:
+        if len(self.cluster.available()) == 0 and self.max_parallel > 1 and not self._test_cluster:
             self._log(logging.WARNING,
                       "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
                       % test_context.test_id)
