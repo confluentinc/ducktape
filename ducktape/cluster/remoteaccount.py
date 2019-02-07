@@ -191,10 +191,20 @@ class RemoteAccount(HttpMixin):
 
         return self._ssh_client
 
+    def _new_sftp_client(self):
+        self._sftp_client = self.ssh_client.open_sftp()
+
     @property
     def sftp_client(self):
         if not self._sftp_client:
-            self._sftp_client = self.ssh_client.open_sftp()
+            self._new_sftp_client()
+        else:
+            try:
+                self._sftp_client.listdir(".")
+            except Exception as e:
+                self._log(logging.DEBUG, "exception getting sftp_client (creating new client): %s" % str(e))
+                self._sftp_client.close()
+                self._new_sftp_client()
 
         return self._sftp_client
 
