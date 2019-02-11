@@ -27,8 +27,7 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
-from ducktape.mark.resource import CLUSTER_SPEC_KEYWORD
-from ducktape.mark.resource import CLUSTER_SIZE_KEYWORD
+from ducktape.mark.resource import CLUSTER_SPEC_KEYWORD, CLUSTER_SIZE_KEYWORD
 from ducktape.tests.status import FAIL
 
 
@@ -285,7 +284,7 @@ class TestContext(object):
         :param file: file containing this module
         :param injected_args: a dict containing keyword args which will be passed to the test method
         :param cluster_use_metadata: dict containing information about how this test will use cluster resources,
-               to date, this only includes "num_nodes"
+               to date
         """
 
         self.session_context = kwargs.get("session_context")
@@ -302,7 +301,7 @@ class TestContext(object):
         self.ignore = kwargs.get("ignore", False)
 
         # cluster_use_metadata is a dict containing information about how this test will use cluster resources
-        # to date, this only includes "num_nodes"
+        # to date
         self.cluster_use_metadata = copy.copy(kwargs.get("cluster_use_metadata", {}))
 
         self.services = ServiceRegistry()
