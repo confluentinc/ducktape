@@ -159,7 +159,7 @@ class RemoteAccount(HttpMixin):
         msg = "%s: %s" % (str(self), msg)
         self.logger.log(level, msg, *args, **kwargs)
 
-    def _new_ssh_client(self):
+    def _set_ssh_client(self):
         client = SSHClient()
         client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
 
@@ -172,39 +172,42 @@ class RemoteAccount(HttpMixin):
             password=self.ssh_config.password,
             key_filename=self.ssh_config.identityfile,
             look_for_keys=False)
+
+        if self._ssh_client:
+            self._ssh_client.close()
         self._ssh_client = client
 
     @property
     def ssh_client(self):
-        if not self._ssh_client or \
-           not self._ssh_client.get_transport() or \
-           not self._ssh_client.get_transport().is_active():
-            self._new_ssh_client()
-        else:
+        if (self._ssh_client and
+            self._ssh_client.get_transport() and
+            self._ssh_client.get_transport().is_active()):
             try:
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
             except Exception as e:
                 self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
-                self._ssh_client.close()
-                self._new_ssh_client()
+                self._set_ssh_client()
+        else:
+            self._set_ssh_client()
 
         return self._ssh_client
 
-    def _new_sftp_client(self):
+    def _set_sftp_client(self):
+        if self._sftp_client:
+            self._sftp_client.close()
         self._sftp_client = self.ssh_client.open_sftp()
 
     @property
     def sftp_client(self):
-        if not self._sftp_client:
-            self._new_sftp_client()
-        else:
+        if self._sftp_client:
             try:
                 self._sftp_client.listdir(".")
             except Exception as e:
                 self._log(logging.DEBUG, "exception getting sftp_client (creating new client): %s" % str(e))
-                self._sftp_client.close()
-                self._new_sftp_client()
+                self._set_sftp_client()
+        else:
+            self._set_sftp_client()
 
         return self._sftp_client
 
