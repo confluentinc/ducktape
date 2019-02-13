@@ -203,6 +203,8 @@ class RemoteAccount(HttpMixin):
     def sftp_client(self):
         if not self._sftp_client:
             self._set_sftp_client()
+        else:
+            self.ssh_client  # test connection
 
         return self._sftp_client
 
