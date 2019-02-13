@@ -176,12 +176,13 @@ class RemoteAccount(HttpMixin):
         if self._ssh_client:
             self._ssh_client.close()
         self._ssh_client = client
+        self._set_sftp_client()
 
     @property
     def ssh_client(self):
-        if (self._ssh_client and
-            self._ssh_client.get_transport() and
-            self._ssh_client.get_transport().is_active()):
+        if (self._ssh_client
+            and self._ssh_client.get_transport()
+            and self._ssh_client.get_transport().is_active()):
             try:
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
@@ -200,13 +201,7 @@ class RemoteAccount(HttpMixin):
 
     @property
     def sftp_client(self):
-        if self._sftp_client:
-            try:
-                self._sftp_client.listdir(".")
-            except Exception as e:
-                self._log(logging.DEBUG, "exception getting sftp_client (creating new client): %s" % str(e))
-                self._set_sftp_client()
-        else:
+        if not self._sftp_client:
             self._set_sftp_client()
 
         return self._sftp_client
