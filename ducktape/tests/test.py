@@ -283,8 +283,7 @@ class TestContext(object):
         :param function: the test method
         :param file: file containing this module
         :param injected_args: a dict containing keyword args which will be passed to the test method
-        :param cluster_use_metadata: dict containing information about how this test will use cluster resources,
-               to date
+        :param cluster_use_metadata: dict containing information about how this test will use cluster resources
         """
 
         self.session_context = kwargs.get("session_context")
@@ -301,7 +300,6 @@ class TestContext(object):
         self.ignore = kwargs.get("ignore", False)
 
         # cluster_use_metadata is a dict containing information about how this test will use cluster resources
-        # to date
         self.cluster_use_metadata = copy.copy(kwargs.get("cluster_use_metadata", {}))
 
         self.services = ServiceRegistry()
