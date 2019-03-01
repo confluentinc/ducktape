@@ -42,7 +42,7 @@ class CheckClusterUseAnnotation(object):
     def check_basic_usage_cluster_spec(self):
         num_nodes = 200
 
-        @cluster(cluster_spec=ClusterSpec.simple_linux(200))
+        @cluster(cluster_spec=ClusterSpec.simple_linux(num_nodes))
         def function():
             return "hi"
         assert hasattr(function, "marks")
