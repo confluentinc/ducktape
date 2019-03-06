@@ -159,29 +159,52 @@ class RemoteAccount(HttpMixin):
         msg = "%s: %s" % (str(self), msg)
         self.logger.log(level, msg, *args, **kwargs)
 
+    def _set_ssh_client(self):
+        client = SSHClient()
+        client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
+
+        self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
+
+        client.connect(
+            hostname=self.ssh_config.hostname,
+            port=self.ssh_config.port,
+            username=self.ssh_config.user,
+            password=self.ssh_config.password,
+            key_filename=self.ssh_config.identityfile,
+            look_for_keys=False)
+
+        if self._ssh_client:
+            self._ssh_client.close()
+        self._ssh_client = client
+        self._set_sftp_client()
+
     @property
     def ssh_client(self):
-        if not self._ssh_client:
-            client = SSHClient()
-            client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
-
-            self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
-
-            client.connect(
-                hostname=self.ssh_config.hostname,
-                port=self.ssh_config.port,
-                username=self.ssh_config.user,
-                password=self.ssh_config.password,
-                key_filename=self.ssh_config.identityfile,
-                look_for_keys=False)
-            self._ssh_client = client
+        if (self._ssh_client
+                and self._ssh_client.get_transport()
+                and self._ssh_client.get_transport().is_active()):
+            try:
+                transport = self._ssh_client.get_transport()
+                transport.send_ignore()
+            except Exception as e:
+                self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
+                self._set_ssh_client()
+        else:
+            self._set_ssh_client()
 
         return self._ssh_client
+
+    def _set_sftp_client(self):
+        if self._sftp_client:
+            self._sftp_client.close()
+        self._sftp_client = self.ssh_client.open_sftp()
 
     @property
     def sftp_client(self):
         if not self._sftp_client:
-            self._sftp_client = self.ssh_client.open_sftp()
+            self._set_sftp_client()
+        else:
+            self.ssh_client  # test connection
 
         return self._sftp_client
 
