@@ -180,9 +180,9 @@ class RemoteAccount(HttpMixin):
 
     @property
     def ssh_client(self):
-        if (self._ssh_client and
-            self._ssh_client.get_transport() and
-            self._ssh_client.get_transport().is_active()):
+        if (self._ssh_client
+                and self._ssh_client.get_transport()
+                and self._ssh_client.get_transport().is_active()):
             try:
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
