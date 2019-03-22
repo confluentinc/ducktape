@@ -215,12 +215,15 @@ class RunnerClient(object):
 
         # always collect service logs whether or not we tear down
         # logs are typically removed during "clean" phase, so collect logs before cleaning
+        self.log(logging.DEBUG, "Copying logs from services...")
         self._do_safely(lambda: self.test.copy_service_logs(test_status), "Error copying service logs:")
 
         # clean up stray processes and persistent state
         if teardown_services:
+            self.log(logging.DEBUG, "Cleaning up services...")
             self._do_safely(services.clean_all, "Error cleaning services:")
 
+        self.log(logging.DEBUG, "Freeing nodes...")
         self._do_safely(self.test.free_nodes, "Error freeing nodes:")
 
     def log(self, log_level, msg, *args, **kwargs):
