@@ -154,7 +154,11 @@ class Test(TemplateRenderer):
                     if test_status == FAIL or self.should_collect_log(log_name, service):
                         node_logs.append(log_dirs[log_name]["path"])
 
+                self.test_context.logger.debug("Preparing to copy logs from %s: %s" %
+                                               (node.account.hostname, node_logs))
+
                 if self.test_context.session_context.compress:
+                    self.test_context.logger.debug("Compressing logs...")
                     node_logs = self.compress_service_logs(node, service, node_logs)
 
                 if len(node_logs) > 0:
@@ -166,6 +170,7 @@ class Test(TemplateRenderer):
                         mkdir_p(dest)
 
                     # Try to copy the service logs
+                    self.test_context.logger.debug("Copying logs...")
                     try:
                         for log in node_logs:
                             node.account.copy_from(log, dest)
