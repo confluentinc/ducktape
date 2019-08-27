@@ -19,6 +19,8 @@ from ducktape.cluster.localhost import LocalhostCluster
 from tests.ducktape_mock import FakeCluster
 
 import tests.ducktape_mock
+from tests.runner.resources.test_fails_to_init import FailsToInitTest
+from tests.runner.resources.test_fails_to_init_in_setup import FailsToInitInSetupTest
 from .resources.test_thingy import TestThingy
 from .resources.test_failing_tests import FailingTest
 
@@ -29,6 +31,10 @@ TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
 FAILING_TEST_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_failing_tests.py"))
+FAILS_TO_INIT_TEST_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init.py"))
+FAILS_TO_INIT_IN_SETUP_TEST_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init_in_setup.py"))
 
 
 class CheckRunner(object):
@@ -48,19 +54,23 @@ class CheckRunner(object):
         assert results.num_passed == 0
         assert results.num_ignored == 0
 
+    def _do_expand(self, test_file, test_class, test_methods, cluster=None, session_context=None):
+        ctx_list = []
+        for f in test_methods:
+            ctx_list.extend(
+                MarkedFunctionExpander(
+                    session_context=session_context,
+                    cls=test_class, function=f, file=test_file, cluster=cluster).expand())
+        return ctx_list
+
     def check_simple_run(self):
         """Check expected behavior when running a single test."""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
 
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2]
-        ctx_list = []
-        for f in test_methods:
-            ctx_list.extend(
-                MarkedFunctionExpander(
-                    session_context=session_context,
-                    cls=TestThingy, function=f, file=TEST_THINGY_FILE, cluster=mock_cluster).expand())
-
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
 
         results = runner.run_all_tests()
@@ -80,14 +90,30 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context(**{"exit_first": True})
 
         test_methods = [FailingTest.test_fail]
-        ctx_list = []
-        for f in test_methods:
-            ctx_list.extend(
-                MarkedFunctionExpander(
-                    session_context=session_context,
-                    cls=FailingTest, function=f, file=FAILING_TEST_FILE, cluster=mock_cluster).expand())
-
+        ctx_list = self._do_expand(test_file=FAILING_TEST_FILE, test_class=FailingTest, test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
         results = runner.run_all_tests()
         assert len(ctx_list) > 1
         assert len(results) == 1
+
+    def check_exits_if_failed_to_initialize(self):
+        """Validate that runner exits correctly when tests failed to initialize.
+        """
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        ctx_list = self._do_expand(test_file=FAILS_TO_INIT_TEST_FILE, test_class=FailsToInitTest,
+                                   test_methods=[FailsToInitTest.test_nothing],
+                                   cluster=mock_cluster, session_context=session_context)
+        ctx_list.extend(self._do_expand(test_file=FAILS_TO_INIT_IN_SETUP_TEST_FILE, test_class=FailsToInitInSetupTest,
+                                        test_methods=[FailsToInitInSetupTest.test_nothing],
+                                        cluster=mock_cluster, session_context=session_context))
+
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+        results = runner.run_all_tests()
+        # These tests fail to initialize, each class has two test methods, so should have 4 results, all failed
+        assert len(results) == 4
+        assert results.num_failed == 4
+        assert results.num_passed == 0
+        assert results.num_ignored == 0
