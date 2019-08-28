@@ -19,7 +19,7 @@ from ducktape.cluster.localhost import LocalhostCluster
 from .resources.test_memory_leak import MemoryLeakTest
 
 import math
-from memory_profiler import _get_memory
+from memory_profiler import memory_usage
 import os
 import Queue
 import statistics
@@ -54,7 +54,7 @@ class InstrumentedTestRunner(TestRunner):
     def _run_single_test(self, test_context):
         # write current memory usage to file before running the test
         pid = os.getpid()
-        current_memory = _get_memory(pid)
+        current_memory = memory_usage(pid)[0]
         self.queue.put(current_memory)
 
         super(InstrumentedTestRunner, self)._run_single_test(test_context)
