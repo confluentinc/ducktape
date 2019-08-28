@@ -79,7 +79,7 @@ class CheckRunner(object):
         assert results.num_passed == 1
         assert results.num_ignored == 2
 
-        result_with_data = filter(lambda r: r.data is not None, results)[0]
+        result_with_data = [r for r in results if r.data is not None][0]
         assert result_with_data.data == {"data": 3.14159}
 
     def check_exit_first(self):

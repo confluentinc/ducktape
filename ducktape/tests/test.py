@@ -182,7 +182,7 @@ class Test(TemplateRenderer):
                              'source': log_dirs[log_name],
                              'dest': dest,
                              'service': service,
-                             'message': e.message})
+                             'message': e})
 
     def mark_for_collect(self, service, log_name=None):
         if log_name is None:

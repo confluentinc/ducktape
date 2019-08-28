@@ -14,8 +14,7 @@
 
 from ducktape.command_line.parse_args import parse_args
 
-from cStringIO import StringIO
-from exceptions import SystemExit
+from six.moves import cStringIO as StringIO
 
 import os
 import re
