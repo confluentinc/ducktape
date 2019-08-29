@@ -21,7 +21,7 @@ from .resources.test_memory_leak import MemoryLeakTest
 import math
 from memory_profiler import memory_usage
 import os
-import Queue
+from six.moves import queue
 import statistics
 from statistics import mean
 
@@ -86,13 +86,13 @@ class CheckMemoryUsage(object):
                                                    file=MEMORY_LEAK_TEST_FILE, cluster=self.cluster).expand())
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
-        queue = Queue.Queue()
-        runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, queue=queue)
+        q = queue.Queue()
+        runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, queue=q)
         runner.run_all_tests()
 
         measurements = []
-        while not queue.empty():
-            measurements.append(queue.get())
+        while not q.empty():
+            measurements.append(q.get())
         self.validate_memory_measurements(measurements)
 
     def validate_memory_measurements(self, measurements):

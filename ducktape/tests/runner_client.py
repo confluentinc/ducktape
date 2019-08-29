@@ -19,6 +19,8 @@ import time
 import traceback
 import zmq
 
+from six import iteritems
+
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
@@ -117,7 +119,7 @@ class RunnerClient(object):
                     os_to_num_nodes[node_spec.operating_system] = 1
                 else:
                     os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
-            for (operating_system, node_count) in os_to_num_nodes.iteritems():
+            for (operating_system, node_count) in iteritems(os_to_num_nodes):
                 num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
                 if node_count > num_avail:
                     raise RuntimeError(
@@ -135,7 +137,7 @@ class RunnerClient(object):
             self.log(logging.INFO, "PASS")
 
         except BaseException as e:
-            err_trace = str(e.message) + "\n" + traceback.format_exc(limit=16)
+            err_trace = str(e) + "\n" + traceback.format_exc(limit=16)
             self.log(logging.INFO, "FAIL: " + err_trace)
 
             test_status = FAIL
@@ -193,7 +195,7 @@ class RunnerClient(object):
         try:
             action()
         except BaseException as e:
-            self.log(logging.WARN, err_msg + " " + e.message + "\n" + traceback.format_exc(limit=16))
+            self.log(logging.WARN, err_msg + " " + str(e) + "\n" + traceback.format_exc(limit=16))
 
     def teardown_test(self, teardown_services=True, test_status=None):
         """teardown method which stops services, gathers log data, removes persistent state, and releases cluster nodes.

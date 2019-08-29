@@ -98,7 +98,9 @@ class VagrantCluster(JsonCluster):
 
     def _vagrant_ssh_config(self):
         ssh_config_info, error = subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE,
-                                                  stderr=subprocess.PIPE, close_fds=True).communicate()
+                                                  stderr=subprocess.PIPE, close_fds=True,
+                                                  # Force to text mode in py2/3 compatible way
+                                                  universal_newlines=True).communicate()
         return ssh_config_info, error
 
     @property
@@ -109,7 +111,9 @@ class VagrantCluster(JsonCluster):
         """
         if self._is_aws is None:
             proc = subprocess.Popen("vagrant status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    close_fds=True)
+                                    close_fds=True,
+                                    # Force to text mode in py2/3 compatible way
+                                    universal_newlines=True)
             output, _ = proc.communicate()
             self._is_aws = output.find("aws") >= 0
         return self._is_aws

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 from ducktape.tests.test import Test
 from ducktape.mark import matrix
 
@@ -24,5 +26,5 @@ class FailingTest(Test):
 
     @matrix(x=[_ for _ in range(2)])
     def test_fail(self, x):
-        print "Test %s fails!" % x
+        print("Test %s fails!" % x)
         raise RuntimeError("This test throws an error!")

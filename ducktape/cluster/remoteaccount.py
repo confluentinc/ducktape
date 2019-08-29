@@ -245,7 +245,7 @@ class RemoteAccount(HttpMixin):
     def _can_ping_url(self, url, headers):
         """See if we can successfully issue a GET request to the given url."""
         try:
-            self.http_request(url, "GET", "", headers, timeout=.75)
+            self.http_request(url, "GET", None, headers, timeout=.75)
             return True
         except Exception:
             return False
@@ -588,11 +588,12 @@ class RemoteAccount(HttpMixin):
         with self.sftp_client.open(path, "w") as f:
             f.write(contents)
 
-    def mkdir(self, path, mode=0755):
+    _DEFAULT_PERMISSIONS = int('755', 8)
+    def mkdir(self, path, mode=_DEFAULT_PERMISSIONS):
 
         self.sftp_client.mkdir(path, mode)
 
-    def mkdirs(self, path, mode=0755):
+    def mkdirs(self, path, mode=_DEFAULT_PERMISSIONS):
         self.ssh("mkdir -p %s && chmod %o %s" % (path, mode, path))
 
     def remove(self, path, allow_fail=False):
@@ -651,6 +652,8 @@ class SSHOutputIter(object):
         next_obj = self.cached
         self.cached = self.sentinel
         return next_obj
+
+    __next__ = next
 
     def has_next(self, timeout_sec=None):
         """Return True if next(iter_obj) would return another object within timeout_sec, else False.

@@ -33,7 +33,7 @@ class CheckUtils(object):
             wait_until(lambda: time.time() > start + 5, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
             raise Exception("This should have timed out")
         except Exception as e:
-            assert e.message == "Hello world"
+            assert str(e) == "Hello world"
 
     def check_wait_until_timeout_callable_msg(self):
         """Check that timeout throws exception and the error message is generated via a callable"""
@@ -43,4 +43,4 @@ class CheckUtils(object):
             wait_until(lambda: time.time() > start + 5, timeout_sec=.5, backoff_sec=.1, err_msg=lambda: "Hello world")
             raise Exception("This should have timed out")
         except Exception as e:
-            assert e.message == "Hello world"
+            assert str(e) == "Hello world"

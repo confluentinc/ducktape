@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import json
 import os
 import shutil
@@ -134,7 +136,7 @@ class SimpleFileSummaryReporter(SimpleSummaryReporter):
 
 class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
     def report(self):
-        print self.report_string()
+        print(self.report_string())
 
 
 class JSONReporter(object):
@@ -225,7 +227,7 @@ class HTMLSummaryReporter(SummaryReporter):
 
         html = template % args
         report_html = os.path.join(self.results.session_context.results_dir, "report.html")
-        with open(report_html, "w") as fp:
+        with open(report_html, "wb") as fp:
             fp.write(html)
             fp.close()
 

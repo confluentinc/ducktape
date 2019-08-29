@@ -21,6 +21,7 @@ import os
 import pytest
 import random
 import shutil
+from six import iteritems
 import tempfile
 from threading import Thread
 import time
@@ -140,7 +141,7 @@ class FileSystemTest(Test):
     def open_test(self):
         """Try opening, writing, reading a file."""
         fname = "%s/myfile.txt" % self.scratch_dir
-        expected_contents = "hello world\nhooray!"
+        expected_contents = b"hello world\nhooray!"
         with self.node.account.open(fname, "w") as f:
             f.write(expected_contents)
 
@@ -149,7 +150,7 @@ class FileSystemTest(Test):
         assert contents == expected_contents
 
         # Now try opening in append mode
-        append = "hithere"
+        append = b"hithere"
         expected_contents = expected_contents + append
         with self.node.account.open(fname, "a") as f:
             f.write(append)
@@ -220,15 +221,15 @@ class FileSystemTest(Test):
 # A key which has a dict as its value represents a subdirectory
 DIR_STRUCTURE = {
     "d00": {
-        "another_file": "1\n2\n3\n4\ncats and dogs",
+        "another_file": b"1\n2\n3\n4\ncats and dogs",
         "d10": {
-            "fasdf": "lasdf;asfd\nahoppoqnbasnb"
+            "fasdf": b"lasdf;asfd\nahoppoqnbasnb"
         },
         "d11": {
-            "f65": "afasdfsafdsadf"
+            "f65": b"afasdfsafdsadf"
         }
     },
-    "a_file": "hello world!"
+    "a_file": b"hello world!"
 }
 
 
@@ -237,7 +238,7 @@ def make_dir_structure(base_dir, dir_structure, node=None):
 
     if node is None, make the structure locally, else make it on the given node
     """
-    for k, v in dir_structure.iteritems():
+    for k, v in iteritems(dir_structure):
         if isinstance(v, dict):
             # it's a subdirectory
             subdir_name = k
@@ -257,16 +258,16 @@ def make_dir_structure(base_dir, dir_structure, node=None):
             file_contents = v
 
             if node:
-                with node.account.open(file_path, "w") as f:
+                with node.account.open(file_path, "wb") as f:
                     f.write(file_contents)
             else:
-                with open(file_path, "w") as f:
+                with open(file_path, "wb") as f:
                     f.write(file_contents)
 
 
 def verify_dir_structure(base_dir, dir_structure, node=None):
     """Verify locally or on the given node whether the file subtree at base_dir matches dir_structure."""
-    for k, v in dir_structure.iteritems():
+    for k, v in iteritems(dir_structure):
         if isinstance(v, dict):
             # it's a subdirectory
             subdir_name = k
@@ -289,9 +290,9 @@ def verify_dir_structure(base_dir, dir_structure, node=None):
                 with node.account.open(file_path, "r") as f:
                     contents = f.read()
             else:
-                with open(file_path, "r") as f:
+                with open(file_path, "rb") as f:
                     contents = f.read()
-            assert expected_file_contents == contents
+            assert expected_file_contents == contents, contents
 
 
 class CopyToAndFroTest(Test):
@@ -369,7 +370,7 @@ class CopyDirectTest(Test):
         This should work with or without the recursive flag.
         """
         file_path = os.path.join(self.remote_scratch_dir, "myfile.txt")
-        expected_contents = "123"
+        expected_contents = b"123"
         self.src_node.account.create_file(file_path, expected_contents)
 
         self.src_node.account.copy_between(file_path, file_path, self.dest_node)
@@ -434,8 +435,8 @@ class RemoteAccountTest(Test):
         ssh_output = node.account.ssh_output(cmd, combine_stderr=True)
         bad_ssh_output = node.account.ssh_output(cmd, combine_stderr=False)  # Same command, but don't capture stderr
 
-        assert ssh_output == "\n".join([str(i) for i in range(1, 6)]) + "\n"
-        assert bad_ssh_output == ""
+        assert ssh_output == b"\n".join([str(i).encode('utf-8') for i in range(1, 6)]) + b"\n", ssh_output
+        assert bad_ssh_output == b"", bad_ssh_output
 
     @cluster(num_nodes=1)
     def test_ssh_capture(self):
@@ -456,7 +457,7 @@ class RemoteAccountTest(Test):
         cmd = "for i in $(seq 1 5); do echo $i; done"
         ssh_output = node.account.ssh_output(cmd, combine_stderr=False)
 
-        assert ssh_output == "\n".join([str(i) for i in range(1, 6)]) + "\n", ssh_output
+        assert ssh_output == b"\n".join([str(i).encode('utf-8') for i in range(1, 6)]) + b"\n", ssh_output
 
     @cluster(num_nodes=1)
     def test_monitor_log(self):
