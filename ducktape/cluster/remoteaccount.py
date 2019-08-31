@@ -15,6 +15,7 @@
 from contextlib import contextmanager
 import logging
 import os
+import re
 from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
 import shutil
 import signal
@@ -139,10 +140,30 @@ class RemoteAccount(HttpMixin):
         self.os = None
         self._ssh_client = None
         self._sftp_client = None
+        self.machine_type = self._get_machine_type() if externally_routable_ip else None
 
     @property
     def operating_system(self):
         return self.os
+
+    def _get_machine_type(self):
+        cpu_core_cmd = "lscpu | grep -oP '^CPU\(s\):\s*\K\d+'"
+        mem_size_cmd = "cat /proc/meminfo | grep -oP '^MemTotal:\s*\K\d+'"
+        disk_info_cmd = "sudo fdisk -l | grep -oP 'Disk\s+\K/dev/.+GB'"
+        boot_disk_cmd = "mount | grep -E '(/|/boot) ' | grep -oP '/dev/[a-z]+'"
+
+        cpu_core = int(self.ssh_output(cpu_core_cmd))
+        mem_size_gb = float(self.ssh_output(mem_size_cmd)) / (1024 ** 2)
+        disk_info = self.ssh_output(disk_info_cmd).strip()
+        boot_disk = self.ssh_output(boot_disk_cmd).strip()
+        disks = {}
+        for d in disk_info.splitlines():
+            d_name = re.match(r"(/dev/[a-z]+)", d).group(1)
+            d_size = float(re.match(r"/dev/[a-z]+:\s*([\d|\.]+)\s*GB", d).group(1))
+            disks[d_name] = d_size
+        additional_disks = {d: info for d, info in disks.iteritems() if d != boot_disk}
+
+        return MachineType(cpu_core, mem_size_gb, disks[boot_disk], additional_disks)
 
     @property
     def logger(self):
@@ -239,7 +260,7 @@ class RemoteAccount(HttpMixin):
         url = "http://%s:%s%s" % (self.externally_routable_ip, str(port), path)
 
         err_msg = "Timed out trying to contact service on %s. " % url + \
-            "Either the service failed to start, or there is a problem with the url."
+                  "Either the service failed to start, or there is a problem with the url."
         wait_until(lambda: self._can_ping_url(url, headers), timeout_sec=timeout, backoff_sec=.25, err_msg=err_msg)
 
     def _can_ping_url(self, url, headers):
@@ -715,3 +736,33 @@ class IgnoreMissingHostKeyPolicy(MissingHostKeyPolicy):
 
     def missing_host_key(self, client, hostname, key):
         return
+
+
+class MachineType(object):
+    """MachineType represents resource of a machine.
+
+    The resource contains number of cpu cores, memory size, boot disk and additional disks size.
+    Each RemoteAccount has its own MachineType.
+    Each NodeSpec has it own MachineType.
+    Node allocation is based on MachineType between requested NodeSpec and available RemoteAccount.
+    """
+
+    def __init__(self, cpu_core=None, mem_size_gb=None, disk_size_gb=None, additional_disks=None):
+        """
+        :param cpu_core: The number of cpu cores, default to 1
+        :param mem_size_gb: The size of memory in gigabyte, default to 1.0
+        :param disk_size_gb: The size of boot disk in gigabyte, default to 10.0
+        :param additional_disks: The dictionary of additional disks, e.g. {'/dev/sdb':10.0, '/dev/sdc':50.0}
+        """
+        self.cpu_core = cpu_core or 1
+        self.mem_size_gb = mem_size_gb or 1.0
+        self.disk_size_gb = disk_size_gb or 10.0
+        self.additional_disks = additional_disks or {}
+
+    def __repr__(self):
+        return "'cpu':{}, 'mem(GB)':{}, 'disk(GB)':{}, 'additional_disks(GB)':{}" \
+            .format(self.cpu_core, self.mem_size_gb, self.disk_size_gb, self.additional_disks)
+
+    def __str__(self):
+        return "MachineType(cpu core:{}, memory(GB):{}, boot disk(GB):{}, additional disks(GB):{})" \
+            .format(self.cpu_core, self.mem_size_gb, self.disk_size_gb, self.additional_disks)

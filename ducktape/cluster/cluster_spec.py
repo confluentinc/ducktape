@@ -15,8 +15,10 @@
 from __future__ import absolute_import
 
 import json
+import re
 
 from ducktape.cluster.node_container import NodeContainer
+from ducktape.cluster.remoteaccount import MachineType
 
 LINUX = "linux"
 
@@ -30,15 +32,21 @@ class NodeSpec(object):
     The specification for a ducktape cluster node.
 
     :param operating_system:    The operating system of the node.
+    :param machine_type:        The machine type of the node including required resource.
     """
-    def __init__(self, operating_system=LINUX):
+    def __init__(self, operating_system=LINUX, machine_type=None):
         self.operating_system = operating_system
         if self.operating_system not in SUPPORTED_OS_TYPES:
             raise RuntimeError("Unsupported os type %s" % self.operating_system)
+        self.machine_type = machine_type or MachineType()
 
     def __str__(self):
         dict = {
             "os": self.operating_system,
+            "cpu": self.machine_type.cpu_core,
+            "mem": self.machine_type.mem_size_gb,
+            "disk": self.machine_type.disk_size_gb,
+            "additional_disks": self.machine_type.additional_disks
         }
         return json.dumps(dict, sort_keys=True)
 
@@ -57,15 +65,69 @@ class ClusterSpec(object):
         """
         Create a ClusterSpec containing some simple Linux nodes.
         """
-        node_specs = [NodeSpec(LINUX)] * num_nodes
-        return ClusterSpec(node_specs)
+        node_specs_dict = {'os': LINUX, 'num_nodes': num_nodes}
+        return ClusterSpec.from_dict(node_specs_dict)
+
+    @staticmethod
+    def from_dict(node_specs_dict):
+        """
+        Create ClusterSpec from a dict of nodes specifics. Operation system defaults to
+        'linux'. Number of nodes default to 1.
+        e.g. {'os':'linux', 'cpu':2, 'mem':'4GB', 'disk':'30GB', 'additional_disks':{'/dev/sdb':'100GB'}}
+
+        :param node_specs_dict: The dictionary of node specifics
+        :return: ClusterSpec
+        """
+        os = node_specs_dict.get('os', LINUX)
+        cpu_core = node_specs_dict.get('cpu')
+        mem_size = node_specs_dict.get('mem')
+        disk_size = node_specs_dict.get('disk')
+        addl_disks = node_specs_dict.get('additional_disks', {})
+        addl_disks_gb = {d: ClusterSpec.to_gigabyte(d_size) for d, d_size in addl_disks.iteritems()}
+        num_nodes = node_specs_dict.get('num_nodes', 1)
+        return ClusterSpec([NodeSpec(os, MachineType(cpu_core, ClusterSpec.to_gigabyte(mem_size),
+                                     ClusterSpec.to_gigabyte(disk_size), addl_disks_gb)) for _ in range(num_nodes)])
+
+    @staticmethod
+    def from_list(node_specs_dict_list):
+        """
+        Create a ClusterSpec from a list of nodes specifics dictionaries.
+        e.g. [{'cpu':1, 'mem':'500MB', 'disk':'10GB'},
+              {'cpu':2, 'mem':'4GB', 'disk':'30GB', 'num_nodes':2}]
+
+        :param node_specs_dict_list: The list of node specifics dictionaries
+        :return: ClusterSpec
+        """
+        node_specs = []
+        for node_specs_dict in node_specs_dict_list:
+            cluster_spec = ClusterSpec.from_dict(node_specs_dict)
+            node_specs += cluster_spec.nodes
+        return ClusterSpec.from_nodes(node_specs)
+
+    @staticmethod
+    def to_gigabyte(size):
+        """
+        Return number of gigabytes parsing from size.
+
+        :param size: The string representation of size in format of <number+[TB|T|GB|G|MB|M|KB|K]>
+        :return: number of gigabytes
+        """
+        unit_definitions = {'kb': 1024, 'k': 1024,
+                            'mb': 1024 ** 2, 'm': 1024 ** 2,
+                            'gb': 1024 ** 3, 'g': 1024 ** 3,
+                            'tb': 1024 ** 4, 't': 1024 ** 4}
+        m = re.match(r"(\d*\.?\d+|\d+)\s*(\w+)", size.lower(), re.I)
+        number = m.group(1)
+        unit = m.group(2)
+        num_bytes = float(number) * unit_definitions[unit]
+        return num_bytes / unit_definitions['gb']
 
     @staticmethod
     def from_nodes(nodes):
         """
         Create a ClusterSpec describing a list of nodes.
         """
-        return ClusterSpec(ClusterSpec([NodeSpec(node.operating_system) for node in nodes]))
+        return ClusterSpec([NodeSpec(node.operating_system, node.machine_type) for node in nodes])
 
     def __init__(self, nodes=None):
         """
