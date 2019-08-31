@@ -48,7 +48,7 @@ class CheckJsonCluster(object):
         n = 10
         cluster = JsonCluster(
             {"nodes": [
-                {"ssh_config": {"hostname": "localhost%d" % x}} for x in range(n)]})
+                {"ssh_config": {"host": "localhost%d" % x}} for x in range(n)]})
 
         assert len(cluster) == n
 
