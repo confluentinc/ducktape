@@ -17,16 +17,14 @@ import os
 import signal
 import time
 import traceback
-import zmq
 
-from six import iteritems
+import zmq
 
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
+from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.tests.serde import SerDe
 from ducktape.tests.test import test_logger, TestContext
-
-from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
@@ -113,19 +111,11 @@ class RunnerClient(object):
 
             self.log(logging.DEBUG, "Checking if there are enough nodes...")
             min_cluster_spec = self.test.min_cluster_spec()
-            os_to_num_nodes = {}
-            for node_spec in min_cluster_spec:
-                if not os_to_num_nodes.get(node_spec.operating_system):
-                    os_to_num_nodes[node_spec.operating_system] = 1
-                else:
-                    os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
-            for (operating_system, node_count) in iteritems(os_to_num_nodes):
-                num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
-                if node_count > num_avail:
-                    raise RuntimeError(
-                        "There are not enough nodes available in the cluster to run this test. "
-                        "Cluster size for %s: %d, Need at least: %d. Services currently registered: %s" %
-                        (operating_system, num_avail, node_count, self.test_context.services))
+
+            # Check test resource
+            msg = self.cluster.all().nodes.attempt_remove_spec(min_cluster_spec)
+            if len(msg) > 0:
+                raise RuntimeError("There are not enough nodes available in the cluster to run this test. " + msg)
 
             # Run the test unit
             start_time = time.time()
