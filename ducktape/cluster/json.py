@@ -90,9 +90,8 @@ class JsonCluster(Cluster):
                     "Cluster json has a node without a ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
 
                 ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
-                remote_account = JsonCluster.make_remote_account(ssh_config, ninfo.get("externally_routable_ip"))
-                if remote_account.externally_routable_ip is None:
-                    remote_account.externally_routable_ip = self._externally_routable_ip(remote_account)
+                externally_routable_ip = ninfo.get("externally_routable_ip", "NOT_FOUND")
+                remote_account = JsonCluster.make_remote_account(ssh_config, externally_routable_ip)
                 self._available_accounts.add_node(remote_account)
         except BaseException as e:
             msg = "JSON cluster definition invalid: %s: %s" % (e, traceback.format_exc(limit=16))
@@ -123,9 +122,6 @@ class JsonCluster(Cluster):
         self._in_use_nodes.remove_node(node)
         self._available_accounts.add_node(node.account)
         node.account.close()
-
-    def _externally_routable_ip(self, account):
-        return None
 
     def available(self):
         return ClusterSpec.from_nodes(self._available_accounts)
