@@ -76,7 +76,9 @@ class Service(TemplateRenderer):
         self.context = context
 
         self.nodes = []
-        self.allocate_nodes()
+        self.skip_nodes_allocation = kwargs.get("skip_nodes_allocation", False)
+        if not self.skip_nodes_allocation:
+            self.allocate_nodes()
 
         # Keep track of which nodes nodes were allocated to this service, even after nodes are freed
         # Note: only keep references to representations of the nodes, not the actual node objects themselves
