@@ -44,9 +44,9 @@ class NodeSpec(object):
         dict = {
             "os": self.operating_system,
             "cpu": self.machine_type.cpu_core,
-            "mem": self.machine_type.mem_size_gb,
-            "disk": self.machine_type.disk_size_gb,
-            "additional_disks": self.machine_type.additional_disks
+            "mem(GB)": self.machine_type.mem_size_gb,
+            "disk(GB)": self.machine_type.disk_size_gb,
+            "additional_disks(GB)": self.machine_type.additional_disks
         }
         return json.dumps(dict, sort_keys=True)
 
@@ -80,13 +80,12 @@ class ClusterSpec(object):
         """
         os = node_specs_dict.get('os', LINUX)
         cpu_core = node_specs_dict.get('cpu')
-        mem_size = node_specs_dict.get('mem')
-        disk_size = node_specs_dict.get('disk')
+        mem_size = ClusterSpec.to_gigabyte(node_specs_dict['mem']) if 'mem' in node_specs_dict else None
+        disk_size = ClusterSpec.to_gigabyte(node_specs_dict['disk']) if 'disk' in node_specs_dict else None
         addl_disks = node_specs_dict.get('additional_disks', {})
         addl_disks_gb = {d: ClusterSpec.to_gigabyte(d_size) for d, d_size in addl_disks.iteritems()}
         num_nodes = node_specs_dict.get('num_nodes', 1)
-        return ClusterSpec([NodeSpec(os, MachineType(cpu_core, ClusterSpec.to_gigabyte(mem_size),
-                                     ClusterSpec.to_gigabyte(disk_size), addl_disks_gb)) for _ in range(num_nodes)])
+        return ClusterSpec([NodeSpec(os, MachineType(cpu_core, mem_size, disk_size, addl_disks_gb)) for _ in range(num_nodes)])
 
     @staticmethod
     def from_list(node_specs_dict_list):

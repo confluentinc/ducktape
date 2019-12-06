@@ -15,6 +15,7 @@
 from ducktape.cluster.cluster_spec import LINUX
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.cluster.node_container import InsufficientResourcesError, NodeNotPresentError
+from ducktape.cluster.remoteaccount import MachineType
 from ducktape.services.service import Service
 import pickle
 import pytest
@@ -24,6 +25,10 @@ class MockFiniteSubclusterNode:
     @property
     def operating_system(self):
         return LINUX
+
+    @property
+    def machine_type(self):
+        return MachineType()
 
 
 class CheckFiniteSubcluster(object):

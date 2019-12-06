@@ -146,24 +146,31 @@ class RemoteAccount(HttpMixin):
     def operating_system(self):
         return self.os
 
+    @property
+    def machine_type(self):
+        return self.machine_type
+
     def _get_machine_type(self):
         cpu_core_cmd = "lscpu | grep -oP '^CPU\(s\):\s*\K\d+'"
         mem_size_cmd = "cat /proc/meminfo | grep -oP '^MemTotal:\s*\K\d+'"
         disk_info_cmd = "sudo fdisk -l | grep -oP 'Disk\s+\K/dev/.+GB'"
         boot_disk_cmd = "mount | grep -E '(/|/boot) ' | grep -oP '/dev/[a-z]+'"
 
-        cpu_core = int(self.ssh_output(cpu_core_cmd))
-        mem_size_gb = float(self.ssh_output(mem_size_cmd)) / (1024 ** 2)
-        disk_info = self.ssh_output(disk_info_cmd).strip()
-        boot_disk = self.ssh_output(boot_disk_cmd).strip()
-        disks = {}
-        for d in disk_info.splitlines():
-            d_name = re.match(r"(/dev/[a-z]+)", d).group(1)
-            d_size = float(re.match(r"/dev/[a-z]+:\s*([\d|\.]+)\s*GB", d).group(1))
-            disks[d_name] = d_size
-        additional_disks = {d: info for d, info in disks.iteritems() if d != boot_disk}
-
-        return MachineType(cpu_core, mem_size_gb, disks[boot_disk], additional_disks)
+        try:
+            cpu_core = int(self.ssh_output(cpu_core_cmd))
+            mem_size_gb = float(self.ssh_output(mem_size_cmd)) / (1024 ** 2)
+            disk_info = self.ssh_output(disk_info_cmd).strip()
+            boot_disk = self.ssh_output(boot_disk_cmd).strip()
+            disks = {}
+            for d in disk_info.splitlines():
+                d_name = re.match(r"(/dev/[a-z]+)", d).group(1)
+                d_size = float(re.match(r"/dev/[a-z]+:\s*([\d|\.]+)\s*GB", d).group(1))
+                disks[d_name] = d_size
+            additional_disks = {d: info for d, info in disks.iteritems() if d != boot_disk}
+            return MachineType(cpu_core, mem_size_gb, disks[boot_disk], additional_disks)
+        except SSHException as e:
+            self._log(logging.WARN, "cannot read machine type via ssh, uses default: %s" % str(e))
+            return MachineType()
 
     @property
     def logger(self):
@@ -747,17 +754,22 @@ class MachineType(object):
     Node allocation is based on MachineType between requested NodeSpec and available RemoteAccount.
     """
 
+    DEFAULT_CPU_CORE = 0
+    DEFAULT_MEM_SIZE = 0
+    DEFAULT_DISK_SIZE = 0
+    DEFAULT_ADDITIONAL_DISKS = {}
+
     def __init__(self, cpu_core=None, mem_size_gb=None, disk_size_gb=None, additional_disks=None):
         """
-        :param cpu_core: The number of cpu cores, default to 1
-        :param mem_size_gb: The size of memory in gigabyte, default to 1.0
-        :param disk_size_gb: The size of boot disk in gigabyte, default to 10.0
+        :param cpu_core: The number of cpu cores, default to 0
+        :param mem_size_gb: The size of memory in gigabyte, default to 0
+        :param disk_size_gb: The size of boot disk in gigabyte, default to 0
         :param additional_disks: The dictionary of additional disks, e.g. {'/dev/sdb':10.0, '/dev/sdc':50.0}
         """
-        self.cpu_core = cpu_core or 1
-        self.mem_size_gb = mem_size_gb or 1.0
-        self.disk_size_gb = disk_size_gb or 10.0
-        self.additional_disks = additional_disks or {}
+        self.cpu_core = cpu_core or DEFAULT_CPU_CORE
+        self.mem_size_gb = mem_size_gb or DEFAULT_MEM_SIZE
+        self.disk_size_gb = disk_size_gb or DEFAULT_DISK_SIZE
+        self.additional_disks = additional_disks or DEFAULT_ADDITIONAL_DISKS
 
     def __repr__(self):
         return "'cpu':{}, 'mem(GB)':{}, 'disk(GB)':{}, 'additional_disks(GB)':{}" \
