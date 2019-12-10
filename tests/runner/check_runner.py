@@ -65,7 +65,7 @@ class CheckRunner(object):
 
     def check_simple_run(self):
         """Check expected behavior when running a single test."""
-        mock_cluster = LocalhostCluster(num_nodes=1000)
+        mock_cluster = LocalhostCluster(num_nodes=1000, is_type_based=False)
         session_context = tests.ducktape_mock.session_context()
 
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2]
@@ -86,7 +86,7 @@ class CheckRunner(object):
         """Confirm that exit_first in session context has desired effect of preventing any tests from running
         after the first test failure.
         """
-        mock_cluster = LocalhostCluster(num_nodes=1000)
+        mock_cluster = LocalhostCluster(num_nodes=1000, is_type_based=False)
         session_context = tests.ducktape_mock.session_context(**{"exit_first": True})
 
         test_methods = [FailingTest.test_fail]
@@ -100,7 +100,7 @@ class CheckRunner(object):
     def check_exits_if_failed_to_initialize(self):
         """Validate that runner exits correctly when tests failed to initialize.
         """
-        mock_cluster = LocalhostCluster(num_nodes=1000)
+        mock_cluster = LocalhostCluster(num_nodes=1000, is_type_based=False)
         session_context = tests.ducktape_mock.session_context()
 
         ctx_list = self._do_expand(test_file=FAILS_TO_INIT_TEST_FILE, test_class=FailsToInitTest,

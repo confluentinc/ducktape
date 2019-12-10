@@ -18,7 +18,7 @@ from ducktape.cluster.node_container import NodeContainer
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test import TestContext
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
-from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
+from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig, MachineType
 from mock import MagicMock
 
 
@@ -35,6 +35,9 @@ class FakeClusterNode(object):
     def operating_system(self):
         return LINUX
 
+    @property
+    def machine_type(self):
+        return MachineType()
 
 class FakeCluster(Cluster):
     """A cluster class with counters, but no actual node objects"""
@@ -95,4 +98,4 @@ class MockAccount(LinuxRemoteAccount):
             hostname="localhost",
             port=22)
 
-        super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None)
+        super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", is_type_based=False, logger=None)

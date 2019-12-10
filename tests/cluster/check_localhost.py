@@ -20,13 +20,13 @@ import pickle
 
 class CheckLocalhostCluster(object):
     def setup_method(self, _):
-        self.cluster = LocalhostCluster()
+        self.cluster = LocalhostCluster(is_type_based=False)
 
     def check_size(self):
         len(self.cluster) >= 2 ** 31 - 1
 
     def check_pickleable(self):
-        cluster = LocalhostCluster()
+        cluster = LocalhostCluster(is_type_based=False)
         pickle.dumps(cluster)
 
     def check_request_free(self):
