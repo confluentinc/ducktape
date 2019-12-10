@@ -28,10 +28,11 @@ class LocalhostCluster(Cluster):
 
     def __init__(self, *args, **kwargs):
         num_nodes = kwargs.get("num_nodes", 1000)
+        is_type_based = kwargs.get("is_type_based", True)
         self._available_nodes = NodeContainer()
         for i in range(num_nodes):
             ssh_config = RemoteAccountSSHConfig("localhost%d" % i, hostname="localhost", port=22)
-            self._available_nodes.add_node(ClusterNode(LinuxRemoteAccount(ssh_config)))
+            self._available_nodes.add_node(ClusterNode(LinuxRemoteAccount(ssh_config=ssh_config, is_type_based=is_type_based)))
         self._in_use_nodes = NodeContainer()
 
     def alloc(self, cluster_spec):

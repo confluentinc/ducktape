@@ -29,6 +29,10 @@ class ClusterNode(object):
     def operating_system(self):
         return self.account.operating_system
 
+    @property
+    def machine_type(self):
+        return self.account.machine_type
+
 
 class Cluster(object):
     """ Interface for a cluster -- a collection of nodes with login credentials.

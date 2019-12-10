@@ -37,6 +37,7 @@ class VagrantCluster(JsonCluster):
         self._is_aws = None
         is_read_from_file = False
 
+        is_type_based = kwargs.get("is_type_based", True)
         cluster_file = kwargs.get("cluster_file")
         if cluster_file is not None:
             try:
@@ -51,7 +52,7 @@ class VagrantCluster(JsonCluster):
                 "nodes": self._get_nodes_from_vagrant()
             }
 
-        super(VagrantCluster, self).__init__(cluster_json)
+        super(VagrantCluster, self).__init__(cluster_json, is_type_based=is_type_based)
 
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
@@ -82,7 +83,7 @@ class VagrantCluster(JsonCluster):
 
             account = None
             try:
-                account = JsonCluster.make_remote_account(ssh_config)
+                account = JsonCluster.make_remote_account(ssh_config, False)
                 externally_routable_ip = account.fetch_externally_routable_ip(self.is_aws)
             finally:
                 if account:
