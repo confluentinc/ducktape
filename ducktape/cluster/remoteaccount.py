@@ -111,6 +111,13 @@ class RemoteCommandError(RemoteAccountError):
         return msg
 
 
+class OwnedLoggerAdapter(logging.LoggerAdapter):
+    """Prepends the owner name to the log messages."""
+
+    def process(self, msg, kwargs):
+        return '%s: %s' % (self.extra['owner'], msg), kwargs
+
+
 class RemoteAccount(HttpMixin):
     """RemoteAccount is the heart of interaction with cluster nodes,
     and every allocated cluster node has a reference to an instance of RemoteAccount.
@@ -146,24 +153,21 @@ class RemoteAccount(HttpMixin):
 
     @property
     def logger(self):
-        if self._logger:
-            return self._logger
-        else:
-            return logging.getLogger(__name__)
+        if self._logger is None:
+            self.logger = logging.getLogger(__name__)
+        return self._logger
 
     @logger.setter
-    def logger(self, logger):
-        self._logger = logger
-
-    def _log(self, level, msg, *args, **kwargs):
-        msg = "%s: %s" % (str(self), msg)
-        self.logger.log(level, msg, *args, **kwargs)
+    def logger(self, _logger):
+        if _logger is not None:
+            _logger = OwnedLoggerAdapter(_logger, {'owner': self})
+        self._logger = _logger
 
     def _set_ssh_client(self):
         client = SSHClient()
         client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
 
-        self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
+        self.logger.debug("ssh_config: %s", self.ssh_config)
 
         client.connect(
             hostname=self.ssh_config.hostname,
@@ -186,8 +190,8 @@ class RemoteAccount(HttpMixin):
             try:
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
-            except Exception as e:
-                self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
+            except:
+                self.logger.debug("exception getting ssh_client (creating new client)", exc_info=True)
                 self._set_ssh_client()
         else:
             self._set_ssh_client()
@@ -260,28 +264,9 @@ class RemoteAccount(HttpMixin):
         :return: The exit status of the command.
         :raise RemoteCommandError: If allow_fail is False and the command returns a non-zero exit status
         """
-        self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
-
-        client = self.ssh_client
-        stdin, stdout, stderr = client.exec_command(cmd)
-
-        # Unfortunately we need to read over the channel to ensure that recv_exit_status won't hang. See:
-        # http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.recv_exit_status
-        stdout.read()
-        exit_status = stdout.channel.recv_exit_status()
-        try:
-            if exit_status != 0:
-                if not allow_fail:
-                    raise RemoteCommandError(self, cmd, exit_status, stderr.read())
-                else:
-                    self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
-                              (cmd, exit_status, stderr.read()))
-        finally:
-            stdin.close()
-            stdout.close()
-            stderr.close()
-
-        return exit_status
+        ssh_iter = self.ssh_capture(cmd, allow_fail=allow_fail)
+        list(ssh_iter)
+        return ssh_iter.exit_status()
 
     def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
@@ -300,7 +285,7 @@ class RemoteAccount(HttpMixin):
         :return SSHOutputIter: object which allows iteration through each line of output.
         :raise RemoteCommandError: If ``allow_fail`` is False and the command returns a non-zero exit status
         """
-        self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
+        self.logger.debug("Running ssh command: %s" % cmd)
 
         client = self.ssh_client
         chan = client.get_transport().open_session(timeout=timeout_sec)
@@ -313,28 +298,31 @@ class RemoteAccount(HttpMixin):
         stdout = chan.makefile('r', -1)
         stderr = chan.makefile_stderr('r', -1)
 
+        exit_status = [None]
+
         def output_generator():
 
             for line in iter(stdout.readline, ''):
+                self.logger.debug(line)
 
                 if callback is None:
                     yield line
                 else:
                     yield callback(line)
             try:
-                exit_status = stdout.channel.recv_exit_status()
-                if exit_status != 0:
+                exit_status[0] = stdout.channel.recv_exit_status()
+                if exit_status[0] != 0:
                     if not allow_fail:
                         raise RemoteCommandError(self, cmd, exit_status, stderr.read())
                     else:
-                        self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
-                                  (cmd, exit_status, stderr.read()))
+                        self.logger.debug("Running ssh command '%s' exited with status %d and message: %s",
+                                          cmd, exit_status[0], stderr.read())
             finally:
                 stdin.close()
                 stdout.close()
                 stderr.close()
 
-        return SSHOutputIter(output_generator, stdout)
+        return SSHOutputIter(output_generator, stdout, lambda: exit_status[0])
 
     def ssh_output(self, cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
         """Runs the command via SSH and captures the output, returning it as a string.
@@ -349,34 +337,7 @@ class RemoteAccount(HttpMixin):
         :return: The stdout output from the ssh command.
         :raise RemoteCommandError: If ``allow_fail`` is False and the command returns a non-zero exit status
         """
-        self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
-
-        client = self.ssh_client
-        chan = client.get_transport().open_session(timeout=timeout_sec)
-
-        chan.settimeout(timeout_sec)
-        chan.exec_command(cmd)
-        chan.set_combine_stderr(combine_stderr)
-
-        stdin = chan.makefile('wb', -1)  # set bufsize to -1
-        stdout = chan.makefile('r', -1)
-        stderr = chan.makefile_stderr('r', -1)
-
-        try:
-            stdoutdata = stdout.read()
-            exit_status = stdin.channel.recv_exit_status()
-            if exit_status != 0:
-                if not allow_fail:
-                    raise RemoteCommandError(self, cmd, exit_status, stderr.read())
-                else:
-                    self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
-                              (cmd, exit_status, stderr.read()))
-        finally:
-            stdin.close()
-            stdout.close()
-            stderr.close()
-
-        return stdoutdata
+        return ''.join(self.ssh_capture(cmd, allow_fail=allow_fail, combine_stderr=combine_stderr, timeout_sec=timeout_sec))
 
     def alive(self, pid):
         """Return True if and only if process with given pid is alive."""
@@ -495,6 +456,7 @@ class RemoteAccount(HttpMixin):
             dest = self._re_anchor_basename(src, dest)
 
         if self.isfile(src):
+            self.logger.debug("copying remote file %s to %s", src, dest)
             self.sftp_client.get(src, dest)
         elif self.isdir(src):
             # we can now assume dest path looks like: path_that_exists/new_directory
@@ -523,6 +485,7 @@ class RemoteAccount(HttpMixin):
 
         if os.path.isfile(src):
             # local to remote
+            self.logger.debug("copying local file %s to %s", src, dest)
             self.sftp_client.put(src, dest)
         elif os.path.isdir(src):
             # we can now assume dest path looks like: path_that_exists/new_directory
@@ -585,12 +548,13 @@ class RemoteAccount(HttpMixin):
         """
         # TODO: what should semantics be if path exists? what actually happens if it already exists?
         # TODO: what happens if the base part of the path does not exist?
+        self.logger.debug("Creating remote file %s with contents %s", path, contents)
         with self.sftp_client.open(path, "w") as f:
             f.write(contents)
 
     _DEFAULT_PERMISSIONS = int('755', 8)
     def mkdir(self, path, mode=_DEFAULT_PERMISSIONS):
-
+        self.logger.debug("Making remote directory %s (mode=%d)", path, mode)
         self.sftp_client.mkdir(path, mode)
 
     def mkdirs(self, path, mode=_DEFAULT_PERMISSIONS):
@@ -629,7 +593,7 @@ class SSHOutputIter(object):
     """Helper class that wraps around an iterable object to provide has_next() in addition to next()
     """
 
-    def __init__(self, iter_obj_func, channel_file=None):
+    def __init__(self, iter_obj_func, channel_file=None, get_exit_status=None):
         """
         :param iter_obj_func: A generator that returns an iterator over stdout from the remote process
         :param channel_file: A paramiko ``ChannelFile`` object
@@ -637,6 +601,7 @@ class SSHOutputIter(object):
         self.iter_obj_func = iter_obj_func
         self.iter_obj = iter_obj_func()
         self.channel_file = channel_file
+        self._get_exit_status = get_exit_status
 
         # sentinel is used as an indicator that there is currently nothing cached
         # If self.cached is self.sentinel, then next object from ier_obj is not yet cached.
@@ -654,6 +619,12 @@ class SSHOutputIter(object):
         return next_obj
 
     __next__ = next
+
+    def exit_status(self):
+        status = self._get_exit_status()
+        if status is None:
+            raise Exception("cannot get exit status on still-running SSH command")
+        return status
 
     def has_next(self, timeout_sec=None):
         """Return True if next(iter_obj) would return another object within timeout_sec, else False.
