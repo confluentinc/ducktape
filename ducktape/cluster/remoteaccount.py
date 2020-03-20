@@ -153,8 +153,8 @@ class RemoteAccount(HttpMixin):
 
     @property
     def logger(self):
-        if self._logger is None:
-            self.logger = logging.getLogger(__name__)
+        if not self._logger:
+            self._logger = logging.getLogger(__name__)
         return self._logger
 
     @logger.setter
