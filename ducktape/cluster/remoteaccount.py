@@ -313,7 +313,7 @@ class RemoteAccount(HttpMixin):
                 exit_status[0] = stdout.channel.recv_exit_status()
                 if exit_status[0] != 0:
                     if not allow_fail:
-                        raise RemoteCommandError(self, cmd, exit_status, stderr.read())
+                        raise RemoteCommandError(self, cmd, exit_status[0], stderr.read())
                     else:
                         self.logger.debug("Running ssh command '%s' exited with status %d and message: %s",
                                           cmd, exit_status[0], stderr.read())
