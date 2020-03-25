@@ -70,7 +70,7 @@ def create_ducktape_parser():
                         help="URL of a JSON report file containing stats from a previous test run. If specified, "
                              "this will be used when creating subsets of tests to divide evenly by total run time "
                              "instead of by number of tests.")
-    parser.add_argument("--sample", action="store", type="int",
+    parser.add_argument("--sample", action="store", type=int,
                         help="The size of a random test sample to run")
     return parser
 
