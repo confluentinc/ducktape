@@ -264,7 +264,7 @@ class RemoteAccount(HttpMixin):
         :return: The exit status of the command.
         :raise RemoteCommandError: If allow_fail is False and the command returns a non-zero exit status
         """
-        ssh_iter = self.ssh_capture(cmd, allow_fail=allow_fail)
+        ssh_iter = self.ssh_capture(cmd, allow_fail=allow_fail, combine_stderr=False)
         list(ssh_iter)
         return ssh_iter.exit_status()
 
@@ -311,12 +311,13 @@ class RemoteAccount(HttpMixin):
                     yield callback(line)
             try:
                 exit_status[0] = stdout.channel.recv_exit_status()
+                err_msg = stderr.read()
                 if exit_status[0] != 0:
                     if not allow_fail:
-                        raise RemoteCommandError(self, cmd, exit_status[0], stderr.read())
+                        raise RemoteCommandError(self, cmd, exit_status[0], err_msg)
                     else:
                         self.logger.debug("Running ssh command '%s' exited with status %d and message: %s",
-                                          cmd, exit_status[0], stderr.read())
+                                          cmd, exit_status[0], err_msg)
             finally:
                 stdin.close()
                 stdout.close()
