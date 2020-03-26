@@ -170,7 +170,8 @@ def main():
             tests = random.sample(tests, args_dict["sample"])
         except ValueError as e:
             if args_dict["sample"] > len(tests):
-                print("sample size %d greater than number of tests %d; running all tests" % (args_dict["sample"], len(tests)))
+                print("sample size %d greater than number of tests %d; running all tests" % (
+                    args_dict["sample"], len(tests)))
             else:
                 print("invalid sample size (%s), running all tests" % e)
 
