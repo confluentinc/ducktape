@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from contextlib import contextmanager
+from functools import partial
 import logging
 import os
 from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
@@ -268,7 +269,7 @@ class RemoteAccount(HttpMixin):
         list(ssh_iter)
         return ssh_iter.exit_status()
 
-    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
+    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None, log_limit=(5 * 2 ** 32)):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
 
         Does *not* block
@@ -281,6 +282,7 @@ class RemoteAccount(HttpMixin):
         :param combine_stderr: If True, return output from both stderr and stdout of the remote process.
         :param timeout_sec: Set timeout on blocking reads/writes. Default None. For more details see
             http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.settimeout
+        :param log_limit: Set the limit, in characters, of stdout logged.
 
         :return SSHOutputIter: object which allows iteration through each line of output.
         :raise RemoteCommandError: If ``allow_fail`` is False and the command returns a non-zero exit status
@@ -300,10 +302,15 @@ class RemoteAccount(HttpMixin):
 
         exit_status = [None]
 
-        def output_generator():
+        def output_generator(log_limit):
 
             for line in iter(stdout.readline, ''):
-                self.logger.debug(line)
+                truncate = len(line) > log_limit
+                if log_limit > 0:
+                    self.logger.debug(line[:log_limit])
+                    if truncate:
+                        self.logger.info("stdout limit reached. truncating logs")
+                log_limit -= len(line)
 
                 if callback is None:
                     yield line
@@ -323,7 +330,7 @@ class RemoteAccount(HttpMixin):
                 stdout.close()
                 stderr.close()
 
-        return SSHOutputIter(output_generator, stdout, lambda: exit_status[0])
+        return SSHOutputIter(partial(output_generator, log_limit), stdout, lambda: exit_status[0])
 
     def ssh_output(self, cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
         """Runs the command via SSH and captures the output, returning it as a string.
