@@ -28,6 +28,7 @@ from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
 
+MEGABYTES = 2 ** 20
 
 class RemoteAccountSSHConfig(object):
     def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
@@ -269,7 +270,7 @@ class RemoteAccount(HttpMixin):
         list(ssh_iter)
         return ssh_iter.exit_status()
 
-    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None, log_limit=(5 * 2 ** 20)):
+    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None, log_limit=5 * MEGABYTES):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
 
         Does *not* block
