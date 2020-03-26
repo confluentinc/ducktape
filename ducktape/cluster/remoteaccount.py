@@ -269,7 +269,7 @@ class RemoteAccount(HttpMixin):
         list(ssh_iter)
         return ssh_iter.exit_status()
 
-    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None, log_limit=(5 * 2 ** 32)):
+    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None, log_limit=(5 * 2 ** 20)):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
 
         Does *not* block
