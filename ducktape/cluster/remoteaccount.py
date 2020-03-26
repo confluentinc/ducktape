@@ -310,7 +310,7 @@ class RemoteAccount(HttpMixin):
                     self.logger.debug(line[:log_limit])
                     if truncate:
                         self.logger.info("stdout limit reached. truncating logs")
-                log_limit -= len(line)
+                    log_limit -= len(line)
 
                 if callback is None:
                     yield line
