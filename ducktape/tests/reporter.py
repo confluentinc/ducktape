@@ -25,6 +25,7 @@ from ducktape.utils.util import ducktape_version
 from ducktape.tests.status import PASS, FAIL, IGNORE
 from ducktape.json_serializable import DucktapeJSONEncoder
 
+from jinja2 import Template
 
 DEFAULT_SEPARATOR_WIDTH = 100
 
@@ -225,7 +226,7 @@ class HTMLSummaryReporter(SummaryReporter):
             'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE]])
         }
 
-        html = template % args
+        html = Template(template).render(**args)
         report_html = os.path.join(self.results.session_context.results_dir, "report.html")
         with open(report_html, "wb") as fp:
             fp.write(html)
