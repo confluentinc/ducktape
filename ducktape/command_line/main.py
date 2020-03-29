@@ -17,6 +17,7 @@ from __future__ import print_function
 import importlib
 import json
 import os
+import random
 from six import iteritems
 import sys
 import traceback
@@ -162,6 +163,17 @@ def main():
         for test in tests:
             print("    " + str(test))
         sys.exit(0)
+
+    if args_dict["sample"]:
+        print("Running a sample of %d tests" % args_dict["sample"])
+        try:
+            tests = random.sample(tests, args_dict["sample"])
+        except ValueError as e:
+            if args_dict["sample"] > len(tests):
+                print("sample size %d greater than number of tests %d; running all tests" % (
+                    args_dict["sample"], len(tests)))
+            else:
+                print("invalid sample size (%s), running all tests" % e)
 
     # Initializing the cluster is slow, so do so only if
     # tests are sure to be run
