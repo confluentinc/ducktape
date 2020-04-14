@@ -190,7 +190,7 @@ class HTMLSummaryReporter(SummaryReporter):
         return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
     def format_report(self):
-        template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
+        template = pkg_resources.resource_string(__name__, '../templates/report/report.html').decode('utf-8')
 
         num_tests = len(self.results)
         num_passes = 0
@@ -227,7 +227,7 @@ class HTMLSummaryReporter(SummaryReporter):
 
         html = template % args
         report_html = os.path.join(self.results.session_context.results_dir, "report.html")
-        with open(report_html, "wb") as fp:
+        with open(report_html, "w") as fp:
             fp.write(html)
             fp.close()
 

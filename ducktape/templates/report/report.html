@@ -173,23 +173,23 @@
       });
 
       SUMMARY=[{
-        "tests": {{num_tests}},
-        "passes": {{num_passes}},
-        "failures": {{num_failures}},
-        "ignored": {{num_ignored}},
-        "run_time": '{{run_time}}'
+        "tests": %(num_tests)d,
+        "passes": %(num_passes)d,
+        "failures": %(num_failures)d,
+        "ignored": %(num_ignored)d,
+        "run_time": '%(run_time)s'
       }];
       
       HEADING={
-        "ducktape_version": '{{ducktape_version}}',
-        "session": '{{session}}'
+        "ducktape_version": '%(ducktape_version)s',
+        "session": '%(session)s'
       };
 
-      COLOR_KEYS=[{{test_status_names}}];
+      COLOR_KEYS=[%(test_status_names)s];
 
-      PASSED_TESTS=[{{passed_tests}}];
-      FAILED_TESTS=[{{failed_tests}}];
-      IGNORED_TESTS=[{{ignored_tests}}];
+      PASSED_TESTS=[%(passed_tests)s];
+      FAILED_TESTS=[%(failed_tests)s];
+      IGNORED_TESTS=[%(ignored_tests)s];
 
       React.render(<Heading heading={HEADING}/>, document.getElementById('heading'));
       React.render(<ColorKeyPanel test_status_names={COLOR_KEYS}/>, document.getElementById('color_key_panel'));
