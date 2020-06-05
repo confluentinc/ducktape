@@ -23,6 +23,8 @@ from tests.runner.resources.test_fails_to_init import FailsToInitTest
 from tests.runner.resources.test_fails_to_init_in_setup import FailsToInitInSetupTest
 from .resources.test_thingy import TestThingy
 from .resources.test_failing_tests import FailingTest
+from ducktape.tests.reporter import XUnitReporter
+
 
 from mock import Mock
 import os
@@ -68,19 +70,32 @@ class CheckRunner(object):
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
 
-        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2]
+        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
                                    cluster=mock_cluster, session_context=session_context)
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
 
         results = runner.run_all_tests()
-        assert len(results) == 3
-        assert results.num_failed == 0
+        assert len(results) == 4
+        assert results.num_failed == 1
         assert results.num_passed == 1
         assert results.num_ignored == 2
 
         result_with_data = [r for r in results if r.data is not None][0]
         assert result_with_data.data == {"data": 3.14159}
+
+    def check_runner_report_xunit(self):
+        """Check we can serialize results into a xunit xml format"""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+
+        results = runner.run_all_tests()
+        XUnitReporter(results).report()
+        assert os.path.exists(os.path.join(session_context.results_dir, "report.xml"))
 
     def check_exit_first(self):
         """Confirm that exit_first in session context has desired effect of preventing any tests from running
