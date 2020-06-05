@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import importlib
 import json
 import os
+import random
+from six import iteritems
 import sys
 import traceback
 
@@ -73,7 +77,7 @@ def get_user_defined_globals(globals_str):
             # try parsing directly as json if it doesn't seem to be a file
             user_globals = json.loads(globals_str)
         except ValueError as ve:
-            message = ve.message
+            message = str(ve)
             message += "\nglobals parameter %s is neither valid JSON nor a valid path to a JSON file." % globals_str
             raise ValueError(message)
 
@@ -124,7 +128,7 @@ def main():
         try:
             injected_args = json.loads(args_dict["parameters"])
         except ValueError as e:
-            print "parameters are not valid json: " + str(e.message)
+            print("parameters are not valid json: " + str(e))
             sys.exit(1)
 
     args_dict["globals"] = get_user_defined_globals(args_dict.get("globals"))
@@ -141,7 +145,7 @@ def main():
 
     session_context = SessionContext(session_id=session_id, results_dir=results_dir, **args_dict)
     session_logger = SessionLoggerMaker(session_context).logger
-    for k, v in args_dict.iteritems():
+    for k, v in iteritems(args_dict):
         session_logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run
@@ -151,14 +155,25 @@ def main():
     try:
         tests = loader.load(args_dict["test_path"])
     except LoaderException as e:
-        print "Failed while trying to discover tests: {}".format(e)
+        print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
 
     if args_dict["collect_only"]:
-        print "Collected %d tests:" % len(tests)
+        print("Collected %d tests:" % len(tests))
         for test in tests:
-            print "    " + str(test)
+            print("    " + str(test))
         sys.exit(0)
+
+    if args_dict["sample"]:
+        print("Running a sample of %d tests" % args_dict["sample"])
+        try:
+            tests = random.sample(tests, args_dict["sample"])
+        except ValueError as e:
+            if args_dict["sample"] > len(tests):
+                print("sample size %d greater than number of tests %d; running all tests" % (
+                    args_dict["sample"], len(tests)))
+            else:
+                print("invalid sample size (%s), running all tests" % e)
 
     # Initializing the cluster is slow, so do so only if
     # tests are sure to be run
@@ -172,8 +187,8 @@ def main():
             # only after test context objects have been instantiated
             ctx.cluster = cluster
     except Exception:
-        print "Failed to load cluster: ", str(sys.exc_info()[0])
-        print traceback.format_exc(limit=16)
+        print("Failed to load cluster: ", str(sys.exc_info()[0]))
+        print(traceback.format_exc(limit=16))
         sys.exit(1)
 
     # Run the tests

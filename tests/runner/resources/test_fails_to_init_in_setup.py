@@ -12,19 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 from ducktape.tests.test import Test
 from ducktape.mark import matrix
 
 """All tests in this module fail"""
 
 
-class FailingTest(Test):
+class FailsToInitInSetupTest(Test):
+    """All tests in this class fail to initialize due to an exception in setUp() method
+    """
     def __init__(self, test_context):
-        super(FailingTest, self).__init__(test_context)
+        super(FailsToInitInSetupTest, self).__init__(test_context)
+
+    def setUp(self):
+        x = None
+        x.split(':')
 
     @matrix(x=[_ for _ in range(2)])
-    def test_fail(self, x):
-        print("Test %s fails!" % x)
-        raise RuntimeError("This test throws an error!")
+    def test_nothing(self):
+        self.logger.info('NOTHING')

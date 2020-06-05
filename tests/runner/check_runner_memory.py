@@ -19,9 +19,9 @@ from ducktape.cluster.localhost import LocalhostCluster
 from .resources.test_memory_leak import MemoryLeakTest
 
 import math
-from memory_profiler import _get_memory
+from memory_profiler import memory_usage
 import os
-import Queue
+from six.moves import queue
 import statistics
 from statistics import mean
 
@@ -54,7 +54,7 @@ class InstrumentedTestRunner(TestRunner):
     def _run_single_test(self, test_context):
         # write current memory usage to file before running the test
         pid = os.getpid()
-        current_memory = _get_memory(pid)
+        current_memory = memory_usage(pid)[0]
         self.queue.put(current_memory)
 
         super(InstrumentedTestRunner, self)._run_single_test(test_context)
@@ -86,13 +86,13 @@ class CheckMemoryUsage(object):
                                                    file=MEMORY_LEAK_TEST_FILE, cluster=self.cluster).expand())
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
-        queue = Queue.Queue()
-        runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, queue=queue)
+        q = queue.Queue()
+        runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, queue=q)
         runner.run_all_tests()
 
         measurements = []
-        while not queue.empty():
-            measurements.append(queue.get())
+        while not q.empty():
+            measurements.append(q.get())
         self.validate_memory_measurements(measurements)
 
     def validate_memory_measurements(self, measurements):

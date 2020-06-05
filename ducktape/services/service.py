@@ -188,7 +188,7 @@ class Service(TemplateRenderer):
         try:
             self.nodes = self.cluster.alloc(self.cluster_spec)
         except RuntimeError as e:
-            msg = str(e.message)
+            msg = str(e)
             if hasattr(self.context, "services"):
                 msg += " Currently registered services: " + str(self.context.services)
             raise RuntimeError(msg)

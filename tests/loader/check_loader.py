@@ -74,6 +74,8 @@ def num_tests_in_dir(dpath):
     num_tests = 0
     for pwd, dirs, files in os.walk(dpath):
         for f in files:
+            if not f.endswith('.py'):
+                continue
             file_path = os.path.abspath(os.path.join(pwd, f))
             num_tests += num_tests_in_file(file_path)
     return num_tests

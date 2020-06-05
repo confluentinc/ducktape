@@ -72,7 +72,7 @@ class WindowsRemoteAccount(RemoteAccount):
         try:
             response = client.get_password_data(InstanceId=ec2_instance_id)
         except ClientError as ce:
-            if "InvalidInstanceID.NotFound" in ce.message:
+            if "InvalidInstanceID.NotFound" in str(ce):
                 raise Exception("The instance id '%s' couldn't be found. Is the correct AWS region configured?"
                                 % ec2_instance_id)
             else:

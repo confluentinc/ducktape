@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import json
 import os
 import shutil
@@ -134,7 +136,7 @@ class SimpleFileSummaryReporter(SimpleSummaryReporter):
 
 class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
     def report(self):
-        print self.report_string()
+        print(self.report_string())
 
 
 class JSONReporter(object):
@@ -188,7 +190,7 @@ class HTMLSummaryReporter(SummaryReporter):
         return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
     def format_report(self):
-        template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
+        template = pkg_resources.resource_string(__name__, '../templates/report/report.html').decode('utf-8')
 
         num_tests = len(self.results)
         num_passes = 0

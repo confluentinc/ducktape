@@ -25,6 +25,7 @@ import requests
 from ducktape.tests.test import Test, TestContext
 from ducktape.mark import parametrized
 from ducktape.mark.mark_expander import MarkedFunctionExpander
+from six import itervalues
 
 
 class LoaderException(Exception):
@@ -106,7 +107,7 @@ class TestLoader(object):
             # packing tests into bins based on the least full bin at the time.
             raw_results = _requests_session.get(self.historical_report).json()["results"]
             time_results = {r['test_id']: r['run_time_seconds'] for r in raw_results}
-            avg_result_time = sum(time_results.itervalues()) / len(time_results)
+            avg_result_time = sum(itervalues(time_results)) / len(time_results)
             time_results = {tc.test_id: time_results.get(tc.test_id, avg_result_time) for tc in all_test_context_list}
             all_test_context_list = sorted(all_test_context_list, key=lambda x: time_results[x.test_id], reverse=True)
 
@@ -159,7 +160,7 @@ class TestLoader(object):
         if len(method_name) > 0:
             test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
 
-        return test_context_list
+        return list(test_context_list)
 
     def _parse_discovery_symbol(self, discovery_symbol):
         """Parse a single 'discovery symbol'
@@ -221,7 +222,7 @@ class TestLoader(object):
                 raise Exception("Expected absolute path ending in '.py' but got " + f)
 
             # Try all possible module imports for given file
-            path_pieces = filter(lambda x: len(x) > 0, f[:-3].split("/"))  # Strip off '.py' before splitting
+            path_pieces = [piece for piece in f[:-3].split("/") if len(piece) > 0]  # Strip off '.py' before splitting
             successful_import = False
             while len(path_pieces) > 0:
                 module_name = '.'.join(path_pieces)
@@ -246,7 +247,7 @@ class TestLoader(object):
 
                     expected_error = False
                     if isinstance(e, ImportError):
-                        match = re.search(r"No module named ([^\s]+)", e.message)
+                        match = re.search(r"No module named ([^\s]+)", str(e))
 
                         if match is not None:
                             missing_module = match.groups()[0]
