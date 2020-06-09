@@ -70,35 +70,68 @@ class TestLoader(object):
         # in any discovered test, whether or not it is parametrized
         self.injected_args = injected_args
 
-    def load(self, test_discovery_symbols):
+    def load_test_contexts(self, test_discovery_symbols, allow_empty=False):
+        """
+        Load all test_context objects found in test_discovery_symbols.
+        Each test discovery symbol is a dir or file path, optionally with with a ::Class or ::Class.method specified.
+
+        :param test_discovery_symbols: list of test symbols to look into
+        :param allow_empty: by default (False) if no tests are discovered or if test symbol refers to a non-existent
+            file path altogether, LoaderException will be raised. If True, empty set will be returned.
+        :return: List of test_context objects discovered by checking test_discovery_symbols
+        """
+        if not test_discovery_symbols:
+            if allow_empty:
+                return set()
+            else:
+                raise LoaderException("No test paths to load")
+        assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
+        all_test_context_list = set()
+        for symbol in test_discovery_symbols:
+            directory, module_name, cls_name, method_name = self._parse_discovery_symbol(symbol)
+            directory = os.path.abspath(directory)
+
+            test_context_list_for_symbol = self.discover(directory, module_name, cls_name, method_name,
+                                                         allow_empty=allow_empty)
+            all_test_context_list.update(test_context_list_for_symbol)
+
+            if not allow_empty and len(test_context_list_for_symbol) == 0:
+                raise LoaderException("Didn't find any tests for symbol %s." % symbol)
+
+        return all_test_context_list
+
+    def load(self, included_test_symbols, excluded_test_symbols=None):
         """Recurse through packages in file hierarchy starting at base_dir, and return a list of test_context objects
-        for all discovered tests.
+        for all discovered tests. Skip any test_context object if it's found in excluded_test_symbols.
 
         - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
           (i.e. it has no subclasses).
         - Discover test methods within each test class. A test method is a method containing 'test' in its name
+        - If excluded_test_symbols is provided, those test methods will be excluded from the final list of test_context
+          objects
 
-        :param test_discovery_symbols: list of file paths
+        :param included_test_symbols: list of test symbols
+            (file path, possibly with a ::Class or ::Class.method specified) to include
+        :param excluded_test_symbols: list of test symbols
+            (file path, possibly with a ::Class or ::Class.method specified) to exclude
         :return list of test context objects found during discovery. Note: if self.repeat is set to n, each test_context
             will appear in the list n times.
         """
-        assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
-        all_test_context_list = []
-        for symbol in test_discovery_symbols:
-            directory, module_name, cls_name, method_name = self._parse_discovery_symbol(symbol)
-            directory = os.path.abspath(directory)
+        excluded_contexts_list = self.load_test_contexts(excluded_test_symbols, allow_empty=True)
+        excluded_test_ids = set(map(lambda ctx: ctx.test_id, excluded_contexts_list))
+        included_contexts_list = self.load_test_contexts(included_test_symbols)
 
-            test_context_list_for_symbol = self.discover(directory, module_name, cls_name, method_name)
-            all_test_context_list.extend(test_context_list_for_symbol)
+        if not included_contexts_list:
+            raise LoaderException("No included tests found")
+        self.logger.debug("Including tests: " + str(included_contexts_list))
+        self.logger.debug("Excluding tests: " + str(excluded_contexts_list))
 
-            if len(test_context_list_for_symbol) == 0:
-                raise LoaderException("Didn't find any tests for symbol %s." % symbol)
-
-        self.logger.debug("Discovered these tests: " + str(all_test_context_list))
-
+        # filter out any excluded test from the included tests set
+        all_test_context_list = filter(lambda ctx: ctx.test_id not in excluded_test_ids, included_contexts_list)
         # Sort to make sure we get a consistent order for when we create subsets
         all_test_context_list = sorted(all_test_context_list, key=attrgetter("test_id"))
+        self.logger.debug("Discovered these tests: " + str(all_test_context_list))
 
         # Select the subset of tests.
         if self.historical_report:
@@ -130,19 +163,23 @@ class TestLoader(object):
         self.logger.debug("Selected this subset of tests: " + str(subset_test_context_list))
         return subset_test_context_list * self.repeat
 
-    def discover(self, directory, module_name, cls_name, method_name):
+    def discover(self, directory, module_name, cls_name, method_name, allow_empty=False):
         """Discover and unpack parametrized tests tied to the given module/class/method
 
         :param directory: path to the module containing the test method
         :param module_name: name of the module containing the test method
         :param cls_name: name of the class containing the test method
         :param method_name: name of the targeted test method
+        :param allow_empty: if True, does not raise on nonexistent file or dir and returns empty list instead
         :return list of test_context objects
         """
         # Check validity of path
         path = os.path.join(directory, module_name)
         if not os.path.exists(path):
-            raise LoaderException("Path {} does not exist".format(path))
+            if allow_empty:
+                return []
+            else:
+                raise LoaderException("Path {} does not exist".format(path))
 
         # Recursively search path for test modules
         test_context_list = []

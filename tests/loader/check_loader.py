@@ -52,6 +52,10 @@ def discover_dir():
     return os.path.join(resources_dir(), "loader_test_directory")
 
 
+def discover_sub_dir():
+    return os.path.join(discover_dir(), "sub_dir_a")
+
+
 def num_tests_in_file(fpath):
     """Count expected number of tests in the file.
     Search for NUM_TESTS = N
@@ -110,11 +114,63 @@ class CheckTestLoader(object):
         tests = loader.load([file_a, file_b])
         assert len(tests) == num_tests_in_file(file_a) + num_tests_in_file(file_b)
 
+    def check_test_loader_include_dir_exclude_file(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        excluded_file_a = os.path.join(discover_dir(), "test_a.py")
+        excluded_file_b = os.path.join(discover_dir(), "test_b.py")
+        num_excluded = num_tests_in_file(excluded_file_a) + num_tests_in_file(excluded_file_b)
+        tests = loader.load([discover_dir()], [excluded_file_a, excluded_file_b])
+        assert len(tests) == num_tests_in_dir(discover_dir()) - num_excluded
+
+    def check_test_loader_include_file_exclude_dir(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        file_a = os.path.join(discover_dir(), "test_a.py")
+        file_b = os.path.join(discover_dir(), "test_b.py")
+        tests = loader.load([file_a, file_b], [discover_dir()])
+        assert len(tests) == 0
+
+    def check_test_loader_exclude_subdir(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included_dir = discover_dir()
+        excluded_dir = discover_sub_dir()
+        tests = loader.load([included_dir], [excluded_dir])
+        assert len(tests) == num_tests_in_dir(included_dir) - num_tests_in_dir(excluded_dir)
+
+    def check_test_loader_include_subdir_exclude_parent_dir(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([(discover_sub_dir())], [(discover_dir())])
+        assert len(tests) == 0
+
     def check_test_loader_with_nonexistent_file(self):
         """Check discovery on a non-existent path should throw LoaderException"""
         with pytest.raises(LoaderException):
             loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
             loader.load([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+
+    def check_test_loader_include_dir_without_tests(self):
+        with pytest.raises(LoaderException):
+            loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+            loader.load([os.path.join(discover_dir(), "sub_dir_no_tests")])
+
+    def check_test_loader_include_file_without_tests(self):
+        with pytest.raises(LoaderException):
+            loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+            loader.load([os.path.join(discover_dir(), "sub_dir_no_tests", "just_some_file.py")])
+
+    def check_test_loader_allow_exclude_dir_without_tests(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "sub_dir_no_tests")])
+        assert len(tests) == num_tests_in_dir(discover_dir())
+
+    def check_test_loader_allow_exclude_file_without_tests(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "sub_dir_no_tests", "just_some_file.py")])
+        assert len(tests) == num_tests_in_dir(discover_dir())
+
+    def check_test_loader_allow_exclude_nonexistent_file(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+        assert len(tests) == num_tests_in_dir(discover_dir())
 
     def check_test_loader_with_class(self):
         """Check test discovery with discover class syntax."""
@@ -125,6 +181,28 @@ class CheckTestLoader(object):
         # Sanity check, test that it discovers two test class & 3 tests if it searches the whole module
         tests = loader.load([os.path.join(discover_dir(), "test_b.py")])
         assert len(tests) == 3
+
+    def check_test_loader_include_dir_exclude_class(self):
+        """Check test discovery with discover class syntax."""
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "test_b.py::TestBB")])
+        # TestBB contains 2 test methods
+        assert len(tests) == num_tests_in_dir(discover_dir()) - 2
+
+    def check_test_loader_include_class_exclude_method(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included = [os.path.join(discover_dir(), "test_b.py::TestBB")]
+        excluded = [os.path.join(discover_dir(), "test_b.py::TestBB.test_bb_one")]
+        tests = loader.load(included, excluded)
+        # TestBB contains 2 test methods, but 1 is excluded
+        assert len(tests) == 1
+
+    def check_test_loader_include_dir_exclude_method(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        excluded = [os.path.join(discover_dir(), "test_b.py::TestBB.test_bb_one")]
+        tests = loader.load([discover_dir()], excluded)
+        # excluded 1 method only
+        assert len(tests) == num_tests_in_dir(discover_dir()) - 1
 
     def check_test_loader_with_injected_args(self):
         """When the --parameters command-line option is used, the loader behaves a little bit differently:
@@ -138,6 +216,21 @@ class CheckTestLoader(object):
         file = os.path.join(discover_dir(), "test_decorated.py")
         tests = loader.load([file])
         assert len(tests) == 4
+
+        for t in tests:
+            assert t.injected_args == parameters
+
+    def check_test_loader_exclude_with_injected_args(self):
+        parameters = {"x": 1, "y": -1}
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=parameters)
+
+        included = [os.path.join(discover_dir(), "test_decorated.py")]
+        excluded = [os.path.join(discover_dir(), "test_decorated.py::TestStackedMatrix")]
+        tests = loader.load(included, excluded)
+        # test_decorated.py contains 4 test methods total
+        # we exclude 1 class with 1 method so should be 3
+        # exclusion shouldn't care about injected args
+        assert len(tests) == 3
 
         for t in tests:
             assert t.injected_args == parameters
