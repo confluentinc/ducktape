@@ -28,6 +28,8 @@ from ducktape.tests.reporter import XUnitReporter
 
 from mock import Mock
 import os
+import xml.etree.ElementTree as ET
+
 
 TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
@@ -85,7 +87,8 @@ class CheckRunner(object):
         assert result_with_data.data == {"data": 3.14159}
 
     def check_runner_report_xunit(self):
-        """Check we can serialize results into a xunit xml format"""
+        """Check we can serialize results into a xunit xml format. Also ensures that the XML report
+        adheres to the Junit spec using xpath queries"""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
@@ -95,7 +98,30 @@ class CheckRunner(object):
 
         results = runner.run_all_tests()
         XUnitReporter(results).report()
-        assert os.path.exists(os.path.join(session_context.results_dir, "report.xml"))
+        xml_report = os.path.join(session_context.results_dir, "report.xml")
+        assert os.path.exists(xml_report)
+        tree = ET.parse(xml_report)
+        assert len(tree.findall('./testsuite/testcase/failure')) == 1
+        assert len(tree.findall('./testsuite/testcase/skipped')) == 2
+        assert len(tree.findall('./testsuite/testcase')) == 4
+
+        passed = tree.findall("./testsuite/testcase/[@status='pass']")
+        assert len(passed) == 1
+        assert passed[0].get("classname") == "TestThingy"
+        assert passed[0].get("name") == "tests.runner.resources.test_thingy.TestThingy.test_pi"
+
+        failures = tree.findall("./testsuite/testcase/[@status='fail']")
+        assert len(failures) == 1
+        assert failures[0].get("classname") == "TestThingy"
+        assert failures[0].get("name") == "tests.runner.resources.test_thingy.TestThingy.test_failure"
+
+        ignores = tree.findall("./testsuite/testcase/[@status='ignore']")
+        assert len(ignores) == 2
+        assert ignores[0].get("classname") == "TestThingy"
+        assert ignores[1].get("classname") == "TestThingy"
+
+        assert ignores[0].get("name") == "tests.runner.resources.test_thingy.TestThingy.test_ignore1"
+        assert ignores[1].get("name") == "tests.runner.resources.test_thingy.TestThingy.test_ignore2.x=5"
 
     def check_exit_first(self):
         """Confirm that exit_first in session context has desired effect of preventing any tests from running
