@@ -23,7 +23,7 @@ from tests.runner.resources.test_fails_to_init import FailsToInitTest
 from tests.runner.resources.test_fails_to_init_in_setup import FailsToInitInSetupTest
 from .resources.test_thingy import TestThingy
 from .resources.test_failing_tests import FailingTest
-from ducktape.tests.reporter import XUnitReporter
+from ducktape.tests.reporter import JUnitReporter
 
 
 from mock import Mock
@@ -86,7 +86,7 @@ class CheckRunner(object):
         result_with_data = [r for r in results if r.data is not None][0]
         assert result_with_data.data == {"data": 3.14159}
 
-    def check_runner_report_xunit(self):
+    def check_runner_report_junit(self):
         """Check we can serialize results into a xunit xml format. Also ensures that the XML report
         adheres to the Junit spec using xpath queries"""
         mock_cluster = LocalhostCluster(num_nodes=1000)
@@ -97,7 +97,7 @@ class CheckRunner(object):
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
 
         results = runner.run_all_tests()
-        XUnitReporter(results).report()
+        JUnitReporter(results).report()
         xml_report = os.path.join(session_context.results_dir, "report.xml")
         assert os.path.exists(xml_report)
         tree = ET.parse(xml_report)

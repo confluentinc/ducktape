@@ -150,7 +150,7 @@ class JSONReporter(object):
             f.write(json.dumps(self.results, cls=DucktapeJSONEncoder, sort_keys=True, indent=2, separators=(',', ': ')))
 
 
-class XUnitReporter(object):
+class JUnitReporter(object):
     def __init__(self, results):
         self.results = results
 
