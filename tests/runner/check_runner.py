@@ -108,20 +108,20 @@ class CheckRunner(object):
         passed = tree.findall("./testsuite/testcase/[@status='pass']")
         assert len(passed) == 1
         assert passed[0].get("classname") == "TestThingy"
-        assert passed[0].get("name") == "tests.runner.resources.test_thingy.TestThingy.test_pi"
+        assert passed[0].get("name") == "test_pi"
 
         failures = tree.findall("./testsuite/testcase/[@status='fail']")
         assert len(failures) == 1
         assert failures[0].get("classname") == "TestThingy"
-        assert failures[0].get("name") == "tests.runner.resources.test_thingy.TestThingy.test_failure"
+        assert failures[0].get("name") == "test_failure"
 
         ignores = tree.findall("./testsuite/testcase/[@status='ignore']")
         assert len(ignores) == 2
         assert ignores[0].get("classname") == "TestThingy"
         assert ignores[1].get("classname") == "TestThingy"
 
-        assert ignores[0].get("name") == "tests.runner.resources.test_thingy.TestThingy.test_ignore1"
-        assert ignores[1].get("name") == "tests.runner.resources.test_thingy.TestThingy.test_ignore2.x=5"
+        assert ignores[0].get("name") == "test_ignore1"
+        assert ignores[1].get("name") == "test_ignore2.x=5"
 
     def check_exit_first(self):
         """Confirm that exit_first in session context has desired effect of preventing any tests from running

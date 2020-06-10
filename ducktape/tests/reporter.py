@@ -190,8 +190,14 @@ class XUnitReporter(object):
                 errors="0", failures=str(testsuite['failures']), skipped=str(testsuite['skipped'])
             ))
             for test in testsuite['testcases']:
+                # Since we're already aware of module_name and cls_name, strip that prefix off
+                full_name = "{module_name}.{cls_name}.".format(module_name=module_name, cls_name=test.cls_name)
+                if test.test_id.startswith(full_name):
+                    name = test.test_id[len(full_name):]
+                else:
+                    name = test.test_id
                 xml_testcase = ET.SubElement(xml_testsuite, 'testcase', attrib=dict(
-                    name=test.test_id, classname=test.cls_name, time=str(test.run_time_seconds),
+                    name=name, classname=test.cls_name, time=str(test.run_time_seconds),
                     status=str(test.test_status), assertions=""
                 ))
                 if test.test_status == FAIL:
