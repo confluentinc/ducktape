@@ -48,6 +48,8 @@ setup(name="ducktape",
                         'boto3==1.9.217',
                         # jinja2 pulls in MarkupSafe with a > constraint, but we need to constrain it for compatibility
                         'MarkupSafe<2.0.0',
+                        'pyparsing<3.0.0',
+                        'zipp<2.0.0',
                         'pywinrm==0.2.2',
                         'requests==2.22.0',
                         'paramiko~=2.6.0',
