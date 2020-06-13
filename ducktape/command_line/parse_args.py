@@ -29,6 +29,8 @@ def create_ducktape_parser():
                         help='one or more space-delimited strings indicating where to search for tests.')
     parser.add_argument('--exclude', type=str, nargs='*', default=None,
                         help='one or more space-delimited strings indicating which tests to exclude')
+    parser.add_argument('--test_suites', type=str, nargs='*', default=None,
+                        help='one or more space-delimited strings pointing to the test suite files')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run.")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout.")
     parser.add_argument("--config-file", action="store", default=ConsoleDefaults.USER_CONFIG_FILE,

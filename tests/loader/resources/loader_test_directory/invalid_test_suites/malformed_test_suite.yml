@@ -1,0 +1,7 @@
+malformed_test_suite:
+  included:
+    should_have_been_a_list:
+      - but
+      - is
+      - a
+      - dict

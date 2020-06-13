@@ -1,0 +1,18 @@
+test_suite_glob:
+  included:
+    - ../sub_dir_a/*
+    - ../test_?.py
+  excluded:
+    - ../sub_dir_a/*_d.py
+
+# globs expand to:
+# included:
+#   sub_dir_a/test_c.py (1 test)
+#   sub_dir_a/test_d.py (3 tests) - excluded
+#   test_a.py (1 test)
+#   test_b.py (3 tests)
+# excluded:
+#   sub_dir_a/test_d.py (3 tests)
+# TOTAL:
+#   5 tests
+

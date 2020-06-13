@@ -1,0 +1,4 @@
+empty_test_suite_a:
+empty_test_suite_b:
+  excluded:
+    - ../sub_dir_a

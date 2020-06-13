@@ -85,12 +85,70 @@ def num_tests_in_dir(dpath):
     return num_tests
 
 
+def invalid_test_suites():
+    dpath = os.path.join(discover_dir(), 'invalid_test_suites')
+    params = []
+    for pwd, dirs, files in os.walk(dpath):
+        for f in files:
+            if not f.endswith('.yml'):
+                continue
+            file_path = os.path.abspath(os.path.join(pwd, f))
+            params.append(pytest.param(file_path, id=os.path.basename(file_path)))
+    return params
+
+
 class CheckTestLoader(object):
     def setup_method(self, method):
         self.SESSION_CONTEXT = tests.ducktape_mock.session_context()
         # To simplify unit tests, add file:// support to the test loader's functionality for loading previous
         # report.json files
         _requests_session.mount('file://', LocalFileAdapter())
+
+    def check_test_loader_with_test_suite(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        test_suite_files = [os.path.join(discover_dir(), 'test_suite_single.yml')]
+        tests = loader.load(test_suite_files=test_suite_files)
+        # see test suite file for number of tests in it
+        assert len(tests) == 4
+
+    def check_test_loader_with_multiple_test_suites_in_one_file(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        test_suite_files = [os.path.join(discover_dir(), 'test_suite_multiple.yml')]
+        tests = loader.load(test_suite_files=test_suite_files)
+        # see test suite file for number of tests in it
+        assert len(tests) == 3
+
+    def check_test_loader_with_multiple_test_suite_files(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        test_suite_files = [
+            os.path.join(discover_dir(), 'test_suite_single.yml'),
+            os.path.join(discover_dir(), 'test_suite_multiple.yml')
+        ]
+        tests = loader.load(test_suite_files=test_suite_files)
+        # see test suite files for number of tests in it
+        # both test suites include one test method of test_by.py,
+        # so total -= 1
+        assert len(tests) == 6
+
+    def check_test_loader_with_test_suite_file_referring_to_parent_dir(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        test_suite_files = [os.path.join(discover_dir(), 'test_suites', 'refers_to_parent_dir.yml')]
+        tests = loader.load(test_suite_files=test_suite_files)
+        # see test suite file for number of tests in it
+        assert len(tests) == 1
+
+    def check_test_loader_with_test_suite_with_globs(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        test_suite_files = [os.path.join(discover_dir(), 'test_suites', 'test_suite_glob.yml')]
+        tests = loader.load(test_suite_files=test_suite_files)
+        # see test suite file for number of tests in it
+        assert len(tests) == 5
+
+    @pytest.mark.parametrize('suite_file_path', invalid_test_suites())
+    def check_test_loader_raises_on_invalid_test_suite(self, suite_file_path):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        with pytest.raises(LoaderException):
+            loader.load(test_suite_files=[suite_file_path])
 
     def check_test_loader_with_directory(self):
         """Check discovery on a directory."""
@@ -122,13 +180,6 @@ class CheckTestLoader(object):
         tests = loader.load([discover_dir()], [excluded_file_a, excluded_file_b])
         assert len(tests) == num_tests_in_dir(discover_dir()) - num_excluded
 
-    def check_test_loader_include_file_exclude_dir(self):
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        file_a = os.path.join(discover_dir(), "test_a.py")
-        file_b = os.path.join(discover_dir(), "test_b.py")
-        tests = loader.load([file_a, file_b], [discover_dir()])
-        assert len(tests) == 0
-
     def check_test_loader_exclude_subdir(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         included_dir = discover_dir()
@@ -136,10 +187,17 @@ class CheckTestLoader(object):
         tests = loader.load([included_dir], [excluded_dir])
         assert len(tests) == num_tests_in_dir(included_dir) - num_tests_in_dir(excluded_dir)
 
-    def check_test_loader_include_subdir_exclude_parent_dir(self):
+    def check_test_loader_raises_when_nothing_is_included(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        tests = loader.load([(discover_sub_dir())], [(discover_dir())])
-        assert len(tests) == 0
+        file_a = os.path.join(discover_dir(), "test_a.py")
+        file_b = os.path.join(discover_dir(), "test_b.py")
+        with pytest.raises(LoaderException):
+            loader.load([file_a, file_b], [discover_dir()])
+
+    def check_test_loader_raises_on_include_subdir_exclude_parent_dir(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        with pytest.raises(LoaderException):
+            loader.load([(discover_sub_dir())], [(discover_dir())])
 
     def check_test_loader_with_nonexistent_file(self):
         """Check discovery on a non-existent path should throw LoaderException"""
@@ -353,6 +411,24 @@ class CheckParseSymbol(object):
                 'cls': 'ClassName',
                 'method': ''
             },
+            {
+                'dir': '',
+                'file': 'test_file.py',
+                'cls': '',
+                'method': ''
+            },
+            {
+                'dir': '',
+                'file': 'test_file.py',
+                'cls': 'ClassName',
+                'method': ''
+            },
+            {
+                'dir': '',
+                'file': 'test_file.py',
+                'cls': 'ClassName',
+                'method': 'method'
+            }
         ]
 
         loader = TestLoader(tests.ducktape_mock.session_context(), logger=Mock())
