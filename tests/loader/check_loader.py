@@ -351,15 +351,14 @@ def join_parsed_symbol_components(parsed):
 
     e.g.
         {
-            'dir': 'path/to/dir',
-            'file': 'test_file.py',
+            'path': 'path/to/dir/test_file.py',
             'cls': 'ClassName',
             'method': 'method'
         },
         ->
         'path/to/dir/test_file.py::ClassName.method'
     """
-    symbol = os.path.join(parsed['dir'], parsed['file'])
+    symbol = os.path.join(parsed['path'])
 
     if parsed['cls'] or parsed['method']:
         symbol += "::"
@@ -382,50 +381,42 @@ class CheckParseSymbol(object):
         """Check that "test discovery symbol" parsing logic works correctly"""
         parsed_symbols = [
             {
-                'dir': 'path/to/dir',
-                'file': '',
+                'path': 'path/to/dir',
                 'cls': '',
                 'method': ''
             },
             {
-                'dir': 'path/to/dir',
-                'file': 'test_file.py',
+                'path': 'path/to/dir/test_file.py',
                 'cls': '',
                 'method': ''
             },
             {
-                'dir': 'path/to/dir',
-                'file': 'test_file.py',
+                'path': 'path/to/dir/test_file.py',
                 'cls': 'ClassName',
                 'method': ''
             },
             {
-                'dir': 'path/to/dir',
-                'file': 'test_file.py',
+                'path': 'path/to/dir/test_file.py',
                 'cls': 'ClassName',
                 'method': 'method'
             },
             {
-                'dir': 'path/to/dir',
-                'file': '',
+                'path': 'path/to/dir',
                 'cls': 'ClassName',
                 'method': ''
             },
             {
-                'dir': '',
-                'file': 'test_file.py',
+                'path': 'test_file.py',
                 'cls': '',
                 'method': ''
             },
             {
-                'dir': '',
-                'file': 'test_file.py',
+                'path': 'test_file.py',
                 'cls': 'ClassName',
                 'method': ''
             },
             {
-                'dir': '',
-                'file': 'test_file.py',
+                'path': 'test_file.py',
                 'cls': 'ClassName',
                 'method': 'method'
             }
@@ -436,8 +427,7 @@ class CheckParseSymbol(object):
             symbol = join_parsed_symbol_components(parsed)
 
             expected_parsed = (
-                normalize_ending_slash(parsed['dir']),
-                parsed['file'],
+                normalize_ending_slash(parsed['path']),
                 parsed['cls'],
                 parsed['method']
             )
@@ -446,8 +436,7 @@ class CheckParseSymbol(object):
             actually_parsed = (
                 normalize_ending_slash(actually_parsed[0]),
                 actually_parsed[1],
-                actually_parsed[2],
-                actually_parsed[3]
+                actually_parsed[2]
             )
 
             assert actually_parsed == expected_parsed, "%s did not parse as expected" % symbol

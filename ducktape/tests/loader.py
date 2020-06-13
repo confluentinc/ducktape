@@ -459,7 +459,7 @@ class TestLoader(object):
             path_or_glob, cls_name, method = self._parse_discovery_symbol(symbol, base_dir)
             path_or_glob = os.path.abspath(path_or_glob)
 
-            # TODO: consider adding a check to ensure glob or dir is not used with cls_name and method
+            # TODO: consider adding a check to ensure glob or dir is not used together with cls_name and method
             test_files = self._find_test_files(path_or_glob)
 
             self._add_top_level_dirs_to_sys_path(test_files)
