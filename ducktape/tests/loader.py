@@ -91,9 +91,12 @@ class TestLoader(object):
             will appear in the list n times.
         """
         if test_suite_files:
+            self.logger.debug("Loading test suites: {}".format(test_suite_files))
             all_test_context_list = self._load_test_suite_files(test_suite_files)
         else:
             # legacy behavior
+            self.logger.debug("Loading test symbols:\nincluded: {};\nexcluded: {};"
+                              .format(included_test_symbols, excluded_test_symbols))
             all_test_context_list = self._load_test_suite(name='default',
                                                           included=included_test_symbols,
                                                           excluded=excluded_test_symbols)
@@ -136,6 +139,8 @@ class TestLoader(object):
 
         :return list of test_context objects
         """
+        self.logger.debug("Discovering tests at {} - {} - {} - {}"
+                          .format(directory, module_name, cls_name, method_name))
         # Check validity of path
         path = os.path.join(directory, module_name)
         if not os.path.exists(path):
@@ -167,6 +172,7 @@ class TestLoader(object):
             "path/to/test_file.py" -> ("path/to/test_file.py", "", "")
             "path/to/test_file.py::ClassName.method" -> ("path/to/test_file.py", "ClassName", "method")
         """
+        self.logger.debug('Trying to parse discovery symbol {}'.format(discovery_symbol))
         if base_dir:
             discovery_symbol = os.path.join(base_dir, discovery_symbol)
         if discovery_symbol.find("::") >= 0:
@@ -202,6 +208,7 @@ class TestLoader(object):
         :return ModuleAndFile object that contains the successfully imported module and
             the file from which it was imported
         """
+        self.logger.debug("Trying to import module at path {}".format(file_path))
         module_and_file = None
         if file_path[-3:] != ".py" or not os.path.isabs(file_path):
             raise Exception("Expected absolute path ending in '.py' but got " + file_path)
@@ -324,9 +331,16 @@ class TestLoader(object):
         :return: list of absolute paths to test files
         """
         test_files = []
+        if not os.path.exists(path_or_glob):
+            raise LoaderException('Path {} does not exist'.format(path_or_glob))
+        self.logger.debug('Looking for test files in {}'.format(path_or_glob))
         expanded_glob = glob.glob(path_or_glob)
+        self.logger.debug('Expanded {} into {}'.format(path_or_glob, expanded_glob))
         # glob is safe to be called on non-glob path - it would just return that same path wrapped in a list
         for path in expanded_glob:
+            if not os.path.exists(path):
+                raise LoaderException('Path {} does not exist'.format(path))
+            self.logger.debug('Checking {}'.format(path))
             if os.path.isfile(path):
                 if self._is_test_file(path):
                     test_files.append(os.path.abspath(path))
@@ -453,10 +467,10 @@ class TestLoader(object):
             return set()
         if not isinstance(test_discovery_symbols, list):
             raise LoaderException("Expected test_discovery_symbols to be a list.")
-
         all_test_context_list = set()
         for symbol in test_discovery_symbols:
             path_or_glob, cls_name, method = self._parse_discovery_symbol(symbol, base_dir)
+            self.logger.debug('Parsed symbol into {} - {} - {}'.format(path_or_glob, cls_name, method))
             path_or_glob = os.path.abspath(path_or_glob)
 
             # TODO: consider adding a check to ensure glob or dir is not used together with cls_name and method
