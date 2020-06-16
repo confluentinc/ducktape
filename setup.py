@@ -49,7 +49,7 @@ setup(name="ducktape",
                         # jinja2 pulls in MarkupSafe with a > constraint, but we need to constrain it for compatibility
                         'MarkupSafe<2.0.0',
                         'pywinrm==0.2.2',
-                        'requests==2.22.0',
+                        'requests==2.20.0',
                         'paramiko~=2.6.0',
                         'pysistence==0.4.1',
                         'pyzmq==18.1.0',
