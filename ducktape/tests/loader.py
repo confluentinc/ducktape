@@ -228,7 +228,8 @@ class TestLoader(object):
             raise Exception("Expected absolute path ending in '.py' but got " + file_path)
 
         # Try all possible module imports for given file
-        path_pieces = [piece for piece in file_path[:-3].split("/") if len(piece) > 0]  # Strip off '.py' before splitting
+        # Strip off '.py' before splitting
+        path_pieces = [piece for piece in file_path[:-3].split("/") if len(piece) > 0]
         successful_import = False
         while len(path_pieces) > 0:
             module_name = '.'.join(path_pieces)
