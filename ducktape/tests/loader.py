@@ -72,7 +72,7 @@ class TestLoader(object):
         # in any discovered test, whether or not it is parametrized
         self.injected_args = injected_args
 
-    def load(self, included_test_symbols=None, excluded_test_symbols=None, test_suite_files=None):
+    def load(self, symbols, excluded_test_symbols=None):
         """Recurse through packages in file hierarchy starting at base_dir, and return a list of test_context objects
         for all discovered tests. Skip any test_context object if it's found in excluded_test_symbols.
 
@@ -83,26 +83,40 @@ class TestLoader(object):
         - If excluded_test_symbols is provided, those test methods will be excluded from the final list of test_context
           objects
 
-        :param included_test_symbols: list of test symbols
+        :param symbols: list of test symbols
             (file path, possibly with a ::Class or ::Class.method specified) to include
         :param excluded_test_symbols: list of test symbols
             (file path, possibly with a ::Class or ::Class.method specified) to exclude
         :return list of test context objects found during discovery. Note: if self.repeat is set to n, each test_context
             will appear in the list n times.
         """
-        if test_suite_files:
-            self.logger.debug("Loading test suites: {}".format(test_suite_files))
-            all_test_context_list = self._load_test_suite_files(test_suite_files)
-        else:
-            # legacy behavior
-            self.logger.debug("Loading test symbols:\nincluded: {};\nexcluded: {};"
-                              .format(included_test_symbols, excluded_test_symbols))
-            all_test_context_list = self._load_test_suite(name='default',
-                                                          included=included_test_symbols,
-                                                          excluded=excluded_test_symbols)
+
+        test_symbols = []
+        test_suites = []
+        # symbol can point to a test or a test suite
+        for symbol in symbols:
+            if symbol.endswith('.yml'):
+                # if it ends with .yml, its a test suite, read included and excluded paths from the file
+                test_suites.append(symbol)
+            else:
+                # otherwise add it to default suite's included list
+                test_symbols.append(symbol)
+
+        contexts_from_suites = self._load_test_suite_files(test_suites)
+        contexts_from_symbols = self._load_test_contexts(test_symbols)
+        all_included = contexts_from_suites.union(contexts_from_symbols)
+
+        # excluded_test_symbols apply to both tests from suites and tests from symbols
+        global_excluded = self._load_test_contexts(excluded_test_symbols)
+        all_test_context_list = self._filter_excluded_test_contexts(all_included, global_excluded)
+
+        # make sure no test is loaded twice
+        all_test_context_list = self._filter_by_unique_test_id(all_test_context_list)
 
         # Sort to make sure we get a consistent order for when we create subsets
         all_test_context_list = sorted(all_test_context_list, key=attrgetter("test_id"))
+        if not all_test_context_list:
+            raise LoaderException("No tests to run!")
         self.logger.debug("Discovered these tests: " + str(all_test_context_list))
         # Select the subset of tests.
         if self.historical_report:
@@ -331,8 +345,6 @@ class TestLoader(object):
         :return: list of absolute paths to test files
         """
         test_files = []
-        if not os.path.exists(path_or_glob):
-            raise LoaderException('Path {} does not exist'.format(path_or_glob))
         self.logger.debug('Looking for test files in {}'.format(path_or_glob))
         expanded_glob = glob.glob(path_or_glob)
         self.logger.debug('Expanded {} into {}'.format(path_or_glob, expanded_glob))
@@ -355,6 +367,8 @@ class TestLoader(object):
                         file_path = os.path.abspath(os.path.join(pwd, f))
                         if self._is_test_file(file_path):
                             test_files.append(file_path)
+                        else:
+                            self.logger.debug("Skipping {} because it isn't a test file".format(file_path))
             else:
                 raise LoaderException("Got a path that we don't understand: " + path)
 
@@ -382,7 +396,11 @@ class TestLoader(object):
         suites = list()
         for test_suite_file_path in test_suite_files:
             suites.extend(self._read_test_suite_from_file(test_suite_file_path))
-        return self._load_test_suites(suites)
+
+        all_contexts = set()
+        for suite in suites:
+            all_contexts.update(self._load_test_suite(**suite))
+        return all_contexts
 
     def _read_test_suite_from_file(self, test_suite_file_path):
         suites = list()
@@ -417,23 +435,11 @@ class TestLoader(object):
                     raise LoaderException("Malformed test suite " + suite_name + " in " + test_suite_file_path)
                 suites.append({
                     'name': suite_name,
-                    'base_dir': os.path.dirname(test_suite_file_path),
                     'included': included_paths,
-                    'excluded': excluded_paths
+                    'excluded': excluded_paths,
+                    'base_dir': os.path.dirname(test_suite_file_path)
                 })
         return suites
-
-    def _load_test_suites(self, test_suites):
-        all_contexts = dict()
-        for suite in test_suites:
-            test_contexts = self._load_test_suite(**suite)
-            for tc in test_contexts:
-                # only load each test context if we haven't seen it before
-                # thus avoid loading test context with the same id twice
-                if tc.test_id not in all_contexts:
-                    all_contexts[tc.test_id] = tc
-        # return just the contexts
-        return list(all_contexts.values())
 
     def _load_test_suite(self, **kwargs):
         name = kwargs['name']
@@ -441,14 +447,13 @@ class TestLoader(object):
         excluded = kwargs.get('excluded')
         base_dir = kwargs.get('base_dir')
         excluded_contexts = self._load_test_contexts(excluded, base_dir=base_dir)
-        excluded_test_ids = set(map(lambda ctx: ctx.test_id, excluded_contexts))
         included_contexts = self._load_test_contexts(included, base_dir=base_dir)
 
         self.logger.debug("Including tests: " + str(included_contexts))
         self.logger.debug("Excluding tests: " + str(excluded_contexts))
 
         # filter out any excluded test from the included tests set
-        all_test_context_list = list(filter(lambda ctx: ctx.test_id not in excluded_test_ids, included_contexts))
+        all_test_context_list = self._filter_excluded_test_contexts(included_contexts, excluded_contexts)
         if not all_test_context_list:
             raise LoaderException("No tests found in  " + name)
 
@@ -487,6 +492,17 @@ class TestLoader(object):
                     self.logger.warn("Didn't find any tests in %s " % test_file)
 
         return all_test_context_list
+
+    def _filter_by_unique_test_id(self, contexts):
+        contexts_dict = dict()
+        for context in contexts:
+            if context.test_id not in contexts_dict:
+                contexts_dict[context.test_id] = context
+        return contexts_dict.values()
+
+    def _filter_excluded_test_contexts(self, included_contexts, excluded_contexts):
+        excluded_test_ids = set(map(lambda ctx: ctx.test_id, excluded_contexts))
+        return set(filter(lambda ctx: ctx.test_id not in excluded_test_ids, included_contexts))
 
     def _add_top_level_dirs_to_sys_path(self, test_files):
         seen_dirs = set()

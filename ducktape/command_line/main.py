@@ -155,7 +155,7 @@ def main():
     loader = TestLoader(session_context, session_logger, repeat=args_dict["repeat"], injected_args=injected_args,
                         subset=args_dict["subset"], subsets=args_dict["subsets"])
     try:
-        tests = loader.load(included_test_symbols=args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
+        tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
     except LoaderException as e:
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)

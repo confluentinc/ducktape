@@ -104,51 +104,65 @@ class CheckTestLoader(object):
         # report.json files
         _requests_session.mount('file://', LocalFileAdapter())
 
-    def check_test_loader_with_test_suite(self):
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        test_suite_files = [os.path.join(discover_dir(), 'test_suite_single.yml')]
-        tests = loader.load(test_suite_files=test_suite_files)
-        # see test suite file for number of tests in it
-        assert len(tests) == 4
-
-    def check_test_loader_with_multiple_test_suites_in_one_file(self):
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        test_suite_files = [os.path.join(discover_dir(), 'test_suite_multiple.yml')]
-        tests = loader.load(test_suite_files=test_suite_files)
-        # see test suite file for number of tests in it
-        assert len(tests) == 3
-
-    def check_test_loader_with_multiple_test_suite_files(self):
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        test_suite_files = [
-            os.path.join(discover_dir(), 'test_suite_single.yml'),
-            os.path.join(discover_dir(), 'test_suite_multiple.yml')
-        ]
-        tests = loader.load(test_suite_files=test_suite_files)
-        # see test suite files for number of tests in it
-        # both test suites include one test method of test_by.py,
-        # so total -= 1
-        assert len(tests) == 6
-
-    def check_test_loader_with_test_suite_file_referring_to_parent_dir(self):
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        test_suite_files = [os.path.join(discover_dir(), 'test_suites', 'refers_to_parent_dir.yml')]
-        tests = loader.load(test_suite_files=test_suite_files)
-        # see test suite file for number of tests in it
-        assert len(tests) == 1
-
-    def check_test_loader_with_test_suite_with_globs(self):
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        test_suite_files = [os.path.join(discover_dir(), 'test_suites', 'test_suite_glob.yml')]
-        tests = loader.load(test_suite_files=test_suite_files)
-        # see test suite file for number of tests in it
-        assert len(tests) == 5
-
     @pytest.mark.parametrize('suite_file_path', invalid_test_suites())
     def check_test_loader_raises_on_invalid_test_suite(self, suite_file_path):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         with pytest.raises(LoaderException):
-            loader.load(test_suite_files=[suite_file_path])
+            loader.load([suite_file_path])
+
+    @pytest.mark.parametrize(['expected_count', 'input_symbols', 'excluded_symbols'], [
+        pytest.param(6, [
+            # see test suite files for number of tests in it
+            # both test suites include one test method of test_by.py,
+            # so total -= 1
+            os.path.join(discover_dir(), 'test_suite_single.yml'),
+            os.path.join(discover_dir(), 'test_suite_multiple.yml')
+        ], None, id='load multiple test suite files'),
+        pytest.param(5, [
+            # see test suite file for number of tests in it
+            os.path.join(discover_dir(), 'test_suites', 'test_suite_glob.yml')
+        ], None, id='load test suite with globs'),
+        pytest.param(2, [
+            # test suite that includes sub_dir_a/test_c.py (1 test total):
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
+            # explicitly include test_a.yml (1 test total)
+            os.path.join(discover_dir(), 'test_a.py')
+        ], None, id='load both file and suite'),
+        pytest.param(1, [
+            # test suite that includes sub_dir_a/test_c.py (1 test total):
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
+            # explicitly include test_a.yml (1 test total)
+            os.path.join(discover_dir(), 'test_a.py')
+        ], [
+            # explicitly exclude the sub_dir_a/test_c.py (included with test suite):
+            os.path.join(discover_dir(), 'sub_dir_a', 'test_c.py'),
+        ], id='global exclude overrides test suite include'),
+        pytest.param(4, [
+            # sub_dir_a contains 4 total tests
+            # test suite that includes sub_dir_a/*.py but excludes sub_dir_a/test_d.py:
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_with_exclude.yml'),
+            # explicitly include sub_dir_a/test_d.py to override exclusion from test suite:
+            os.path.join(discover_dir(), 'sub_dir_a', 'test_d.py')
+        ], None, id='global include overrides test suite exclude'),
+        pytest.param(1, [
+            # load two test suites and two files that all point to the same actual test
+            # and verify that in the end only 1 test has been loaded
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c_via_class.yml'),
+            os.path.join(discover_dir(), 'sub_dir_a', 'test_c.py'),
+            os.path.join(discover_dir(), 'sub_dir_a', 'test_c.py::TestC')
+        ], None, id='same test in test suites and test files')
+    ])
+    def check_test_loader_with_test_suites_and_files(self, expected_count, input_symbols, excluded_symbols):
+        """
+        When both files and test suites are loaded, files (both included and excluded) are
+        loaded after and separately from the test suites, so even if a test suite excludes file A,
+        it will be included if it's passed directly. And if file A is excluded directly, even if any of
+        the test suites includes it, it will still be excluded.
+        """
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load(input_symbols, excluded_test_symbols=excluded_symbols)
+        assert len(tests) == expected_count
 
     def check_test_loader_with_directory(self):
         """Check discovery on a directory."""
