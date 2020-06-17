@@ -178,6 +178,12 @@ class CheckTestLoader(object):
         tests = loader.load([module_path])
         assert len(tests) == num_tests_in_file(module_path)
 
+    def check_test_loader_with_glob(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        file_glob = os.path.join(discover_dir(), "*_a.py")  # should resolve to test_a.py only
+        tests = loader.load([file_glob])
+        assert len(tests) == 1
+
     def check_test_loader_multiple_files(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         file_a = os.path.join(discover_dir(), "test_a.py")
@@ -199,6 +205,14 @@ class CheckTestLoader(object):
         included_dir = discover_dir()
         excluded_dir = sub_dir_a()
         tests = loader.load([included_dir], [excluded_dir])
+        assert len(tests) == num_tests_in_dir(included_dir) - num_tests_in_dir(excluded_dir)
+
+    def check_test_loader_exclude_subdir_glob(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included_dir = discover_dir()
+        excluded_dir = sub_dir_a()
+        excluded_dir_glob = os.path.join(sub_dir_a(), "*.py")
+        tests = loader.load([included_dir], [excluded_dir_glob])
         assert len(tests) == num_tests_in_dir(included_dir) - num_tests_in_dir(excluded_dir)
 
     def check_test_loader_raises_when_nothing_is_included(self):

@@ -73,9 +73,18 @@ class TestLoader(object):
         self.injected_args = injected_args
 
     def load(self, symbols, excluded_test_symbols=None):
-        """Recurse through packages in file hierarchy starting at base_dir, and return a list of test_context objects
-        for all discovered tests. Skip any test_context object if it's found in excluded_test_symbols.
+        """
+        Discover tests specified by the symbols parameter.
+        Skip any test_context object if it's found in excluded_test_symbols.
 
+        - A symbol can refer to the test(s) or test suites
+        - Test is specified by the file/folder path or glob, optionally with Class.method after ::, for example:
+            - /path/to/test/file.py
+            - test-dir/  - loads all tests under `test-dir`  but does NOT load test suites found under `test-dir`
+            - test/file.py::TestClass
+            - test/file.py::TestClass.test_method
+            - test-dir/prefix_*.py - loads all files with a specified prefix
+        - Test suite is specified as a path to a yaml file
         - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
           (i.e. it has no subclasses).
