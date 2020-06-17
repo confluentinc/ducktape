@@ -74,32 +74,40 @@ class TestLoader(object):
 
     def load(self, symbols, excluded_test_symbols=None):
         """
-        Discover tests specified by the symbols parameter.
-        Skip any tests specified by excluded_test_symbols.
+        Discover tests specified by the symbols parameter (iterable of test symbols and/or test suite file paths).
+        Skip any tests specified by excluded_test_symbols (iterable of test symbols).
 
-        - A symbol can refer to the test(s) or test suites
-        - Test is specified by the file/folder path or glob, optionally with Class.method after ::, for example:
-            - /path/to/test/file.py
-            - test-dir/  - loads all tests under `test-dir`  but does NOT load test suites found under `test-dir`
-            - test/file.py::TestClass
-            - test/file.py::TestClass.test_method
-            - test-dir/prefix_*.py - loads all files with a specified prefix
-        - Test suite is specified as a path to a yaml file
-        - excluded_test_symbols specify tests only, not test suites - so folders, files, globs and classes/methods
-            work, but not test suites.
+        *Test symbol* is a pointer to the test or a group of tests.
+        It is specified by the file/folder path or glob, optionally with Class.method after `::` :
+        - `test-dir/`  - loads all tests under `test-dir`  but does NOT load test suites found under `test-dir`
+        - `test-dir/prefix_*.py` - loads all files with a specified prefix
+        - `/path/to/test/file.py`
+        - `test/file.py::TestClass`
+        - `test/file.py::TestClass.test_method`
 
-        Discovery rules:
+        *Test suite* is a yaml file with the following format:
+        ```
+            # multiple test suites can be included:
+            test_suite_name:
+                # list included test symbols
+                - path/to/test.py
+            # optionally test suite can have included and excluded sections:
+            another_test_suite:
+                included:
+                    # list of included test symbols:
+                    - path/to/test-dir/prefix_*.py
+                excluded:
+                    # list of excluded test symbols:
+                    - path/to/test-dir/prefix_excluded.py
+        ```
+        Each file found after parsing a symbol is checked to see if it contains a test:
         - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
           (i.e. it has no subclasses).
         - Discover test methods within each test class. A test method is a method containing 'test' in its name
-        - If excluded_test_symbols is provided, those test methods will be excluded from the final list of test_context
-          objects
 
-        :param symbols: list of test symbols
-            (file path, possibly with a ::Class or ::Class.method specified) to include
-        :param excluded_test_symbols: list of test symbols
-            (file path, possibly with a ::Class or ::Class.method specified) to exclude
+        :param symbols: iterable that contains test symbols and/or test suite file paths.
+        :param excluded_test_symbols: iterable that contains test symbols only.
         :return list of test context objects found during discovery. Note: if self.repeat is set to n, each test_context
             will appear in the list n times.
         """
