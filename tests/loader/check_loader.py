@@ -135,22 +135,22 @@ class CheckTestLoader(object):
             os.path.join(discover_dir(), 'test_a.py')
         ], [
             # explicitly exclude the sub_dir_a/test_c.py (included with test suite):
-            os.path.join(discover_dir(), 'sub_dir_a', 'test_c.py'),
+            os.path.join(discover_sub_dir(), 'test_c.py'),
         ], id='global exclude overrides test suite include'),
         pytest.param(4, [
             # sub_dir_a contains 4 total tests
             # test suite that includes sub_dir_a/*.py but excludes sub_dir_a/test_d.py:
             os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_with_exclude.yml'),
             # explicitly include sub_dir_a/test_d.py to override exclusion from test suite:
-            os.path.join(discover_dir(), 'sub_dir_a', 'test_d.py')
+            os.path.join(discover_sub_dir(), 'test_d.py')
         ], None, id='global include overrides test suite exclude'),
         pytest.param(1, [
             # load two test suites and two files that all point to the same actual test
             # and verify that in the end only 1 test has been loaded
             os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
             os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c_via_class.yml'),
-            os.path.join(discover_dir(), 'sub_dir_a', 'test_c.py'),
-            os.path.join(discover_dir(), 'sub_dir_a', 'test_c.py::TestC')
+            os.path.join(discover_sub_dir(), 'test_c.py'),
+            os.path.join(discover_sub_dir(), 'test_c.py::TestC')
         ], None, id='same test in test suites and test files')
     ])
     def check_test_loader_with_test_suites_and_files(self, expected_count, input_symbols, excluded_symbols):
