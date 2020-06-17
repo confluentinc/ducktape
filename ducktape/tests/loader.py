@@ -75,7 +75,7 @@ class TestLoader(object):
     def load(self, symbols, excluded_test_symbols=None):
         """
         Discover tests specified by the symbols parameter.
-        Skip any test_context object if it's found in excluded_test_symbols.
+        Skip any tests specified by excluded_test_symbols.
 
         - A symbol can refer to the test(s) or test suites
         - Test is specified by the file/folder path or glob, optionally with Class.method after ::, for example:
@@ -85,6 +85,10 @@ class TestLoader(object):
             - test/file.py::TestClass.test_method
             - test-dir/prefix_*.py - loads all files with a specified prefix
         - Test suite is specified as a path to a yaml file
+        - excluded_test_symbols specify tests only, not test suites - so folders, files, globs and classes/methods
+            work, but not test suites.
+
+        Discovery rules:
         - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
           (i.e. it has no subclasses).
