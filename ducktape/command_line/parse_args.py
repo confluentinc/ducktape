@@ -26,9 +26,7 @@ import sys
 def create_ducktape_parser():
     parser = argparse.ArgumentParser(description="Discover and run your tests")
     parser.add_argument('test_path', metavar='test_path', type=str, nargs='*', default=[os.getcwd()],
-                        help='one or more space-delimited strings indicating where to search for tests.'
-                             'Can be a path to a test or a test suite. If a folder is specified, load test files in'
-                             'the folder but not test suites, ie test suites need to be specified explicitly.')
+                        help='One or more test identifiers or test suite paths to execute')
     parser.add_argument('--exclude', type=str, nargs='*', default=None,
                         help='one or more space-delimited strings indicating which tests to exclude')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run.")
