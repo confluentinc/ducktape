@@ -81,6 +81,12 @@ class CheckParseArgs(object):
         parsed = parse_args(args)
         assert parsed["test_path"] == paths
 
+    def check_multiple_exclude(self):
+        excluded = ["excluded1", "excluded2"]
+        args = ["--collect-only", "--exclude"] + excluded + ["--debug"]
+        parsed = parse_args(args)
+        assert parsed["exclude"] == excluded
+
     def check_config_overrides(self, monkeypatch):
         """Check that parsed arguments pick up values from config files, and that overrides match precedence."""
 

@@ -1,0 +1,17 @@
+test_suite_b:
+  - sub_dir_a/test_c.py  # 1 test
+  - sub_dir_a/test_d.py::TestD.test_d  # 1 test
+# suite total: 2 tests
+
+test_suite_c:
+  included:
+    - sub_dir_a  # +4 tests across all files
+    - test_b.py  # +3 tests
+  excluded:
+    - sub_dir_a/test_d.py  # -3 tests
+    - test_b.py::TestBB  # -2 tests
+# suite total: 2 tests
+
+# total: 4
+# - test_c.py (with 1 test method) included in both test suites so total -= 1
+# total: 3

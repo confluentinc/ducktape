@@ -1,6 +1,8 @@
 # Duckape
 systests/.ducktape/
 systests/results/
+/.ducktape/
+/results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -109,3 +111,4 @@ venv.bak/
 .mypy_cache/
 
 .idea
+/.vagrant/

@@ -36,24 +36,6 @@ from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
-def extend_import_paths(paths):
-    """Extends sys.path with top-level packages found based on a set of input paths. This only adds top-level packages
-    in order to avoid naming conflict with internal packages, e.g. ensure that a package foo.bar.os does not conflict
-    with the top-level os package.
-
-    Adding these import paths is necessary to make importing tests work even when the test modules are not available on
-    PYTHONPATH/sys.path, as they normally will be since tests generally will not be installed and available for import
-
-    :param paths:
-    :return:
-    """
-    for path in paths:
-        dir = os.path.abspath(path if os.path.isdir(path) else os.path.dirname(path))
-        while os.path.exists(os.path.join(dir, '__init__.py')):
-            dir = os.path.dirname(dir)
-        sys.path.append(dir)
-
-
 def get_user_defined_globals(globals_str):
     """Parse user-defined globals into an immutable dict using globals_str
 
@@ -149,11 +131,10 @@ def main():
         session_logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run
-    extend_import_paths(args_dict["test_path"])
     loader = TestLoader(session_context, session_logger, repeat=args_dict["repeat"], injected_args=injected_args,
                         subset=args_dict["subset"], subsets=args_dict["subsets"])
     try:
-        tests = loader.load(args_dict["test_path"])
+        tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
     except LoaderException as e:
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
