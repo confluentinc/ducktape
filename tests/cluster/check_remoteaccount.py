@@ -17,6 +17,7 @@ from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
 from ducktape.cluster.remoteaccount import RemoteAccount
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
+from ducktape.cluster.remoteaccount import retry_if_ssh_exception
 
 import logging
 from threading import Thread
@@ -24,6 +25,13 @@ from six.moves import SimpleHTTPServer
 from six.moves import socketserver
 import threading
 import time
+from paramiko.ssh_exception import SSHException
+
+
+def check_retry_if_ssh_exception():
+    "Check retry_if_ssh_exception returns True for SSHException and false for everything else"
+    assert retry_if_ssh_exception(SSHException("foo"))
+    assert not retry_if_ssh_exception(Exception("foo"))
 
 
 class SimpleServer(object):

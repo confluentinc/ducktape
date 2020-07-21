@@ -16,16 +16,23 @@ from contextlib import contextmanager
 import logging
 import os
 from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
+from paramiko.ssh_exception import SSHException
 import shutil
 import signal
 import socket
 import stat
 import tempfile
 import warnings
+from retrying import retry
 
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
+
+
+def retry_if_ssh_exception(err):
+    "Return True if err is of type SSHException"
+    return isinstance(err, SSHException)
 
 
 class RemoteAccountSSHConfig(object):
@@ -159,6 +166,7 @@ class RemoteAccount(HttpMixin):
         msg = "%s: %s" % (str(self), msg)
         self.logger.log(level, msg, *args, **kwargs)
 
+    @retry(wait_exponential_multiplier=1000, wait_exponential_max=60000)
     def _set_ssh_client(self):
         client = SSHClient()
         client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
@@ -187,7 +195,7 @@ class RemoteAccount(HttpMixin):
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
             except Exception as e:
-                self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
+                self._log(logging.WARNING, "exception getting ssh_client (creating new client): %s" % str(e))
                 self._set_ssh_client()
         else:
             self._set_ssh_client()
@@ -250,6 +258,7 @@ class RemoteAccount(HttpMixin):
         except Exception:
             return False
 
+    @retry(retry_on_exception=retry_if_ssh_exception, wait_exponential_multiplier=1000, wait_exponential_max=60000)
     def ssh(self, cmd, allow_fail=False):
         """Run the given command on the remote host, and block until the command has finished running.
 
@@ -578,6 +587,7 @@ class RemoteAccount(HttpMixin):
     def open(self, path, mode='r'):
         return self.sftp_client.open(path, mode)
 
+    @retry(retry_on_exception=retry_if_ssh_exception, wait_exponential_multiplier=1000, wait_exponential_max=60000)
     def create_file(self, path, contents):
         """Create file at path, with the given contents.
 
