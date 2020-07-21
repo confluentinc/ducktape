@@ -292,6 +292,7 @@ class RemoteAccount(HttpMixin):
 
         return exit_status
 
+    @retry(retry_on_exception=retry_if_ssh_exception, wait_exponential_multiplier=1000, wait_exponential_max=60000)
     def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
 
@@ -345,6 +346,7 @@ class RemoteAccount(HttpMixin):
 
         return SSHOutputIter(output_generator, stdout)
 
+    @retry(retry_on_exception=retry_if_ssh_exception, wait_exponential_multiplier=1000, wait_exponential_max=60000)
     def ssh_output(self, cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
         """Runs the command via SSH and captures the output, returning it as a string.
 
