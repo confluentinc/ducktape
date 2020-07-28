@@ -183,15 +183,17 @@ class TestLoader(object):
 
         # Recursively search path for test modules
         module_and_file = self._import_module(path)
+        if module_and_file:
+            # Find all tests in discovered modules and filter out any that don't match the discovery symbol
+            test_context_list = self._expand_module(module_and_file)
+            if len(cls_name) > 0:
+                test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
+            if len(method_name) > 0:
+                test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
 
-        # Find all tests in discovered modules and filter out any that don't match the discovery symbol
-        test_context_list = self._expand_module(module_and_file)
-        if len(cls_name) > 0:
-            test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
-        if len(method_name) > 0:
-            test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
-
-        return list(test_context_list)
+            return list(test_context_list)
+        else:
+            return []
 
     def _parse_discovery_symbol(self, discovery_symbol, base_dir=None):
         """Parse a single 'discovery symbol'
@@ -306,10 +308,11 @@ class TestLoader(object):
             finally:
                 path_pieces = path_pieces[1:]
 
-            if not successful_import:
-                self.logger.debug("Unable to import %s" % file_path)
-
-        return module_and_file
+        if successful_import:
+            self.logger.debug("Unable to import %s" % file_path)
+            return None
+        else:
+            return module_and_file
 
     def _expand_module(self, module_and_file):
         """Return a list of TestContext objects, one object for every 'testable unit' in module"""
