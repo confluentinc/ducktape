@@ -1,8 +1,7 @@
-import re
-import sys
-
 from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
+import re
+import sys
 
 version = ''
 with open('ducktape/__init__.py', 'r') as fd:
@@ -53,7 +52,7 @@ setup(name="ducktape",
                         'zipp<2.0.0',
                         'pywinrm==0.2.2',
                         'requests==2.22.0',
-                        'paramiko~=2.3.2',
+                        'paramiko~=2.6.0',
                         'pysistence==0.4.1',
                         'pyzmq==18.1.0',
                         'pycryptodome==3.8.2',
