@@ -1,7 +1,8 @@
-from setuptools import find_packages, setup
-from setuptools.command.test import test as TestCommand
 import re
 import sys
+
+from setuptools import find_packages, setup
+from setuptools.command.test import test as TestCommand
 
 version = ''
 with open('ducktape/__init__.py', 'r') as fd:

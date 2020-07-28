@@ -253,15 +253,18 @@ class TestLoader(object):
         # Try all possible module imports for given file
         # Strip off '.py' before splitting
         path_pieces = [piece for piece in file_path[:-3].split("/") if len(piece) > 0]
-        successful_import = False
         while len(path_pieces) > 0:
             module_name = '.'.join(path_pieces)
             # Try to import the current file as a module
             try:
-                module_and_file = ModuleAndFile(module=importlib.import_module(module_name), file=file_path)
+                self.logger.debug("Importing module {}".format(module_name))
+                module = importlib.import_module(module_name)
+                self.logger.debug("Here's what we imported: {}".format(module))
+                module_and_file = ModuleAndFile(module=module, file=file_path)
                 self.logger.debug("Successfully imported " + module_name)
-                successful_import = True
-                break  # no need to keep trying
+
+                return module_and_file
+
             except Exception as e:
                 # Because of the way we are searching for
                 # valid modules in this loop, we expect some of the
@@ -273,7 +276,7 @@ class TestLoader(object):
                 # Unexpected errors are aggressively logged, e.g. if the module
                 # is valid but itself triggers an ImportError (e.g. typo in an
                 # import line), or a SyntaxError.
-
+                self.logger.exception("Error importing {}".format(module_name))
                 expected_error = False
                 if isinstance(e, ImportError):
                     match = re.search(r"No module named ([^\s]+)", str(e))
@@ -307,12 +310,10 @@ class TestLoader(object):
                         "broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
             finally:
                 path_pieces = path_pieces[1:]
+                self.logger.debug("In finally; path_pieces = {}".format(path_pieces))
 
-        if successful_import:
-            self.logger.debug("Unable to import %s" % file_path)
-            return None
-        else:
-            return module_and_file
+        self.logger.debug("Unable to import %s" % file_path)
+        return None
 
     def _expand_module(self, module_and_file):
         """Return a list of TestContext objects, one object for every 'testable unit' in module"""
