@@ -183,15 +183,17 @@ class TestLoader(object):
 
         # Recursively search path for test modules
         module_and_file = self._import_module(path)
+        if module_and_file:
+            # Find all tests in discovered modules and filter out any that don't match the discovery symbol
+            test_context_list = self._expand_module(module_and_file)
+            if len(cls_name) > 0:
+                test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
+            if len(method_name) > 0:
+                test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
 
-        # Find all tests in discovered modules and filter out any that don't match the discovery symbol
-        test_context_list = self._expand_module(module_and_file)
-        if len(cls_name) > 0:
-            test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
-        if len(method_name) > 0:
-            test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
-
-        return list(test_context_list)
+            return list(test_context_list)
+        else:
+            return []
 
     def _parse_discovery_symbol(self, discovery_symbol, base_dir=None):
         """Parse a single 'discovery symbol'
@@ -244,22 +246,20 @@ class TestLoader(object):
             the file from which it was imported
         """
         self.logger.debug("Trying to import module at path {}".format(file_path))
-        module_and_file = None
         if file_path[-3:] != ".py" or not os.path.isabs(file_path):
             raise Exception("Expected absolute path ending in '.py' but got " + file_path)
 
         # Try all possible module imports for given file
         # Strip off '.py' before splitting
         path_pieces = [piece for piece in file_path[:-3].split("/") if len(piece) > 0]
-        successful_import = False
         while len(path_pieces) > 0:
             module_name = '.'.join(path_pieces)
             # Try to import the current file as a module
+            self.logger.debug("Trying to import module {}".format(module_name))
             try:
                 module_and_file = ModuleAndFile(module=importlib.import_module(module_name), file=file_path)
                 self.logger.debug("Successfully imported " + module_name)
-                successful_import = True
-                break  # no need to keep trying
+                return module_and_file
             except Exception as e:
                 # Because of the way we are searching for
                 # valid modules in this loop, we expect some of the
@@ -271,7 +271,6 @@ class TestLoader(object):
                 # Unexpected errors are aggressively logged, e.g. if the module
                 # is valid but itself triggers an ImportError (e.g. typo in an
                 # import line), or a SyntaxError.
-
                 expected_error = False
                 if isinstance(e, ImportError):
                     match = re.search(r"No module named ([^\s]+)", str(e))
@@ -306,10 +305,8 @@ class TestLoader(object):
             finally:
                 path_pieces = path_pieces[1:]
 
-            if not successful_import:
-                self.logger.debug("Unable to import %s" % file_path)
-
-        return module_and_file
+        self.logger.debug("Unable to import %s" % file_path)
+        return None
 
     def _expand_module(self, module_and_file):
         """Return a list of TestContext objects, one object for every 'testable unit' in module"""
