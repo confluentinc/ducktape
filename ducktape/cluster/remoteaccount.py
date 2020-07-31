@@ -387,7 +387,7 @@ class RemoteAccount(HttpMixin):
             return False
 
     def signal(self, pid, sig, allow_fail=False):
-        cmd = "kill -%s %s" % (str(sig), str(pid))
+        cmd = "kill -%d %s" % (int(sig), str(pid))
         self.ssh(cmd, allow_fail=allow_fail)
 
     def kill_process(self, process_grep_str, clean_shutdown=True, allow_fail=False):
