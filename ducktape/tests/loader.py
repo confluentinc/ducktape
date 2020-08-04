@@ -273,12 +273,12 @@ class TestLoader(object):
                 # import line), or a SyntaxError.
                 expected_error = False
                 if isinstance(e, ImportError):
-                    match = re.search(r"No module named ([^\s]+)", str(e))
+                    match = re.search(r"No module named '?([^\s\']+)'?", str(e))
 
                     if match is not None:
                         missing_module = match.groups()[0]
 
-                        if missing_module == module_name:
+                        if missing_module in module_name:
                             expected_error = True
                         else:
                             # The error is still an expected error if missing_module is a suffix of module_name.
