@@ -27,6 +27,8 @@ from threading import Thread
 import time
 import logging
 
+from ducktape.utils.util import wait_until
+
 
 def generate_tempdir_name():
     """Use this ad-hoc function instead of the tempfile module since we're creating and removing
@@ -508,6 +510,29 @@ class RemoteAccountTest(Test):
             # expected
             end = time.time()
             assert end - start > timeout, "Should have waited full timeout period while monitoring the log"
+
+    @cluster(num_nodes=1)
+    def test_kill_process(self):
+        """Tests that kill_process correctly works"""
+
+        def get_pids():
+            pid_cmd = "ps ax | grep -i nc | grep -v grep | awk '{print $1}'"
+
+            return list(node.account.ssh_capture(pid_cmd, callback=int))
+
+        node = self.account_service.nodes[0]
+
+        # Run TCP service using netcat
+        node.account.ssh_capture("nohup nc -l -p 5000 > /dev/null 2>&1 &")
+
+        wait_until(lambda: len(get_pids()) > 0, timeout_sec=10,
+                   err_msg="Failed to start process within %d sec" % 10)
+
+        # Kill service.
+        node.account.kill_process("nc")
+
+        wait_until(lambda: len(get_pids()) == 0, timeout_sec=10,
+                   err_msg="Failed to kill process within %d sec" % 10)
 
 
 class TestIterWrapper(Test):
