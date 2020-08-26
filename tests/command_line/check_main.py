@@ -106,6 +106,7 @@ class CheckUserDefinedGlobals(object):
         """Expect the user defined dict object to be pickleable"""
         globals_dict = get_user_defined_globals(globals_json)
 
+        assert globals_dict  # Need to test non-empty dict, to ensure py3 compatibility
         assert pickle.loads(pickle.dumps(globals_dict)) == globals_dict
 
     def check_parseable_json_string(self):
