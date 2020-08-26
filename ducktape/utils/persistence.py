@@ -19,7 +19,7 @@
 # THE SOFTWARE.
 
 """
-Module contains persistent data structures from pysistent project, patched to work with
+Module contains persistent data structures from pysistence project, patched to work with
 python 3.x.
 """
 
