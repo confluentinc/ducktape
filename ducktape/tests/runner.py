@@ -17,7 +17,6 @@ import copy
 import logging
 import multiprocessing
 import os
-from ducktape.utils import persistence
 import signal
 import time
 import traceback
@@ -34,6 +33,7 @@ from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
 from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
+from ducktape.utils import persistence
 
 
 class Receiver(object):
