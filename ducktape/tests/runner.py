@@ -17,7 +17,6 @@ import copy
 import logging
 import multiprocessing
 import os
-import pysistence
 import signal
 import time
 import traceback
@@ -34,6 +33,7 @@ from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
 from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
+from ducktape.utils import persistence
 
 
 class Receiver(object):
@@ -105,7 +105,7 @@ class TestRunner(object):
         self.test_counter = 1
         self.total_tests = len(self.scheduler)
         # This immutable dict tracks test_id -> test_context
-        self._test_context = pysistence.make_dict(**{t.test_id: t for t in tests})
+        self._test_context = persistence.make_dict(**{t.test_id: t for t in tests})
         self._test_cluster = {}  # Track subcluster assigned to a particular TestKey
         self._client_procs = {}  # track client processes running tests
         self.active_tests = {}

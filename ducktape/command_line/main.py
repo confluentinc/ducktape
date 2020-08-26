@@ -22,8 +22,6 @@ from six import iteritems
 import sys
 import traceback
 
-import pysistence
-
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
 from ducktape.tests.loader import TestLoader, LoaderException
@@ -34,6 +32,7 @@ from ducktape.tests.runner import TestRunner
 from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.utils import persistence
 
 
 def get_user_defined_globals(globals_str):
@@ -45,7 +44,7 @@ def get_user_defined_globals(globals_str):
     :return dict containing user-defined global variables
     """
     if globals_str is None:
-        return pysistence.make_dict()
+        return persistence.make_dict()
 
     from_file = False
     if os.path.isfile(globals_str):
@@ -74,9 +73,8 @@ def get_user_defined_globals(globals_str):
 
         raise ValueError(message)
 
-    # Use pysistence to create the immutable dict
-    user_globals = pysistence.make_dict(**user_globals)
-    return user_globals
+    # create the immutable dict
+    return persistence.make_dict(**user_globals)
 
 
 def setup_results_directory(new_results_dir):
