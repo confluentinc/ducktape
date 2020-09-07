@@ -43,6 +43,15 @@ def format_time(t):
     return r
 
 
+def json_dumps(obj, **kwargs):
+    """
+    Dump object to json string with Ducktape json encoder.
+    """
+    assert 'cls' not in kwargs, "Passing custom json encoder is forbidden."
+
+    return json.dumps(obj, cls=DucktapeJSONEncoder, **kwargs)
+
+
 class SingleResultReporter(object):
     """Helper class for creating a view of results from a single test."""
 
@@ -64,7 +73,7 @@ class SingleResultReporter(object):
             result_lines.append("    " + self.result.summary)
 
         if self.result.data is not None:
-            result_lines.append(json.dumps(self.result.data))
+            result_lines.append(json_dumps(self.result.data))
 
         return "\n".join(result_lines)
 
@@ -85,7 +94,7 @@ class SingleResultFileReporter(SingleResultReporter):
         if self.result.data is not None:
             data_file = os.path.join(self.result.results_dir, "data.json")
             with open(data_file, "w") as fp:
-                fp.write(json.dumps(self.result.data))
+                fp.write(json_dumps(self.result.data))
 
 
 class SummaryReporter(object):
@@ -146,7 +155,7 @@ class JSONReporter(object):
     def report(self):
         report_file = os.path.abspath(os.path.join(self.results.session_context.results_dir, "report.json"))
         with open(report_file, "w") as f:
-            f.write(json.dumps(self.results, cls=DucktapeJSONEncoder, sort_keys=True, indent=2, separators=(',', ': ')))
+            f.write(json_dumps(self.results, sort_keys=True, indent=2, separators=(',', ': ')))
 
 
 class HTMLSummaryReporter(SummaryReporter):
@@ -159,7 +168,7 @@ class HTMLSummaryReporter(SummaryReporter):
         if result.injected_args is not None:
             lines.append("Arguments:")
             lines.append(
-                json.dumps(result.injected_args, sort_keys=True, indent=2, separators=(',', ': ')))
+                json_dumps(result.injected_args, sort_keys=True, indent=2, separators=(',', ': ')))
 
         return "\n".join(lines)
 
@@ -171,7 +180,7 @@ class HTMLSummaryReporter(SummaryReporter):
             "test_result": test_result,
             "description": result.description,
             "run_time": format_time(result.run_time_seconds),
-            "data": "" if result.data is None else json.dumps(result.data, sort_keys=True,
+            "data": "" if result.data is None else json_dumps(result.data, sort_keys=True,
                                                               indent=2, separators=(',', ': ')),
             "test_log": self.test_results_dir(result)
         }
@@ -199,7 +208,7 @@ class HTMLSummaryReporter(SummaryReporter):
         ignored_result_string = ""
 
         for result in self.results:
-            json_string = json.dumps(self.format_result(result))
+            json_string = json_dumps(self.format_result(result))
             if result.test_status == PASS:
                 num_passes += 1
                 passed_result_string += json_string
