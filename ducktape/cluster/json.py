@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
 from ducktape.cluster.node_container import NodeContainer
 from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.json_serializable import json_load
 from .cluster import Cluster, ClusterNode
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
 from .remoteaccount import RemoteAccountSSHConfig
 
-import json
 import os
 import traceback
 
@@ -82,7 +82,7 @@ class JsonCluster(Cluster):
             cluster_file = kwargs.get("cluster_file")
             if cluster_file is None:
                 cluster_file = ConsoleDefaults.CLUSTER_FILE
-            cluster_json = json.load(open(os.path.abspath(cluster_file)))
+            cluster_json = json_load(open(os.path.abspath(cluster_file)))
         try:
             for ninfo in cluster_json["nodes"]:
                 ssh_config_dict = ninfo.get("ssh_config")

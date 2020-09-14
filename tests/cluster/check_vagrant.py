@@ -14,7 +14,7 @@
 
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.services.service import Service
-import json
+from ducktape.json_serializable import json_dump, json_load
 import pickle
 import os
 import random
@@ -115,7 +115,7 @@ class CheckVagrantCluster(object):
 
         cluster_json_expected["nodes"] = nodes
 
-        cluster_json_actual = json.load(open(os.path.abspath(self.cluster_file)))
+        cluster_json_actual = json_load(open(os.path.abspath(self.cluster_file)))
         assert cluster_json_actual == cluster_json_expected
 
     def check_cluster_file_read(self, monkeypatch):
@@ -155,7 +155,7 @@ class CheckVagrantCluster(object):
 
         cluster_json_expected = {}
         cluster_json_expected["nodes"] = nodes_expected
-        json.dump(cluster_json_expected, open(self.cluster_file, 'w+'),
+        json_dump(cluster_json_expected, open(self.cluster_file, 'w+'),
                   indent=2, separators=(',', ': '), sort_keys=True)
 
         # Load the cluster from the json file we just created

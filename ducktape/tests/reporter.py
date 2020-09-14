@@ -14,7 +14,6 @@
 
 from __future__ import print_function
 
-import json
 import os
 import shutil
 
@@ -23,7 +22,7 @@ import pkg_resources
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.utils.util import ducktape_version
 from ducktape.tests.status import PASS, FAIL, IGNORE
-from ducktape.json_serializable import DucktapeJSONEncoder
+from ducktape.json_serializable import json_dumps
 
 
 DEFAULT_SEPARATOR_WIDTH = 100
@@ -41,15 +40,6 @@ def format_time(t):
         r += "%d minute%s " % (minutes, "" if minutes == 1 else "s")
     r += "%.3f seconds" % seconds
     return r
-
-
-def json_dumps(obj, **kwargs):
-    """
-    Dump object to json string with Ducktape json encoder.
-    """
-    assert 'cls' not in kwargs, "Passing custom json encoder is forbidden."
-
-    return json.dumps(obj, cls=DucktapeJSONEncoder, **kwargs)
 
 
 class SingleResultReporter(object):
