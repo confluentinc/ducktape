@@ -1,6 +1,9 @@
 # Duckape
 systests/.ducktape/
 systests/results/
+results
+.ducktape
+.vagrant
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
