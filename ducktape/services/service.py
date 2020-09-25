@@ -208,8 +208,11 @@ class Service(TemplateRenderer):
 
         self.logger.debug("Successfully allocated %d nodes to %s" % (len(self.nodes), self.who_am_i()))
 
-    def start(self):
-        """Start the service on all nodes."""
+    def start(self, clean=True):
+        """
+        Start the service on all nodes.
+        :param clean: If False, clean node will be skipped.
+        """
         self.logger.info("%s: starting service" % self.who_am_i())
         if self._start_time < 0:
             # Set self._start_time only the first time self.start is invoked
@@ -227,7 +230,10 @@ class Service(TemplateRenderer):
                 pass
 
             try:
-                self.clean_node(node)
+                if clean:
+                    self.clean_node(node)
+                else:
+                    self.logger.debug("%s: skip cleaning node" % self.who_am_i(node))
             except Exception:
                 pass
 
