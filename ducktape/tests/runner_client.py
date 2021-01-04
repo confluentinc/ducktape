@@ -18,6 +18,9 @@ import signal
 import time
 import traceback
 import zmq
+import cProfile
+import pstats
+import io
 
 from six import iteritems
 
@@ -59,6 +62,8 @@ class RunnerClient(object):
         # Wait to instantiate the test object until running the test
         self.test = None
         self.test_context = None
+
+        self.profile = cProfile.Profile()
 
     def send(self, event):
         return self.sender.send(event)
@@ -189,7 +194,10 @@ class RunnerClient(object):
         instantiated test object as its argument.
         """
         self.log(logging.INFO, "Running...")
-        return self.test_context.function(self.test)
+        self.profile.enable()
+        result = self.test_context.function(self.test)
+        self.profile.disable()
+        return result
 
     def _do_safely(self, action, err_msg):
         try:
@@ -203,6 +211,12 @@ class RunnerClient(object):
         Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
         should stop if a keyboard interrupt is caught.
         """
+        s = io.StringIO()
+        sortby = pstats.SortKey.CUMULATIVE
+        ps = pstats.Stats(self.profile, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        self.log(logging.DEBUG, s.getvalue())
+
         self.log(logging.INFO, "Tearing down...")
         if not self.test:
             self.log(logging.WARN, "%s failed to instantiate" % self.test_id)
