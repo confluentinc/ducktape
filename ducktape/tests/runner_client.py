@@ -46,6 +46,7 @@ class RunnerClient(object):
 
         self.serde = SerDe()
         self.logger = test_logger(logger_name, log_dir, debug)
+        self._log_dir = log_dir
         self.runner_port = server_port
 
         self.test_id = test_id
@@ -211,11 +212,11 @@ class RunnerClient(object):
         Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
         should stop if a keyboard interrupt is caught.
         """
-        s = io.StringIO()
-        sortby = pstats.SortKey.CUMULATIVE
-        ps = pstats.Stats(self.profile, stream=s).sort_stats(sortby)
-        ps.print_stats()
-        self.log(logging.DEBUG, s.getvalue())
+        with open(os.path.join(self._log_dir, "test.profile"), 'w', encoding='utf-8') as s:
+            sortby = pstats.SortKey.CUMULATIVE
+            ps = pstats.Stats(self.profile, stream=s).sort_stats(sortby)
+            ps.print_stats()
+        
 
         self.log(logging.INFO, "Tearing down...")
         if not self.test:
