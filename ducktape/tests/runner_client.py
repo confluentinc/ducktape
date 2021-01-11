@@ -212,10 +212,10 @@ class RunnerClient(object):
         Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
         should stop if a keyboard interrupt is caught.
         """
-        with open(os.path.join(self._log_dir, "test.profile"), 'w', encoding='utf-8') as s:
-            sortby = pstats.SortKey.CUMULATIVE
-            ps = pstats.Stats(self.profile, stream=s).sort_stats(sortby)
-            ps.print_stats()
+        s = open(os.path.join(self._log_dir, "test.profile"), 'w', encoding='utf-8')
+        sortby = pstats.SortKey.CUMULATIVE
+        pstats.Stats(self.profile, stream=s).sort_stats(sortby).print_stats()
+        s.close()
         
 
         self.log(logging.INFO, "Tearing down...")
