@@ -64,7 +64,7 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
 
-        self.profile = cProfile.Profile()
+        self.profile = None
 
     def send(self, event):
         return self.sender.send(event)
@@ -185,6 +185,8 @@ class RunnerClient(object):
 
     def setup_test(self):
         """start services etc"""
+        self.profile = cProfile.Profile()
+
         self.log(logging.INFO, "Setting up...")
         self.test.setup()
 
@@ -212,11 +214,7 @@ class RunnerClient(object):
         Catch all exceptions so that every step in the teardown process is tried, but signal that the test runner
         should stop if a keyboard interrupt is caught.
         """
-        path = os.path.join(self._log_dir, "test.profile")
-        self.log(logging.DEBUG, f"writing to {path}")
-        with open(path, 'w', encoding='utf-8') as s:
-            pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
-
+        
         self.log(logging.INFO, "Tearing down...")
         if not self.test:
             self.log(logging.WARN, "%s failed to instantiate" % self.test_id)
@@ -229,7 +227,13 @@ class RunnerClient(object):
             self._do_safely(self.test.teardown, "Error running teardown method:")
             # stop services
             self._do_safely(services.stop_all, "Error stopping services:")
+        
+        path = os.path.join(self._log_dir, "test.profile")
+        self.log(logging.DEBUG, f"writing to {path}")
+        with open(path, 'w', encoding='utf-8') as s:
+            pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
 
+        self.profile = None
         # always collect service logs whether or not we tear down
         # logs are typically removed during "clean" phase, so collect logs before cleaning
         self.log(logging.DEBUG, "Copying logs from services...")
