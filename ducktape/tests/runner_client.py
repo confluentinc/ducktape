@@ -213,7 +213,7 @@ class RunnerClient(object):
         should stop if a keyboard interrupt is caught.
         """
         path = os.path.join(self._log_dir, "test.profile")
-        self._log_dir(f"writing to {path}")
+        self.log(logging.DEBUG, f"writing to {path}")
         with open(path, 'w', encoding='utf-8') as s:
             pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
 
