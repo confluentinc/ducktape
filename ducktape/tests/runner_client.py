@@ -230,8 +230,13 @@ class RunnerClient(object):
         
         path = os.path.join(self._log_dir, "test.profile")
         self.log(logging.INFO, f"writing to {path}")
+        self.log(logging.INFO, f"profile {self.profile}")
+        self.log(logging.INFO, f"profile {dir(self.profile)}")
+        self.profile.snapshot_stats()
+        self.log(logging.INFO, f"profile {self.profile.stats}")
         with open(path, 'w', encoding='utf-8') as s:
-            pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
+            if self.profile is not None:
+                pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
 
         self.profile = None
         # always collect service logs whether or not we tear down
