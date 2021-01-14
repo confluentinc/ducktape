@@ -189,7 +189,9 @@ class RunnerClient(object):
         self.profile = cProfile.Profile()
 
         self.log(logging.INFO, "Setting up...")
+        self.profile.enable()
         self.test.setup()
+        self.profile.disable()
 
     def run_test(self):
         """Run the test!
@@ -232,13 +234,14 @@ class RunnerClient(object):
         
 
         path = os.path.join(self._log_dir, "test.profile")
-        self.log(logging.INFO, f"writing to {path}")
-        self.log(logging.INFO, f"profile {self.profile}")
         self.profile.snapshot_stats()
         self.log(logging.INFO, f"profile {self.profile.stats}")
-        with open(path, 'w', encoding='utf-8') as s:
-            if self.profile is not None:
-                pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
+        if not self.profile.stats:
+            self.log(logging.WARN('failed to create profile'))
+        else:
+            with open(path, 'w', encoding='utf-8') as s:
+                if self.profile is not None:
+                    pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
 
         self.profile = None
         # always collect service logs whether or not we tear down
