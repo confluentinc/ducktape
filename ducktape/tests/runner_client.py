@@ -64,7 +64,7 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
 
-        self.profile = None
+        self._test_profiles = {}
 
     def send(self, event):
         return self.sender.send(event)
@@ -185,7 +185,7 @@ class RunnerClient(object):
 
     def setup_test(self):
         """start services etc"""
-        self.profile = cProfile.Profile()
+        self._test_profiles[str(self.test)] = cProfile.Profile()
 
         self.log(logging.INFO, "Setting up...")
         self.test.setup()
@@ -197,9 +197,9 @@ class RunnerClient(object):
         instantiated test object as its argument.
         """
         self.log(logging.INFO, "Running...")
-        self.profile.enable()
+        self._test_profiles[str(self.test)].enable()
         result = self.test_context.function(self.test)
-        self.profile.disable()
+        self._test_profiles[str(self.test)].disable()
         return result
 
     def _do_safely(self, action, err_msg):
@@ -228,17 +228,18 @@ class RunnerClient(object):
             # stop services
             self._do_safely(services.stop_all, "Error stopping services:")
         
+        profile = self._test_profiles[str(self.test)]
+
         path = os.path.join(self._log_dir, "test.profile")
         self.log(logging.INFO, f"writing to {path}")
-        self.log(logging.INFO, f"profile {self.profile}")
-        self.log(logging.INFO, f"profile {dir(self.profile)}")
-        self.profile.snapshot_stats()
-        self.log(logging.INFO, f"profile {self.profile.stats}")
+        self.log(logging.INFO, f"profile {profile}")
+        self.log(logging.INFO, f"profile {dir(profile)}")
+        profile.snapshot_stats()
+        self.log(logging.INFO, f"profile {profile.stats}")
         with open(path, 'w', encoding='utf-8') as s:
-            if self.profile is not None:
-                pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
-
-        self.profile = None
+            if profile is not None:
+                pstats.Stats(profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
+                del self._test_profiles[str(self.test)]
         # always collect service logs whether or not we tear down
         # logs are typically removed during "clean" phase, so collect logs before cleaning
         self.log(logging.DEBUG, "Copying logs from services...")
