@@ -237,7 +237,7 @@ class RunnerClient(object):
         self.profile.snapshot_stats()
         self.log(logging.INFO, f"profile {self.profile.stats}")
         if not self.profile.stats:
-            self.log(logging.WARN('failed to create profile'))
+            self.log(logging.WARN, 'failed to create profile')
         else:
             with open(path, 'w', encoding='utf-8') as s:
                 if self.profile is not None:
