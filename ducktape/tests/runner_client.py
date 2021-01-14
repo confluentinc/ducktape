@@ -18,9 +18,7 @@ import signal
 import time
 import traceback
 import zmq
-import cProfile
-import pstats
-import io
+import pyinstrument
 
 from six import iteritems
 
@@ -143,7 +141,7 @@ class RunnerClient(object):
             self.log(logging.INFO, "PASS")
 
         except BaseException as e:
-            self.profile.disable()
+            self.profile.stop()
             err_trace = str(e) + "\n" + traceback.format_exc(limit=16)
             self.log(logging.INFO, "FAIL: " + err_trace)
 
@@ -186,12 +184,12 @@ class RunnerClient(object):
 
     def setup_test(self):
         """start services etc"""
-        self.profile = cProfile.Profile()
+        self.profile = pyinstrument.Profile()
 
         self.log(logging.INFO, "Setting up...")
-        self.profile.enable()
+        self.profile.start()
         self.test.setup()
-        self.profile.disable()
+        self.profile.stop()
 
     def run_test(self):
         """Run the test!
@@ -200,10 +198,9 @@ class RunnerClient(object):
         instantiated test object as its argument.
         """
         self.log(logging.INFO, "Running...")
-        self.profile.enable()
-        self.log(logging.INFO, "profile on")
+        self.profile.start()
         result = self.test_context.function(self.test)
-        self.profile.disable()
+        self.profile.stop()
         return result
 
     def _do_safely(self, action, err_msg):
@@ -241,7 +238,7 @@ class RunnerClient(object):
         else:
             with open(path, 'w', encoding='utf-8') as s:
                 if self.profile is not None:
-                    pstats.Stats(self.profile, stream=s).sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
+                    s.write(self.profile.output(pyinstrument.renderers.jsonrenderer))
 
         self.profile = None
         # always collect service logs whether or not we tear down
