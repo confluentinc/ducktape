@@ -231,15 +231,11 @@ class RunnerClient(object):
         
 
         path = os.path.join(self._log_dir, "test.profile")
-        self.profile.snapshot_stats()
-        self.log(logging.INFO, f"profile {self.profile.stats}")
-        if not self.profile.stats:
-            self.log(logging.WARN, 'failed to create profile')
-        else:
+        if self.profile is not None:
             with open(path, 'w', encoding='utf-8') as s:
-                if self.profile is not None:
-                    s.write(self.profile.output(pyinstrument.renderers.jsonrenderer))
-
+                s.write(self.profile.output(pyinstrument.renderers.jsonrenderer))
+        else:
+            self.log(logging.WARN, "missing profile")
         self.profile = None
         # always collect service logs whether or not we tear down
         # logs are typically removed during "clean" phase, so collect logs before cleaning
