@@ -278,6 +278,7 @@ class Sender(object):
         self.logger = logger
 
         self._init_socket()
+        self.profile = None
 
     def _init_socket(self):
         self.socket = self.zmq_context.socket(zmq.REQ)
