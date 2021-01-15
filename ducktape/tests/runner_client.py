@@ -233,7 +233,7 @@ class RunnerClient(object):
         path = os.path.join(self._log_dir, "test.profile")
         if self.profile is not None:
             with open(path, 'w', encoding='utf-8') as s:
-                s.write(self.profile.output(pyinstrument.renderers.jsonrenderer))
+                s.write(self.profile.output(pyinstrument.renderers.JSONRenderer()))
         else:
             self.log(logging.WARN, "missing profile")
         self.profile = None
