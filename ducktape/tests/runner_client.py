@@ -184,7 +184,7 @@ class RunnerClient(object):
 
     def setup_test(self):
         """start services etc"""
-        self.profile = pyinstrument.Profile()
+        self.profile = pyinstrument.Profiler()
 
         self.log(logging.INFO, "Setting up...")
         self.profile.start()
