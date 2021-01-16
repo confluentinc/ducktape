@@ -143,4 +143,3 @@ class CheckRunner(object):
         assert results.num_failed == 2
         assert results.num_passed == 0
         assert results.num_ignored == 2
-
