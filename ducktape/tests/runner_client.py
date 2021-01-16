@@ -136,11 +136,11 @@ class RunnerClient(object):
             self.log(logging.INFO, "PASS")
 
         except BaseException as e:
-            err_trace = self._exc_msg(e)
-            self.log(logging.INFO, "FAIL: " + err_trace)
-
+            # mark the test as failed before doing anything else
             test_status = FAIL
+            err_trace = self._exc_msg(e)
             summary += err_trace
+            self.log(logging.INFO, "FAIL: " + err_trace)
 
         finally:
             self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
