@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from unittest.mock import patch
+try:
+    from unittest.mock import patch, MagicMock  # noqa: F401
+except ImportError:
+    from mock import patch, MagicMock  # noqa: F401
 
 from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.test import TestContext
