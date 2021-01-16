@@ -85,6 +85,25 @@ class RunnerClient(object):
         self.test_context.test_index = self.test_index
 
         self.send(self.message.running())
+        try:
+            # Run the test
+            result = self.execute_test()
+        except BaseException as e:
+            # Report any exception from executing the test.
+            # execute_test() should catch all test-related exceptions,
+            # while this part should catch any framework-related exceptions
+            self.log(logging.WARN, "Error running test " + str(self.test_metadata) + "\n" + self._exc_msg(e))
+        finally:
+            # Tell the server we are finished
+            self._do_safely(lambda: self.send(self.message.finished(result=result)),
+                            "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+            # Release test_context resources only after creating the result and finishing logging activity
+            # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
+            self.test_context.close()
+            self.test_context = None
+            self.test = None
+
+    def execute_test(self):
         if self.test_context.ignore:
             # Skip running this test, but keep track of the fact that we ignored it
             result = TestResult(self.test_context,
@@ -94,13 +113,13 @@ class RunnerClient(object):
                                 start_time=time.time(),
                                 stop_time=time.time())
             result.report()
-            # Tell the server we are finished
-            self.send(self.message.finished(result=result))
-            return
+            return result
+            # # Tell the server we are finished
+            # self.send(self.message.finished(result=result))
+            # return
 
         # Results from this test, as well as logs will be dumped here
         mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
-
         start_time = -1
         stop_time = -1
         test_status = PASS
@@ -137,7 +156,7 @@ class RunnerClient(object):
             self.log(logging.INFO, "PASS")
 
         except BaseException as e:
-            err_trace = str(e) + "\n" + traceback.format_exc(limit=16)
+            err_trace = self._exc_msg(e)
             self.log(logging.INFO, "FAIL: " + err_trace)
 
             test_status = FAIL
@@ -167,15 +186,7 @@ class RunnerClient(object):
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
             result.report()
-
-        # Tell the server we are finished
-        self._do_safely(lambda: self.send(self.message.finished(result=result)), "Problem sending FINISHED message:")
-
-        # Release test_context resources only after creating the result and finishing logging activity
-        # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
-        self.test_context.close()
-        self.test_context = None
-        self.test = None
+            return result
 
     def setup_test(self):
         """start services etc"""
@@ -191,11 +202,14 @@ class RunnerClient(object):
         self.log(logging.INFO, "Running...")
         return self.test_context.function(self.test)
 
+    def _exc_msg(self, e):
+        return repr(e) + "\n" + traceback.format_exc(limit=16)
+
     def _do_safely(self, action, err_msg):
         try:
             action()
         except BaseException as e:
-            self.log(logging.WARN, err_msg + " " + str(e) + "\n" + traceback.format_exc(limit=16))
+            self.log(logging.WARN, err_msg + " " + self._exc_msg(e))
 
     def teardown_test(self, teardown_services=True, test_status=None):
         """teardown method which stops services, gathers log data, removes persistent state, and releases cluster nodes.
