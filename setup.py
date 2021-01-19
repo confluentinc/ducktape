@@ -55,8 +55,6 @@ setup(name="ducktape",
                         'paramiko~=2.7.2',
                         'pyzmq==19.0.2',
                         'pycryptodome==3.9.8',
-                        'bcrypt==3.1.7',
-                        'pysistence==0.4.1',
                         # > 5.0 drops py27 support
                         'more-itertools==5.0.0',
                         'tox==3.20.0',
