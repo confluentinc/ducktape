@@ -100,7 +100,8 @@ class CheckRemoteAccountEquality(object):
         kwargs = {
             "ssh_config": ssh_config,
             "externally_routable_ip": "345",
-            "logger": logging.getLogger(__name__)
+            "logger": logging.getLogger(__name__),
+            "is_type_based": False
         }
         r1 = RemoteAccount(**kwargs)
         r2 = RemoteAccount(**kwargs)

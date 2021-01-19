@@ -40,7 +40,7 @@ class CheckGenerateResultsDir(object):
         kwargs = {
             "session_id": "hello-123",
             "results_dir": self.tempdir,
-            "cluster": LocalhostCluster(),
+            "cluster": LocalhostCluster(is_type_based=False),
             "globals": {}
         }
         session_context = SessionContext(**kwargs)

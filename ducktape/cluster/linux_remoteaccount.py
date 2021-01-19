@@ -18,9 +18,9 @@ from ducktape.cluster.remoteaccount import RemoteAccount
 
 class LinuxRemoteAccount(RemoteAccount):
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
+    def __init__(self, ssh_config, externally_routable_ip=None, logger=None, is_type_based=True):
         super(LinuxRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
-                                                 logger=logger)
+                                                 logger=logger, is_type_based=is_type_based)
         self._ssh_client = None
         self._sftp_client = None
         self.os = LINUX

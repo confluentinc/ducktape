@@ -25,4 +25,23 @@ class CheckClusterSpec(object):
         empty = ClusterSpec.empty()
         assert "[]" == str(empty)
         simple_linux_5 = ClusterSpec.simple_linux(5)
-        assert '[{"num_nodes": 5, "os": "linux"}]' == str(simple_linux_5)
+        assert '[{"additional_disks(GB)": {}, "cpu": 0, "disk(GB)": 0, "mem(GB)": 0, "num_nodes": 5, "os": "linux"}]' \
+               == str(simple_linux_5)
+
+    def check_from_dict(self):
+        empty = ClusterSpec.empty()
+        assert "[]" == str(empty)
+        node_specs_dict = {'cpu': 2, 'mem': '2GB', 'disk': '30GB', 'num_nodes': 2}
+        custom_linux_1 = ClusterSpec.from_dict(node_specs_dict)
+        assert '[{"additional_disks(GB)": {}, "cpu": 2, "disk(GB)": 30.0, "mem(GB)": 2.0, "num_nodes": 2, "os": "linux"}]' \
+               == str(custom_linux_1)
+
+    def check_from_list(self):
+        empty = ClusterSpec.empty()
+        assert "[]" == str(empty)
+        node_specs_dict_list = [{'cpu': 2, 'mem': '2GB', 'disk': '20GB', 'num_nodes': 2},
+                                {'cpu': 4, 'mem': '4GB', 'disk': '40GB', 'num_nodes': 4}]
+        custom_linux_2 = ClusterSpec.from_list(node_specs_dict_list)
+        assert '[{"additional_disks(GB)": {}, "cpu": 2, "disk(GB)": 20.0, "mem(GB)": 2.0, "num_nodes": 2, "os": "linux"},' \
+               ' {"additional_disks(GB)": {}, "cpu": 4, "disk(GB)": 40.0, "mem(GB)": 4.0, "num_nodes": 4, "os": "linux"}]' \
+               == str(custom_linux_2)

@@ -66,7 +66,7 @@ class CheckVagrantCluster(object):
 
     def check_pickleable(self, monkeypatch):
         self._set_monkeypatch_attr(monkeypatch)
-        cluster = VagrantCluster()
+        cluster = VagrantCluster(is_type_based=False)
         pickle.dumps(cluster)
 
     def check_one_host_parsing(self, monkeypatch):
@@ -75,7 +75,7 @@ class CheckVagrantCluster(object):
         """
         self._set_monkeypatch_attr(monkeypatch)
 
-        cluster = VagrantCluster()
+        cluster = VagrantCluster(is_type_based=False)
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
         node1, node2 = cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
@@ -96,7 +96,7 @@ class CheckVagrantCluster(object):
         self._set_monkeypatch_attr(monkeypatch)
         assert not os.path.exists(self.cluster_file)
 
-        cluster = VagrantCluster(cluster_file=self.cluster_file)
+        cluster = VagrantCluster(cluster_file=self.cluster_file, is_type_based=False)
         cluster_json_expected = {}
         nodes = [
             {
@@ -159,7 +159,7 @@ class CheckVagrantCluster(object):
                   indent=2, separators=(',', ': '), sort_keys=True)
 
         # Load the cluster from the json file we just created
-        cluster = VagrantCluster(cluster_file=self.cluster_file)
+        cluster = VagrantCluster(cluster_file=self.cluster_file, is_type_based=False)
 
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2

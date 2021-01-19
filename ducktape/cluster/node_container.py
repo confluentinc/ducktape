@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from six import iteritems
+from operator import attrgetter
+from ducktape.cluster.remoteaccount import MachineType
 
 
 class NodeNotPresentError(Exception):
@@ -105,7 +107,14 @@ class NodeContainer(object):
 
     def remove_spec(self, cluster_spec):
         """
-        Remove nodes matching a ClusterSpec from this NodeContainer.
+        Remove nodes matching a ClusterSpec from this NodeContainer. Nodes are allocated
+        based on machine type with following strategy:
+
+        1) To compare MachineType, different weight has been assigned to configuration
+           as cpu > mem > disk > additional_disk, which means node1:{mem:4G, disk:100G}
+           required more resource than node2:{mem:2G, disk:200G}.
+        2) Always try to satisfy node specific that requires most resource.
+        3) Always try to allocate machine with least resource as possible.
 
         :param cluster_spec:                    The cluster spec.  This will not be modified.
         :returns:                               A list of the nodes that were removed.
@@ -116,11 +125,17 @@ class NodeContainer(object):
         if len(msg) > 0:
             raise InsufficientResourcesError("Not enough nodes available to allocate. " + msg)
         removed = []
-        for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
-            num_nodes = len(node_specs)
+        for os, req_nodes in iteritems(cluster_spec.nodes.os_to_nodes):
             avail_nodes = self.os_to_nodes.get(os, [])
-            for i in range(0, num_nodes):
-                removed.append(avail_nodes.pop(0))
+            sorted_req_nodes = NodeContainer.sort(nodes=req_nodes, reverse=True)
+            sorted_avail_nodes = NodeContainer.sort(nodes=avail_nodes)
+            for req_node in sorted_req_nodes[:]:
+                for avail_node in sorted_avail_nodes[:]:
+                    if NodeContainer.satisfy(avail_node, req_node):
+                        sorted_avail_nodes.remove(avail_node)
+                        avail_nodes.remove(avail_node)
+                        removed.append(avail_node)
+                        break
         return removed
 
     def can_remove_spec(self, cluster_spec):
@@ -136,20 +151,65 @@ class NodeContainer(object):
 
     def attempt_remove_spec(self, cluster_spec):
         """
-        Attempt to remove a cluster_spec from this node container.
+        Attempt to remove a cluster_spec from this node container. Uses the same strategy
+        as remove_spec(self, cluster_spec).
 
         :param cluster_spec:                    The cluster spec.  This will not be modified.
         :returns:                               An empty string if we can remove the nodes;
                                                 an error string otherwise.
         """
         msg = ""
-        for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
-            num_nodes = len(node_specs)
-            avail_nodes = len(self.os_to_nodes.get(os, []))
-            if avail_nodes < num_nodes:
-                msg = msg + "%s nodes requested: %d. %s nodes available: %d" % \
-                            (os, num_nodes, os, avail_nodes)
+        for os, req_nodes in iteritems(cluster_spec.nodes.os_to_nodes):
+            avail_nodes = self.os_to_nodes.get(os, [])
+            num_avail_nodes = len(avail_nodes)
+            num_req_nodes = len(req_nodes)
+            if num_avail_nodes < num_req_nodes:
+                msg = msg + "%s nodes requested: %d. %s nodes available: %d" % (os, num_req_nodes, os, num_avail_nodes)
+            sorted_req_nodes = NodeContainer.sort(nodes=req_nodes, reverse=True)
+            sorted_avail_nodes = NodeContainer.sort(nodes=avail_nodes)
+            for req_node in sorted_req_nodes[:]:
+                for avail_node in sorted_avail_nodes[:]:
+                    if NodeContainer.satisfy(avail_node, req_node):
+                        sorted_req_nodes.remove(req_node)
+                        sorted_avail_nodes.remove(avail_node)
+                        break
+            # check unsatisfied nodes
+            for unsatisfied_node in sorted_req_nodes:
+                msg += "\ncannot satisfy minimum requirement for requested node: %s" % str(unsatisfied_node)
         return msg
+
+    @staticmethod
+    def satisfy(avail_node, req_node):
+        """
+        Return true if available node satisfies the minimum requirement of requested node.
+        """
+        if req_node.machine_type is None:
+            return True
+        if avail_node.machine_type.cpu_core < req_node.machine_type.cpu_core or \
+             avail_node.machine_type.mem_size_gb < req_node.machine_type.mem_size_gb or \
+             avail_node.machine_type.disk_size_gb < req_node.machine_type.disk_size_gb:
+            return False
+        for d_name, d_size in req_node.machine_type.additional_disks.items():
+            if avail_node.machine_type.additional_disks.get(d_name, 0) < d_size:
+                return False
+        return True
+
+    @staticmethod
+    def sort(nodes, reverse=False):
+        """
+        Return sorted list of nodes based on machine_type.
+        """
+        sorted_nodes = []
+        type_based_nodes = []
+        for node in nodes:
+            if node.machine_type is None:
+                sorted_nodes.append(node)
+            else:
+                type_based_nodes.append(node)
+
+        sorted_nodes.extend(sorted(type_based_nodes, key=attrgetter('machine_type.cpu_core', 'machine_type.mem_size_gb',
+                                                                    'machine_type.disk_size_gb', 'machine_type.additional_disks')))
+        return list(reversed(sorted_nodes)) if reverse else sorted_nodes
 
     def clone(self):
         """

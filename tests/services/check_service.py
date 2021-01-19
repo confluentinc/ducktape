@@ -40,7 +40,7 @@ class DifferentDummyService(Service):
 class CheckAllocateFree(object):
 
     def setup_method(self, _):
-        self.cluster = LocalhostCluster()
+        self.cluster = LocalhostCluster(is_type_based=False)
         self.session_context = session_context()
         self.context = test_context(self.session_context, cluster=self.cluster)
 
