@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import glob
+import json
 import sys
 from operator import attrgetter
 
@@ -21,6 +22,8 @@ import inspect
 import itertools
 import os
 import re
+from typing import List
+
 import requests
 import yaml
 
@@ -169,13 +172,13 @@ class TestLoader(object):
         self.logger.debug("Selected this subset of tests: " + str(subset_test_context_list))
         return subset_test_context_list * self.repeat
 
-    def discover(self, directory, module_name, cls_name, method_name):
+    def discover(self, directory, module_name, cls_name, method_name, injected_args=None):
         """Discover and unpack parametrized tests tied to the given module/class/method
 
         :return list of test_context objects
         """
-        self.logger.debug("Discovering tests at {} - {} - {} - {}"
-                          .format(directory, module_name, cls_name, method_name))
+        self.logger.debug("Discovering tests at {} - {} - {} - {} - {}"
+                          .format(directory, module_name, cls_name, method_name, injected_args))
         # Check validity of path
         path = os.path.join(directory, module_name)
         if not os.path.exists(path):
@@ -190,8 +193,20 @@ class TestLoader(object):
                 test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
             if len(method_name) > 0:
                 test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
+            if injected_args is not None:
+                if isinstance(injected_args, List):
+                    def condition(t):
+                        return t.injected_args in injected_args
+                else:
+                    def condition(t):
+                        return t.injected_args == injected_args
+                test_context_list = filter(condition, test_context_list)
 
-            return list(test_context_list)
+            listed = list(test_context_list)
+            if not listed:
+                self.logger.warn("No tests loaded for {} - {} - {} - {} - {}"
+                                 .format(directory, module_name, cls_name, method_name, injected_args))
+            return listed
         else:
             return []
 
@@ -229,11 +244,29 @@ class TestLoader(object):
                 cls_name, method_name = parts
             else:
                 raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
+
+            parts = method_name.split('@')
+            if len(parts) == 1:
+                injected_args_str = None
+            elif len(parts) == 2:
+                method_name, injected_args_str = parts
+            else:
+                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
+
+            if injected_args_str:
+                if self.injected_args:
+                    raise LoaderException("Cannot use both global and per-method test parameters")
+                try:
+                    injected_args = json.loads(injected_args_str)
+                except Exception as e:
+                    raise LoaderException("Invalid test params: " + injected_args_str) from e
+            else:
+                injected_args = None
         else:
             # No "::" present in symbol
-            path, cls_name, method_name = discovery_symbol, "", ""
+            path, cls_name, method_name, injected_args = discovery_symbol, "", "", None
 
-        return path, cls_name, method_name
+        return path, cls_name, method_name, injected_args
 
     def _import_module(self, file_path):
         """Attempt to import a python module from the file path.
@@ -493,8 +526,9 @@ class TestLoader(object):
             raise LoaderException("Expected test_discovery_symbols to be a list.")
         all_test_context_list = set()
         for symbol in test_discovery_symbols:
-            path_or_glob, cls_name, method = self._parse_discovery_symbol(symbol, base_dir)
-            self.logger.debug('Parsed symbol into {} - {} - {}'.format(path_or_glob, cls_name, method))
+            path_or_glob, cls_name, method, injected_args = self._parse_discovery_symbol(symbol, base_dir)
+            self.logger.debug('Parsed symbol into {} - {} - {} - {}'
+                              .format(path_or_glob, cls_name, method, injected_args))
             path_or_glob = os.path.abspath(path_or_glob)
 
             # TODO: consider adding a check to ensure glob or dir is not used together with cls_name and method
@@ -505,7 +539,8 @@ class TestLoader(object):
             for test_file in test_files:
                 directory = os.path.dirname(test_file)
                 module_name = os.path.basename(test_file)
-                test_context_list_for_file = self.discover(directory, module_name, cls_name, method)
+                test_context_list_for_file = self.discover(
+                    directory, module_name, cls_name, method, injected_args=injected_args)
                 all_test_context_list.update(test_context_list_for_file)
                 if len(test_context_list_for_file) == 0:
                     self.logger.warn("Didn't find any tests in %s " % test_file)

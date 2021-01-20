@@ -111,12 +111,15 @@ class CheckTestLoader(object):
             loader.load([suite_file_path])
 
     @pytest.mark.parametrize(['expected_count', 'input_symbols', 'excluded_symbols'], [
-        pytest.param(6, [
-            # see test suite files for number of tests in it
-            # both test suites include one test method of test_by.py,
+        pytest.param(8, [
+            # see test suite files for number of tests in it.
+            # decorated test suite includes 2 tests;
+            # single includes 4 tests; multiple includes 3 tests;
+            # however both single and multiple test suites include one test method of test_by.py,
             # so total -= 1
             os.path.join(discover_dir(), 'test_suite_single.yml'),
-            os.path.join(discover_dir(), 'test_suite_multiple.yml')
+            os.path.join(discover_dir(), 'test_suite_multiple.yml'),
+            os.path.join(discover_dir(), 'test_suite_decorated.yml'),
         ], None, id='load multiple test suite files'),
         pytest.param(5, [
             # see test suite file for number of tests in it
@@ -290,36 +293,127 @@ class CheckTestLoader(object):
         # excluded 1 method only
         assert len(tests) == num_tests_in_dir(discover_dir()) - 1
 
+    def check_test_loader_with_matrix_params(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}')]
+        tests = loader.load(included)
+        # TestMatrix contains a single parametrized method. Since we only provide a single set of params, we should
+        # end up with a single context
+        assert len(tests) == 1
+        assert tests[0].injected_args == {'x': 1, 'y': 'test '}
+
+    def check_test_loader_with_multiple_matrix_params(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        params = '[{"x": 1,"y": "test "}, {"x": 2,"y": "I\'m"}]'
+        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{}'.format(params))]
+        tests = loader.load(included)
+        # TestMatrix contains a single parametrized method.
+        # We provide two sets of params, so we should end up with two contexts
+        assert len(tests) == 2
+        injected_args = map(lambda t: t.injected_args, tests)
+        assert {'x': 1, 'y': 'test '} in injected_args
+        assert {'x': 2, 'y': "I'm"} in injected_args
+
+    def check_test_loader_with_parametrize(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included = [os.path.join(discover_dir(), 'test_decorated.py::TestParametrized.test_thing@{"x":1,"y":2}')]
+        tests = loader.load(included)
+        assert len(tests) == 1
+        assert tests[0].injected_args == {'x': 1, 'y': 2}
+
+    def check_test_loader_with_parametrize_with_objects(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        parameters = '{"d": {"a": "A"}, "lst": ["whatever"]}'
+        included = [os.path.join(
+            discover_dir(), 'test_decorated.py::TestObjectParameters.test_thing@{}'.format(parameters))]
+        tests = loader.load(included)
+        assert len(tests) == 1
+        assert tests[0].injected_args == {'d': {'a': 'A'}, 'lst': ['whatever']}
+
     def check_test_loader_with_injected_args(self):
         """When the --parameters command-line option is used, the loader behaves a little bit differently:
 
         each test method annotated with @parametrize or @matrix should only expand to a single discovered test,
         and the injected args should be those passed in from command-line.
         """
-        parameters = {"x": 1, "y": -1}
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=parameters)
+        # parameter values don't have to match any of the pre-defined parameters in the annotation
+        # moreover, even parameter keys don't have to match method arguments, though if that's the case
+        # the runner will complain, but the loader wouldn't care (this has been ducktape's behavior for a while now)
+        injected_args = {"x": 100, "y": -100}
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=injected_args)
 
         file = os.path.join(discover_dir(), "test_decorated.py")
         tests = loader.load([file])
-        assert len(tests) == 4
+        assert len(tests) == 5
 
         for t in tests:
-            assert t.injected_args == parameters
+            assert t.injected_args == injected_args
+
+    def check_test_loader_raises_with_both_injected_args_and_parameters(self):
+        """One should not use both --parameters command-line flag and parameterized test symbols at the same time.
+        Loader will explicitly raise in such cases to avoid confusing behavior.
+        """
+        injected_args = {"x": 1, "y": "test "}
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=injected_args)
+        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}')]
+        with pytest.raises(LoaderException, match='Cannot use both'):
+            loader.load(included)
+
+    def check_test_loader_raises_on_params_not_found(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        # parameter syntax is valid, but there is no such parameter defined in the test annotation in the code
+        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "missing"}')]
+        with pytest.raises(LoaderException, match='No tests to run'):
+            loader.load(included)
+
+    def check_test_loader_raises_on_invalid_parameters_syntax(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        # json is invalid - no quotes around x
+        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{x: 1,"y": "test "}')]
+        with pytest.raises(LoaderException, match='Invalid test params'):
+            loader.load(included)
 
     def check_test_loader_exclude_with_injected_args(self):
-        parameters = {"x": 1, "y": -1}
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=parameters)
+        injected_args = {"x": 1, "y": -1}
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=injected_args)
 
         included = [os.path.join(discover_dir(), "test_decorated.py")]
         excluded = [os.path.join(discover_dir(), "test_decorated.py::TestStackedMatrix")]
         tests = loader.load(included, excluded)
-        # test_decorated.py contains 4 test methods total
-        # we exclude 1 class with 1 method so should be 3
+        # test_decorated.py contains 5 test methods total
+        # we exclude 1 class with 1 method so should be 4
         # exclusion shouldn't care about injected args
-        assert len(tests) == 3
+        assert len(tests) == 4
 
         for t in tests:
-            assert t.injected_args == parameters
+            assert t.injected_args == injected_args
+
+    def check_test_loader_exclude_with_params(self):
+        """
+        Checks behavior of exclude flag with parametrized annotations.
+        Should exclude only a single permutation of the method
+        """
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        # included 8 tests
+        included = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix")]
+        # exclude 1 test
+        excluded = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}')]
+        tests = loader.load(included, excluded)
+        assert len(tests) == 7
+
+    def check_test_loader_exclude_with_params_multiple(self):
+        """
+        Checks behavior of exclude flag with parametrized annotations.
+        Should exclude two permutations of the method
+        """
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        # include 8 tests
+        included = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix")]
+        # exclude 2 tests
+        params = '[{"x": 1,"y": "test "}, {"x": 2,"y": "I\'m"}]'
+        excluded = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{}'.format(params))]
+        tests = loader.load(included, excluded)
+        assert len(tests) == 6
 
     def check_test_loader_with_subsets(self):
         """Check that computation of subsets work properly. This validates both that the division of tests is correct
@@ -328,10 +422,10 @@ class CheckTestLoader(object):
 
         file = os.path.join(discover_dir(), "test_decorated.py")
 
-        # The test file contains 15 tests. With 4 subsets, first three subsets should have an "extra"
+        # The test file contains 17 tests. With 4 subsets, first subset should have an "extra"
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=0, subsets=4)
         tests = loader.load([file])
-        assert len(tests) == 4
+        assert len(tests) == 5
 
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=1, subsets=4)
         tests = loader.load([file])
@@ -343,7 +437,7 @@ class CheckTestLoader(object):
 
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=3, subsets=4)
         tests = loader.load([file])
-        assert len(tests) == 3
+        assert len(tests) == 4
 
     def check_test_loader_with_invalid_subsets(self):
         """Check that the TestLoader throws an exception if the requests subset is larger than the number of subsets"""
