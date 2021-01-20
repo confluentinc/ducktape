@@ -34,6 +34,7 @@ from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
 from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
 from ducktape.utils import persistence
+import pyinstrument
 
 
 class Receiver(object):
@@ -48,6 +49,8 @@ class Receiver(object):
 
         self.zmq_context = zmq.Context()
         self.socket = self.zmq_context.socket(zmq.REP)
+        self.num_test_running = 0
+
 
     def start(self):
         """Bind to a random port in the range [self.min_port, self.max_port], inclusive
@@ -110,6 +113,7 @@ class TestRunner(object):
         self._client_procs = {}  # track client processes running tests
         self.active_tests = {}
         self.finished_tests = {}
+        self.profile = pyinstrument.Profiler()
 
     def _propagate_sigterm(self, signum, frame):
         """Handler SIGTERM and SIGINT by propagating SIGTERM to all client processes.
@@ -152,6 +156,7 @@ class TestRunner(object):
         return len(self.active_tests) > 0
 
     def run_all_tests(self):
+        self.profile.start()
         self.receiver.start()
         self.results.start_time = time.time()
 
@@ -210,7 +215,11 @@ class TestRunner(object):
         for proc in self._client_procs.values():
             proc.join()
         self.receiver.close()
-
+        self.profile.stop()
+        path = os.path.join(self.session_context.results_dir, "test.profile")
+        if self.profile is not None:
+            with open(path, 'w', encoding='utf-8') as s:
+                s.write(self.profile.output(pyinstrument.renderers.JSONRenderer()))
         return self.results
 
     def _run_single_test(self, test_context):

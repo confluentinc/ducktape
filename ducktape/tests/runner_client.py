@@ -225,7 +225,11 @@ class RunnerClient(object):
         services = self.test_context.services
 
         if teardown_services:
-            self._do_safely(self.test.teardown, "Error running teardown method:")
+            def _teardown():
+                self.profile.start()
+                self.test.teardown()
+                self.profile.stop()
+            self._do_safely(_teardown, "Error running teardown method:")
             # stop services
             self._do_safely(services.stop_all, "Error stopping services:")
         
