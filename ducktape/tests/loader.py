@@ -259,7 +259,7 @@ class TestLoader(object):
                 try:
                     injected_args = json.loads(injected_args_str)
                 except Exception as e:
-                    raise LoaderException("Invalid test params: " + injected_args_str) from e
+                    raise LoaderException("Invalid discovery symbol: cannot parse params: " + injected_args_str) from e
             else:
                 injected_args = None
         else:

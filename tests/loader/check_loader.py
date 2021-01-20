@@ -366,11 +366,18 @@ class CheckTestLoader(object):
         with pytest.raises(LoaderException, match='No tests to run'):
             loader.load(included)
 
-    def check_test_loader_raises_on_invalid_parameters_syntax(self):
+    @pytest.mark.parametrize("symbol", [
+        # no class
+        'test_decorated.py::.test_thing'
+        # no method
+        'test_decorated.py::TestMatrix@{"x": 1, "y": "test "}'
+        # invalid json in params
+        'test_decorated.py::TestMatrix.test_thing@{x: 1,"y": "test "}'
+    ])
+    def check_test_loader_raises_on_malformed_test_discovery_symbol(self, symbol):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        # json is invalid - no quotes around x
-        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{x: 1,"y": "test "}')]
-        with pytest.raises(LoaderException, match='Invalid test params'):
+        included = [os.path.join(discover_dir(), symbol)]
+        with pytest.raises(LoaderException, match='Invalid discovery symbol'):
             loader.load(included)
 
     def check_test_loader_exclude_with_injected_args(self):
