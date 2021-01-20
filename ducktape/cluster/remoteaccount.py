@@ -159,29 +159,52 @@ class RemoteAccount(HttpMixin):
         msg = "%s: %s" % (str(self), msg)
         self.logger.log(level, msg, *args, **kwargs)
 
+    def _set_ssh_client(self):
+        client = SSHClient()
+        client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
+
+        self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
+
+        client.connect(
+            hostname=self.ssh_config.hostname,
+            port=self.ssh_config.port,
+            username=self.ssh_config.user,
+            password=self.ssh_config.password,
+            key_filename=self.ssh_config.identityfile,
+            look_for_keys=False)
+
+        if self._ssh_client:
+            self._ssh_client.close()
+        self._ssh_client = client
+        self._set_sftp_client()
+
     @property
     def ssh_client(self):
-        if not self._ssh_client:
-            client = SSHClient()
-            client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
-
-            self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
-
-            client.connect(
-                hostname=self.ssh_config.hostname,
-                port=self.ssh_config.port,
-                username=self.ssh_config.user,
-                password=self.ssh_config.password,
-                key_filename=self.ssh_config.identityfile,
-                look_for_keys=False)
-            self._ssh_client = client
+        if (self._ssh_client
+                and self._ssh_client.get_transport()
+                and self._ssh_client.get_transport().is_active()):
+            try:
+                transport = self._ssh_client.get_transport()
+                transport.send_ignore()
+            except Exception as e:
+                self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
+                self._set_ssh_client()
+        else:
+            self._set_ssh_client()
 
         return self._ssh_client
+
+    def _set_sftp_client(self):
+        if self._sftp_client:
+            self._sftp_client.close()
+        self._sftp_client = self.ssh_client.open_sftp()
 
     @property
     def sftp_client(self):
         if not self._sftp_client:
-            self._sftp_client = self.ssh_client.open_sftp()
+            self._set_sftp_client()
+        else:
+            self.ssh_client  # test connection
 
         return self._sftp_client
 
@@ -222,9 +245,9 @@ class RemoteAccount(HttpMixin):
     def _can_ping_url(self, url, headers):
         """See if we can successfully issue a GET request to the given url."""
         try:
-            self.http_request(url, "GET", "", headers, timeout=.75)
+            self.http_request(url, "GET", None, headers, timeout=.75)
             return True
-        except:
+        except Exception:
             return False
 
     def ssh(self, cmd, allow_fail=False):
@@ -311,7 +334,7 @@ class RemoteAccount(HttpMixin):
                 stdout.close()
                 stderr.close()
 
-        return SSHOutputIter(output_generator(), stdout)
+        return SSHOutputIter(output_generator, stdout)
 
     def ssh_output(self, cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
         """Runs the command via SSH and captures the output, returning it as a string.
@@ -360,11 +383,11 @@ class RemoteAccount(HttpMixin):
         try:
             self.ssh("kill -0 %s" % str(pid), allow_fail=False)
             return True
-        except:
+        except Exception:
             return False
 
     def signal(self, pid, sig, allow_fail=False):
-        cmd = "kill -%s %s" % (str(sig), str(pid))
+        cmd = "kill -%d %s" % (int(sig), str(pid))
         self.ssh(cmd, allow_fail=allow_fail)
 
     def kill_process(self, process_grep_str, clean_shutdown=True, allow_fail=False):
@@ -519,7 +542,7 @@ class RemoteAccount(HttpMixin):
             # stat should follow symlinks
             path_stat = self.sftp_client.lstat(path)
             return stat.S_ISLNK(path_stat.st_mode)
-        except:
+        except Exception:
             return False
 
     def isdir(self, path):
@@ -527,7 +550,7 @@ class RemoteAccount(HttpMixin):
             # stat should follow symlinks
             path_stat = self.sftp_client.stat(path)
             return stat.S_ISDIR(path_stat.st_mode)
-        except:
+        except Exception:
             return False
 
     def exists(self, path):
@@ -543,13 +566,13 @@ class RemoteAccount(HttpMixin):
         """Imitates semantics of os.path.isfile
 
         :param path: Path to the thing to check
-        :return: True iff path is a file or a symlink to a file, else False. Note False can mean path does not exist.
+        :return: True if path is a file or a symlink to a file, else False. Note False can mean path does not exist.
         """
         try:
             # stat should follow symlinks
             path_stat = self.sftp_client.stat(path)
             return stat.S_ISREG(path_stat.st_mode)
-        except:
+        except Exception:
             return False
 
     def open(self, path, mode='r'):
@@ -565,11 +588,12 @@ class RemoteAccount(HttpMixin):
         with self.sftp_client.open(path, "w") as f:
             f.write(contents)
 
-    def mkdir(self, path, mode=0755):
+    _DEFAULT_PERMISSIONS = int('755', 8)
+    def mkdir(self, path, mode=_DEFAULT_PERMISSIONS):
 
         self.sftp_client.mkdir(path, mode)
 
-    def mkdirs(self, path, mode=0755):
+    def mkdirs(self, path, mode=_DEFAULT_PERMISSIONS):
         self.ssh("mkdir -p %s && chmod %o %s" % (path, mode, path))
 
     def remove(self, path, allow_fail=False):
@@ -596,7 +620,7 @@ class RemoteAccount(HttpMixin):
         """
         try:
             offset = int(self.ssh_output("wc -c %s" % log).split()[0])
-        except:
+        except Exception:
             offset = 0
         yield LogMonitor(self, log, offset)
 
@@ -605,12 +629,13 @@ class SSHOutputIter(object):
     """Helper class that wraps around an iterable object to provide has_next() in addition to next()
     """
 
-    def __init__(self, iter_obj, channel_file=None):
+    def __init__(self, iter_obj_func, channel_file=None):
         """
-        :param iter_obj: An iterator
+        :param iter_obj_func: A generator that returns an iterator over stdout from the remote process
         :param channel_file: A paramiko ``ChannelFile`` object
         """
-        self.iter_obj = iter_obj
+        self.iter_obj_func = iter_obj_func
+        self.iter_obj = iter_obj_func()
         self.channel_file = channel_file
 
         # sentinel is used as an indicator that there is currently nothing cached
@@ -628,8 +653,10 @@ class SSHOutputIter(object):
         self.cached = self.sentinel
         return next_obj
 
+    __next__ = next
+
     def has_next(self, timeout_sec=None):
-        """Return True iff next(iter_obj) would return another object within timeout_sec, else False.
+        """Return True if next(iter_obj) would return another object within timeout_sec, else False.
 
         If timeout_sec is None, next(iter_obj) may block indefinitely.
         """
@@ -645,6 +672,7 @@ class SSHOutputIter(object):
             try:
                 self.cached = next(self.iter_obj, self.sentinel)
             except socket.timeout:
+                self.iter_obj = self.iter_obj_func()
                 self.cached = self.sentinel
             finally:
                 if self.channel_file is not None:

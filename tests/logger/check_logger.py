@@ -52,9 +52,9 @@ class CheckLogger(object):
         initial_open_files = open_files()
 
         n_handles = 100
-        l = DummyFileLoggerMaker(self.temp_dir, n_handles)
+        log_maker = DummyFileLoggerMaker(self.temp_dir, n_handles)
         # accessing logger attribute lazily triggers configuration of logger
-        the_logger = l.logger
+        the_logger = log_maker.logger
 
         assert len(open_files()) == len(initial_open_files) + n_handles
         close_logger(the_logger)

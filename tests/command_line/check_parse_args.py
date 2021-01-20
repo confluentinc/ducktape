@@ -14,8 +14,7 @@
 
 from ducktape.command_line.parse_args import parse_args
 
-from cStringIO import StringIO
-from exceptions import SystemExit
+from six.moves import cStringIO as StringIO
 
 import os
 import re
@@ -60,7 +59,7 @@ class CheckParseArgs(object):
                 parse_args(["--version"])
         except SystemExit as e:
             assert e.code == 0
-            assert re.search("[\d]+\.[\d]+\.[\d]+", captured.output) is not None
+            assert re.search(r"[\d]+\.[\d]+\.[\d]+", captured.output) is not None
 
     def check_empty_test_path(self):
         """Check that default test_path is an array consisting of cwd."""
@@ -81,6 +80,12 @@ class CheckParseArgs(object):
         args = ["--cluster-file", "my-cluster-file"] + paths + ["--debug", "--exit-first"]
         parsed = parse_args(args)
         assert parsed["test_path"] == paths
+
+    def check_multiple_exclude(self):
+        excluded = ["excluded1", "excluded2"]
+        args = ["--collect-only", "--exclude"] + excluded + ["--debug"]
+        parsed = parse_args(args)
+        assert parsed["exclude"] == excluded
 
     def check_config_overrides(self, monkeypatch):
         """Check that parsed arguments pick up values from config files, and that overrides match precedence."""

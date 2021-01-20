@@ -14,6 +14,7 @@
 
 
 from ducktape.errors import DucktapeError
+from six import iteritems
 
 import functools
 import itertools
@@ -116,7 +117,7 @@ class Matrix(Mark):
         for k in self.injected_args:
             try:
                 iter(self.injected_args[k])
-            except TypeError, te:
+            except TypeError as te:
                 raise DucktapeError("Expected all values in @matrix decorator to be iterable: " + str(te))
 
     @property
@@ -144,7 +145,7 @@ class Defaults(Mark):
         for k in self.injected_args:
             try:
                 iter(self.injected_args[k])
-            except TypeError, te:
+            except TypeError as te:
                 raise DucktapeError("Expected all values in @defaults decorator to be iterable: " + str(te))
 
     @property
@@ -193,7 +194,7 @@ class Parametrize(Mark):
 class Env(Mark):
     def __init__(self, **kwargs):
         self.injected_args = kwargs
-        self.should_ignore = any(os.environ[key] != value for key, value in kwargs.iteritems())
+        self.should_ignore = any(os.environ.get(key) != value for key, value in iteritems(kwargs))
 
     @property
     def name(self):

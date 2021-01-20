@@ -16,6 +16,7 @@
 from ducktape.mark import parametrize, matrix, ignore
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.mark.resource import cluster
+from ducktape.cluster.cluster_spec import ClusterSpec
 
 import pytest
 
@@ -37,6 +38,19 @@ class CheckClusterUseAnnotation(object):
         test_context_list = MarkedFunctionExpander(function=function).expand()
         assert len(test_context_list) == 1
         assert test_context_list[0].cluster_use_metadata == cluster_use_metadata
+
+    def check_basic_usage_cluster_spec(self):
+        num_nodes = 200
+
+        @cluster(cluster_spec=ClusterSpec.simple_linux(num_nodes))
+        def function():
+            return "hi"
+        assert hasattr(function, "marks")
+
+        test_context_list = MarkedFunctionExpander(function=function).expand()
+        assert len(test_context_list) == 1
+        assert len(test_context_list[0].expected_cluster_spec.nodes.os_to_nodes) == 1
+        assert len(test_context_list[0].expected_cluster_spec.nodes.os_to_nodes.get('linux')) == num_nodes
 
     def check_basic_usage_num_nodes(self):
         num_nodes = 200

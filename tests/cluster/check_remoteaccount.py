@@ -20,8 +20,8 @@ from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
 
 import logging
 from threading import Thread
-import SimpleHTTPServer
-import SocketServer
+from six.moves import SimpleHTTPServer
+from six.moves import socketserver
 import threading
 import time
 
@@ -33,7 +33,7 @@ class SimpleServer(object):
     def __init__(self):
         self.port = find_available_port()
         self.handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-        self.httpd = SocketServer.TCPServer(("", self.port), self.handler)
+        self.httpd = socketserver.TCPServer(("", self.port), self.handler)
         self.close_signal = threading.Event()
         self.server_started = False
 

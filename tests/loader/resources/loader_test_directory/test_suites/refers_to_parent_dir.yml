@@ -1,0 +1,4 @@
+test_suite_a:
+  included:
+    - ../test_a.py  # 1 test
+# total: 1 tests

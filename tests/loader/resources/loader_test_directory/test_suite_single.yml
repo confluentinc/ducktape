@@ -1,0 +1,12 @@
+test_suite_a:
+  included:
+    - test_a.py  # 1 test
+    - test_b.py::TestBB.test_bb_one  # 1 test
+    - sub_dir_a
+    # sub_dir_a/test_c.py = 0 (excluded)
+    # sub_dir_a/test_d.py = 3 - 1 (excluded) = 2
+  excluded:
+    - sub_dir_a/test_c.py  # 1 test
+    - sub_dir_a/test_d.py::TestD.test_dd  # 1 test
+
+# total: 4 tests

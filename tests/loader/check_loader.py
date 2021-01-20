@@ -52,6 +52,10 @@ def discover_dir():
     return os.path.join(resources_dir(), "loader_test_directory")
 
 
+def sub_dir_a():
+    return os.path.join(discover_dir(), "sub_dir_a")
+
+
 def num_tests_in_file(fpath):
     """Count expected number of tests in the file.
     Search for NUM_TESTS = N
@@ -74,9 +78,23 @@ def num_tests_in_dir(dpath):
     num_tests = 0
     for pwd, dirs, files in os.walk(dpath):
         for f in files:
+            if not f.endswith('.py'):
+                continue
             file_path = os.path.abspath(os.path.join(pwd, f))
             num_tests += num_tests_in_file(file_path)
     return num_tests
+
+
+def invalid_test_suites():
+    dpath = os.path.join(discover_dir(), 'invalid_test_suites')
+    params = []
+    for pwd, dirs, files in os.walk(dpath):
+        for f in files:
+            if not f.endswith('.yml'):
+                continue
+            file_path = os.path.abspath(os.path.join(pwd, f))
+            params.append(pytest.param(file_path, id=os.path.basename(file_path)))
+    return params
 
 
 class CheckTestLoader(object):
@@ -85,6 +103,66 @@ class CheckTestLoader(object):
         # To simplify unit tests, add file:// support to the test loader's functionality for loading previous
         # report.json files
         _requests_session.mount('file://', LocalFileAdapter())
+
+    @pytest.mark.parametrize('suite_file_path', invalid_test_suites())
+    def check_test_loader_raises_on_invalid_test_suite(self, suite_file_path):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        with pytest.raises(LoaderException):
+            loader.load([suite_file_path])
+
+    @pytest.mark.parametrize(['expected_count', 'input_symbols', 'excluded_symbols'], [
+        pytest.param(6, [
+            # see test suite files for number of tests in it
+            # both test suites include one test method of test_by.py,
+            # so total -= 1
+            os.path.join(discover_dir(), 'test_suite_single.yml'),
+            os.path.join(discover_dir(), 'test_suite_multiple.yml')
+        ], None, id='load multiple test suite files'),
+        pytest.param(5, [
+            # see test suite file for number of tests in it
+            os.path.join(discover_dir(), 'test_suites', 'test_suite_glob.yml')
+        ], None, id='load test suite with globs'),
+        pytest.param(2, [
+            # test suite that includes sub_dir_a/test_c.py (1 test total):
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
+            # explicitly include test_a.yml (1 test total)
+            os.path.join(discover_dir(), 'test_a.py')
+        ], None, id='load both file and suite'),
+        pytest.param(1, [
+            # test suite that includes sub_dir_a/test_c.py (1 test total):
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
+            # explicitly include test_a.yml (1 test total)
+            os.path.join(discover_dir(), 'test_a.py')
+        ], [
+            # explicitly exclude the sub_dir_a/test_c.py (included with test suite):
+            os.path.join(sub_dir_a(), 'test_c.py'),
+        ], id='global exclude overrides test suite include'),
+        pytest.param(4, [
+            # sub_dir_a contains 4 total tests
+            # test suite that includes sub_dir_a/*.py but excludes sub_dir_a/test_d.py:
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_with_exclude.yml'),
+            # explicitly include sub_dir_a/test_d.py to override exclusion from test suite:
+            os.path.join(sub_dir_a(), 'test_d.py')
+        ], None, id='global include overrides test suite exclude'),
+        pytest.param(1, [
+            # load two test suites and two files that all point to the same actual test
+            # and verify that in the end only 1 test has been loaded
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c_via_class.yml'),
+            os.path.join(sub_dir_a(), 'test_c.py'),
+            os.path.join(sub_dir_a(), 'test_c.py::TestC')
+        ], None, id='same test in test suites and test files')
+    ])
+    def check_test_loader_with_test_suites_and_files(self, expected_count, input_symbols, excluded_symbols):
+        """
+        When both files and test suites are loaded, files (both included and excluded) are
+        loaded after and separately from the test suites, so even if a test suite excludes file A,
+        it will be included if it's passed directly. And if file A is excluded directly, even if any of
+        the test suites includes it, it will still be excluded.
+        """
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load(input_symbols, excluded_test_symbols=excluded_symbols)
+        assert len(tests) == expected_count
 
     def check_test_loader_with_directory(self):
         """Check discovery on a directory."""
@@ -100,6 +178,12 @@ class CheckTestLoader(object):
         tests = loader.load([module_path])
         assert len(tests) == num_tests_in_file(module_path)
 
+    def check_test_loader_with_glob(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        file_glob = os.path.join(discover_dir(), "*_a.py")  # should resolve to test_a.py only
+        tests = loader.load([file_glob])
+        assert len(tests) == 1
+
     def check_test_loader_multiple_files(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         file_a = os.path.join(discover_dir(), "test_a.py")
@@ -108,11 +192,71 @@ class CheckTestLoader(object):
         tests = loader.load([file_a, file_b])
         assert len(tests) == num_tests_in_file(file_a) + num_tests_in_file(file_b)
 
+    def check_test_loader_include_dir_exclude_file(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        excluded_file_a = os.path.join(discover_dir(), "test_a.py")
+        excluded_file_b = os.path.join(discover_dir(), "test_b.py")
+        num_excluded = num_tests_in_file(excluded_file_a) + num_tests_in_file(excluded_file_b)
+        tests = loader.load([discover_dir()], [excluded_file_a, excluded_file_b])
+        assert len(tests) == num_tests_in_dir(discover_dir()) - num_excluded
+
+    def check_test_loader_exclude_subdir(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included_dir = discover_dir()
+        excluded_dir = sub_dir_a()
+        tests = loader.load([included_dir], [excluded_dir])
+        assert len(tests) == num_tests_in_dir(included_dir) - num_tests_in_dir(excluded_dir)
+
+    def check_test_loader_exclude_subdir_glob(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included_dir = discover_dir()
+        excluded_dir = sub_dir_a()
+        excluded_dir_glob = os.path.join(sub_dir_a(), "*.py")
+        tests = loader.load([included_dir], [excluded_dir_glob])
+        assert len(tests) == num_tests_in_dir(included_dir) - num_tests_in_dir(excluded_dir)
+
+    def check_test_loader_raises_when_nothing_is_included(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        file_a = os.path.join(discover_dir(), "test_a.py")
+        file_b = os.path.join(discover_dir(), "test_b.py")
+        with pytest.raises(LoaderException):
+            loader.load([file_a, file_b], [discover_dir()])
+
+    def check_test_loader_raises_on_include_subdir_exclude_parent_dir(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        with pytest.raises(LoaderException):
+            loader.load([(sub_dir_a())], [(discover_dir())])
+
     def check_test_loader_with_nonexistent_file(self):
         """Check discovery on a non-existent path should throw LoaderException"""
         with pytest.raises(LoaderException):
             loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
             loader.load([os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+
+    def check_test_loader_include_dir_without_tests(self):
+        with pytest.raises(LoaderException):
+            loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+            loader.load([os.path.join(discover_dir(), "sub_dir_no_tests")])
+
+    def check_test_loader_include_file_without_tests(self):
+        with pytest.raises(LoaderException):
+            loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+            loader.load([os.path.join(discover_dir(), "sub_dir_no_tests", "just_some_file.py")])
+
+    def check_test_loader_allow_exclude_dir_without_tests(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "sub_dir_no_tests")])
+        assert len(tests) == num_tests_in_dir(discover_dir())
+
+    def check_test_loader_allow_exclude_file_without_tests(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "sub_dir_no_tests", "just_some_file.py")])
+        assert len(tests) == num_tests_in_dir(discover_dir())
+
+    def check_test_loader_allow_exclude_nonexistent_file(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+        assert len(tests) == num_tests_in_dir(discover_dir())
 
     def check_test_loader_with_class(self):
         """Check test discovery with discover class syntax."""
@@ -123,6 +267,28 @@ class CheckTestLoader(object):
         # Sanity check, test that it discovers two test class & 3 tests if it searches the whole module
         tests = loader.load([os.path.join(discover_dir(), "test_b.py")])
         assert len(tests) == 3
+
+    def check_test_loader_include_dir_exclude_class(self):
+        """Check test discovery with discover class syntax."""
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "test_b.py::TestBB")])
+        # TestBB contains 2 test methods
+        assert len(tests) == num_tests_in_dir(discover_dir()) - 2
+
+    def check_test_loader_include_class_exclude_method(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included = [os.path.join(discover_dir(), "test_b.py::TestBB")]
+        excluded = [os.path.join(discover_dir(), "test_b.py::TestBB.test_bb_one")]
+        tests = loader.load(included, excluded)
+        # TestBB contains 2 test methods, but 1 is excluded
+        assert len(tests) == 1
+
+    def check_test_loader_include_dir_exclude_method(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        excluded = [os.path.join(discover_dir(), "test_b.py::TestBB.test_bb_one")]
+        tests = loader.load([discover_dir()], excluded)
+        # excluded 1 method only
+        assert len(tests) == num_tests_in_dir(discover_dir()) - 1
 
     def check_test_loader_with_injected_args(self):
         """When the --parameters command-line option is used, the loader behaves a little bit differently:
@@ -136,6 +302,21 @@ class CheckTestLoader(object):
         file = os.path.join(discover_dir(), "test_decorated.py")
         tests = loader.load([file])
         assert len(tests) == 4
+
+        for t in tests:
+            assert t.injected_args == parameters
+
+    def check_test_loader_exclude_with_injected_args(self):
+        parameters = {"x": 1, "y": -1}
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=parameters)
+
+        included = [os.path.join(discover_dir(), "test_decorated.py")]
+        excluded = [os.path.join(discover_dir(), "test_decorated.py::TestStackedMatrix")]
+        tests = loader.load(included, excluded)
+        # test_decorated.py contains 4 test methods total
+        # we exclude 1 class with 1 method so should be 3
+        # exclusion shouldn't care about injected args
+        assert len(tests) == 3
 
         for t in tests:
             assert t.injected_args == parameters
@@ -198,15 +379,14 @@ def join_parsed_symbol_components(parsed):
 
     e.g.
         {
-            'dir': 'path/to/dir',
-            'file': 'test_file.py',
+            'path': 'path/to/dir/test_file.py',
             'cls': 'ClassName',
             'method': 'method'
         },
         ->
         'path/to/dir/test_file.py::ClassName.method'
     """
-    symbol = os.path.join(parsed['dir'], parsed['file'])
+    symbol = os.path.join(parsed['path'])
 
     if parsed['cls'] or parsed['method']:
         symbol += "::"
@@ -229,35 +409,45 @@ class CheckParseSymbol(object):
         """Check that "test discovery symbol" parsing logic works correctly"""
         parsed_symbols = [
             {
-                'dir': 'path/to/dir',
-                'file': '',
+                'path': 'path/to/dir',
                 'cls': '',
                 'method': ''
             },
             {
-                'dir': 'path/to/dir',
-                'file': 'test_file.py',
+                'path': 'path/to/dir/test_file.py',
                 'cls': '',
                 'method': ''
             },
             {
-                'dir': 'path/to/dir',
-                'file': 'test_file.py',
+                'path': 'path/to/dir/test_file.py',
                 'cls': 'ClassName',
                 'method': ''
             },
             {
-                'dir': 'path/to/dir',
-                'file': 'test_file.py',
+                'path': 'path/to/dir/test_file.py',
                 'cls': 'ClassName',
                 'method': 'method'
             },
             {
-                'dir': 'path/to/dir',
-                'file': '',
+                'path': 'path/to/dir',
                 'cls': 'ClassName',
                 'method': ''
             },
+            {
+                'path': 'test_file.py',
+                'cls': '',
+                'method': ''
+            },
+            {
+                'path': 'test_file.py',
+                'cls': 'ClassName',
+                'method': ''
+            },
+            {
+                'path': 'test_file.py',
+                'cls': 'ClassName',
+                'method': 'method'
+            }
         ]
 
         loader = TestLoader(tests.ducktape_mock.session_context(), logger=Mock())
@@ -265,8 +455,7 @@ class CheckParseSymbol(object):
             symbol = join_parsed_symbol_components(parsed)
 
             expected_parsed = (
-                normalize_ending_slash(parsed['dir']),
-                parsed['file'],
+                normalize_ending_slash(parsed['path']),
                 parsed['cls'],
                 parsed['method']
             )
@@ -275,8 +464,7 @@ class CheckParseSymbol(object):
             actually_parsed = (
                 normalize_ending_slash(actually_parsed[0]),
                 actually_parsed[1],
-                actually_parsed[2],
-                actually_parsed[3]
+                actually_parsed[2]
             )
 
             assert actually_parsed == expected_parsed, "%s did not parse as expected" % symbol

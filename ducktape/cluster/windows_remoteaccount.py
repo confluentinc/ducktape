@@ -59,7 +59,7 @@ class WindowsRemoteAccount(RemoteAccount):
             ec2_instance_id = instance_id_file.read().strip()
             if not ec2_instance_id or ec2_instance_id == "":
                 raise Exception
-        except:
+        except Exception:
             raise Exception("Could not extract EC2 instance ID from local file: %s" % ec2_instance_id_path)
         finally:
             if instance_id_file:
@@ -72,7 +72,7 @@ class WindowsRemoteAccount(RemoteAccount):
         try:
             response = client.get_password_data(InstanceId=ec2_instance_id)
         except ClientError as ce:
-            if "InvalidInstanceID.NotFound" in ce.message:
+            if "InvalidInstanceID.NotFound" in str(ce):
                 raise Exception("The instance id '%s' couldn't be found. Is the correct AWS region configured?"
                                 % ec2_instance_id)
             else:
@@ -99,7 +99,7 @@ class WindowsRemoteAccount(RemoteAccount):
 
     def fetch_externally_routable_ip(self, is_aws):
         if not is_aws:
-            raise NotImplemented("Windows is only supported in AWS.")
+            raise NotImplementedError("Windows is only supported in AWS.")
 
         # EC2 windows machines aren't given an externally routable IP. Use the hostname instead.
         return self.ssh_config.hostname

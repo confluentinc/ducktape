@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from six import iteritems
+
 
 class NodeNotPresentError(Exception):
     pass
@@ -114,7 +116,7 @@ class NodeContainer(object):
         if len(msg) > 0:
             raise InsufficientResourcesError("Not enough nodes available to allocate. " + msg)
         removed = []
-        for os, node_specs in cluster_spec.nodes.os_to_nodes.iteritems():
+        for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
             num_nodes = len(node_specs)
             avail_nodes = self.os_to_nodes.get(os, [])
             for i in range(0, num_nodes):
@@ -141,7 +143,7 @@ class NodeContainer(object):
                                                 an error string otherwise.
         """
         msg = ""
-        for os, node_specs in cluster_spec.nodes.os_to_nodes.iteritems():
+        for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
             num_nodes = len(node_specs)
             avail_nodes = len(self.os_to_nodes.get(os, []))
             if avail_nodes < num_nodes:
@@ -154,7 +156,7 @@ class NodeContainer(object):
         Returns a deep copy of this object.
         """
         container = NodeContainer()
-        for operating_system, nodes in self.os_to_nodes.iteritems():
+        for operating_system, nodes in iteritems(self.os_to_nodes):
             for node in nodes:
                 container.os_to_nodes.setdefault(operating_system, []).append(node)
         return container

@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import json
 import os
 import shutil
+import xml.etree.ElementTree as ET
 
 import pkg_resources
 
@@ -134,7 +137,7 @@ class SimpleFileSummaryReporter(SimpleSummaryReporter):
 
 class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
     def report(self):
-        print self.report_string()
+        print(self.report_string())
 
 
 class JSONReporter(object):
@@ -145,6 +148,71 @@ class JSONReporter(object):
         report_file = os.path.abspath(os.path.join(self.results.session_context.results_dir, "report.json"))
         with open(report_file, "w") as f:
             f.write(json.dumps(self.results, cls=DucktapeJSONEncoder, sort_keys=True, indent=2, separators=(',', ': ')))
+
+
+class JUnitReporter(object):
+    def __init__(self, results):
+        self.results = results
+
+    def report(self):
+        report_file = os.path.abspath(os.path.join(self.results.session_context.results_dir, "report.xml"))
+        testsuites = {}
+
+        # First bucket by module_name and argregate counts
+        for result in self.results:
+            module_name = result.module_name
+            testsuites.setdefault(module_name, {})
+            # Set default values
+            testsuite = testsuites[module_name]
+            testsuite.setdefault('tests', 0)
+            testsuite.setdefault('skipped', 0)
+            testsuite.setdefault('failures', 0)
+            testsuite.setdefault('errors', 0)
+            testsuite.setdefault('testcases', []).append(result)
+
+            # Always increment total number of tests
+            testsuite['tests'] += 1
+            if result.test_status == FAIL:
+                testsuite['failures'] += 1
+            elif result.test_status == IGNORE:
+                testsuite['skipped'] += 1
+
+        total = self.results.num_failed + self.results.num_ignored + self.results.num_passed
+        # Now start building XML document
+        root = ET.Element('testsuites', attrib=dict(
+            name="ducktape", time=str(self.results.run_time_seconds),
+            tests=str(total), disabled="0", errors="0",
+            failures=str(self.results.num_failed)
+        ))
+        for module_name, testsuite in testsuites.items():
+            xml_testsuite = ET.SubElement(root, 'testsuite', attrib=dict(
+                name=module_name, tests=str(testsuite['tests']), disabled="0",
+                errors="0", failures=str(testsuite['failures']), skipped=str(testsuite['skipped'])
+            ))
+            for test in testsuite['testcases']:
+                # Since we're already aware of module_name and cls_name, strip that prefix off
+                full_name = "{module_name}.{cls_name}.".format(module_name=module_name, cls_name=test.cls_name)
+                if test.test_id.startswith(full_name):
+                    name = test.test_id[len(full_name):]
+                else:
+                    name = test.test_id
+                xml_testcase = ET.SubElement(xml_testsuite, 'testcase', attrib=dict(
+                    name=name, classname=test.cls_name, time=str(test.run_time_seconds),
+                    status=str(test.test_status), assertions=""
+                ))
+                if test.test_status == FAIL:
+                    xml_failure = ET.SubElement(xml_testcase, 'failure', attrib=dict(
+                        message=test.summary.splitlines()[0]
+                    ))
+                    xml_failure.text = test.summary
+                elif test.test_status == IGNORE:
+                    ET.SubElement(xml_testcase, 'skipped')
+
+        with open(report_file, "w") as f:
+            content = ET.tostring(root)
+            if isinstance(content, bytes):
+                content = content.decode("utf-8")
+            f.write(content)
 
 
 class HTMLSummaryReporter(SummaryReporter):
@@ -188,16 +256,26 @@ class HTMLSummaryReporter(SummaryReporter):
         return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
     def format_report(self):
-        template = pkg_resources.resource_string(__name__, '../templates/report/report.html')
+        template = pkg_resources.resource_string(__name__, '../templates/report/report.html').decode('utf-8')
 
         num_tests = len(self.results)
         num_passes = 0
-        result_string = ""
+        failed_result_string = ""
+        passed_result_string = ""
+        ignored_result_string = ""
+
         for result in self.results:
+            json_string = json.dumps(self.format_result(result))
             if result.test_status == PASS:
                 num_passes += 1
-            result_string += json.dumps(self.format_result(result))
-            result_string += ","
+                passed_result_string += json_string
+                passed_result_string += ","
+            elif result.test_status == FAIL:
+                failed_result_string += json_string
+                failed_result_string += ","
+            else:
+                ignored_result_string += json_string
+                ignored_result_string += ","
 
         args = {
             'ducktape_version': ducktape_version(),
@@ -207,7 +285,9 @@ class HTMLSummaryReporter(SummaryReporter):
             'num_ignored': self.results.num_ignored,
             'run_time': format_time(self.results.run_time_seconds),
             'session': self.results.session_context.session_id,
-            'tests': result_string,
+            'passed_tests': passed_result_string,
+            'failed_tests': failed_result_string,
+            'ignored_tests': ignored_result_string,
             'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE]])
         }
 

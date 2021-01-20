@@ -19,6 +19,8 @@ import time
 import traceback
 import zmq
 
+from six import iteritems
+
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
@@ -96,9 +98,6 @@ class RunnerClient(object):
             self.send(self.message.finished(result=result))
             return
 
-        # Results from this test, as well as logs will be dumped here
-        mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
-
         start_time = -1
         stop_time = -1
         test_status = PASS
@@ -106,6 +105,8 @@ class RunnerClient(object):
         data = None
 
         try:
+            # Results from this test, as well as logs will be dumped here
+            mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
             # Instantiate test
             self.test = self.test_context.cls(self.test_context)
 
@@ -117,7 +118,7 @@ class RunnerClient(object):
                     os_to_num_nodes[node_spec.operating_system] = 1
                 else:
                     os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
-            for (operating_system, node_count) in os_to_num_nodes.iteritems():
+            for (operating_system, node_count) in iteritems(os_to_num_nodes):
                 num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
                 if node_count > num_avail:
                     raise RuntimeError(
@@ -135,20 +136,21 @@ class RunnerClient(object):
             self.log(logging.INFO, "PASS")
 
         except BaseException as e:
-            err_trace = str(e.message) + "\n" + traceback.format_exc(limit=16)
-            self.log(logging.INFO, "FAIL: " + err_trace)
-
+            # mark the test as failed before doing anything else
             test_status = FAIL
+            err_trace = self._exc_msg(e)
             summary += err_trace
+            self.log(logging.INFO, "FAIL: " + err_trace)
 
         finally:
             self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
 
             stop_time = time.time()
 
-            service_errors = self.test_context.services.errors()
-            if service_errors:
-                summary += "\n\n" + service_errors
+            if hasattr(self, "services"):
+                service_errors = self.test_context.services.errors()
+                if service_errors:
+                    summary += "\n\n" + service_errors
 
             result = TestResult(
                 self.test_context,
@@ -164,15 +166,14 @@ class RunnerClient(object):
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
             result.report()
-
-        # Tell the server we are finished
-        self._do_safely(lambda: self.send(self.message.finished(result=result)), "Problem sending FINISHED message:")
-
-        # Release test_context resources only after creating the result and finishing logging activity
-        # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
-        self.test_context.close()
-        self.test_context = None
-        self.test = None
+            # Tell the server we are finished
+            self._do_safely(lambda: self.send(self.message.finished(result=result)),
+                            "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+            # Release test_context resources only after creating the result and finishing logging activity
+            # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
+            self.test_context.close()
+            self.test_context = None
+            self.test = None
 
     def setup_test(self):
         """start services etc"""
@@ -188,11 +189,14 @@ class RunnerClient(object):
         self.log(logging.INFO, "Running...")
         return self.test_context.function(self.test)
 
+    def _exc_msg(self, e):
+        return repr(e) + "\n" + traceback.format_exc(limit=16)
+
     def _do_safely(self, action, err_msg):
         try:
             action()
         except BaseException as e:
-            self.log(logging.WARN, err_msg + " " + e.message + "\n" + traceback.format_exc(limit=16))
+            self.log(logging.WARN, err_msg + " " + self._exc_msg(e))
 
     def teardown_test(self, teardown_services=True, test_status=None):
         """teardown method which stops services, gathers log data, removes persistent state, and releases cluster nodes.
@@ -215,12 +219,15 @@ class RunnerClient(object):
 
         # always collect service logs whether or not we tear down
         # logs are typically removed during "clean" phase, so collect logs before cleaning
+        self.log(logging.DEBUG, "Copying logs from services...")
         self._do_safely(lambda: self.test.copy_service_logs(test_status), "Error copying service logs:")
 
         # clean up stray processes and persistent state
         if teardown_services:
+            self.log(logging.DEBUG, "Cleaning up services...")
             self._do_safely(services.clean_all, "Error cleaning services:")
 
+        self.log(logging.DEBUG, "Freeing nodes...")
         self._do_safely(self.test.free_nodes, "Error freeing nodes:")
 
     def log(self, log_level, msg, *args, **kwargs):

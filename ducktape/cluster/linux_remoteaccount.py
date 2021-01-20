@@ -36,6 +36,6 @@ class LinuxRemoteAccount(RemoteAccount):
             cmd = "/sbin/ifconfig eth0 "
         else:
             cmd = "/sbin/ifconfig eth1 "
-        cmd += "| grep 'inet addr' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1"
+        cmd += r"| grep 'inet ' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1"
         output = "".join(self.ssh_capture(cmd))
         return output.strip()

@@ -21,9 +21,13 @@ import os
 import pytest
 import random
 import shutil
+from six import iteritems
 import tempfile
 from threading import Thread
 import time
+import logging
+
+from ducktape.utils.util import wait_until
 
 
 def generate_tempdir_name():
@@ -37,11 +41,15 @@ class RemoteAccountTestService(Service):
     """Simple service that allocates one node for performing tests of RemoteAccount functionality"""
 
     def __init__(self, context):
-        super(RemoteAccountTestService, self).__init__(context, 1)
+        super(RemoteAccountTestService, self).__init__(context, num_nodes=1)
         self.temp_dir = generate_tempdir_name()
         self.logs = {
             "my_log": {
                 "path": self.log_file,
+                "collect_default": True
+            },
+            "non_existent_log": {
+                "path": os.path.join(self.temp_dir, "absent.log"),
                 "collect_default": True
             }
         }
@@ -135,7 +143,7 @@ class FileSystemTest(Test):
     def open_test(self):
         """Try opening, writing, reading a file."""
         fname = "%s/myfile.txt" % self.scratch_dir
-        expected_contents = "hello world\nhooray!"
+        expected_contents = b"hello world\nhooray!"
         with self.node.account.open(fname, "w") as f:
             f.write(expected_contents)
 
@@ -144,7 +152,7 @@ class FileSystemTest(Test):
         assert contents == expected_contents
 
         # Now try opening in append mode
-        append = "hithere"
+        append = b"hithere"
         expected_contents = expected_contents + append
         with self.node.account.open(fname, "a") as f:
             f.write(append)
@@ -215,15 +223,15 @@ class FileSystemTest(Test):
 # A key which has a dict as its value represents a subdirectory
 DIR_STRUCTURE = {
     "d00": {
-        "another_file": "1\n2\n3\n4\ncats and dogs",
+        "another_file": b"1\n2\n3\n4\ncats and dogs",
         "d10": {
-            "fasdf": "lasdf;asfd\nahoppoqnbasnb"
+            "fasdf": b"lasdf;asfd\nahoppoqnbasnb"
         },
         "d11": {
-            "f65": "afasdfsafdsadf"
+            "f65": b"afasdfsafdsadf"
         }
     },
-    "a_file": "hello world!"
+    "a_file": b"hello world!"
 }
 
 
@@ -232,7 +240,7 @@ def make_dir_structure(base_dir, dir_structure, node=None):
 
     if node is None, make the structure locally, else make it on the given node
     """
-    for k, v in dir_structure.iteritems():
+    for k, v in iteritems(dir_structure):
         if isinstance(v, dict):
             # it's a subdirectory
             subdir_name = k
@@ -252,16 +260,16 @@ def make_dir_structure(base_dir, dir_structure, node=None):
             file_contents = v
 
             if node:
-                with node.account.open(file_path, "w") as f:
+                with node.account.open(file_path, "wb") as f:
                     f.write(file_contents)
             else:
-                with open(file_path, "w") as f:
+                with open(file_path, "wb") as f:
                     f.write(file_contents)
 
 
 def verify_dir_structure(base_dir, dir_structure, node=None):
     """Verify locally or on the given node whether the file subtree at base_dir matches dir_structure."""
-    for k, v in dir_structure.iteritems():
+    for k, v in iteritems(dir_structure):
         if isinstance(v, dict):
             # it's a subdirectory
             subdir_name = k
@@ -284,9 +292,9 @@ def verify_dir_structure(base_dir, dir_structure, node=None):
                 with node.account.open(file_path, "r") as f:
                     contents = f.read()
             else:
-                with open(file_path, "r") as f:
+                with open(file_path, "rb") as f:
                     contents = f.read()
-            assert expected_file_contents == contents
+            assert expected_file_contents == contents, contents
 
 
 class CopyToAndFroTest(Test):
@@ -364,7 +372,7 @@ class CopyDirectTest(Test):
         This should work with or without the recursive flag.
         """
         file_path = os.path.join(self.remote_scratch_dir, "myfile.txt")
-        expected_contents = "123"
+        expected_contents = b"123"
         self.src_node.account.create_file(file_path, expected_contents)
 
         self.src_node.account.copy_between(file_path, file_path, self.dest_node)
@@ -429,8 +437,8 @@ class RemoteAccountTest(Test):
         ssh_output = node.account.ssh_output(cmd, combine_stderr=True)
         bad_ssh_output = node.account.ssh_output(cmd, combine_stderr=False)  # Same command, but don't capture stderr
 
-        assert ssh_output == "\n".join([str(i) for i in range(1, 6)]) + "\n"
-        assert bad_ssh_output == ""
+        assert ssh_output == b"\n".join([str(i).encode('utf-8') for i in range(1, 6)]) + b"\n", ssh_output
+        assert bad_ssh_output == b"", bad_ssh_output
 
     @cluster(num_nodes=1)
     def test_ssh_capture(self):
@@ -451,7 +459,7 @@ class RemoteAccountTest(Test):
         cmd = "for i in $(seq 1 5); do echo $i; done"
         ssh_output = node.account.ssh_output(cmd, combine_stderr=False)
 
-        assert ssh_output == "\n".join([str(i) for i in range(1, 6)]) + "\n", ssh_output
+        assert ssh_output == b"\n".join([str(i).encode('utf-8') for i in range(1, 6)]) + b"\n", ssh_output
 
     @cluster(num_nodes=1)
     def test_monitor_log(self):
@@ -502,6 +510,29 @@ class RemoteAccountTest(Test):
             # expected
             end = time.time()
             assert end - start > timeout, "Should have waited full timeout period while monitoring the log"
+
+    @cluster(num_nodes=1)
+    def test_kill_process(self):
+        """Tests that kill_process correctly works"""
+
+        def get_pids():
+            pid_cmd = "ps ax | grep -i nc | grep -v grep | awk '{print $1}'"
+
+            return list(node.account.ssh_capture(pid_cmd, callback=int))
+
+        node = self.account_service.nodes[0]
+
+        # Run TCP service using netcat
+        node.account.ssh_capture("nohup nc -l -p 5000 > /dev/null 2>&1 &")
+
+        wait_until(lambda: len(get_pids()) > 0, timeout_sec=10,
+                   err_msg="Failed to start process within %d sec" % 10)
+
+        # Kill service.
+        node.account.kill_process("nc")
+
+        wait_until(lambda: len(get_pids()) == 0, timeout_sec=10,
+                   err_msg="Failed to kill process within %d sec" % 10)
 
 
 class TestIterWrapper(Test):
@@ -554,3 +585,42 @@ class TestIterWrapper(Test):
         self.node.account.ssh(cmd, allow_fail=True)
 
         self.node.account.ssh("rm -f " + self.temp_file, allow_fail=True)
+
+
+class RemoteAccountCompressedTest(Test):
+    def __init__(self, test_context):
+        super(RemoteAccountCompressedTest, self).__init__(test_context)
+        self.account_service = RemoteAccountTestService(test_context)
+        self.test_context.session_context.compress = True
+        self.tar_msg = False
+        self.tar_error = False
+
+    def setup(self):
+        self.account_service.start()
+
+    @cluster(num_nodes=1)
+    def test_log_compression_with_non_existent_files(self):
+        """Test that log compression with tar works even when a specific log file has not been generated
+        (e.g. heap dump)
+        """
+        self.test_context.logger.addFilter(CompressionErrorFilter(self))
+        self.copy_service_logs(None)
+
+        if not self.tar_msg:
+            raise Exception("Never saw attempt to compress log")
+        if self.tar_error:
+            raise Exception("Failure when compressing logs")
+
+
+class CompressionErrorFilter(logging.Filter):
+
+    def __init__(self, test):
+        super(CompressionErrorFilter, self).__init__()
+        self.test = test
+
+    def filter(self, record):
+        if 'tar czf' in record.msg:
+            self.test.tar_msg = True
+            if 'Error' in record.msg:
+                self.test.tar_error = True
+        return True

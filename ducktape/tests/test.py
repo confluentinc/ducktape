@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+from contextlib import contextmanager
 import logging
 import os
 import re
@@ -26,7 +27,7 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.template import TemplateRenderer
-from ducktape.mark.resource import CLUSTER_SIZE_KEYWORD
+from ducktape.mark.resource import CLUSTER_SPEC_KEYWORD, CLUSTER_SIZE_KEYWORD
 from ducktape.tests.status import FAIL
 
 
@@ -153,7 +154,11 @@ class Test(TemplateRenderer):
                     if test_status == FAIL or self.should_collect_log(log_name, service):
                         node_logs.append(log_dirs[log_name]["path"])
 
+                self.test_context.logger.debug("Preparing to copy logs from %s: %s" %
+                                               (node.account.hostname, node_logs))
+
                 if self.test_context.session_context.compress:
+                    self.test_context.logger.debug("Compressing logs...")
                     node_logs = self.compress_service_logs(node, service, node_logs)
 
                 if len(node_logs) > 0:
@@ -165,6 +170,7 @@ class Test(TemplateRenderer):
                         mkdir_p(dest)
 
                     # Try to copy the service logs
+                    self.test_context.logger.debug("Copying logs...")
                     try:
                         for log in node_logs:
                             node.account.copy_from(log, dest)
@@ -176,7 +182,7 @@ class Test(TemplateRenderer):
                              'source': log_dirs[log_name],
                              'dest': dest,
                              'service': service,
-                             'message': e.message})
+                             'message': e})
 
     def mark_for_collect(self, service, log_name=None):
         if log_name is None:
@@ -200,7 +206,7 @@ def _compress_cmd(log_path):
     """Return bash command which compresses the given path to a tarball."""
     compres_cmd = 'cd "$(dirname %s)" && ' % log_path
     compres_cmd += 'f="$(basename %s)" && ' % log_path
-    compres_cmd += 'tar czf "$f.tgz" "$f" && '
+    compres_cmd += 'if [ -e "$f" ]; then tar czf "$f.tgz" "$f"; fi && '
     compres_cmd += 'rm -rf %s' % log_path
 
     return compres_cmd
@@ -209,15 +215,15 @@ def _compress_cmd(log_path):
 def _escape_pathname(s):
     """Remove fishy characters, replace most with dots"""
     # Remove all whitespace completely
-    s = re.sub("\s+", "", s)
+    s = re.sub(r"\s+", "", s)
 
     # Replace bad characters with dots
-    blacklist = "[^\.\-=_\w\d]+"
+    blacklist = r"[^\.\-=_\w\d]+"
     s = re.sub(blacklist, ".", s)
 
     # Multiple dots -> single dot (and no leading or trailing dot)
-    s = re.sub("[\.]+", ".", s)
-    return re.sub("^\.|\.$", "", s)
+    s = re.sub(r"[\.]+", ".", s)
+    return re.sub(r"^\.|\.$", "", s)
 
 
 def test_logger(logger_name, log_dir, debug):
@@ -282,13 +288,13 @@ class TestContext(object):
         :param function: the test method
         :param file: file containing this module
         :param injected_args: a dict containing keyword args which will be passed to the test method
-        :param cluster_use_metadata: dict containing information about how this test will use cluster resources,
-               to date, this only includes "num_nodes"
+        :param cluster_use_metadata: dict containing information about how this test will use cluster resources
         """
 
         self.session_context = kwargs.get("session_context")
         self.cluster = kwargs.get("cluster")
         self.module = kwargs.get("module")
+        self.test_suite_name = kwargs.get("test_suite_name")
 
         if kwargs.get("file") is not None:
             self.file = os.path.abspath(kwargs.get("file"))
@@ -300,7 +306,6 @@ class TestContext(object):
         self.ignore = kwargs.get("ignore", False)
 
         # cluster_use_metadata is a dict containing information about how this test will use cluster resources
-        # to date, this only includes "num_nodes"
         self.cluster_use_metadata = copy.copy(kwargs.get("cluster_use_metadata", {}))
 
         self.services = ServiceRegistry()
@@ -383,8 +388,11 @@ class TestContext(object):
 
         :return:            A ClusterSpec object.
         """
+        cluster_spec = self.cluster_use_metadata.get(CLUSTER_SPEC_KEYWORD)
         cluster_size = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
-        if cluster_size is not None:
+        if cluster_spec is not None:
+            return cluster_spec
+        elif cluster_size is not None:
             return ClusterSpec.simple_linux(cluster_size)
         elif self.cluster is None:
             return ClusterSpec.empty()
@@ -469,3 +477,36 @@ class TestContext(object):
         # Release file handles held by logger
         if self._logger:
             close_logger(self._logger)
+
+
+@contextmanager
+def in_dir(path):
+    """ Changes working directory to given path. On exit, restore to original working directory. """
+    cwd = os.getcwd()
+
+    try:
+        os.chdir(path)
+        yield
+
+    finally:
+        os.chdir(cwd)
+
+
+@contextmanager
+def in_temp_dir():
+    """ Creates a temporary directory as the working directory. On exit, it is removed. """
+    with _new_temp_dir() as tmpdir:
+        with in_dir(tmpdir):
+            yield tmpdir
+
+
+@contextmanager
+def _new_temp_dir():
+    """ Create a temporary directory that is removed automatically """
+    tmpdir = tempfile.mkdtemp()
+
+    try:
+        yield tmpdir
+
+    finally:
+        shutil.rmtree(tmpdir)

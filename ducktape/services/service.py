@@ -72,11 +72,13 @@ class Service(TemplateRenderer):
         self._clean_time = -1
 
         self._initialized = False
-        self.cluster_spec = Service.setup_cluster_spec(num_nodes, cluster_spec)
+        self.cluster_spec = Service.setup_cluster_spec(num_nodes=num_nodes, cluster_spec=cluster_spec)
         self.context = context
 
         self.nodes = []
-        self.allocate_nodes()
+        self.skip_nodes_allocation = kwargs.get("skip_nodes_allocation", False)
+        if not self.skip_nodes_allocation:
+            self.allocate_nodes()
 
         # Keep track of which nodes nodes were allocated to this service, even after nodes are freed
         # Note: only keep references to representations of the nodes, not the actual node objects themselves
@@ -188,7 +190,7 @@ class Service(TemplateRenderer):
         try:
             self.nodes = self.cluster.alloc(self.cluster_spec)
         except RuntimeError as e:
-            msg = str(e.message)
+            msg = str(e)
             if hasattr(self.context, "services"):
                 msg += " Currently registered services: " + str(self.context.services)
             raise RuntimeError(msg)
@@ -199,8 +201,8 @@ class Service(TemplateRenderer):
                 # This log message help test-writer identify which test and/or service didn't clean up after itself
                 node.account.logger.critical(ConsoleDefaults.BAD_TEST_MESSAGE)
                 raise RuntimeError(
-                    "logger was not None on service start. There may be a concurrency issue, " +
-                    "or some service which isn't properly cleaning up after itself. " +
+                    "logger was not None on service start. There may be a concurrency issue, "
+                    "or some service which isn't properly cleaning up after itself. "
                     "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
             node.account.logger = self.logger
 
@@ -221,12 +223,12 @@ class Service(TemplateRenderer):
 
             try:
                 self.stop_node(node)
-            except:
+            except Exception:
                 pass
 
             try:
                 self.clean_node(node)
-            except:
+            except Exception:
                 pass
 
         for node in self.nodes:
@@ -250,16 +252,17 @@ class Service(TemplateRenderer):
         end = start + timeout_sec
         for node in self.nodes:
             now = time.time()
+            node_name = self.who_am_i(node)
             if end > now:
-                self.logger.debug("%s: waiting for node", self.who_am_i(node))
+                self.logger.debug("%s: waiting for node", node_name)
                 if not self.wait_node(node, end - now):
-                    unfinished_nodes.append(node)
+                    unfinished_nodes.append(node_name)
             else:
-                unfinished_nodes.append(node)
+                unfinished_nodes.append(node_name)
 
         if unfinished_nodes:
-            raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec) +
-                               "These nodes are still alive: " + str(unfinished_nodes))
+            raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec)
+                               + "These nodes are still alive: " + str(unfinished_nodes))
 
     def wait_node(self, node, timeout_sec=None):
         """Wait for the service on the given node to finish.

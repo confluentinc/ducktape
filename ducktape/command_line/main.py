@@ -12,42 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import importlib
 import json
 import os
+import random
+from six import iteritems
 import sys
 import traceback
-
-import pysistence
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.loggermaker import close_logger
 from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, \
-    HTMLSummaryReporter, JSONReporter
+    HTMLSummaryReporter, JSONReporter, JUnitReporter
 from ducktape.tests.runner import TestRunner
 from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
-
-
-def extend_import_paths(paths):
-    """Extends sys.path with top-level packages found based on a set of input paths. This only adds top-level packages
-    in order to avoid naming conflict with internal packages, e.g. ensure that a package foo.bar.os does not conflict
-    with the top-level os package.
-
-    Adding these import paths is necessary to make importing tests work even when the test modules are not available on
-    PYTHONPATH/sys.path, as they normally will be since tests generally will not be installed and available for import
-
-    :param paths:
-    :return:
-    """
-    for path in paths:
-        dir = os.path.abspath(path if os.path.isdir(path) else os.path.dirname(path))
-        while os.path.exists(os.path.join(dir, '__init__.py')):
-            dir = os.path.dirname(dir)
-        sys.path.append(dir)
+from ducktape.utils import persistence
 
 
 def get_user_defined_globals(globals_str):
@@ -59,7 +44,7 @@ def get_user_defined_globals(globals_str):
     :return dict containing user-defined global variables
     """
     if globals_str is None:
-        return pysistence.make_dict()
+        return persistence.make_dict()
 
     from_file = False
     if os.path.isfile(globals_str):
@@ -73,7 +58,7 @@ def get_user_defined_globals(globals_str):
             # try parsing directly as json if it doesn't seem to be a file
             user_globals = json.loads(globals_str)
         except ValueError as ve:
-            message = ve.message
+            message = str(ve)
             message += "\nglobals parameter %s is neither valid JSON nor a valid path to a JSON file." % globals_str
             raise ValueError(message)
 
@@ -88,9 +73,8 @@ def get_user_defined_globals(globals_str):
 
         raise ValueError(message)
 
-    # Use pysistence to create the immutable dict
-    user_globals = pysistence.make_dict(**user_globals)
-    return user_globals
+    # create the immutable dict
+    return persistence.make_dict(**user_globals)
 
 
 def setup_results_directory(new_results_dir):
@@ -124,7 +108,7 @@ def main():
         try:
             injected_args = json.loads(args_dict["parameters"])
         except ValueError as e:
-            print "parameters are not valid json: " + str(e.message)
+            print("parameters are not valid json: " + str(e))
             sys.exit(1)
 
     args_dict["globals"] = get_user_defined_globals(args_dict.get("globals"))
@@ -141,24 +125,34 @@ def main():
 
     session_context = SessionContext(session_id=session_id, results_dir=results_dir, **args_dict)
     session_logger = SessionLoggerMaker(session_context).logger
-    for k, v in args_dict.iteritems():
+    for k, v in iteritems(args_dict):
         session_logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run
-    extend_import_paths(args_dict["test_path"])
     loader = TestLoader(session_context, session_logger, repeat=args_dict["repeat"], injected_args=injected_args,
                         subset=args_dict["subset"], subsets=args_dict["subsets"])
     try:
-        tests = loader.load(args_dict["test_path"])
+        tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
     except LoaderException as e:
-        print "Failed while trying to discover tests: {}".format(e)
+        print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
 
     if args_dict["collect_only"]:
-        print "Collected %d tests:" % len(tests)
+        print("Collected %d tests:" % len(tests))
         for test in tests:
-            print "    " + str(test)
+            print("    " + str(test))
         sys.exit(0)
+
+    if args_dict["sample"]:
+        print("Running a sample of %d tests" % args_dict["sample"])
+        try:
+            tests = random.sample(tests, args_dict["sample"])
+        except ValueError as e:
+            if args_dict["sample"] > len(tests):
+                print("sample size %d greater than number of tests %d; running all tests" % (
+                    args_dict["sample"], len(tests)))
+            else:
+                print("invalid sample size (%s), running all tests" % e)
 
     # Initializing the cluster is slow, so do so only if
     # tests are sure to be run
@@ -171,9 +165,9 @@ def main():
             # Note that we're attaching a reference to cluster
             # only after test context objects have been instantiated
             ctx.cluster = cluster
-    except:
-        print "Failed to load cluster: ", str(sys.exc_info()[0])
-        print traceback.format_exc(limit=16)
+    except Exception:
+        print("Failed to load cluster: ", str(sys.exc_info()[0]))
+        print(traceback.format_exc(limit=16))
         sys.exit(1)
 
     # Run the tests
@@ -185,7 +179,8 @@ def main():
         SimpleStdoutSummaryReporter(test_results),
         SimpleFileSummaryReporter(test_results),
         HTMLSummaryReporter(test_results),
-        JSONReporter(test_results)
+        JSONReporter(test_results),
+        JUnitReporter(test_results)
     ]
 
     for r in reporters:
