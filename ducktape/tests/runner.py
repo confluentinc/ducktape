@@ -21,7 +21,7 @@ import signal
 import time
 import traceback
 import zmq
-
+from datetime import datetime
 from ducktape.tests.serde import SerDe
 from ducktape.tests.test import TestContext
 from ducktape.command_line.defaults import ConsoleDefaults
@@ -35,7 +35,8 @@ from ducktape.tests.result import FAIL, TestResult
 from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
 from ducktape.utils import persistence
 import pyinstrument
-
+import json
+from collections import defaultdict
 
 class Receiver(object):
     def __init__(self, min_port, max_port):
@@ -113,6 +114,7 @@ class TestRunner(object):
         self._client_procs = {}  # track client processes running tests
         self.active_tests = {}
         self.finished_tests = {}
+        self._metrics = {'node_utilization' : {}, 'num_tests' : {}}
         self.profile = pyinstrument.Profiler()
 
     def _propagate_sigterm(self, signum, frame):
@@ -206,6 +208,8 @@ class TestRunner(object):
 
                         # All processes are on the same machine, so treat communication failure as a fatal error
                         raise
+                    self._metrics['node_utilization'][datetime.now()] = len(self.cluster.used())
+                    self._metrics['num_tests'][datetime.now()] = self.active_tests
             except KeyboardInterrupt:
                 # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
                 self._log(logging.INFO,
@@ -216,10 +220,13 @@ class TestRunner(object):
             proc.join()
         self.receiver.close()
         self.profile.stop()
-        path = os.path.join(self.session_context.results_dir, "test.profile")
+        profile_path = os.path.join(self.session_context.results_dir, "test.profile")
+        metrics_path = os.path.join(self.session_context.results_dir, "metrics.json")
         if self.profile is not None:
-            with open(path, 'w', encoding='utf-8') as s:
+            with open(profile_path, 'w', encoding='utf-8') as s:
                 s.write(self.profile.output(pyinstrument.renderers.JSONRenderer()))
+            with open(metrics_path, 'w', encoding='utf-8') as s:
+                s.write(json.dumps(self._metrics))
         return self.results
 
     def _run_single_test(self, test_context):
