@@ -217,8 +217,8 @@ class Service(TemplateRenderer):
 
         self.logger.debug(self.who_am_i() + ": killing processes and attempting to clean up before starting")
         for node in self.nodes:
-            # Added precaution - kill running processes, clean persistent files (if 'clean' flag passed,
-            # skip cleaning), try/except for each step, since each of these steps may fail if there 
+            # Added precaution - kill running processes, clean persistent files (if 'clean'=False flag passed,
+            # skip cleaning), try/except for each step, since each of these steps may fail if there
             # are no processes to kill or no files to remove
 
             try:
@@ -227,7 +227,7 @@ class Service(TemplateRenderer):
                 pass
 
             try:
-                if kwargs.get('clean'):
+                if kwargs.get('clean', True):
                     self.clean_node(node)
                 else:
                     self.logger.debug("%s: skip cleaning node" % self.who_am_i(node))

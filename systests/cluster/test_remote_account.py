@@ -109,7 +109,7 @@ class FileSystemTest(Test):
 
         # validate existence and contents
         self.node.account.ssh("test -f %s" % fpath)
-        contents = "\n".join([l for l in self.node.account.ssh_capture("cat %s" % fpath)])
+        contents = "\n".join([line for line in self.node.account.ssh_capture("cat %s" % fpath)])
         assert contents == expected_contents
 
         # TODO also check absolute path
@@ -420,9 +420,9 @@ class RemoteAccountTest(Test):
         ssh_output = node.account.ssh_capture(cmd, combine_stderr=True)
         bad_ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)  # Same command, but don't capture stderr
 
-        lines = [int(l.strip()) for l in ssh_output]
+        lines = [int(line.strip()) for line in ssh_output]
         assert lines == [i for i in range(1, 6)]
-        bad_lines = [int(l.strip()) for l in bad_ssh_output]
+        bad_lines = [int(line.strip()) for line in bad_ssh_output]
         assert bad_lines == []
 
     @cluster(num_nodes=1)
@@ -448,7 +448,7 @@ class RemoteAccountTest(Test):
         cmd = "for i in $(seq 1 5); do echo $i; done"
         ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)
 
-        lines = [int(l.strip()) for l in ssh_output]
+        lines = [int(line.strip()) for line in ssh_output]
         assert lines == [i for i in range(1, 6)]
 
     @cluster(num_nodes=1)
