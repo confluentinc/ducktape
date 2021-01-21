@@ -16,7 +16,7 @@ from ducktape.tests.test import Test
 from ducktape.mark import matrix
 from ducktape.mark import parametrize
 
-NUM_TESTS = 15
+NUM_TESTS = 17
 
 
 class TestMatrix(Test):
@@ -42,5 +42,13 @@ class TestParametrized(Test):
     @parametrize(x=1, y=2)
     @parametrize(x="abc", y=[])
     def test_thing(self, x, y):
+        """2 tests"""
+        pass
+
+
+class TestObjectParameters(Test):
+    @parametrize(d={'a': 'A'}, lst=['whatever'])
+    @parametrize(d={'z': 'Z'}, lst=['something'])
+    def test_thing(self, d, lst):
         """2 tests"""
         pass
