@@ -157,6 +157,11 @@ class TestRunner(object):
     def _expect_client_requests(self):
         return len(self.active_tests) > 0
 
+    def _record_metrics(self):
+        now = datetime.now().time().isoformat()
+        self._metrics['node_utilization'][now] = len(self.cluster.used())
+        self._metrics['num_tests'][now] = self.active_tests
+
     def run_all_tests(self):
         self.profile.start()
         self.receiver.start()
@@ -196,7 +201,7 @@ class TestRunner(object):
                     next_test_context = self.scheduler.next()
                     self._preallocate_subcluster(next_test_context)
                     self._run_single_test(next_test_context)
-
+                self._record_metrics()
                 if self._expect_client_requests:
                     try:
                         event = self.receiver.recv()
@@ -208,9 +213,7 @@ class TestRunner(object):
 
                         # All processes are on the same machine, so treat communication failure as a fatal error
                         raise
-                now = datetime.now().time().isoformat()
-                self._metrics['node_utilization'][now] = len(self.cluster.used())
-                self._metrics['num_tests'][now] = self.active_tests
+                
             except KeyboardInterrupt:
                 # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
                 self._log(logging.INFO,
@@ -285,6 +288,7 @@ class TestRunner(object):
             self._handle_log(event)
         else:
             raise RuntimeError("Received event with unknown event type: " + str(event))
+        self._record_metrics()
 
     def _handle_ready(self, event):
         test_key = TestKey(event["test_id"], event["test_index"])
