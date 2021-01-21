@@ -44,7 +44,7 @@ class Test(TemplateRenderer):
 
     @property
     def cluster(self):
-        return self.test_context.session_context.cluster
+        return self.test_context.cluster
 
     @property
     def logger(self):
