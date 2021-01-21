@@ -160,7 +160,7 @@ class TestRunner(object):
     def _record_metrics(self):
         now = datetime.now().time().isoformat()
         self._metrics['node_utilization'][now] = len(self.cluster.used())
-        self._metrics['num_tests'][now] = self.active_tests
+        self._metrics['num_tests'][now] = len(self.active_tests)
 
     def run_all_tests(self):
         self.profile.start()
