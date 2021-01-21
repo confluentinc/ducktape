@@ -208,8 +208,9 @@ class TestRunner(object):
 
                         # All processes are on the same machine, so treat communication failure as a fatal error
                         raise
-                    self._metrics['node_utilization'][datetime.now().time().isoformat()] = len(self.cluster.used())
-                    self._metrics['num_tests'][datetime.now().time().isoformat()] = self.active_tests
+                now = datetime.now().time().isoformat()
+                self._metrics['node_utilization'][now] = len(self.cluster.used())
+                self._metrics['num_tests'][now] = self.active_tests
             except KeyboardInterrupt:
                 # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
                 self._log(logging.INFO,
