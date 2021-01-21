@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.services.background_thread import BackgroundThreadService
 from ducktape.errors import TimeoutError
 from tests.ducktape_mock import test_context, MockNode
@@ -58,6 +59,18 @@ class CheckBackgroundThreadService(object):
 
     def setup_method(self, method):
         self.context = test_context()
+
+    def check_service_constructor(self):
+        """Check that BackgroundThreadService constructor corresponds to the base class's one."""
+        exp_spec = ClusterSpec.simple_linux(10)
+        service = BackgroundThreadService(self.context, cluster_spec=exp_spec)
+        assert service.cluster_spec == exp_spec
+
+        service = BackgroundThreadService(self.context, num_nodes=20)
+        assert service.cluster_spec.size() == 20
+
+        with pytest.raises(RuntimeError):
+            BackgroundThreadService(self.context, num_nodes=20, cluster_spec=exp_spec)
 
     def check_service_timeout(self):
         """Test that wait(timeout_sec) raise a TimeoutError in approximately the expected time."""

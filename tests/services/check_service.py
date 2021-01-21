@@ -22,9 +22,31 @@ class DummyService(Service):
 
     def __init__(self, context, num_nodes):
         super(DummyService, self).__init__(context, num_nodes)
+        self.started_count = 0
+        self.cleaned_count = 0
+        self.stopped_count = 0
+
+        self.started_kwargs = {}
+        self.cleaned_kwargs = {}
+        self.stopped_kwargs = {}
 
     def idx(self, node):
         return 1
+
+    def start_node(self, node, **kwargs):
+        super(DummyService, self).start_node(node, **kwargs)
+        self.started_count += 1
+        self.started_kwargs = kwargs
+
+    def clean_node(self, node, **kwargs):
+        super(DummyService, self).clean_node(node, **kwargs)
+        self.cleaned_count += 1
+        self.cleaned_kwargs = kwargs
+
+    def stop_node(self, node, **kwargs):
+        super(DummyService, self).stop_node(node, **kwargs)
+        self.stopped_count += 1
+        self.stopped_kwargs = kwargs
 
 
 class DifferentDummyService(Service):
@@ -71,3 +93,41 @@ class CheckAllocateFree(object):
         assert self.diffDummy0._order == 0
         assert self.diffDummy1._order == 1
         assert self.diffDummy2._order == 2
+
+
+class CheckStartStop(object):
+
+    def setup_method(self, _):
+        self.cluster = LocalhostCluster()
+        self.session_context = session_context()
+        self.context = test_context(self.session_context, cluster=self.cluster)
+
+    def check_start_stop_clean(self):
+        """
+        Checks that start, stop, and clean invoke the expected per-node calls, and that start also runs stop and
+        clean
+        """
+        service = DummyService(self.context, 2)
+
+        service.start()
+        assert service.started_count == 2
+        assert service.stopped_count == 2
+        assert service.cleaned_count == 2
+
+        service.stop()
+        assert service.stopped_count == 4
+
+        service.clean()
+        assert service.cleaned_count == 4
+
+    def check_kwargs_support(self):
+        """Check that start, stop, and clean, and their per-node versions, can accept keyword arguments"""
+        service = DummyService(self.context, 2)
+
+        kwargs = {"foo": "bar"}
+        service.start(**kwargs)
+        assert service.started_kwargs == kwargs
+        service.stop(**kwargs)
+        assert service.stopped_kwargs == kwargs
+        service.clean(**kwargs)
+        assert service.cleaned_kwargs == kwargs
