@@ -11,7 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+try:
+    from unittest.mock import patch, MagicMock  # noqa: F401
+except ImportError:
+    from mock import patch, MagicMock  # noqa: F401
 
+from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
@@ -23,9 +28,13 @@ from tests.runner.resources.test_fails_to_init import FailsToInitTest
 from tests.runner.resources.test_fails_to_init_in_setup import FailsToInitInSetupTest
 from .resources.test_thingy import TestThingy
 from .resources.test_failing_tests import FailingTest
+from ducktape.tests.reporter import JUnitReporter
+
 
 from mock import Mock
 import os
+import xml.etree.ElementTree as ET
+
 
 TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
@@ -68,19 +77,56 @@ class CheckRunner(object):
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
 
-        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2]
+        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
                                    cluster=mock_cluster, session_context=session_context)
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
 
         results = runner.run_all_tests()
-        assert len(results) == 3
-        assert results.num_failed == 0
+        assert len(results) == 4
+        assert results.num_failed == 1
         assert results.num_passed == 1
         assert results.num_ignored == 2
 
         result_with_data = [r for r in results if r.data is not None][0]
         assert result_with_data.data == {"data": 3.14159}
+
+    def check_runner_report_junit(self):
+        """Check we can serialize results into a xunit xml format. Also ensures that the XML report
+        adheres to the Junit spec using xpath queries"""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+
+        results = runner.run_all_tests()
+        JUnitReporter(results).report()
+        xml_report = os.path.join(session_context.results_dir, "report.xml")
+        assert os.path.exists(xml_report)
+        tree = ET.parse(xml_report)
+        assert len(tree.findall('./testsuite/testcase/failure')) == 1
+        assert len(tree.findall('./testsuite/testcase/skipped')) == 2
+        assert len(tree.findall('./testsuite/testcase')) == 4
+
+        passed = tree.findall("./testsuite/testcase/[@status='pass']")
+        assert len(passed) == 1
+        assert passed[0].get("classname") == "TestThingy"
+        assert passed[0].get("name") == "test_pi"
+
+        failures = tree.findall("./testsuite/testcase/[@status='fail']")
+        assert len(failures) == 1
+        assert failures[0].get("classname") == "TestThingy"
+        assert failures[0].get("name") == "test_failure"
+
+        ignores = tree.findall("./testsuite/testcase/[@status='ignore']")
+        assert len(ignores) == 2
+        assert ignores[0].get("classname") == "TestThingy"
+        assert ignores[1].get("classname") == "TestThingy"
+
+        assert ignores[0].get("name") == "test_ignore1"
+        assert ignores[1].get("name") == "test_ignore2.x=5"
 
     def check_exit_first(self):
         """Confirm that exit_first in session context has desired effect of preventing any tests from running
@@ -117,3 +163,27 @@ class CheckRunner(object):
         assert results.num_failed == 4
         assert results.num_passed == 0
         assert results.num_ignored == 0
+
+    @patch('ducktape.tests.runner_client.mkdir_p')
+    @patch.object(RunnerClient, '_exc_msg')
+    def check_sends_result_when_internal_error(self, exc_msg_mock, mkdir_p_mock):
+        """Validates that any framework error when executing the test
+        doesn't prevent sending the result and completing the test"""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        # mock an error creating test directory - this will make both test_pi and test_failure fail before execution
+        mkdir_p_mock.side_effect = Exception
+        # mock an error reporting test failure - this should not prevent subsequent tests from execution and mark
+        # failed test as failed correctly
+        exc_msg_mock.side_effect = Exception
+        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+
+        results = runner.run_all_tests()
+        assert len(results) == 4
+        assert results.num_failed == 2
+        assert results.num_passed == 0
+        assert results.num_ignored == 2

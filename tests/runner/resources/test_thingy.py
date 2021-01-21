@@ -35,3 +35,6 @@ class TestThingy(Test):
     @parametrize(x=5)
     def test_ignore2(self, x=2):
         pass
+
+    def test_failure(self):
+        raise Exception("This failed")

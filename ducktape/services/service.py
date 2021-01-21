@@ -208,11 +208,8 @@ class Service(TemplateRenderer):
 
         self.logger.debug("Successfully allocated %d nodes to %s" % (len(self.nodes), self.who_am_i()))
 
-    def start(self, clean=True):
-        """
-        Start the service on all nodes.
-        :param clean: If False, clean node will be skipped.
-        """
+    def start(self, **kwargs):
+        """Start the service on all nodes."""
         self.logger.info("%s: starting service" % self.who_am_i())
         if self._start_time < 0:
             # Set self._start_time only the first time self.start is invoked
@@ -220,9 +217,9 @@ class Service(TemplateRenderer):
 
         self.logger.debug(self.who_am_i() + ": killing processes and attempting to clean up before starting")
         for node in self.nodes:
-            # Added precaution - kill running processes, clean persistent files
-            # try/except for each step, since each of these steps may fail if there are no processes
-            # to kill or no files to remove
+            # Added precaution - kill running processes, clean persistent files (if 'clean' flag passed,
+            # skip cleaning), try/except for each step, since each of these steps may fail if there 
+            # are no processes to kill or no files to remove
 
             try:
                 self.stop_node(node)
@@ -230,7 +227,7 @@ class Service(TemplateRenderer):
                 pass
 
             try:
-                if clean:
+                if kwargs.get('clean'):
                     self.clean_node(node)
                 else:
                     self.logger.debug("%s: skip cleaning node" % self.who_am_i(node))
@@ -239,14 +236,14 @@ class Service(TemplateRenderer):
 
         for node in self.nodes:
             self.logger.debug("%s: starting node" % self.who_am_i(node))
-            self.start_node(node)
+            self.start_node(node, **kwargs)
 
         if self._start_duration_seconds < 0:
             self._start_duration_seconds = time.time() - self._start_time
 
-    def start_node(self, node):
+    def start_node(self, node, **kwargs):
         """Start service process(es) on the given node."""
-        raise NotImplementedError("%s: subclasses must implement start_node." % self.who_am_i())
+        pass
 
     def wait(self, timeout_sec=600):
         """Wait for the service to finish.
@@ -274,9 +271,9 @@ class Service(TemplateRenderer):
         """Wait for the service on the given node to finish.
         Return True if the node finished shutdown, False otherwise.
         """
-        raise NotImplementedError("%s: subclasses must implement wait_node." % self.who_am_i())
+        pass
 
-    def stop(self):
+    def stop(self, **kwargs):
         """Stop service processes on each node in this service.
         Subclasses must override stop_node.
         """
@@ -284,15 +281,15 @@ class Service(TemplateRenderer):
         self.logger.info("%s: stopping service" % self.who_am_i())
         for node in self.nodes:
             self.logger.info("%s: stopping node" % self.who_am_i(node))
-            self.stop_node(node)
+            self.stop_node(node, **kwargs)
 
         self._stop_duration_seconds = time.time() - self._stop_time
 
-    def stop_node(self, node):
+    def stop_node(self, node, **kwargs):
         """Halt service process(es) on this node."""
-        raise NotImplementedError("%s: subclasses must implement stop_node." % self.who_am_i())
+        pass
 
-    def clean(self):
+    def clean(self, **kwargs):
         """Clean up persistent state on each node - e.g. logs, config files etc.
         Subclasses must override clean_node.
         """
@@ -300,9 +297,9 @@ class Service(TemplateRenderer):
         self.logger.info("%s: cleaning service" % self.who_am_i())
         for node in self.nodes:
             self.logger.info("%s: cleaning node" % self.who_am_i(node))
-            self.clean_node(node)
+            self.clean_node(node, **kwargs)
 
-    def clean_node(self, node):
+    def clean_node(self, node, **kwargs):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
         self.logger.warn("%s: clean_node has not been overriden. "
                          "This may be fine if the service leaves no persistent state."
