@@ -126,6 +126,8 @@ class CheckStartStop(object):
 
         kwargs = {"foo": "bar"}
         service.start(**kwargs)
+        assert service.started_kwargs == kwargs
         service.stop(**kwargs)
+        assert service.stopped_kwargs == kwargs
         service.clean(**kwargs)
-
+        assert service.cleaned_kwargs == kwargs
