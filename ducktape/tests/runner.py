@@ -114,7 +114,8 @@ class TestRunner(object):
         self._client_procs = {}  # track client processes running tests
         self.active_tests = {}
         self.finished_tests = {}
-        self._metrics = {'node_utilization' : {}, 'num_tests' : {}}
+        self._metrics = defaultdict(dict)
+        self._metrics.update({'node_utilization' : {}, 'num_tests' : {}, 'free_nodes':{}})
         self.profile = pyinstrument.Profiler()
 
     def _propagate_sigterm(self, signum, frame):
@@ -161,6 +162,9 @@ class TestRunner(object):
         now = datetime.now().time().isoformat()
         self._metrics['node_utilization'][now] = len(self.cluster.used())
         self._metrics['num_tests'][now] = len(self.active_tests)
+        self._metrics['free_nodes'][now] = len(self.cluster.available())
+        for test in self.active_tests:
+            self._metrics[f'{test}-nodes'][now] = test.expected_num_nodes()
 
     def run_all_tests(self):
         self.profile.start()
