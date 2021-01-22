@@ -165,7 +165,7 @@ class TestRunner(object):
         self._metrics['free_nodes'][now] = len(self.cluster.available())
         for test_id, _ in self.active_tests:
             test = self._test_context[test_id]
-            test_name = f'{test.module.split(".")[-1]}.{test.function}{".".join(f"{k}={v}" for k, v in test.injected_args.items())}'
+            test_name = f'{test.module.split(".")[-1]}.{test.function}{".".join(f"{k}={v}" for k, v in test.injected_args.items()) if test.injected_args else ""}'
             self._metrics[f'{test_name}-nodes'][now] = test.expected_num_nodes
 
     def run_all_tests(self):
