@@ -165,7 +165,7 @@ class TestRunner(object):
         self._metrics['free_nodes'][now] = len(self.cluster.available())
         for test_id, _ in self.active_tests:
             test = self._test_context[test_id]
-            self._metrics[f'{test}-nodes'][now] = test.expected_num_nodes()
+            self._metrics[f'{test}-nodes'][now] = test.expected_num_nodes
 
     def run_all_tests(self):
         self.profile.start()
