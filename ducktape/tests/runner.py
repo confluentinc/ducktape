@@ -201,7 +201,6 @@ class TestRunner(object):
                     next_test_context = self.scheduler.next()
                     self._preallocate_subcluster(next_test_context)
                     self._run_single_test(next_test_context)
-                self._record_metrics()
                 if self._expect_client_requests:
                     try:
                         event = self.receiver.recv()
@@ -219,6 +218,7 @@ class TestRunner(object):
                 self._log(logging.INFO,
                           "Received KeyboardInterrupt. Now waiting for currently running tests to finish...")
                 self.stop_testing = True
+            self._record_metrics()
 
         for proc in self._client_procs.values():
             proc.join()
@@ -288,7 +288,6 @@ class TestRunner(object):
             self._handle_log(event)
         else:
             raise RuntimeError("Received event with unknown event type: " + str(event))
-        self._record_metrics()
 
     def _handle_ready(self, event):
         test_key = TestKey(event["test_id"], event["test_index"])
