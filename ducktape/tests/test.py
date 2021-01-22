@@ -126,7 +126,6 @@ class Test(TemplateRenderer):
                     nlog = nlog[:-len(os.path.sep)]
                 nlog += ".tgz"
                 compressed_logs.append(nlog)
-                compressed_logs.append(f'{nlog}{os.path.sep}test.profile')
 
             except Exception as e:
                 self.test_context.logger.warn(

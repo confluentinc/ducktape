@@ -234,7 +234,7 @@ class RunnerClient(object):
             self._do_safely(services.stop_all, "Error stopping services:")
         
 
-        path = os.path.join(self._log_dir, "test.profile")
+        path = os.path.join(os.sep.join(self._log_dir.split(os.sep)[:-1]), f"{self.test_index}.profile")
         if self.profile is not None:
             with open(path, 'w', encoding='utf-8') as s:
                 s.write(self.profile.output(pyinstrument.renderers.JSONRenderer()))
