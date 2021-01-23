@@ -117,6 +117,14 @@ class CheckStartStop(object):
         service.stop()
         assert service.stopped_count == 4
 
+        service.start(clean=False)
+        assert service.started_count == 4
+        assert service.stopped_count == 6
+        assert service.cleaned_count == 2
+
+        service.stop()
+        assert service.stopped_count == 8
+
         service.clean()
         assert service.cleaned_count == 4
 

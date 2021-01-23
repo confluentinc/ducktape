@@ -589,6 +589,7 @@ class RemoteAccount(HttpMixin):
             f.write(contents)
 
     _DEFAULT_PERMISSIONS = int('755', 8)
+
     def mkdir(self, path, mode=_DEFAULT_PERMISSIONS):
 
         self.sftp_client.mkdir(path, mode)
