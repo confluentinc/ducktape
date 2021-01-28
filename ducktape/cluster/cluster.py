@@ -36,6 +36,9 @@ class Cluster(object):
     system that can describe available resources and mediates reservations of those resources.
     """
 
+    def __init__(self):
+        self.max_used_nodes = 0
+
     def __len__(self):
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         return self.available().size() + self.used().size()
@@ -46,6 +49,19 @@ class Cluster(object):
 
         :param cluster_spec:                    A ClusterSpec describing the nodes to be allocated.
         :throws InsufficientResources:          If the nodes cannot be allocated.
+        :return:                                Allocated nodes spec
+        """
+        allocated = self.do_alloc(cluster_spec)
+        self.max_used_nodes = max(self.max_used_nodes, len(self.used()))
+        return allocated
+
+    def do_alloc(self, cluster_spec):
+        """
+        Subclasses should implement actual allocation here.
+
+        :param cluster_spec:                    A ClusterSpec describing the nodes to be allocated.
+        :throws InsufficientResources:          If the nodes cannot be allocated.
+        :return:                                Allocated nodes spec
         """
         raise NotImplementedError
 
@@ -80,6 +96,9 @@ class Cluster(object):
         Return a ClusterSpec object describing the currently in use nodes.
         """
         raise NotImplementedError
+
+    def max_used(self):
+        return self.max_used_nodes
 
     def all(self):
         """
