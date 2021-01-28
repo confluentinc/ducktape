@@ -110,7 +110,7 @@ class JsonCluster(Cluster):
             return LinuxRemoteAccount(ssh_config=ssh_config,
                                       externally_routable_ip=externally_routable_ip)
 
-    def alloc(self, cluster_spec):
+    def do_alloc(self, cluster_spec):
         allocated_accounts = self._available_accounts.remove_spec(cluster_spec)
         allocated_nodes = []
         for account in allocated_accounts:

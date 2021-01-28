@@ -45,7 +45,7 @@ class FakeCluster(Cluster):
             self._available_nodes.add_node(FakeClusterNode())
         self._in_use_nodes = NodeContainer()
 
-    def alloc(self, cluster_spec):
+    def do_alloc(self, cluster_spec):
         allocated = self._available_nodes.remove_spec(cluster_spec)
         self._in_use_nodes.add_nodes(allocated)
         return allocated
