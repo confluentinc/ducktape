@@ -27,6 +27,7 @@ class LocalhostCluster(Cluster):
     """
 
     def __init__(self, *args, **kwargs):
+        super(LocalhostCluster, self).__init__()
         num_nodes = kwargs.get("num_nodes", 1000)
         self._available_nodes = NodeContainer()
         for i in range(num_nodes):
