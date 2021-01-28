@@ -89,6 +89,27 @@ class GenericService(Service):
         node.account.remove(self.worker_scratch_dir, allow_fail=True)
 
 
+class UnderUtilizedTest(Test):
+
+    def setup(self):
+        self.service = GenericService(self.test_context, 1)
+
+    @cluster(num_nodes=3)
+    def under_utilized_test(self):
+        # setup() creates a service instance, which calls alloc() for one node
+        assert self.test_context.cluster.max_used() == 1
+        assert len(self.test_context.cluster.used()) == 1
+
+        self.another_service = GenericService(self.test_context, 1)
+        assert len(self.test_context.cluster.used()) == 2
+        assert self.test_context.cluster.max_used() == 2
+
+        self.service.stop()
+        self.service.free()
+        assert len(self.test_context.cluster.used()) == 1
+        assert self.test_context.cluster.max_used() == 2
+
+
 class FileSystemTest(Test):
     """
     Note that in an attempt to isolate the file system methods, validation should be done with ssh/shell commands.

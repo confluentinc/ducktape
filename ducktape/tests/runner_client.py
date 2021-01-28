@@ -162,6 +162,7 @@ class RunnerClient(object):
                 start_time,
                 stop_time)
 
+            self._check_cluster_utilization()
             self.log(logging.INFO, "Summary: %s" % str(result.summary))
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
@@ -174,6 +175,12 @@ class RunnerClient(object):
             self.test_context.close()
             self.test_context = None
             self.test = None
+
+    def _check_cluster_utilization(self):
+        max_used = self.cluster.max_used()
+        total = len(self.cluster.all())
+        if max_used < total:
+            self.log(logging.WARN, "Test requested %d nodes, used only %d" % (total, max_used))
 
     def setup_test(self):
         """start services etc"""
