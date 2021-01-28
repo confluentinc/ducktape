@@ -40,12 +40,13 @@ class FakeCluster(Cluster):
     """A cluster class with counters, but no actual node objects"""
 
     def __init__(self, num_nodes):
+        super(FakeCluster, self).__init__()
         self._available_nodes = NodeContainer()
         for i in range(0, num_nodes):
             self._available_nodes.add_node(FakeClusterNode())
         self._in_use_nodes = NodeContainer()
 
-    def alloc(self, cluster_spec):
+    def do_alloc(self, cluster_spec):
         allocated = self._available_nodes.remove_spec(cluster_spec)
         self._in_use_nodes.add_nodes(allocated)
         return allocated

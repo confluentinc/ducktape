@@ -22,11 +22,12 @@ class FiniteSubcluster(Cluster):
     """
 
     def __init__(self, nodes):
+        super(FiniteSubcluster, self).__init__()
         self.nodes = nodes
         self._available_nodes = NodeContainer(nodes)
         self._in_use_nodes = NodeContainer()
 
-    def alloc(self, cluster_spec):
+    def do_alloc(self, cluster_spec):
         allocated = self._available_nodes.remove_spec(cluster_spec)
         self._in_use_nodes.add_nodes(allocated)
         return allocated

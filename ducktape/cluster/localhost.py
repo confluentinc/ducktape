@@ -27,6 +27,7 @@ class LocalhostCluster(Cluster):
     """
 
     def __init__(self, *args, **kwargs):
+        super(LocalhostCluster, self).__init__()
         num_nodes = kwargs.get("num_nodes", 1000)
         self._available_nodes = NodeContainer()
         for i in range(num_nodes):
@@ -34,7 +35,7 @@ class LocalhostCluster(Cluster):
             self._available_nodes.add_node(ClusterNode(LinuxRemoteAccount(ssh_config)))
         self._in_use_nodes = NodeContainer()
 
-    def alloc(self, cluster_spec):
+    def do_alloc(self, cluster_spec):
         allocated = self._available_nodes.remove_spec(cluster_spec)
         self._in_use_nodes.add_nodes(allocated)
         return allocated
