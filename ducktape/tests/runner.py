@@ -160,6 +160,7 @@ class TestRunner(object):
 
     def _record_metrics(self):
         now = datetime.now().time().isoformat()
+        self._log(logging.INFO, 'recording metrics')
         self._metrics['node_utilization'][now] = len(self.cluster.used())
         self._metrics['num_tests'][now] = len(self.active_tests)
         self._metrics['free_nodes'][now] = len(self.cluster.available())
@@ -235,6 +236,7 @@ class TestRunner(object):
         if self.profile is not None:
             with open(profile_path, 'w', encoding='utf-8') as s:
                 s.write(self.profile.output(pyinstrument.renderers.JSONRenderer()))
+        if self._metrics is not None:    
             with open(metrics_path, 'w', encoding='utf-8') as s:
                 s.write(json.dumps(self._metrics))
         return self.results
