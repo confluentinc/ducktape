@@ -137,10 +137,26 @@ def main():
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
 
+    def make_dict(obj):
+        if not hasattr(obj, '__dict__'):
+            return obj
+
+        d = dict(obj.__dict__)
+        for k, v in d.items():
+            if hasattr(v, '__dict__'):
+                d[k] = make_dict(v)
+            elif isinstance(v, list) or isinstance(v, set):
+                d[k] = [make_dict(i) for i in v]
+        return d
+
     if args_dict["collect_only"]:
         print("Collected %d tests:" % len(tests))
         for test in tests:
             print("    " + str(test))
+        print('writing to collect.json')
+        tst = json.dumps([make_dict(test) for test in tests])
+        with open(f'collect.json', 'w', encoding='utf-8') as f:
+            f.write(tst)
         sys.exit(0)
 
     if args_dict["sample"]:
