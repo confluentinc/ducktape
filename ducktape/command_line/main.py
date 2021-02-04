@@ -141,7 +141,7 @@ def main():
         if not hasattr(obj, '__dict__'):
             return obj
 
-        d = {k:v for k, v in obj.__dict__ if not isinstance(v, FunctionType)}
+        d = {k:v for k, v in obj.__dict__.items() if not isinstance(v, FunctionType)}
         for k, v in d.items():
             if hasattr(v, '__dict__'):
                 d[k] = make_dict(v)
