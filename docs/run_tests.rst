@@ -9,12 +9,14 @@ Running Tests
 
 ducktape discovers and runs tests in the path(s) provided.
 You can specify a folder with tests, a specific test file or even a specific class or test method, via absolute or
-relative paths::
+relative paths. You can optionally specify a specific set of parameters
+for tests with ``@parametrize`` or ``@matrix`` annotations::
 
-    ducktape <relative_path_to_testdirectory>               # e.g. ducktape dir/tests
-    ducktape <relative_path_to_file>                        # e.g. ducktape dir/tests/my_test.py
-    ducktape <path_to_test>[::SomeTestClass]                # e.g. ducktape dir/tests/my_test.py::TestA
-    ducktape <path_to_test>[::SomeTestClass[.test_method]]  # e.g. ducktape dir/tests/my_test.py::TestA.test_a
+    ducktape <relative_path_to_testdirectory>                   # e.g. ducktape dir/tests
+    ducktape <relative_path_to_file>                            # e.g. ducktape dir/tests/my_test.py
+    ducktape <path_to_test>[::SomeTestClass]                    # e.g. ducktape dir/tests/my_test.py::TestA
+    ducktape <path_to_test>[::SomeTestClass[.test_method]]      # e.g. ducktape dir/tests/my_test.py::TestA.test_a
+    ducktape <path_to_test>[::TestClass[.method[@params_json]]] # e.g. ducktape 'dir/tests/my_test.py::TestA.test_a@{"x": 100}'
 
 
 Excluding Tests
@@ -38,6 +40,7 @@ via YAML file
     my_test_suite:
         - ./my_tests_dir/  # paths are relative to the test suite file location
         - ./another_tests_dir/test_file.py::TestClass.test_method  # same syntax as passing tests directly to ducktape
+        - './another_tests_dir/test_file.py::TestClass.parametrized_method@{"x": 100}'  # params are supported too
         - ./third_tests_dir/prefix_*.py  # basic globs are supported (* and ? characters)
 
     # each YAML file can contain one or more test suites:

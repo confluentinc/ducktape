@@ -22,8 +22,8 @@ from six import itervalues
 
 class BackgroundThreadService(Service):
 
-    def __init__(self, context, num_nodes):
-        super(BackgroundThreadService, self).__init__(context, num_nodes)
+    def __init__(self, context, num_nodes=None, cluster_spec=None, *args, **kwargs):
+        super(BackgroundThreadService, self).__init__(context, num_nodes, cluster_spec, *args, **kwargs)
         self.worker_threads = {}
         self.worker_errors = {}
         self.errors = ''

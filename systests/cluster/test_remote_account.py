@@ -89,6 +89,27 @@ class GenericService(Service):
         node.account.remove(self.worker_scratch_dir, allow_fail=True)
 
 
+class UnderUtilizedTest(Test):
+
+    def setup(self):
+        self.service = GenericService(self.test_context, 1)
+
+    @cluster(num_nodes=3)
+    def under_utilized_test(self):
+        # setup() creates a service instance, which calls alloc() for one node
+        assert self.test_context.cluster.max_used() == 1
+        assert len(self.test_context.cluster.used()) == 1
+
+        self.another_service = GenericService(self.test_context, 1)
+        assert len(self.test_context.cluster.used()) == 2
+        assert self.test_context.cluster.max_used() == 2
+
+        self.service.stop()
+        self.service.free()
+        assert len(self.test_context.cluster.used()) == 1
+        assert self.test_context.cluster.max_used() == 2
+
+
 class FileSystemTest(Test):
     """
     Note that in an attempt to isolate the file system methods, validation should be done with ssh/shell commands.
@@ -109,7 +130,7 @@ class FileSystemTest(Test):
 
         # validate existence and contents
         self.node.account.ssh("test -f %s" % fpath)
-        contents = "\n".join([l for l in self.node.account.ssh_capture("cat %s" % fpath)])
+        contents = "\n".join([line for line in self.node.account.ssh_capture("cat %s" % fpath)])
         assert contents == expected_contents
 
         # TODO also check absolute path
@@ -420,9 +441,9 @@ class RemoteAccountTest(Test):
         ssh_output = node.account.ssh_capture(cmd, combine_stderr=True)
         bad_ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)  # Same command, but don't capture stderr
 
-        lines = [int(l.strip()) for l in ssh_output]
+        lines = [int(line.strip()) for line in ssh_output]
         assert lines == [i for i in range(1, 6)]
-        bad_lines = [int(l.strip()) for l in bad_ssh_output]
+        bad_lines = [int(line.strip()) for line in bad_ssh_output]
         assert bad_lines == []
 
     @cluster(num_nodes=1)
@@ -448,7 +469,7 @@ class RemoteAccountTest(Test):
         cmd = "for i in $(seq 1 5); do echo $i; done"
         ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)
 
-        lines = [int(l.strip()) for l in ssh_output]
+        lines = [int(line.strip()) for line in ssh_output]
         assert lines == [i for i in range(1, 6)]
 
     @cluster(num_nodes=1)

@@ -44,6 +44,7 @@ setup(name="ducktape",
       url="http://github.com/confluentinc/ducktape",
       packages=find_packages(),
       package_data={'ducktape': ['templates/report/*']},
+      python_requires='>= 3.6',
       install_requires=['jinja2==2.11.2',
                         'boto3==1.15.9',
                         # jinja2 pulls in MarkupSafe with a > constraint, but we need to constrain it for compatibility

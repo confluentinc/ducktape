@@ -19,8 +19,9 @@ import shutil
 import sys
 import tempfile
 
-from tests import ducktape_mock
+from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.test import Test, TestContext, _escape_pathname, _compress_cmd, in_dir, in_temp_dir
+from tests import ducktape_mock
 
 
 class DummyTest(Test):
@@ -46,6 +47,13 @@ class CheckLifecycle(object):
         context.close()
         context.close()
         assert not hasattr(context, "services")
+
+    def check_cluster_property(self):
+        exp_cluster = ClusterSpec.simple_linux(5)
+        tc = TestContext(session_context=ducktape_mock.session_context(), cluster=exp_cluster,
+                         cls=DummyTest, function=DummyTest.test_function_description)
+        test_obj = tc.cls(tc)
+        assert test_obj.cluster == exp_cluster
 
 
 class CheckEscapePathname(object):
