@@ -33,7 +33,7 @@ from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils import persistence
-
+from types import FunctionType
 
 def get_user_defined_globals(globals_str):
     """Parse user-defined globals into an immutable dict using globals_str
@@ -141,12 +141,12 @@ def main():
         if not hasattr(obj, '__dict__'):
             return obj
 
-        d = dict(obj.__dict__)
+        d = {k:v for k, v in obj.__dict__ if not isinstance(v, FunctionType)}
         for k, v in d.items():
             if hasattr(v, '__dict__'):
                 d[k] = make_dict(v)
             elif isinstance(v, list) or isinstance(v, set):
-                d[k] = [make_dict(i) for i in v]
+                d[k] = [make_dict(i) for i in v if not isinstance(v, FunctionType)]
         return d
 
     if args_dict["collect_only"]:
