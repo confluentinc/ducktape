@@ -153,7 +153,7 @@ def main():
         for test in tests:
             print("    " + str(test))
         print('writing to collect.json')
-        tst = json.dumps({test.module : test.expected_cluster_spec for test in tests})
+        tst = json.dumps({test.module : test.expected_num_nodes for test in tests})
         with open(f'collect.json', 'w', encoding='utf-8') as f:
             f.write(tst)
         sys.exit(0)
