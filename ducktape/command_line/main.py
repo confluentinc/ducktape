@@ -21,7 +21,6 @@ import random
 from six import iteritems
 import sys
 import traceback
-from test import TestContext
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
@@ -154,7 +153,7 @@ def main():
         for test in tests:
             print("    " + str(test))
         print('writing to collect.json')
-        tst = json.dumps({TestContext.logger_name(test, test.test_index) : test.expected_num_nodes for test in tests})
+        tst = json.dumps({test.test_name : test.expected_num_nodes for test in tests})
         with open(f'collect.json', 'w', encoding='utf-8') as f:
             f.write(tst)
         sys.exit(0)
