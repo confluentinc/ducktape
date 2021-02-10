@@ -13,8 +13,11 @@
 # limitations under the License.
 
 from ducktape.tests.test import Test
+from ducktape.mark.resource import cluster
 from ducktape.mark import matrix
 from ducktape.mark import parametrize
+from ducktape.mark import defaults
+
 
 NUM_TESTS = 15
 
@@ -43,4 +46,15 @@ class TestParametrized(Test):
     @parametrize(x="abc", y=[])
     def test_thing(self, x, y):
         """2 tests"""
+        pass
+
+class TestStackedDefaultClusterMatrixParametrized(Test):
+    @cluster(num_nodes=5)
+    @defaults(y=[1])
+    # @cluster(num_nodes=3)
+    @parametrize(x=[1])
+    @cluster(num_nodes=7)
+    @matrix(x=[4])
+    def test_thing(self, x, y):
+        print("works!!!")
         pass

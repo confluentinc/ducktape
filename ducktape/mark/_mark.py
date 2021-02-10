@@ -159,6 +159,8 @@ class Defaults(Mark):
                 for injected_args in cartesian_product_dict(
                         {arg: self.injected_args[arg] for arg in self.injected_args if arg not in ctx.injected_args}):
                     injected_args.update(ctx.injected_args)
+                    if ctx.cluster_use_metadata:
+                        seed_context.cluster_use_metadata = ctx.cluster_use_metadata
                     injected_fun = _inject(**injected_args)(seed_context.function)
                     new_context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=injected_args))
         else:
