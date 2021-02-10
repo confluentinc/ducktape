@@ -486,8 +486,10 @@ class TestLoader(object):
                 if isinstance(suite_content, dict):
                     directory = os.path.dirname(curr)
                     # apply path of current file to the files inside 
-                    imported = (os.path.abspath(os.path.join(directory, file)) for file in suite_content.get('import', []) if file not in files)
-                    stack.extend(imported)
+                    abs_file_iter = (os.path.abspath(os.path.join(directory, file)) 
+                                for file in suite_content.get('imported', []))
+                    imported_iter = (file for file in abs_file_iter if file not in files) 
+                    stack.extend(imported_iter)
 
         for test_suite_file_path, file_content in files.items():
             for suite_name, suite_content in file_content.items():
