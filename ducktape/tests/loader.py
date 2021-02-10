@@ -454,23 +454,42 @@ class TestLoader(object):
             all_contexts.update(self._load_test_suite(**suite))
         return all_contexts
 
-    def _read_test_suite_from_file(self, test_suite_file_path):
-        suites = list()
-        test_suite_file_path = os.path.abspath(test_suite_file_path)
-        if not os.path.exists(test_suite_file_path) or not os.path.isfile(test_suite_file_path):
-            raise LoaderException("Test suite does not exist or is a directory: " + test_suite_file_path)
-
-        with open(test_suite_file_path) as fp:
+    def _load_suite(self, suite_file_path):
+        with open(suite_file_path) as fp:
             try:
                 file_content = yaml.load(fp, Loader=yaml.FullLoader)
             except Exception as e:
-                raise LoaderException("Failed to load test suite from file: " + test_suite_file_path, e)
+                raise LoaderException("Failed to load test suite from file: " + suite_file_path, e)
 
-            if not file_content:
-                raise LoaderException("Test suite file is empty: " + test_suite_file_path)
-            if not isinstance(file_content, dict):
-                raise LoaderException("Malformed test suite file: " + test_suite_file_path)
+        if not file_content:
+            raise LoaderException("Test suite file is empty: " + suite_file_path)
+        if not isinstance(file_content, dict):
+            raise LoaderException("Malformed test suite file: " + suite_file_path)
 
+        for suite_name, suite_content in file_content.items():
+            if not suite_content:
+                raise LoaderException("Empty test suite " + suite_name + " in " + suite_file_path)
+        return file_content
+
+    def _read_test_suite_from_file(self, root_suite_file_path):
+        suites = []
+        root_suite_file_path = os.path.abspath(root_suite_file_path)
+        files = { root_suite_file_path : self._load_suite(root_suite_file_path) }
+        stack = [ root_suite_file_path ]
+
+        while len(stack) != 0:
+            curr = stack.pop()
+            loaded = self._load_suite(curr)
+            files[curr] = loaded
+
+            for suite_content in loaded.values():
+                if isinstance(suite_content, dict):
+                    directory = os.path.dirname(curr)
+                    # apply path of current file to the files inside 
+                    imported = (os.path.abspath(os.path.join(directory, file)) for file in suite_content.get('import', []) if file not in files)
+                    stack.extend(imported)
+
+        for test_suite_file_path, file_content in files.items():
             for suite_name, suite_content in file_content.items():
                 if not suite_content:
                     raise LoaderException("Empty test suite " + suite_name + " in " + test_suite_file_path)
