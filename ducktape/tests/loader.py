@@ -479,8 +479,7 @@ class TestLoader(object):
 
         while len(stack) != 0:
             curr = stack.pop()
-            loaded = self._load_suite(curr)
-            files[curr] = loaded
+            loaded = files[curr]
 
             for suite_content in loaded.values():
                 if isinstance(suite_content, dict):
@@ -488,8 +487,10 @@ class TestLoader(object):
                     # apply path of current file to the files inside
                     abs_file_iter = (os.path.abspath(os.path.join(directory, file))
                                      for file in suite_content.get('imported', []))
-                    imported_iter = (file for file in abs_file_iter if file not in files)
-                    stack.extend(imported_iter)
+                    imported = [file for file in abs_file_iter if file not in files]
+                    for file in imported:
+                        files[file] = self._load_suite(file)
+                    stack.extend(imported)
 
         for test_suite_file_path, file_content in files.items():
             for suite_name, suite_content in file_content.items():
