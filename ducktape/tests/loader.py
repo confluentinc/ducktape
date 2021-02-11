@@ -474,8 +474,8 @@ class TestLoader(object):
     def _read_test_suite_from_file(self, root_suite_file_path):
         suites = []
         root_suite_file_path = os.path.abspath(root_suite_file_path)
-        files = { root_suite_file_path : self._load_suite(root_suite_file_path) }
-        stack = [ root_suite_file_path ]
+        files = {root_suite_file_path: self._load_suite(root_suite_file_path)}
+        stack = [root_suite_file_path]
 
         while len(stack) != 0:
             curr = stack.pop()
@@ -485,10 +485,10 @@ class TestLoader(object):
             for suite_content in loaded.values():
                 if isinstance(suite_content, dict):
                     directory = os.path.dirname(curr)
-                    # apply path of current file to the files inside 
-                    abs_file_iter = (os.path.abspath(os.path.join(directory, file)) 
-                                for file in suite_content.get('imported', []))
-                    imported_iter = (file for file in abs_file_iter if file not in files) 
+                    # apply path of current file to the files inside
+                    abs_file_iter = (os.path.abspath(os.path.join(directory, file))
+                                     for file in suite_content.get('imported', []))
+                    imported_iter = (file for file in abs_file_iter if file not in files)
                     stack.extend(imported_iter)
 
         for test_suite_file_path, file_content in files.items():
