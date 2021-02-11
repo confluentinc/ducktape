@@ -94,8 +94,11 @@ class TestLoader(object):
             test_suite_name:
                 # list included test symbols
                 - path/to/test.py
-            # optionally test suite can have included and excluded sections:
+            # optionally test suite can have included, excluded, and imported sections:
             another_test_suite:
+                imported:
+                    # list of yaml files whose suites will also run:
+                    - path/to/suite.yml
                 included:
                     # list of included test symbols:
                     - path/to/test-dir/prefix_*.py
