@@ -452,8 +452,8 @@ class TestLoader(object):
 
     def _load_test_suite_files(self, test_suite_files):
         suites = list()
-        for test_suite_file_path in test_suite_files:
-            suites.extend(self._read_test_suite_from_file(test_suite_file_path))
+        
+        suites.extend(self._read_test_suite_from_file(test_suite_files))
 
         all_contexts = set()
         for suite in suites:
@@ -477,11 +477,11 @@ class TestLoader(object):
                 raise LoaderException("Empty test suite " + suite_name + " in " + suite_file_path)
         return file_content
 
-    def _read_test_suite_from_file(self, root_suite_file_path):
+    def _read_test_suite_from_file(self, root_suite_file_paths):
         suites = []
-        root_suite_file_path = os.path.abspath(root_suite_file_path)
-        files = {root_suite_file_path: self._load_suite(root_suite_file_path)}
-        stack = [root_suite_file_path]
+        root_suite_file_paths = [os.path.abspath(file_path) for file_path in root_suite_file_paths]
+        files = {file: self._load_suite(file) for file in root_suite_file_paths}
+        stack = root_suite_file_paths
 
         while len(stack) != 0:
             curr = stack.pop()
