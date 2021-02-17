@@ -1,0 +1,9 @@
+import:
+  - test_suite_cyclic_b.yml # 1 test
+
+test_suite_cyclic_a:
+  - ./sub_dir_a/test_c.py # 1 test
+  - ./test_b.py # 3
+# suite total: 4
+
+# total: 5

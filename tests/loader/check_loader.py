@@ -120,6 +120,14 @@ class CheckTestLoader(object):
             # test that a self import doesn't cause an infinate loop
             os.path.join(discover_dir(), 'test_suite_with_self_import.yml')
         ], None, id='self load in import'),
+        pytest.param(5, [
+            # test that a cyclic import doesn't cause an infinate loop
+            os.path.join(discover_dir(), 'test_suite_cyclic_b.yml')
+        ], None, id='self load in import'),
+        pytest.param(5, [
+            # test that a cyclic import starting with second import
+            os.path.join(discover_dir(), 'test_suite_cyclic_a.yml')
+        ], None, id='self load in import'),
         pytest.param(8, [
             # see test suite files for number of tests in it.
             # decorated test suite includes 2 tests;
