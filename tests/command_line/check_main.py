@@ -156,7 +156,6 @@ class CheckUserDefinedGlobals(object):
         with pytest.raises(ValueError):
             get_user_defined_globals(valid_json_not_dict)
 
-
     def check_non_dict_from_file(self):
         """Validate behavior when given file containing valid JSON which does not parse as a dict"""
         _, fname = tempfile.mkstemp()
@@ -165,10 +164,8 @@ class CheckUserDefinedGlobals(object):
                 # Write valid JSON which does not parse as a dict
                 fh.write(valid_json_not_dict)
 
-            with pytest.raises(ValueError) as excinfo:
+            with pytest.raises(ValueError, match=fname):
                 get_user_defined_globals(fname)
-
-            assert fname in str(excinfo.value)
 
         finally:
             os.remove(fname)
