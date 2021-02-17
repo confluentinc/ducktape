@@ -94,11 +94,14 @@ class TestLoader(object):
             test_suite_name:
                 # list included test symbols
                 - path/to/test.py
-            # optionally test suite can have included, excluded, and imported sections:
+            # optionally test suite can have included and excluded sections:
+            # you may also specify a list of other suite's you wish to import 
+            # that will also be loaded when loading this file by using the
+            # import tag.
+            import:
+                # list of yaml files whose suites will also run:
+                - path/to/suite.yml
             another_test_suite:
-                imported:
-                    # list of yaml files whose suites will also run:
-                    - path/to/suite.yml
                 included:
                     # list of included test symbols:
                     - path/to/test-dir/prefix_*.py
@@ -483,17 +486,16 @@ class TestLoader(object):
         while len(stack) != 0:
             curr = stack.pop()
             loaded = files[curr]
-
-            for suite_content in loaded.values():
-                if isinstance(suite_content, dict):
-                    directory = os.path.dirname(curr)
-                    # apply path of current file to the files inside
-                    abs_file_iter = (os.path.abspath(os.path.join(directory, file))
-                                     for file in suite_content.get('imported', []))
-                    imported = [file for file in abs_file_iter if file not in files]
-                    for file in imported:
-                        files[file] = self._load_suite(file)
-                    stack.extend(imported)
+            if 'import' in loaded:
+                directory = os.path.dirname(curr)
+                # apply path of current file to the files inside
+                abs_file_iter = (os.path.abspath(os.path.join(directory, file))
+                                    for file in loaded.get('import', []))
+                imported = [file for file in abs_file_iter if file not in files]
+                for file in imported:
+                    files[file] = self._load_suite(file)
+                stack.extend(imported)
+                del files[curr]['import']
 
         for test_suite_file_path, file_content in files.items():
             for suite_name, suite_content in file_content.items():
