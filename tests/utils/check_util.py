@@ -61,6 +61,7 @@ class CheckUtils(object):
 
     def check_wait_until_with_exception_on_first_step_only_but_still_fails(self):
         start = time.time()
+
         def condition_that_raises_before_3():
             if time.time() < start + .3:
                 raise Exception("OG")
