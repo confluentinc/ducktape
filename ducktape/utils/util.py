@@ -19,7 +19,7 @@ import importlib
 import time
 
 
-def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg="", retry_on_exc=True):
+def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg="", retry_on_exc=False):
     """Block until condition evaluates as true or timeout expires, whichever comes first.
 
     :param condition: callable that returns True if the condition is met, False otherwise
@@ -31,6 +31,7 @@ def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg="", retry_on_exc=
                          iteration, that exception will be raised as a cause of TimeoutError.
                          If False and condition raises an exception, that exception will be forwarded to the caller
                          immediately.
+                         Defaults to False (original ducktape behavior).
     :return: silently if condition becomes true within the timeout window, otherwise raise Exception with the given
     error message.
     """

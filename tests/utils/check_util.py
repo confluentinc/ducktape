@@ -44,7 +44,8 @@ class CheckUtils(object):
         def condition_that_raises():
             raise Exception("OG")
         with pytest.raises(TimeoutError) as exc_info:
-            wait_until(condition_that_raises, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
+            wait_until(condition_that_raises, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world",
+                       retry_on_exc=True)
         exc_chain = exc_info.getrepr(chain=True).chain
         # 2 exceptions in the chain - OG and Hello world
         assert len(exc_chain) == 2
@@ -66,7 +67,8 @@ class CheckUtils(object):
             else:
                 return False
         with pytest.raises(TimeoutError) as exc_info:
-            wait_until(condition_that_raises_before_3, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
+            wait_until(condition_that_raises_before_3, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world",
+                       retry_on_exc=True)
         exc_chain = exc_info.getrepr(chain=True).chain
         assert len(exc_chain) == 1
         hello_message = str(exc_chain[0][1])
@@ -81,11 +83,11 @@ class CheckUtils(object):
             else:
                 return True
         wait_until(condition_that_raises_before_3_but_then_succeeds,
-                   timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
+                   timeout_sec=.5, backoff_sec=.1, err_msg="Hello world", retry_on_exc=True)
 
     def check_wait_until_breaks_early_on_exception(self):
         def condition_that_raises():
             raise Exception("OG")
         with pytest.raises(Exception, match="OG") as exc_info:
-            wait_until(condition_that_raises, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world", retry_on_exc=False)
+            wait_until(condition_that_raises, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
         assert "Hello world" not in str(exc_info)
