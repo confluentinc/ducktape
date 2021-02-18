@@ -43,7 +43,6 @@ class CheckUtils(object):
     def check_wait_until_with_exception(self):
         def condition_that_raises():
             raise Exception("OG")
-        # Unfortunately pytest doesn't seem to be able to give us full exception stack
         with pytest.raises(TimeoutError) as exc_info:
             wait_until(condition_that_raises, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
         exc_chain = exc_info.getrepr(chain=True).chain
@@ -66,7 +65,6 @@ class CheckUtils(object):
                 raise Exception("OG")
             else:
                 return False
-        # Unfortunately pytest doesn't seem to be able to give us full exception stack
         with pytest.raises(TimeoutError) as exc_info:
             wait_until(condition_that_raises_before_3, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
         exc_chain = exc_info.getrepr(chain=True).chain
@@ -88,7 +86,6 @@ class CheckUtils(object):
     def check_wait_until_breaks_early_on_exception(self):
         def condition_that_raises():
             raise Exception("OG")
-        # Unfortunately pytest doesn't seem to be able to give us full exception stack
         with pytest.raises(Exception, match="OG") as exc_info:
             wait_until(condition_that_raises, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world", retry_on_exc=False)
         assert "Hello world" not in str(exc_info)
