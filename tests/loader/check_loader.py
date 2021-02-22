@@ -503,7 +503,7 @@ class CheckTestLoader(object):
         file = os.path.join(discover_dir(), 'test_suite_import_py.yml')
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         with pytest.raises(LoaderException, match=r'Failed to load test suite from file: \S+test_a\.py'):
-            tests = loader.load([file])
+            loader.load([file])
 
     def check_loader_with_non_suite_yml_file(self):
         """
@@ -513,9 +513,9 @@ class CheckTestLoader(object):
         file2 = os.path.join(discover_dir(), 'test_suite_import_malformed.yml')
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         with pytest.raises(LoaderException, match='No tests found in  simple_malformed_suite'):
-            tests = loader.load([file1])
+            loader.load([file1])
         with pytest.raises(LoaderException, match='No tests found in  simple_malformed_suite'):
-            tests = loader.load([file2])
+            loader.load([file2])
 
     def check_test_loader_with_absolute_path(self):
         """
@@ -529,8 +529,6 @@ class CheckTestLoader(object):
                 test_yaml1 = yaml.dump({'import': str(os.path.join(td, 'temp_suite2.yml')),
                                         'suite': [os.path.abspath(os.path.join(discover_dir(), "test_a.py"))]})
                 f.write(test_yaml1)
-            with open(temp_suite1, 'r') as f:
-                l = (yaml.load(f.read(), Loader=yaml.FullLoader))
 
             with open(temp_suite2, 'w') as f:
                 test_yaml2 = yaml.dump({'suite': [os.path.abspath(os.path.join(discover_dir(), "test_b.py"))]})
