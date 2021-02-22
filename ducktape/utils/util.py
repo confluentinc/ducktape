@@ -19,7 +19,7 @@ import importlib
 import time
 
 
-def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg=""):
+def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg="", retry_on_exc=False):
     """Block until condition evaluates as true or timeout expires, whichever comes first.
 
     :param condition: callable that returns True if the condition is met, False otherwise
@@ -27,18 +27,35 @@ def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg=""):
     :param backoff_sec: number of seconds to back off between each failure to meet the condition before checking again
     :param err_msg: a string or callable returning a string that will be included as the exception message if the
                     condition is not met
+    :param retry_on_exc: if True, will retry if condition raises an exception. If condition raised exception on last
+                         iteration, that exception will be raised as a cause of TimeoutError.
+                         If False and condition raises an exception, that exception will be forwarded to the caller
+                         immediately.
+                         Defaults to False (original ducktape behavior).
+                         # TODO: [1.0.0] flip this to True
     :return: silently if condition becomes true within the timeout window, otherwise raise Exception with the given
     error message.
     """
     start = time.time()
     stop = start + timeout_sec
+    last_exception = None
     while time.time() < stop:
-        if condition():
-            return
-        else:
+        try:
+            if condition():
+                return
+            else:
+                # reset last_exception if last iteration didn't raise any exception, but simply returned False
+                last_exception = None
+        except BaseException as e:
+            # save last raised exception for logging it later
+            last_exception = e
+            if not retry_on_exc:
+                raise e
+        finally:
             time.sleep(backoff_sec)
 
-    raise TimeoutError(err_msg() if callable(err_msg) else err_msg)
+    # it is safe to call Exception from None - will be just treated as a normal exception
+    raise TimeoutError(err_msg() if callable(err_msg) else err_msg) from last_exception
 
 
 def package_is_installed(package_name):
