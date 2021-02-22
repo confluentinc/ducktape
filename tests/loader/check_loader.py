@@ -21,6 +21,10 @@ import os.path
 import pytest
 import re
 import requests
+import tempfile
+import yaml
+from pathlib import Path
+import shutil
 
 from mock import Mock
 from requests_testadapter import Resp
@@ -127,6 +131,10 @@ class CheckTestLoader(object):
         pytest.param(5, [
             # test that a cyclic import starting with second import
             os.path.join(discover_dir(), 'test_suite_cyclic_a.yml')
+        ], None, id='self load in import'),
+        pytest.param(5, [
+            # test single import statement with parnet reference
+            os.path.join(discover_dir(), 'test_suites', 'sub_dir_test_import.yml')
         ], None, id='self load in import'),
         pytest.param(8, [
             # see test suite files for number of tests in it.
@@ -490,6 +498,49 @@ class CheckTestLoader(object):
         tests = loader.load([file])
         assert len(tests) == 2
 
+    def check_loader_with_non_yml_file(self):
+        """
+        test loading a test file as an import
+        """
+        file = os.path.join(discover_dir(), 'test_suite_import_py.yml')
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        with pytest.raises(LoaderException, match=r'Failed to load test suite from file: \S+test_a\.py'):
+            tests = loader.load([file])
+
+    def check_loader_with_non_suite_yml_file(self):
+        """
+        test importing a suite that is malformed
+        """
+        file1 = os.path.join(discover_dir(), 'test_suite_malformed.yml')
+        file2 = os.path.join(discover_dir(), 'test_suite_import_malformed.yml')
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        with pytest.raises(LoaderException, match='No tests found in  simple_malformed_suite'):
+            tests = loader.load([file1])
+        with pytest.raises(LoaderException, match='No tests found in  simple_malformed_suite'):
+            tests = loader.load([file2])
+
+    def check_test_loader_with_absolute_path(self):
+        """
+        Test loading suites using absolute paths to other imported suites as well as absolute paths
+        to tests in the suite
+        """
+        with tempfile.TemporaryDirectory() as td:
+            temp_suite1 = os.path.join(td, 'temp_suite1.yml')
+            temp_suite2 = os.path.join(td, 'temp_suite2.yml')
+            with open(temp_suite1, 'w') as f:
+                test_yaml1 = yaml.dump({'import' : str(os.path.join(td, 'temp_suite2.yml')), 
+                                    'suite': [os.path.abspath(os.path.join(discover_dir(), "test_a.py"))]})
+                f.write(test_yaml1)
+            with open(temp_suite1, 'r') as f:
+                l = (yaml.load(f.read(), Loader=yaml.FullLoader))
+            
+            with open(temp_suite2, 'w') as f:
+                test_yaml2 = yaml.dump({'suite': [os.path.abspath(os.path.join(discover_dir(), "test_b.py"))]})
+                f.write(test_yaml2)
+
+            loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+            tests = loader.load([temp_suite1])
+            assert len(tests) == 4
 
 def join_parsed_symbol_components(parsed):
     """

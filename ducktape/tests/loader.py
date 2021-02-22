@@ -460,7 +460,12 @@ class TestLoader(object):
             all_contexts.update(self._load_test_suite(**suite))
         return all_contexts
 
-    def _load_suite(self, suite_file_path):
+    def _load_file(self, suite_file_path):
+        if not os.path.exists(suite_file_path):
+                raise LoaderException(f'Path {suite_file_path} does not exist')
+        if not os.path.isfile(suite_file_path):
+                raise LoaderException(f'{suite_file_path} is not a file, so it cannot be a test suite')
+        
         with open(suite_file_path) as fp:
             try:
                 file_content = yaml.load(fp, Loader=yaml.FullLoader)
@@ -477,47 +482,57 @@ class TestLoader(object):
                 raise LoaderException("Empty test suite " + suite_name + " in " + suite_file_path)
         return file_content
 
-    def _read_test_suite_from_file(self, root_suite_file_paths):
+    def _load_suites(self, file_path, file_content):
         suites = []
+        for suite_name, suite_content in file_content.items():
+            if not suite_content:
+                raise LoaderException(f"Empty test suite {suite_name} in {file_path}")
+
+            # if test suite is just a list of paths, those are included paths
+            # otherwise, expect separate sections for included and excluded
+            if isinstance(suite_content, list):
+                included_paths = suite_content
+                excluded_paths = None
+            elif isinstance(suite_content, dict):
+                included_paths = suite_content.get('included')
+                excluded_paths = suite_content.get('excluded')
+            else:
+                raise LoaderException(f"Malformed test suite {suite_name} in {file_path}")
+            suites.append({
+                'name': suite_name,
+                'included': included_paths,
+                'excluded': excluded_paths,
+                'base_dir': os.path.dirname(file_path)
+            })
+        return suites
+
+    def _read_test_suite_from_file(self, root_suite_file_paths):
         root_suite_file_paths = [os.path.abspath(file_path) for file_path in root_suite_file_paths]
-        files = {file: self._load_suite(file) for file in root_suite_file_paths}
+        files = {file: self._load_file(file) for file in root_suite_file_paths}
         stack = root_suite_file_paths
 
+        # load all files
         while len(stack) != 0:
             curr = stack.pop()
             loaded = files[curr]
             if 'import' in loaded:
+                if isinstance(loaded['import'], str):
+                    loaded['import'] = [loaded['import']]
                 directory = os.path.dirname(curr)
                 # apply path of current file to the files inside
                 abs_file_iter = (os.path.abspath(os.path.join(directory, file))
                                     for file in loaded.get('import', []))
                 imported = [file for file in abs_file_iter if file not in files]
                 for file in imported:
-                    files[file] = self._load_suite(file)
+                    files[file] = self._load_file(file)
                 stack.extend(imported)
                 del files[curr]['import']
 
-        for test_suite_file_path, file_content in files.items():
-            for suite_name, suite_content in file_content.items():
-                if not suite_content:
-                    raise LoaderException("Empty test suite " + suite_name + " in " + test_suite_file_path)
+        # load all suites from all loaded files
+        suites = []
+        for file_name, file_context in files.items():
+            suites.extend(self._load_suites(file_name, file_context))
 
-                # if test suite is just a list of paths, those are included paths
-                # otherwise, expect separate sections for included and excluded
-                if isinstance(suite_content, list):
-                    included_paths = suite_content
-                    excluded_paths = None
-                elif isinstance(suite_content, dict):
-                    included_paths = suite_content.get('included')
-                    excluded_paths = suite_content.get('excluded')
-                else:
-                    raise LoaderException("Malformed test suite " + suite_name + " in " + test_suite_file_path)
-                suites.append({
-                    'name': suite_name,
-                    'included': included_paths,
-                    'excluded': excluded_paths,
-                    'base_dir': os.path.dirname(test_suite_file_path)
-                })
         return suites
 
     def _load_test_suite(self, **kwargs):
