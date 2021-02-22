@@ -528,12 +528,12 @@ class CheckTestLoader(object):
             temp_suite1 = os.path.join(td, 'temp_suite1.yml')
             temp_suite2 = os.path.join(td, 'temp_suite2.yml')
             with open(temp_suite1, 'w') as f:
-                test_yaml1 = yaml.dump({'import' : str(os.path.join(td, 'temp_suite2.yml')), 
-                                    'suite': [os.path.abspath(os.path.join(discover_dir(), "test_a.py"))]})
+                test_yaml1 = yaml.dump({'import': str(os.path.join(td, 'temp_suite2.yml')),
+                                        'suite': [os.path.abspath(os.path.join(discover_dir(), "test_a.py"))]})
                 f.write(test_yaml1)
             with open(temp_suite1, 'r') as f:
                 l = (yaml.load(f.read(), Loader=yaml.FullLoader))
-            
+
             with open(temp_suite2, 'w') as f:
                 test_yaml2 = yaml.dump({'suite': [os.path.abspath(os.path.join(discover_dir(), "test_b.py"))]})
                 f.write(test_yaml2)
@@ -541,6 +541,7 @@ class CheckTestLoader(object):
             loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
             tests = loader.load([temp_suite1])
             assert len(tests) == 4
+
 
 def join_parsed_symbol_components(parsed):
     """

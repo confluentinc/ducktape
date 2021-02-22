@@ -95,7 +95,7 @@ class TestLoader(object):
                 # list included test symbols
                 - path/to/test.py
             # optionally test suite can have included and excluded sections:
-            # you may also specify a list of other suite's you wish to import 
+            # you may also specify a list of other suite's you wish to import
             # that will also be loaded when loading this file by using the
             # import tag.
             import:
@@ -452,7 +452,7 @@ class TestLoader(object):
 
     def _load_test_suite_files(self, test_suite_files):
         suites = list()
-        
+
         suites.extend(self._read_test_suite_from_file(test_suite_files))
 
         all_contexts = set()
@@ -462,10 +462,10 @@ class TestLoader(object):
 
     def _load_file(self, suite_file_path):
         if not os.path.exists(suite_file_path):
-                raise LoaderException(f'Path {suite_file_path} does not exist')
+            raise LoaderException(f'Path {suite_file_path} does not exist')
         if not os.path.isfile(suite_file_path):
-                raise LoaderException(f'{suite_file_path} is not a file, so it cannot be a test suite')
-        
+            raise LoaderException(f'{suite_file_path} is not a file, so it cannot be a test suite')
+
         with open(suite_file_path) as fp:
             try:
                 file_content = yaml.load(fp, Loader=yaml.FullLoader)
@@ -521,7 +521,7 @@ class TestLoader(object):
                 directory = os.path.dirname(curr)
                 # apply path of current file to the files inside
                 abs_file_iter = (os.path.abspath(os.path.join(directory, file))
-                                    for file in loaded.get('import', []))
+                                 for file in loaded.get('import', []))
                 imported = [file for file in abs_file_iter if file not in files]
                 for file in imported:
                     files[file] = self._load_file(file)
