@@ -27,11 +27,12 @@ def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg="", retry_on_exc=
     :param backoff_sec: number of seconds to back off between each failure to meet the condition before checking again
     :param err_msg: a string or callable returning a string that will be included as the exception message if the
                     condition is not met
-    :oaram retry_on_exc: if True, will retry if condition raises an exception. If condition raised exception on last
+    :param retry_on_exc: if True, will retry if condition raises an exception. If condition raised exception on last
                          iteration, that exception will be raised as a cause of TimeoutError.
                          If False and condition raises an exception, that exception will be forwarded to the caller
                          immediately.
                          Defaults to False (original ducktape behavior).
+                         # TODO: [1.0.0] flip this to True
     :return: silently if condition becomes true within the timeout window, otherwise raise Exception with the given
     error message.
     """
@@ -45,7 +46,7 @@ def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg="", retry_on_exc=
             else:
                 # reset last_exception if last iteration didn't raise any exception, but simply returned False
                 last_exception = None
-        except Exception as e:
+        except BaseException as e:
             # save last raised exception for logging it later
             last_exception = e
             if not retry_on_exc:
