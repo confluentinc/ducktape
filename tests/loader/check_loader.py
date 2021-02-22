@@ -23,8 +23,6 @@ import re
 import requests
 import tempfile
 import yaml
-from pathlib import Path
-import shutil
 
 from mock import Mock
 from requests_testadapter import Resp
