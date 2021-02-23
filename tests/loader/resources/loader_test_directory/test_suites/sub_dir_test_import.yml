@@ -1,0 +1,5 @@
+import:
+  - ../test_suite_cyclic_a.yml # 5 tests
+  - .././test_suites/../sub_dir_no_tests/.././test_suite_cyclic_b.yml # 0 tests
+
+# 5 test total
