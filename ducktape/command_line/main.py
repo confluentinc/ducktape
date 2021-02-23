@@ -65,7 +65,7 @@ def get_user_defined_globals(globals_str):
     # Now check that the parsed JSON is a dictionary
     if not isinstance(user_globals, dict):
         if from_file:
-            message = "The JSON contained in file %s must parse to a dict. "
+            message = "The JSON contained in file %s must parse to a dict. " % globals_str
         else:
             message = "JSON string referred to by globals parameter must parse to a dict. "
         message += "I.e. the contents of the JSON must be an object, not an array or primitive. "
