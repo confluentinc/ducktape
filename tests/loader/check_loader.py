@@ -114,16 +114,15 @@ class CheckTestLoader(object):
 
     @pytest.mark.parametrize(['expected_count', 'input_symbols', 'excluded_symbols'], [
         pytest.param(6, [
-            # loads a suite with an imported statement that imports the suites in the
-            # imported file as well
+            # import a single test suite with an import statement
             os.path.join(discover_dir(), 'test_suite_with_single_import.yml')
         ], None, id='load dependency path'),
         pytest.param(2, [
-            # test that a self import doesn't cause an infinate loop
+            # test that a self import doesn't cause an infinite loop
             os.path.join(discover_dir(), 'test_suite_with_self_import.yml')
         ], None, id='self load in import'),
         pytest.param(5, [
-            # test that a cyclic import doesn't cause an infinate loop
+            # test that a cyclic import doesn't cause an infinite loop
             os.path.join(discover_dir(), 'test_suite_cyclic_b.yml')
         ], None, id='self load in import'),
         pytest.param(5, [
@@ -131,7 +130,7 @@ class CheckTestLoader(object):
             os.path.join(discover_dir(), 'test_suite_cyclic_a.yml')
         ], None, id='self load in import'),
         pytest.param(5, [
-            # test single import statement with parnet reference
+            # test single import statement with parent reference
             os.path.join(discover_dir(), 'test_suites', 'sub_dir_test_import.yml')
         ], None, id='self load in import'),
         pytest.param(8, [
