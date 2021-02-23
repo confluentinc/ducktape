@@ -1,0 +1,5 @@
+import:
+  - test_suite_malformed.yml
+
+simple_suite:
+  - test_a.py # 1

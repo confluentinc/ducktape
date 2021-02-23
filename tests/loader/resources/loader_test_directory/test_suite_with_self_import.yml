@@ -1,0 +1,10 @@
+test_suite_d:
+  included:
+    - sub_dir_a  # +4 tests across all files
+    - test_b.py  # +3 tests
+  excluded:
+    - sub_dir_a/test_d.py  # -3 tests
+    - test_b.py::TestBB  # -2 tests
+# suite total: 2 tests
+import:
+  - ./test_suite_with_self_import.yml #  +0 test

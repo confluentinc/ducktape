@@ -1,0 +1,8 @@
+simple_malformed_suite:
+  cheese:
+    - 'fatty milk'
+    - 'salt'
+  bread:
+    - 'flower'
+    - 'water'
+    - 'yeast'
