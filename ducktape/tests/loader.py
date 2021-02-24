@@ -233,8 +233,7 @@ class TestLoader(object):
         def divide_by_symbol(ds, symbol):
             if symbol not in ds:
                 return ds, ""
-            idx = ds.index(symbol)
-            return ds[:idx], ds[idx + len(symbol):]
+            return ds.split(symbol, maxsplit=1)
 
         self.logger.debug('Trying to parse discovery symbol {}'.format(discovery_symbol))
         if base_dir:
