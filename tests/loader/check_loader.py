@@ -324,6 +324,15 @@ class CheckTestLoader(object):
         assert len(tests) == 1
         assert tests[0].injected_args == {'x': 1, 'y': 'test '}
 
+    def check_test_loader_with_params_special_chars(self):
+        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
+        included = [os.path.join(discover_dir(), r'test_decorated.py::TestParametrizdeSpecial.test_special_characters_params@{"version": "6.1.0", "chars": "!@#$%^&*()_+::.,/? \"{}\\"}')]
+        tests = loader.load(included)
+        # TestMatrix contains a single parametrized method. Since we only provide a single set of params, we should
+        # end up with a single context
+        assert len(tests) == 1
+        assert tests[0].injected_args == {'version': '6.1.0', 'chars': '!@#$%^&*()_+::.,/? \"{}\\'}
+
     def check_test_loader_with_multiple_matrix_params(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         params = '[{"x": 1,"y": "test "}, {"x": 2,"y": "I\'m"}]'
@@ -366,7 +375,7 @@ class CheckTestLoader(object):
 
         file = os.path.join(discover_dir(), "test_decorated.py")
         tests = loader.load([file])
-        assert len(tests) == 5
+        assert len(tests) == 6
 
         for t in tests:
             assert t.injected_args == injected_args
@@ -412,7 +421,7 @@ class CheckTestLoader(object):
         # test_decorated.py contains 5 test methods total
         # we exclude 1 class with 1 method so should be 4
         # exclusion shouldn't care about injected args
-        assert len(tests) == 4
+        assert len(tests) == 5
 
         for t in tests:
             assert t.injected_args == injected_args
@@ -451,14 +460,14 @@ class CheckTestLoader(object):
 
         file = os.path.join(discover_dir(), "test_decorated.py")
 
-        # The test file contains 17 tests. With 4 subsets, first subset should have an "extra"
+        # The test file contains 18 tests. With 4 subsets, first two subset should have an "extra"
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=0, subsets=4)
         tests = loader.load([file])
         assert len(tests) == 5
 
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=1, subsets=4)
         tests = loader.load([file])
-        assert len(tests) == 4
+        assert len(tests) == 5
 
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=2, subsets=4)
         tests = loader.load([file])

@@ -230,34 +230,20 @@ class TestLoader(object):
             "path/to/test_file.py" -> ("path/to/test_file.py", "", "")
             "path/to/test_file.py::ClassName.method" -> ("path/to/test_file.py", "ClassName", "method")
         """
+        def divide_by_symbol(ds, symbol):
+            if symbol not in ds:
+                return ds, ""
+            idx = ds.index(symbol)
+            return ds[:idx], ds[idx + len(symbol):]
+
         self.logger.debug('Trying to parse discovery symbol {}'.format(discovery_symbol))
         if base_dir:
             discovery_symbol = os.path.join(base_dir, discovery_symbol)
         if discovery_symbol.find("::") >= 0:
-            parts = discovery_symbol.split("::")
-            if len(parts) == 1:
-                path, cls_name = parts[0], ""
-            elif len(parts) == 2:
-                path, cls_name = parts
-            else:
-                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
-
+            path, cls_name = divide_by_symbol(discovery_symbol, "::")
             # If the part after :: contains a dot, use it to split into class + method
-            parts = cls_name.split('.')
-            if len(parts) == 1:
-                method_name = ""
-            elif len(parts) == 2:
-                cls_name, method_name = parts
-            else:
-                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
-
-            parts = method_name.split('@')
-            if len(parts) == 1:
-                injected_args_str = None
-            elif len(parts) == 2:
-                method_name, injected_args_str = parts
-            else:
-                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
+            cls_name, method_name = divide_by_symbol(cls_name, ".")
+            method_name, injected_args_str = divide_by_symbol(method_name, "@")
 
             if injected_args_str:
                 if self.injected_args:
