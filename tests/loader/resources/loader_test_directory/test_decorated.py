@@ -45,11 +45,13 @@ class TestParametrized(Test):
         """2 tests"""
         pass
 
+
 class TestParametrizdeSpecial(Test):
     @parametrize(version="6.1.0", chars="!@#$%^&*()_+::.,/? \"{}\\")
     def test_special_characters_params(self, version, chars):
         """1 tests"""
         pass
+
 
 class TestObjectParameters(Test):
     @parametrize(d={'a': 'A'}, lst=['whatever'])
