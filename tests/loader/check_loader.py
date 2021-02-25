@@ -327,7 +327,8 @@ class CheckTestLoader(object):
     def check_test_loader_with_params_special_chars(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         included = [os.path.join(discover_dir(
-        ), r'test_decorated.py::TestParametrizdeSpecial.test_special_characters_params@{"version": "6.1.0", "chars": "!@#$%^&*()_+::.,/? \"{}\\"}')]
+        ), r'test_decorated.py::TestParametrizdeSpecial.test_special_characters_params'
+           r'@{"version": "6.1.0", "chars": "!@#$%^&*()_+::.,/? \"{}\\"}')]
         tests = loader.load(included)
         # TestMatrix contains a single parametrized method. Since we only provide a single set of params, we should
         # end up with a single context
