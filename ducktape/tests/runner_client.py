@@ -153,9 +153,7 @@ class RunnerClient(object):
                 if service_errors:
                     summary += "\n\n" + service_errors
 
-            # only check node utilization on test pass
-            if (test_status == PASS):
-                test_status = self._check_cluster_utilization(test_status)
+            test_status, summary = self._check_cluster_utilization(test_status, summary)
 
             result = TestResult(
                 self.test_context,
@@ -180,17 +178,21 @@ class RunnerClient(object):
             self.test_context = None
             self.test = None
 
-    def _check_cluster_utilization(self, result):
+    def _check_cluster_utilization(self, result, summary):
         max_used = self.cluster.max_used()
         total = len(self.cluster.all())
         if max_used < total:
             message = "Test requested %d nodes, used only %d" % (total, max_used)
             if self.fail_bad_cluster_utilization:
-                self.log(logging.INFO, "FAIL: " + message)
+                # only check node utilization on test pass
+                if result == PASS:
+                    self.log(logging.INFO, "FAIL: " + message)
+
                 result = FAIL
+                summary += message
             else:
                 self.log(logging.WARN, message)
-        return result
+        return result, summary
 
     def setup_test(self):
         """start services etc"""
