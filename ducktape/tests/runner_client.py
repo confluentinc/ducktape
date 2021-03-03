@@ -30,21 +30,22 @@ from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
-def run_client(server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug):
-    client = RunnerClient(server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug)
+def run_client(*args, **kwargs):
+    client = RunnerClient(*args, **kwargs)
     client.run()
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug):
+    def __init__(self, server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
         self.serde = SerDe()
         self.logger = test_logger(logger_name, log_dir, debug)
         self.runner_port = server_port
 
+        self.fail_bad_cluster_utilization = fail_bad_cluster_utilization
         self.test_id = test_id
         self.test_index = test_index
         self.id = "test-runner-%d-%d" % (os.getpid(), id(self))
@@ -152,6 +153,10 @@ class RunnerClient(object):
                 if service_errors:
                     summary += "\n\n" + service_errors
 
+            # only check node utilization on test pass
+            if (test_status == PASS):
+                test_status = self._check_cluster_utilization(test_status)
+
             result = TestResult(
                 self.test_context,
                 self.test_index,
@@ -162,7 +167,6 @@ class RunnerClient(object):
                 start_time,
                 stop_time)
 
-            self._check_cluster_utilization()
             self.log(logging.INFO, "Summary: %s" % str(result.summary))
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
@@ -176,11 +180,17 @@ class RunnerClient(object):
             self.test_context = None
             self.test = None
 
-    def _check_cluster_utilization(self):
+    def _check_cluster_utilization(self, result):
         max_used = self.cluster.max_used()
         total = len(self.cluster.all())
         if max_used < total:
-            self.log(logging.WARN, "Test requested %d nodes, used only %d" % (total, max_used))
+            message = "Test requested %d nodes, used only %d" % (total, max_used)
+            if self.fail_bad_cluster_utilization:
+                self.log(logging.INFO, "FAIL: " + message)
+                result = FAIL
+            else:
+                self.log(logging.WARN, message)
+        return result
 
     def setup_test(self):
         """start services etc"""

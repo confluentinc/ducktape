@@ -37,6 +37,7 @@ class SessionContext(object):
         self.no_teardown = kwargs.get("no_teardown", False)
         self.max_parallel = kwargs.get("max_parallel", 1)
         self.default_expected_num_nodes = kwargs.get("default_num_nodes", None)
+        self.fail_bad_cluster_utilization = kwargs.get("fail_bad_cluster_utilization")
         self._globals = kwargs.get("globals")
 
     @property
