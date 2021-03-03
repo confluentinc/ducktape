@@ -30,19 +30,19 @@ from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
-def run_client(server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug):
-    client = RunnerClient(server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug)
+def run_client(server_hostname, server_port, test_id, test_index, logger_name, log_dir, log_level):
+    client = RunnerClient(server_hostname, server_port, test_id, test_index, logger_name, log_dir, log_level)
     client.run()
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug):
+    def __init__(self, server_hostname, server_port, test_id, test_index, logger_name, log_dir, log_level):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
         self.serde = SerDe()
-        self.logger = test_logger(logger_name, log_dir, debug)
+        self.logger = test_logger(logger_name, log_dir, log_level)
         self.runner_port = server_port
 
         self.test_id = test_id

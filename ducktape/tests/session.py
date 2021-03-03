@@ -30,8 +30,12 @@ class SessionContext(object):
         # session_id, results_dir, cluster, globals):
         self.session_id = kwargs["session_id"]
         self.results_dir = os.path.abspath(kwargs["results_dir"])
-
+        self.log_level = logging.WARN
         self.debug = kwargs.get("debug", False)
+        if self.debug:
+            self.log_level = logging.DEBUG
+        elif kwargs.get("info", False):
+            self.log_level = logging.INFO
         self.compress = kwargs.get("compress", False)
         self.exit_first = kwargs.get("exit_first", False)
         self.no_teardown = kwargs.get("no_teardown", False)

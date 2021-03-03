@@ -226,20 +226,20 @@ def _escape_pathname(s):
     return re.sub(r"^\.|\.$", "", s)
 
 
-def test_logger(logger_name, log_dir, debug):
+def test_logger(logger_name, log_dir, log_level):
     """Helper method for getting a test logger object
 
     Note that if this method is called multiple times with the same ``logger_name``, it returns the same logger object.
     Note also, that for a fixed ``logger_name``, configuration occurs only the first time this function is called.
     """
-    return TestLoggerMaker(logger_name, log_dir, debug).logger
+    return TestLoggerMaker(logger_name, log_dir, log_level).logger
 
 
 class TestLoggerMaker(LoggerMaker):
-    def __init__(self, logger_name, log_dir, debug):
+    def __init__(self, logger_name, log_dir, log_level):
         super(TestLoggerMaker, self).__init__(logger_name)
         self.log_dir = log_dir
-        self.debug = debug
+        self.log_level = log_level
 
     def configure_logger(self):
         """Set up the logger to log to stdout and files.
@@ -267,12 +267,7 @@ class TestLoggerMaker(LoggerMaker):
 
         ch = logging.StreamHandler(sys.stdout)
         ch.setFormatter(formatter)
-        if self.debug:
-            # If debug flag is set, pipe debug logs to stdout
-            ch.setLevel(logging.DEBUG)
-        else:
-            # default - pipe warning level logging to stdout
-            ch.setLevel(logging.WARNING)
+        ch.setLevel(self.log_level)
         self._logger.addHandler(ch)
 
 
@@ -458,7 +453,7 @@ class TestContext(object):
             self._logger = test_logger(
                 TestContext.logger_name(self, self.test_index),
                 TestContext.results_dir(self, self.test_index),
-                self.session_context.debug)
+                self.session_context.log_level)
         return self._logger
 
     def close(self):
