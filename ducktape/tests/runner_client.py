@@ -38,7 +38,8 @@ def run_client(*args, **kwargs):
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, server_hostname, server_port, test_id, test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization):
+    def __init__(self, server_hostname, server_port, test_id,
+                 test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
         self.serde = SerDe()
@@ -179,9 +180,9 @@ class RunnerClient(object):
             self.test = None
 
     def _check_cluster_utilization(self, result, summary):
-        """Pass through results and summary and modify the values if 
+        """Pass through results and summary and modify the values if
         the number of nodes used by a test is less than the number of nodes
-        requested by a test.  Will also print a warning if the test passes and 
+        requested by a test.  Will also print a warning if the test passes and
         the node utilization doesn't match.
         """
         max_used = self.cluster.max_used()
