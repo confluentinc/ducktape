@@ -72,6 +72,8 @@ def create_ducktape_parser():
                              "instead of by number of tests.")
     parser.add_argument("--sample", action="store", type=int,
                         help="The size of a random test sample to run")
+    parser.add_argument("--fail-bad-cluster-utilization", action="store_true",
+                        help="Fail a test if the cluster node utilization does not match the cluster node usage.")
     return parser
 
 

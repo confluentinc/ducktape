@@ -232,7 +232,8 @@ class TestRunner(object):
                 current_test_counter,
                 TestContext.logger_name(test_context, current_test_counter),
                 TestContext.results_dir(test_context, current_test_counter),
-                self.session_context.debug
+                self.session_context.debug,
+                self.session_context.fail_bad_cluster_utilization
             ])
 
         self._client_procs[test_key] = proc
