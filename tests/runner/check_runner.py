@@ -24,7 +24,7 @@ from tests.ducktape_mock import FakeCluster
 import tests.ducktape_mock
 from tests.runner.resources.test_fails_to_init import FailsToInitTest
 from tests.runner.resources.test_fails_to_init_in_setup import FailsToInitInSetupTest
-from .resources.test_thingy import TestThingy
+from .resources.test_thingy import ClusterTestThingy, TestThingy
 from .resources.test_failing_tests import FailingTest
 from ducktape.tests.reporter import JUnitReporter
 
@@ -176,6 +176,25 @@ class CheckRunner(object):
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
 
         results = runner.run_all_tests()
+        assert len(results) == 2
+        assert results.num_failed == 1
+        assert results.num_passed == 1
+        assert results.num_ignored == 0
+
+    def check_run_failure_with_bad_cluster_allocation(self):
+        """Check expected behavior when running a single test."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(
+            fail_bad_cluster_utilization="fail_bad_cluster_utilization")
+
+        test_methods = [ClusterTestThingy.test_bad_num_nodes, ClusterTestThingy.test_good_num_nodes]
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=ClusterTestThingy,
+                                   test_methods=test_methods, cluster=mock_cluster,
+                                   session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+
+        results = runner.run_all_tests()
+
         assert len(results) == 2
         assert results.num_failed == 1
         assert results.num_passed == 1

@@ -15,6 +15,7 @@
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.test import Test
 from ducktape.mark import ignore, parametrize
+from ducktape.mark.resource import cluster
 
 
 class TestThingy(Test):
@@ -38,3 +39,15 @@ class TestThingy(Test):
 
     def test_failure(self):
         raise Exception("This failed")
+
+
+class ClusterTestThingy(Test):
+    """Fake ducktape test class"""
+
+    @cluster(num_nodes=10)
+    def test_bad_num_nodes(self):
+        pass
+
+    @cluster(num_nodes=0)
+    def test_good_num_nodes(self):
+        pass
