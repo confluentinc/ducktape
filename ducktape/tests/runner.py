@@ -56,8 +56,8 @@ class Receiver(object):
         self.port = self.socket.bind_to_random_port(addr="tcp://*", min_port=self.min_port, max_port=self.max_port + 1,
                                                     max_tries=2 * (self.max_port + 1 - self.min_port))
 
-    def recv(self, timeout=3600000):
-        # default timeout of 1 hours
+    def recv(self, timeout=1800000):
+        # default timeout of 30 minutes
         self.socket.RCVTIMEO = timeout
         try:
             message = self.socket.recv()
@@ -197,7 +197,7 @@ class TestRunner(object):
 
                 if self._expect_client_requests:
                     try:
-                        event = self.receiver.recv()
+                        event = self.receiver.recv(timeout=self.session_context.test_runner_timeout)
                         self._handle(event)
                     except Exception as e:
                         err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
