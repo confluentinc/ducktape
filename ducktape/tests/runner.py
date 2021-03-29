@@ -64,7 +64,7 @@ class Receiver(object):
         try:
             message = self.socket.recv()
         except zmq.Again as e:
-            raise TimeoutError("runner client unresponsive") from e
+            raise TimeoutError("runner client unresponsive")
         return self.serde.deserialize(message)
 
     def send(self, event):
