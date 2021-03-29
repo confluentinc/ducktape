@@ -63,7 +63,7 @@ class Receiver(object):
         self.socket.RCVTIMEO = timeout
         try:
             message = self.socket.recv()
-        except zmq.Again as e:
+        except zmq.Again:
             raise TimeoutError("runner client unresponsive")
         return self.serde.deserialize(message)
 
