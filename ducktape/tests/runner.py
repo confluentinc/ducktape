@@ -57,7 +57,9 @@ class Receiver(object):
                                                     max_tries=2 * (self.max_port + 1 - self.min_port))
 
     def recv(self, timeout=1800000):
-        # default timeout of 30 minutes
+        if timeout is None:
+            # use default value of 1800000 or 30 minutes
+            timeout = 1800000
         self.socket.RCVTIMEO = timeout
         try:
             message = self.socket.recv()
