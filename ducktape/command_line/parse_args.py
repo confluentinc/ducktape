@@ -75,7 +75,7 @@ def create_ducktape_parser():
     parser.add_argument("--fail-bad-cluster-utilization", action="store_true",
                         help="Fail a test if the cluster node utilization does not match the cluster node usage.")
     parser.add_argument("--test-runner-timeout", action="store", type=int, default=1800000,
-                        help="Amount of time in milliseconds between test communicating between the test runner" \
+                        help="Amount of time in milliseconds between test communicating between the test runner"
                              " before a timeout error occurs. Default is 30 minutes")
     return parser
 
