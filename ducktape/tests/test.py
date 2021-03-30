@@ -345,8 +345,8 @@ class TestContext(object):
         return {
             "directory": os.path.dirname(self.file),
             "file_name": os.path.basename(self.file),
-            "cls_name": self.cls.__name__,
-            "method_name": self.function.__name__,
+            "cls_name": self.cls_name,
+            "method_name": self.function_name,
             "injected_args": self.injected_args
         }
 
