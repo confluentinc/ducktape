@@ -20,7 +20,7 @@ import pytest
 from ducktape.tests.runner_client import Sender
 from ducktape.tests.runner import Receiver
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
-
+from ducktape.errors import TimeoutError
 
 import multiprocessing as mp
 import os
