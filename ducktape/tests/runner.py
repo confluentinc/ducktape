@@ -34,6 +34,7 @@ from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
 from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
+from ducktape.errors import TimeoutError
 
 
 class Receiver(object):
@@ -56,8 +57,15 @@ class Receiver(object):
         self.port = self.socket.bind_to_random_port(addr="tcp://*", min_port=self.min_port, max_port=self.max_port + 1,
                                                     max_tries=2 * (self.max_port + 1 - self.min_port))
 
-    def recv(self):
-        message = self.socket.recv()
+    def recv(self, timeout=1800000):
+        if timeout is None:
+            # use default value of 1800000 or 30 minutes
+            timeout = 1800000
+        self.socket.RCVTIMEO = timeout
+        try:
+            message = self.socket.recv()
+        except zmq.Again:
+            raise TimeoutError("runner client unresponsive")
         return self.serde.deserialize(message)
 
     def send(self, event):
@@ -192,7 +200,7 @@ class TestRunner(object):
 
                 if self._expect_client_requests:
                     try:
-                        event = self.receiver.recv()
+                        event = self.receiver.recv(timeout=self.session_context.test_runner_timeout)
                         self._handle(event)
                     except Exception as e:
                         err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
