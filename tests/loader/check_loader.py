@@ -195,10 +195,14 @@ class CheckTestLoader(object):
         tests = loader.load([discover_dir()])
         assert len(tests) == num_tests_in_dir(discover_dir())
 
-    def check_test_loader_with_file(self):
+    @pytest.mark.parametrize(['dir_', 'file_name'], [
+        pytest.param(discover_dir(), 'test_a.py'),
+        pytest.param(resources_dir(), 'a.py')
+    ])
+    def check_test_loader_with_file(self, dir_, file_name):
         """Check discovery on a file. """
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        module_path = os.path.join(discover_dir(), "test_a.py")
+        module_path = os.path.join(dir_, file_name)
 
         tests = loader.load([module_path])
         assert len(tests) == num_tests_in_file(module_path)
