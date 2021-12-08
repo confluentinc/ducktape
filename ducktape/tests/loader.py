@@ -397,10 +397,7 @@ class TestLoader(object):
                 raise LoaderException('Path {} does not exist'.format(path))
             self.logger.debug('Checking {}'.format(path))
             if os.path.isfile(path):
-                if self._is_test_file(path):
-                    test_files.append(os.path.abspath(path))
-                else:
-                    self.logger.debug("Skipping {} because it isn't a test file".format(path))
+                test_files.append(os.path.abspath(path))
             elif os.path.isdir(path):
                 for pwd, dirs, files in os.walk(path):
                     if "__init__.py" not in files:
