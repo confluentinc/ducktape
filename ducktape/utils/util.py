@@ -53,3 +53,7 @@ def package_is_installed(package_name):
 def ducktape_version():
     """Return string representation of current ducktape version."""
     return __ducktape_version__
+
+def load_function(func_module_path):
+    module, function = func_module_path.rsplit(".", 1)
+    return getattr(importlib.import_module(module), function)

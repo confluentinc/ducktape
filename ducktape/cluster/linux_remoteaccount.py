@@ -12,18 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from ducktape.cluster.cluster_spec import LINUX
 from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class LinuxRemoteAccount(RemoteAccount):
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
-        super(LinuxRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
-                                                 logger=logger)
+    def __init__(self, *args, **kwargs):
+        super(LinuxRemoteAccount, self).__init__(*args, **kwargs)
         self._ssh_client = None
         self._sftp_client = None
         self.os = LINUX
+        self._log(logging.WARNING, "init linux")
 
     @property
     def local(self):
