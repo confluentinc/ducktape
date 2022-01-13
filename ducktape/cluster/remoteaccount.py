@@ -42,6 +42,9 @@ def check_ssh(method):
                 for func in self._custom_ssh_exception_checks:
                     func(e, self)
             raise e
+        except Exception as e:
+            self._log(logging.WARNING, "non connection error of type {}: {}".format(type(e), e))
+            raise e
     return wrapper
 
 class RemoteAccountSSHConfig(object):
