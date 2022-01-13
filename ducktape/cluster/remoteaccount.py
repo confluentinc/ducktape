@@ -27,13 +27,13 @@ import warnings
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
-
+import socket
 
 def check_ssh(method):
     def wrapper(self, *args, **kwargs):
         try:
             return method(self, *args, **kwargs)
-        except (SSHException, NoValidConnectionsError) as e:
+        except (SSHException, NoValidConnectionsError, socket.error) as e:
             self._log(logging.WARNING, "checking")
             self._log(logging.WARNING, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
             if self._custom_ssh_exception_checks:
