@@ -34,6 +34,8 @@ def check_ssh(method):
         try:
             return method(self, *args, **kwargs)
         except (SSHException, NoValidConnectionsError) as e:
+            self._log(logging.WARNING, "checking")
+            self._log(logging.WARNING, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
             if self._custom_ssh_exception_checks:
                 self._log(logging.WARNING, "STARTING CHECKS")
                 self._log(logging.WARNING, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
