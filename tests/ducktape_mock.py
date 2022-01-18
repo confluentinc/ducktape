@@ -94,7 +94,6 @@ class MockAccount(LinuxRemoteAccount):
             host="localhost",
             user=None,
             hostname="localhost",
-            port=22,
-            **kwargs)
+            port=22)
 
-        super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None)
+        super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None, **kwargs)
