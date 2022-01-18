@@ -24,7 +24,6 @@ class LinuxRemoteAccount(RemoteAccount):
         self._ssh_client = None
         self._sftp_client = None
         self.os = LINUX
-        self._log(logging.WARNING, "init linux")
 
     @property
     def local(self):
