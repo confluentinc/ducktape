@@ -40,7 +40,7 @@ def check_ssh(method):
                 self._log(logging.DEBUG, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
                 for func in self._custom_ssh_exception_checks:
                     func(e, self)
-            raise e
+            raise
     return wrapper
 
 
@@ -156,9 +156,6 @@ class RemoteAccount(HttpMixin):
         self._ssh_client = None
         self._sftp_client = None
         self._custom_ssh_exception_checks = ssh_exception_checks
-        self._log(logging.WARNING, "init done")
-        self._log(logging.WARNING, "ssh_exception_checks")
-        self._log(logging.WARNING, ssh_exception_checks)
 
     @property
     def operating_system(self):

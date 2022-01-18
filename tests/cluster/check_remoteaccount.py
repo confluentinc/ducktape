@@ -17,6 +17,7 @@ from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
 from ducktape.cluster.remoteaccount import RemoteAccount
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
+import pytest
 
 import logging
 from threading import Thread
@@ -25,6 +26,12 @@ from six.moves import socketserver
 import threading
 import time
 
+
+class DummyException(Exception):
+    pass
+
+def raise_error_checker(error, remote_account):
+    raise DummyException("dummy raise: {}\nfrom: {}".format(error, remote_account))    
 
 class SimpleServer(object):
     """Helper class which starts a simple server listening on localhost at the specified port
@@ -85,6 +92,18 @@ class CheckRemoteAccount(object):
             # timing
             actual_timeout = time.time() - start
             assert abs(actual_timeout - timeout) / timeout < 1
+
+    def check_ssh_checker(self):
+        self.server.start()
+        self.account = RemoteAccount(RemoteAccountSSHConfig.from_string(
+        """
+        Host dummy_host.com
+            Hostname dummy_host.name.com
+            Port 22
+            User dummy
+        """), ssh_exception_checks=[raise_error_checker])
+        with pytest.raises(DummyException):
+            self.account.ssh('echo test')
 
     def teardown(self):
         self.server.stop()
