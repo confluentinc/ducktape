@@ -185,13 +185,8 @@ def main():
 
         cluster_kwargs = {"cluster_file": args_dict["cluster_file"]}
         checkers = [load_function(func_path) for func_path in args_dict["ssh_checker_function"]]
-        session_logger.warning("checkers")
-        session_logger.warning(args_dict["ssh_checker_function"])
-        session_logger.warning(",".join(repr(checker) for checker in checkers))
         if checkers:
             cluster_kwargs['ssh_exception_checks'] = checkers
-        session_logger.warning(cluster_kwargs)
-        session_logger.warning(cluster_class)
         cluster = cluster_class(**cluster_kwargs)
         for ctx in tests:
             # Note that we're attaching a reference to cluster

@@ -29,6 +29,7 @@ from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
 import socket
 
+
 def check_ssh(method):
     def wrapper(self, *args, **kwargs):
         try:
@@ -41,6 +42,7 @@ def check_ssh(method):
                     func(e, self)
             raise e
     return wrapper
+
 
 class RemoteAccountSSHConfig(object):
     def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
@@ -196,18 +198,6 @@ class RemoteAccount(HttpMixin):
             self._ssh_client.close()
         self._ssh_client = client
         self._set_sftp_client()
-
-    def _check_ssh(self, e):
-        self._log(logging.WARNING, "STARTING CHECKS")
-        self._log(logging.WARNING, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
-        for func in self._custom_ssh_exception_checks:
-            func(e, self)
-
-    def register_ssh_exception_check(self, func):
-        if callable(func):
-            self._custom_ssh_exception_checks.append(func)
-        elif isinstance(func, str):
-            getattr
 
     @property
     def ssh_client(self):
@@ -528,6 +518,7 @@ class RemoteAccount(HttpMixin):
             # in this case we'll copy as:
             #   path/to/src_name -> dest/src_name
             dest = self._re_anchor_basename(src, dest)
+
         if self.isfile(src):
             self.sftp_client.get(src, dest)
         elif self.isdir(src):
@@ -555,6 +546,7 @@ class RemoteAccount(HttpMixin):
             # in this case we'll copy as:
             #   path/to/src_name -> dest/src_name
             dest = self._re_anchor_basename(src, dest)
+
         if os.path.isfile(src):
             # local to remote
             self.sftp_client.put(src, dest)
@@ -629,7 +621,7 @@ class RemoteAccount(HttpMixin):
             f.write(contents)
 
     _DEFAULT_PERMISSIONS = int('755', 8)
-    
+
     @check_ssh
     def mkdir(self, path, mode=_DEFAULT_PERMISSIONS):
         self.sftp_client.mkdir(path, mode)
