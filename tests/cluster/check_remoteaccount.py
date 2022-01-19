@@ -33,6 +33,8 @@ class DummyException(Exception):
 def raise_error_checker(error, remote_account):
     raise DummyException("dummy raise: {}\nfrom: {}".format(error, remote_account))    
 
+def raise_no_error_checker(error, remote_account):
+    pass
 class SimpleServer(object):
     """Helper class which starts a simple server listening on localhost at the specified port
     """
@@ -93,7 +95,10 @@ class CheckRemoteAccount(object):
             actual_timeout = time.time() - start
             assert abs(actual_timeout - timeout) / timeout < 1
 
-    def check_ssh_checker(self):
+    @pytest.mark.parametrize("checkers", [[raise_error_checker],
+                            [raise_no_error_checker, raise_error_checker],
+                            [raise_error_checker, raise_no_error_checker]])
+    def check_ssh_checker(self, checkers):
         self.server.start()
         self.account = RemoteAccount(RemoteAccountSSHConfig.from_string(
         """
@@ -101,7 +106,7 @@ class CheckRemoteAccount(object):
             Hostname dummy_host.name.com
             Port 22
             User dummy
-        """), ssh_exception_checks=[raise_error_checker])
+        """), ssh_exception_checks=checkers)
         with pytest.raises(DummyException):
             self.account.ssh('echo test')
 
