@@ -99,9 +99,9 @@ class SummaryReporter(object):
 
 
 class SimpleSummaryReporter(SummaryReporter):
-    def header_string(self):
-        """Header lines of the report"""
-        header_lines = [
+    def footer_string(self):
+        """Footer lines of the report"""
+        footer_lines = [
             "=" * self.width,
             "SESSION REPORT (ALL TESTS)",
             "ducktape version: %s" % ducktape_version(),
@@ -114,15 +114,28 @@ class SimpleSummaryReporter(SummaryReporter):
             "=" * self.width
         ]
 
-        return "\n".join(header_lines)
+        return "\n".join(footer_lines)
 
     def report_string(self):
         """Get the whole report string."""
-        report_lines = [
-            self.header_string()]
 
-        report_lines.extend(
-            [SingleResultReporter(result).result_string() + "\n" + "-" * self.width for result in self.results])
+        passed = []
+        ignored = []
+        failed = []
+        for result in self.results:
+            if result.test_status == FAIL:
+                failed.append(result)
+            elif result.test_status == IGNORE:
+                ignored.append(result)
+            else:
+                passed.append(result)
+
+        ordered_results = passed + ignored + failed
+
+        report_lines = \
+            [SingleResultReporter(result).result_string() + "\n" + "-" * self.width for result in ordered_results]
+
+        report_lines.append(self.footer_string())
 
         return "\n".join(report_lines)
 
