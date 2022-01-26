@@ -37,9 +37,8 @@ class WindowsRemoteAccount(RemoteAccount):
 
     WINRM_USERNAME = "Administrator"
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
-        super(WindowsRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
-                                                   logger=logger)
+    def __init__(self, *args, **kwargs):
+        super(WindowsRemoteAccount, self).__init__(*args, **kwargs)
         self.os = WINDOWS
         self._winrm_client = None
 
