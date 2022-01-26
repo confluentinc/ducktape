@@ -70,3 +70,13 @@ def package_is_installed(package_name):
 def ducktape_version():
     """Return string representation of current ducktape version."""
     return __ducktape_version__
+
+
+def load_function(func_module_path):
+    """Loads and returns a function from a module path seperated by '.'s"""
+    module, function = func_module_path.rsplit(".", 1)
+    try:
+        return getattr(importlib.import_module(module), function)
+    except AttributeError:
+        raise Exception("Function could not be loaded from the module path {}, "
+                        "verify that it is '.' seperated".format(func_module_path))
