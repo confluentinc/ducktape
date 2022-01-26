@@ -30,11 +30,15 @@ import time
 class DummyException(Exception):
     pass
 
+
 def raise_error_checker(error, remote_account):
-    raise DummyException("dummy raise: {}\nfrom: {}".format(error, remote_account))    
+    raise DummyException("dummy raise: {}\nfrom: {}".format(error, remote_account))
+
 
 def raise_no_error_checker(error, remote_account):
     pass
+
+
 class SimpleServer(object):
     """Helper class which starts a simple server listening on localhost at the specified port
     """
@@ -96,12 +100,12 @@ class CheckRemoteAccount(object):
             assert abs(actual_timeout - timeout) / timeout < 1
 
     @pytest.mark.parametrize("checkers", [[raise_error_checker],
-                            [raise_no_error_checker, raise_error_checker],
-                            [raise_error_checker, raise_no_error_checker]])
+                                          [raise_no_error_checker, raise_error_checker],
+                                          [raise_error_checker, raise_no_error_checker]])
     def check_ssh_checker(self, checkers):
         self.server.start()
         self.account = RemoteAccount(RemoteAccountSSHConfig.from_string(
-        """
+            """
         Host dummy_host.com
             Hostname dummy_host.name.com
             Port 22

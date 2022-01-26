@@ -54,6 +54,7 @@ def ducktape_version():
     """Return string representation of current ducktape version."""
     return __ducktape_version__
 
+
 def load_function(func_module_path):
     """Loads and returns a function from a module path seperated by '.'s"""
     module, function = func_module_path.rsplit(".", 1)

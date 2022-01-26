@@ -27,7 +27,6 @@ import warnings
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
-import socket
 
 
 def check_ssh(method):
