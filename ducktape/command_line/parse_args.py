@@ -81,6 +81,11 @@ def create_ducktape_parser():
     parser.add_argument("--test-runner-timeout", action="store", type=int, default=1800000,
                         help="Amount of time in milliseconds between test communicating between the test runner"
                              " before a timeout error occurs. Default is 30 minutes")
+    parser.add_argument("--ssh-checker-function", action="store", type=str, nargs="+",
+                        help="Python module path(s) to a function that takes an exception and a remote account"
+                        " that will be called when an ssh error occurs, this can give some "
+                        "validation or better logging when an ssh error occurs. Specify any "
+                        "number of module paths after this flag to be called.")
     return parser
 
 

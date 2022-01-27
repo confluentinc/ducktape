@@ -97,3 +97,13 @@ Tools for Managing Logs
 =======================
 
 Analyzing and matching up logs from a distributed service could be time consuming. There are many good tools for working with logs. Examples include http://lnav.org/, http://list.xmodulo.com/multitail.html, and http://glogg.bonnefon.org/.
+
+Validating Ssh Issues
+=======================
+
+Ducktape supports running custom validators when an ssh error occurs, allowing you to run your own validation against a host.
+this is done simply by running ducktape with the `--ssh-checker-function`, followed by the module path to your function, so for instance::
+    
+    ducktape my-test.py --ssh-checker-function my.module.validator.validate_ssh
+
+this function will take in the ssh error raised as its first argument, and the remote account object as its second.
