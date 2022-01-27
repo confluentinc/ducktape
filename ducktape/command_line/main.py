@@ -33,6 +33,7 @@ from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils import persistence
+from ducktape.utils.util import load_function
 
 
 def get_user_defined_globals(globals_str):
@@ -160,7 +161,12 @@ def main():
         (cluster_mod_name, cluster_class_name) = args_dict["cluster"].rsplit('.', 1)
         cluster_mod = importlib.import_module(cluster_mod_name)
         cluster_class = getattr(cluster_mod, cluster_class_name)
-        cluster = cluster_class(cluster_file=args_dict["cluster_file"])
+
+        cluster_kwargs = {"cluster_file": args_dict["cluster_file"]}
+        checkers = [load_function(func_path) for func_path in args_dict["ssh_checker_function"]]
+        if checkers:
+            cluster_kwargs['ssh_exception_checks'] = checkers
+        cluster = cluster_class(**cluster_kwargs)
         for ctx in tests:
             # Note that we're attaching a reference to cluster
             # only after test context objects have been instantiated

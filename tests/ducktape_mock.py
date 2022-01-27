@@ -89,11 +89,11 @@ class MockNode(object):
 class MockAccount(LinuxRemoteAccount):
     """Mock node.account object. It's Linux because tests are run in Linux."""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         ssh_config = RemoteAccountSSHConfig(
             host="localhost",
             user=None,
             hostname="localhost",
             port=22)
 
-        super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None)
+        super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None, **kwargs)
