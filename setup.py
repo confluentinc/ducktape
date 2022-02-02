@@ -58,11 +58,11 @@ setup(name="ducktape",
                         'pyzmq==18.1.0',
                         'pycryptodome==3.8.2',
                         'more-itertools==5.0.0',
-                        'tox==3.13.2',
                         'six==1.12.0',
                         # for the following packages these are the last versions supporting python 2
                         'pynacl==1.4.0',
-                        'filelock==3.2.1'
+                        'filelock==3.2.1',
+                        'cryptography==3.3.2'
                         ],
       tests_require=['pytest==4.6.5',
                      'mock==3.0.5',
