@@ -184,9 +184,11 @@ def main():
         cluster_class = getattr(cluster_mod, cluster_class_name)
 
         cluster_kwargs = {"cluster_file": args_dict["cluster_file"]}
-        checkers = [load_function(func_path) for func_path in args_dict["ssh_checker_function"]]
-        if checkers:
-            cluster_kwargs['ssh_exception_checks'] = checkers
+        checker_function_names = args_dict['ssh_checker_function']
+        if checker_function_names:
+            checkers = [load_function(func_path) for func_path in checker_function_names]
+            if checkers:
+                cluster_kwargs['ssh_exception_checks'] = checkers
         cluster = cluster_class(**cluster_kwargs)
         for ctx in tests:
             # Note that we're attaching a reference to cluster
