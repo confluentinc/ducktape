@@ -239,6 +239,7 @@ class HTMLSummaryReporter(SummaryReporter):
             "run_time": format_time(result.run_time_seconds),
             "data": "" if result.data is None else json.dumps(result.data, sort_keys=True,
                                                               indent=2, separators=(',', ': ')),
+            "summary": result.summary,
             "test_log": self.test_results_dir(result)
         }
         return result_json
