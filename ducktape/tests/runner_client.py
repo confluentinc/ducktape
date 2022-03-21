@@ -26,7 +26,7 @@ from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
 from ducktape.tests.test import test_logger, TestContext
 
-from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
+from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL, OPASS, OFAIL
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
@@ -134,15 +134,25 @@ class RunnerClient(object):
 
             data = self.run_test()
 
-            test_status = PASS
-            self.log(logging.INFO, "PASS")
+            if self.test_context.ok_to_fail:
+                test_status = OPASS
+                self.log(logging.INFO, "OPASS")
+            else:
+                test_status = PASS
+                self.log(logging.INFO, "PASS")
 
         except BaseException as e:
-            # mark the test as failed before doing anything else
-            test_status = FAIL
-            err_trace = self._exc_msg(e)
-            summary += err_trace
-            self.log(logging.INFO, "FAIL: " + err_trace)
+            if self.test_context.ok_to_fail:
+                test_status = OFAIL
+                err_trace = self._exc_msg(e)
+                summary += err_trace
+                self.log(logging.INFO, "OFAIL: " + err_trace)
+            else:
+                # mark the test as failed before doing anything else
+                test_status = FAIL
+                err_trace = self._exc_msg(e)
+                summary += err_trace
+                self.log(logging.INFO, "FAIL: " + err_trace)
 
         finally:
             self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
@@ -193,8 +203,10 @@ class RunnerClient(object):
                 # only check node utilization on test pass
                 if result == PASS:
                     self.log(logging.INFO, "FAIL: " + message)
-
-                result = FAIL
+                    result = FAIL
+                elif result == OPASS:
+                    self.log(logging.INFO, "OFAIL: " + message)
+                    result = OFAIL
                 summary += message
             else:
                 self.log(logging.WARN, message)

@@ -107,6 +107,24 @@ class IgnoreAll(Ignore):
         self.injected_args = None
 
 
+class OkToFail(Mark):
+    """Run the test but categorize status as OPASS or OFAIL instead of PASS or FAIL."""
+
+    def __init__(self):
+        super(OkToFail, self).__init__()
+        self.injected_args = None
+
+    @property
+    def name(self):
+        return "OK_TO_FAIL"
+
+    def apply(self, seed_context, context_list):
+        assert len(context_list) > 0, "ignore annotation is not being applied to any test cases"
+        for ctx in context_list:
+            ctx.ok_to_fail = ctx.ok_to_fail or self.injected_args is None
+        return context_list
+
+
 class Matrix(Mark):
     """Parametrize with a matrix of arguments.
     Assume each values in self.injected_args is iterable
@@ -218,6 +236,7 @@ PARAMETRIZED = Parametrize()
 MATRIX = Matrix()
 DEFAULTS = Defaults()
 IGNORE = Ignore()
+OK_TO_FAIL = OkToFail()
 ENV = Env()
 
 
@@ -233,6 +252,11 @@ def parametrized(f):
 def ignored(f):
     """Is this function or object decorated with @ignore?"""
     return Mark.marked(f, IGNORE)
+
+
+def oked_to_fail(f):
+    """Is this function or object decorated with @ok_to_fail?"""
+    return Mark.marked(f, OK_TO_FAIL)
 
 
 def is_env(f):
@@ -409,6 +433,25 @@ def ignore(*args, **kwargs):
         return f
 
     return ignorer
+
+
+def ok_to_fail(*args, **kwargs):
+    """
+    Test method decorator which signals to the test runner to run test but set status as OPASS or OFAIL.
+    This will keep test results separate from the status PASS and FAIL.
+
+    Example::
+        @ok_to_fail
+        def the_test(...):
+            ...
+    """
+    if len(args) == 1 and len(kwargs) == 0:
+        # this corresponds to the usage of the decorator with no arguments
+        # @ok_to_fail
+        # def test_function:
+        #   ...
+        Mark.mark(args[0], OkToFail())
+        return args[0]
 
 
 def env(**kwargs):

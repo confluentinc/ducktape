@@ -3,6 +3,7 @@ from ducktape.mark import ok_to_fail, oked_to_fail, parametrize, matrix
 
 import pytest
 
+
 class CheckOkToFail(object):
     def check_simple(self):
         @ok_to_fail
