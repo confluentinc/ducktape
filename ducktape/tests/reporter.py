@@ -23,7 +23,7 @@ import pkg_resources
 
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.utils.util import ducktape_version
-from ducktape.tests.status import PASS, FAIL, IGNORE
+from ducktape.tests.status import PASS, FAIL, IGNORE, OPASS, OFAIL
 from ducktape.json_serializable import DucktapeJSONEncoder
 
 
@@ -111,6 +111,8 @@ class SimpleSummaryReporter(SummaryReporter):
             "passed:           %d" % self.results.num_passed,
             "failed:           %d" % self.results.num_failed,
             "ignored:          %d" % self.results.num_ignored,
+            "opassed:          %d" % self.results.num_opassed,
+            "ofailed:          %d" % self.results.num_ofailed,
             "=" * self.width
         ]
 
@@ -176,8 +178,13 @@ class JUnitReporter(object):
                 testsuite['failures'] += 1
             elif result.test_status == IGNORE:
                 testsuite['skipped'] += 1
+            elif result.test_status == OPASS:
+                testsuite['skipped'] += 1
+            elif result.test_status == OFAIL:
+                testsuite['skipped'] += 1
 
-        total = self.results.num_failed + self.results.num_ignored + self.results.num_passed
+        total = self.results.num_failed + self.results.num_ignored + self.results.num_ofailed + \
+            self.results.num_opassed + self.results.num_passed
         # Now start building XML document
         root = ET.Element('testsuites', attrib=dict(
             name="ducktape", time=str(self.results.run_time_seconds),
@@ -264,6 +271,8 @@ class HTMLSummaryReporter(SummaryReporter):
         failed_result_string = ""
         passed_result_string = ""
         ignored_result_string = ""
+        opassed_result_string = ""
+        ofailed_result_string = ""
 
         for result in self.results:
             json_string = json.dumps(self.format_result(result))
@@ -274,6 +283,12 @@ class HTMLSummaryReporter(SummaryReporter):
             elif result.test_status == FAIL:
                 failed_result_string += json_string
                 failed_result_string += ","
+            elif result.test_status == OPASS:
+                opassed_result_string += json_string
+                opassed_result_string += ","
+            elif result.test_status == OFAIL:
+                ofailed_result_string += json_string
+                ofailed_result_string += ","
             else:
                 ignored_result_string += json_string
                 ignored_result_string += ","
@@ -284,12 +299,16 @@ class HTMLSummaryReporter(SummaryReporter):
             'num_passes': self.results.num_passed,
             'num_failures': self.results.num_failed,
             'num_ignored': self.results.num_ignored,
+            'num_opassed': self.results.num_opassed,
+            'num_ofailed': self.results.num_ofailed,
             'run_time': format_time(self.results.run_time_seconds),
             'session': self.results.session_context.session_id,
             'passed_tests': passed_result_string,
             'failed_tests': failed_result_string,
             'ignored_tests': ignored_result_string,
-            'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE]])
+            'ofailed_tests': ofailed_result_string,
+            'opassed_tests': opassed_result_string,
+            'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE, OPASS, OFAIL]])
         }
 
         html = template % args

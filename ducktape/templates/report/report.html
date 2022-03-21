@@ -11,6 +11,8 @@
     <div id="color_key_panel"></div>
     <div id="failed_test_panel"></div>
     <div id="ignored_test_panel"></div>
+    <div id="opassed_test_panel"></div>
+    <div id="ofailed_test_panel"></div>
     <div id="passed_test_panel"></div>
     <script type="text/jsx">
       /* This small block makes it possible to use React dev tools in the Chrome browser */
@@ -40,6 +42,8 @@
               <td colSpan='5' align='center'>{this.props.summary_prop.passes}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.failures}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.ignored}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.opassed}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.ofailed}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.run_time}</td>
             </tr>
           );
@@ -56,6 +60,8 @@
                   <th colSpan='5' align='center'>Passes</th>
                   <th colSpan='5' align='center'>Failures</th>
                   <th colSpan='5' align='center'>Ignored</th>
+                  <th colSpan='5' align='center'>OPassed</th>
+                  <th colSpan='5' align='center'>OFailed</th>
                   <th colSpan='5' align='center'>Time</th>
                 </tr>
               </thead>
@@ -179,6 +185,8 @@
         "passes": %(num_passes)d,
         "failures": %(num_failures)d,
         "ignored": %(num_ignored)d,
+        "opassed": %(num_opassed)d,
+        "ofailed": %(num_ofailed)d,
         "run_time": '%(run_time)s'
       }];
       
@@ -192,12 +200,16 @@
       PASSED_TESTS=[%(passed_tests)s];
       FAILED_TESTS=[%(failed_tests)s];
       IGNORED_TESTS=[%(ignored_tests)s];
+      OPASSED_TESTS=[%(opassed_tests)s];
+      OFAILED_TESTS=[%(ofailed_tests)s];
 
       React.render(<Heading heading={HEADING}/>, document.getElementById('heading'));
       React.render(<ColorKeyPanel test_status_names={COLOR_KEYS}/>, document.getElementById('color_key_panel'));
       React.render(<SummaryPanel summary_props={SUMMARY}/>, document.getElementById('summary_panel'));
       React.render(<TestPanel title="Failed Tests" tests={FAILED_TESTS}/>, document.getElementById('failed_test_panel'));
       React.render(<TestPanel title="Ignored Tests" tests={IGNORED_TESTS}/>, document.getElementById('ignored_test_panel'));
+      React.render(<TestPanel title="OPassed Tests" tests={OPASSED_TESTS}/>, document.getElementById('opassed_test_panel'));
+      React.render(<TestPanel title="OFailed Tests" tests={OFAILED_TESTS}/>, document.getElementById('ofailed_test_panel'));
       React.render(<TestPanel title="Passed Tests" tests={PASSED_TESTS}/>, document.getElementById('passed_test_panel'));
     </script>
   </body>
