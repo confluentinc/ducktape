@@ -21,7 +21,7 @@ from ducktape.json_serializable import DucktapeJSONEncoder
 from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
-from ducktape.tests.status import PASS, FAIL, IGNORE
+from ducktape.tests.status import PASS, FAIL, IGNORE, OPASS, OFAIL
 
 
 class TestResult(object):
@@ -162,6 +162,14 @@ class TestResults(object):
         return len([r for r in self._results if r.test_status == IGNORE])
 
     @property
+    def num_opassed(self):
+        return len([r for r in self._results if r.test_status == OPASS])
+
+    @property
+    def num_ofailed(self):
+        return len([r for r in self._results if r.test_status == OFAIL])
+
+    @property
     def run_time_seconds(self):
         if self.start_time < 0:
             return -1
@@ -218,6 +226,8 @@ class TestResults(object):
             "num_passed": self.num_passed,
             "num_failed": self.num_failed,
             "num_ignored": self.num_ignored,
+            "num_opassed": self.num_opassed,
+            "num_ofailed": self.num_ofailed,
             "parallelism": parallelism,
             "results": [r for r in self._results]
         }

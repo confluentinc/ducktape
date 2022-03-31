@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ._mark import parametrize, matrix, defaults, ignore, parametrized, ignored, env, is_env  # NOQA
+from ._mark import parametrize, matrix, defaults, ignore, ok_to_fail, parametrized, ignored, oked_to_fail, env, is_env  # NOQA
