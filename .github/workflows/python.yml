@@ -1,5 +1,5 @@
 name: Python
-on: [push]
+on: [push, pull_request]
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -13,4 +13,4 @@ jobs:
       - name: Install Tox
         run: pip install tox
       - name: Run Tox
-        run: tox -e py38
+        run: tox -e style,py38,cover
