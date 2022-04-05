@@ -119,7 +119,7 @@ class OkToFail(Mark):
         return "OK_TO_FAIL"
 
     def apply(self, seed_context, context_list):
-        assert len(context_list) > 0, "ignore annotation is not being applied to any test cases"
+        assert len(context_list) > 0, "ok_to_fail annotation is not being applied to any test cases"
         for ctx in context_list:
             ctx.ok_to_fail = ctx.ok_to_fail or self.injected_args is None
         return context_list
