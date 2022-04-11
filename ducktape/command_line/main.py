@@ -200,7 +200,8 @@ def main():
         sys.exit(1)
 
     # Run the tests
-    runner = TestRunner(cluster, session_context, session_logger, tests)
+    deflake_num = max(1, args_dict['deflake'])
+    runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
     test_results = runner.run_all_tests()
 
     # Report results

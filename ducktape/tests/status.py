@@ -28,5 +28,6 @@ class TestStatus(object):
 
 
 PASS = TestStatus("pass")
+FLAKY = TestStatus("flaky")
 FAIL = TestStatus("fail")
 IGNORE = TestStatus("ignore")

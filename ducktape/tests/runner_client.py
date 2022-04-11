@@ -24,6 +24,7 @@ from six import iteritems
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
+from ducktape.tests.status import FLAKY
 from ducktape.tests.test import test_logger, TestContext
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
@@ -39,7 +40,7 @@ class RunnerClient(object):
     """Run a single test"""
 
     def __init__(self, server_hostname, server_port, test_id,
-                 test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization):
+                 test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization, deflake_num):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
         self.serde = SerDe()
@@ -57,6 +58,8 @@ class RunnerClient(object):
         self.session_context = ready_reply["session_context"]
         self.test_metadata = ready_reply["test_metadata"]
         self.cluster = ready_reply["cluster"]
+
+        self.deflake_num = deflake_num
 
         # Wait to instantiate the test object until running the test
         self.test = None
@@ -102,60 +105,64 @@ class RunnerClient(object):
 
         start_time = -1
         stop_time = -1
-        test_status = PASS
+        test_status = FAIL
         summary = ""
         data = None
 
-        try:
-            # Results from this test, as well as logs will be dumped here
-            mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
-            # Instantiate test
-            self.test = self.test_context.cls(self.test_context)
+        num_runs = self.deflake_num
+        while test_status is FAIL or num_runs > 0:
+            num_runs -= 1
+            try:
+                # Results from this test, as well as logs will be dumped here
+                mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
+                # Instantiate test
+                self.test = self.test_context.cls(self.test_context)
 
-            self.log(logging.DEBUG, "Checking if there are enough nodes...")
-            min_cluster_spec = self.test.min_cluster_spec()
-            os_to_num_nodes = {}
-            for node_spec in min_cluster_spec:
-                if not os_to_num_nodes.get(node_spec.operating_system):
-                    os_to_num_nodes[node_spec.operating_system] = 1
-                else:
-                    os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
-            for (operating_system, node_count) in iteritems(os_to_num_nodes):
-                num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
-                if node_count > num_avail:
-                    raise RuntimeError(
-                        "There are not enough nodes available in the cluster to run this test. "
-                        "Cluster size for %s: %d, Need at least: %d. Services currently registered: %s" %
-                        (operating_system, num_avail, node_count, self.test_context.services))
+                self.log(logging.DEBUG, "Checking if there are enough nodes...")
+                min_cluster_spec = self.test.min_cluster_spec()
+                os_to_num_nodes = {}
+                for node_spec in min_cluster_spec:
+                    if not os_to_num_nodes.get(node_spec.operating_system):
+                        os_to_num_nodes[node_spec.operating_system] = 1
+                    else:
+                        os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
+                for (operating_system, node_count) in iteritems(os_to_num_nodes):
+                    num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
+                    if node_count > num_avail:
+                        raise RuntimeError(
+                            "There are not enough nodes available in the cluster to run this test. "
+                            "Cluster size for %s: %d, Need at least: %d. Services currently registered: %s" %
+                            (operating_system, num_avail, node_count, self.test_context.services))
 
-            # Run the test unit
-            start_time = time.time()
-            self.setup_test()
+                # Run the test unit
+                start_time = time.time()
+                self.setup_test()
 
-            data = self.run_test()
+                data = self.run_test()
 
-            test_status = PASS
-            self.log(logging.INFO, "PASS")
+                test_status = PASS if num_runs == self.deflake_num else FLAKY
+                self.log(logging.INFO, "{} TEST".format(test_status.to_json))
 
-        except BaseException as e:
-            # mark the test as failed before doing anything else
-            test_status = FAIL
-            err_trace = self._exc_msg(e)
-            summary += err_trace
-            self.log(logging.INFO, "FAIL: " + err_trace)
+            except BaseException as e:
+                # mark the test as failed before doing anything else
+                test_status = FAIL
+                err_trace = self._exc_msg(e)
+                summary += err_trace
+                self.log(logging.INFO, "FAIL: " + err_trace)
 
-        finally:
-            self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
+            finally:
+                self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
 
-            stop_time = time.time()
+                stop_time = time.time()
 
-            if hasattr(self, "services"):
-                service_errors = self.test_context.services.errors()
-                if service_errors:
-                    summary += "\n\n" + service_errors
+                if hasattr(self, "services"):
+                    service_errors = self.test_context.services.errors()
+                    if service_errors:
+                        summary += "\n\n" + service_errors
 
-            test_status, summary = self._check_cluster_utilization(test_status, summary)
+                test_status, summary = self._check_cluster_utilization(test_status, summary)
 
+            # for flaky tests, we report the start and end time of the successfull run, and not the whole run period
             result = TestResult(
                 self.test_context,
                 self.test_index,
