@@ -87,7 +87,7 @@ class CheckMemoryUsage(object):
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
         q = queue.Queue()
-        runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, queue=q)
+        runner = InstrumentedTestRunner(self.cluster, self.session_context, Mock(), ctx_list, 1, queue=q)
         runner.run_all_tests()
 
         measurements = []

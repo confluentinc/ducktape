@@ -18,6 +18,9 @@ from ducktape.mark import ignore, parametrize
 from ducktape.mark.resource import cluster
 
 
+_flake = False
+
+
 class TestThingy(Test):
     """Fake ducktape test class"""
 
@@ -25,7 +28,7 @@ class TestThingy(Test):
         """ This test uses many nodes, wow!"""
         return ClusterSpec.simple_linux(1000)
 
-    def test_pi(self):
+    def  test_pi(self):
         return {"data": 3.14159}
 
     @ignore
@@ -39,6 +42,11 @@ class TestThingy(Test):
 
     def test_failure(self):
         raise Exception("This failed")
+
+    def test_flaky(self):
+        global _flake
+        flake, _flake = _flake, not _flake
+        assert flake
 
 
 class ClusterTestThingy(Test):

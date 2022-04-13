@@ -16,6 +16,7 @@ try:
 except ImportError:
     from mock import patch, MagicMock  # noqa: F401
 
+import sys
 from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner
@@ -54,7 +55,7 @@ class CheckRunner(object):
 
         test_context = TestContext(session_context=session_context, module=None, cls=TestThingy,
                                    function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster)
-        runner = TestRunner(mock_cluster, session_context, Mock(), [test_context])
+        runner = TestRunner(mock_cluster, session_context, Mock(), [test_context], 1)
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
         results = runner.run_all_tests()
@@ -80,16 +81,34 @@ class CheckRunner(object):
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
                                    cluster=mock_cluster, session_context=session_context)
-        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
         assert len(results) == 4
+        assert results.num_flaky == 0
         assert results.num_failed == 1
         assert results.num_passed == 1
         assert results.num_ignored == 2
 
         result_with_data = [r for r in results if r.data is not None][0]
         assert result_with_data.data == {"data": 3.14159}
+
+    def check_deflake_run(self):
+        """Check expected behavior when running a single test."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        test_methods = [TestThingy.test_flaky, TestThingy.test_failure]
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 2)
+
+        results = runner.run_all_tests()
+        assert len(results) == 2
+        assert results.num_flaky == 1
+        assert results.num_failed == 1
+        assert results.num_passed == 0
+        assert results.num_ignored == 0
 
     def check_runner_report_junit(self):
         """Check we can serialize results into a xunit xml format. Also ensures that the XML report
@@ -99,7 +118,7 @@ class CheckRunner(object):
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
                                    cluster=mock_cluster, session_context=session_context)
-        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
         JUnitReporter(results).report()
@@ -138,7 +157,7 @@ class CheckRunner(object):
         test_methods = [FailingTest.test_fail]
         ctx_list = self._do_expand(test_file=FAILING_TEST_FILE, test_class=FailingTest, test_methods=test_methods,
                                    cluster=mock_cluster, session_context=session_context)
-        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
         assert len(ctx_list) > 1
         assert len(results) == 1
@@ -156,10 +175,11 @@ class CheckRunner(object):
                                         test_methods=[FailsToInitInSetupTest.test_nothing],
                                         cluster=mock_cluster, session_context=session_context))
 
-        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
         # These tests fail to initialize, each class has two test methods, so should have 4 results, all failed
         assert len(results) == 4
+        assert results.num_flaky == 0
         assert results.num_failed == 4
         assert results.num_passed == 0
         assert results.num_ignored == 0
@@ -180,12 +200,13 @@ class CheckRunner(object):
         test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
                                    cluster=mock_cluster, session_context=session_context)
-        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
         assert len(results) == 4
-        assert results.num_failed == 2
-        assert results.num_passed == 0
+        assert results.num_flaky == 0
+        assert results.num_failed == 1
+        assert results.num_passed == 1
         assert results.num_ignored == 2
 
     def check_run_failure_with_bad_cluster_allocation(self):
@@ -198,11 +219,12 @@ class CheckRunner(object):
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=ClusterTestThingy,
                                    test_methods=test_methods, cluster=mock_cluster,
                                    session_context=session_context)
-        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
 
         assert len(results) == 2
+        assert results.num_flaky == 0
         assert results.num_failed == 1
         assert results.num_passed == 1
         assert results.num_ignored == 0
