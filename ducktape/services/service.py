@@ -307,6 +307,11 @@ class Service(TemplateRenderer):
             node.account.logger = None
             self.cluster.free(node)
 
+        try:
+            self.registry.remove(self)
+        except AttributeError:
+            pass
+
         self.nodes = []
 
     def run(self):

@@ -36,6 +36,11 @@ class ServiceRegistry(object):
     def append(self, service):
         self._services[id(service)] = service
         self._nodes[id(service)] = [str(n.account) for n in service.nodes]
+        service.registry = self
+
+    def remove(self, service):
+        # del self._services[id(service)]
+        del self._nodes[id(service)]
 
     def to_json(self):
         return [self._services[k].to_json() for k in self._services]
@@ -92,7 +97,9 @@ class ServiceRegistry(object):
         """
         cluster_spec = ClusterSpec()
         for service in self._services.values():
-            cluster_spec.add(service.cluster_spec)
+            # keep data of old services ran with this service registry, however don't count 0 node services in cluster spec
+            if service.nodes:
+                cluster_spec.add(service.cluster_spec)
         return cluster_spec
 
     def errors(self):

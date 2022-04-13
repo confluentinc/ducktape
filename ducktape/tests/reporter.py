@@ -295,7 +295,7 @@ class HTMLSummaryReporter(SummaryReporter):
             'run_time': format_time(self.results.run_time_seconds),
             'session': self.results.session_context.session_id,
             'passed_tests': "".join(passed_result_string),
-            'flaky_test': "".join(flaky_result_string),
+            'flaky_tests': "".join(flaky_result_string),
             'failed_tests': "".join(failed_result_string),
             'ignored_tests': "".join(ignored_result_string),
             'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE, FLAKY]])

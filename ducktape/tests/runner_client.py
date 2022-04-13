@@ -106,12 +106,13 @@ class RunnerClient(object):
         start_time = -1
         stop_time = -1
         test_status = FAIL
-        summary = ""
+        summary = []
         data = None
 
         num_runs = self.deflake_num
-        while test_status is FAIL or num_runs > 0:
+        while test_status == FAIL and num_runs > 0:
             num_runs -= 1
+            self.log(logging.WARNING, "on run {}/{}".format(self.deflake_num - num_runs, self.deflake_num))
             try:
                 # Results from this test, as well as logs will be dumped here
                 mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
@@ -121,6 +122,7 @@ class RunnerClient(object):
                 self.log(logging.DEBUG, "Checking if there are enough nodes...")
                 min_cluster_spec = self.test.min_cluster_spec()
                 os_to_num_nodes = {}
+                self.log(logging.WARNING, repr(min_cluster_spec))
                 for node_spec in min_cluster_spec:
                     if not os_to_num_nodes.get(node_spec.operating_system):
                         os_to_num_nodes[node_spec.operating_system] = 1
@@ -140,14 +142,14 @@ class RunnerClient(object):
 
                 data = self.run_test()
 
-                test_status = PASS if num_runs == self.deflake_num else FLAKY
-                self.log(logging.INFO, "{} TEST".format(test_status.to_json))
+                test_status = PASS if num_runs == self.deflake_num - 1 else FLAKY
+                self.log(logging.INFO, "{} TEST".format(test_status.to_json()))
 
             except BaseException as e:
                 # mark the test as failed before doing anything else
                 test_status = FAIL
                 err_trace = self._exc_msg(e)
-                summary += err_trace
+                summary.append(err_trace)
                 self.log(logging.INFO, "FAIL: " + err_trace)
 
             finally:
@@ -158,33 +160,34 @@ class RunnerClient(object):
                 if hasattr(self, "services"):
                     service_errors = self.test_context.services.errors()
                     if service_errors:
-                        summary += "\n\n" + service_errors
+                        summary.extend(["\n\n", service_errors])
 
-                test_status, summary = self._check_cluster_utilization(test_status, summary)
+        summary = "".join(summary)
+        test_status, summary = self._check_cluster_utilization(test_status, summary)
 
-            # for flaky tests, we report the start and end time of the successfull run, and not the whole run period
-            result = TestResult(
-                self.test_context,
-                self.test_index,
-                self.session_context,
-                test_status,
-                summary,
-                data,
-                start_time,
-                stop_time)
+        # for flaky tests, we report the start and end time of the successfull run, and not the whole run period
+        result = TestResult(
+            self.test_context,
+            self.test_index,
+            self.session_context,
+            test_status,
+            summary,
+            data,
+            start_time,
+            stop_time)
 
-            self.log(logging.INFO, "Summary: %s" % str(result.summary))
-            self.log(logging.INFO, "Data: %s" % str(result.data))
+        self.log(logging.INFO, "Summary: %s" % str(result.summary))
+        self.log(logging.INFO, "Data: %s" % str(result.data))
 
-            result.report()
-            # Tell the server we are finished
-            self._do_safely(lambda: self.send(self.message.finished(result=result)),
-                            "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
-            # Release test_context resources only after creating the result and finishing logging activity
-            # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
-            self.test_context.close()
-            self.test_context = None
-            self.test = None
+        result.report()
+        # Tell the server we are finished
+        self._do_safely(lambda: self.send(self.message.finished(result=result)),
+                        "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+        # Release test_context resources only after creating the result and finishing logging activity
+        # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
+        self.test_context.close()
+        self.test_context = None
+        self.test = None
 
     def _check_cluster_utilization(self, result, summary):
         """Checks if the number of nodes used by a test is less than the number of
@@ -198,7 +201,7 @@ class RunnerClient(object):
             message = "Test requested %d nodes, used only %d" % (total, max_used)
             if self.fail_bad_cluster_utilization:
                 # only check node utilization on test pass
-                if result == PASS:
+                if result == PASS or result == FLAKY:
                     self.log(logging.INFO, "FAIL: " + message)
 
                 result = FAIL

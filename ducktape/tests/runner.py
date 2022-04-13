@@ -84,7 +84,7 @@ class TestRunner(object):
     # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
     stop_testing = False
 
-    def __init__(self, cluster, session_context, session_logger, tests, deflake_num
+    def __init__(self, cluster, session_context, session_logger, tests, deflake_num,
                  min_port=ConsoleDefaults.TEST_DRIVER_MIN_PORT,
                  max_port=ConsoleDefaults.TEST_DRIVER_MAX_PORT):
 
