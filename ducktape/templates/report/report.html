@@ -11,6 +11,7 @@
     <div id="color_key_panel"></div>
     <div id="failed_test_panel"></div>
     <div id="ignored_test_panel"></div>
+    <div id="flaky_test_panel"></div>
     <div id="passed_test_panel"></div>
     <script type="text/jsx">
       /* This small block makes it possible to use React dev tools in the Chrome browser */
@@ -202,8 +203,8 @@
       React.render(<SummaryPanel summary_props={SUMMARY}/>, document.getElementById('summary_panel'));
       React.render(<TestPanel title="Failed Tests" tests={FAILED_TESTS}/>, document.getElementById('failed_test_panel'));
       React.render(<TestPanel title="Ignored Tests" tests={IGNORED_TESTS}/>, document.getElementById('ignored_test_panel'));
+      React.render(<TestPanel title="Flaky Tests" tests={FLAKY_TESTS}/>, document.getElementById('flaky_test_panel'));
       React.render(<TestPanel title="Passed Tests" tests={PASSED_TESTS}/>, document.getElementById('passed_test_panel'));
-      React.render(<TestPanel title="Flaky Tests" tests={FLAKY_TESTS}/>, document.getElementById('passed_test_panel'));
     </script>
   </body>
 </html>

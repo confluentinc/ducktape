@@ -109,10 +109,9 @@ class RunnerClient(object):
         summary = []
         data = None
 
-        num_runs = self.deflake_num
-        while test_status == FAIL and num_runs > 0:
-            num_runs -= 1
-            self.log(logging.WARNING, "on run {}/{}".format(self.deflake_num - num_runs, self.deflake_num))
+        num_runs = 1
+        while test_status == FAIL and num_runs <= self.deflake_num:
+            self.log(logging.WARNING, "on run {}/{}".format(num_runs, self.deflake_num))
             try:
                 # Results from this test, as well as logs will be dumped here
                 mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
@@ -142,7 +141,7 @@ class RunnerClient(object):
 
                 data = self.run_test()
 
-                test_status = PASS if num_runs == self.deflake_num - 1 else FLAKY
+                test_status = PASS if num_runs == 1 else FLAKY
                 self.log(logging.INFO, "{} TEST".format(test_status.to_json()))
 
             except BaseException as e:
@@ -161,6 +160,7 @@ class RunnerClient(object):
                     service_errors = self.test_context.services.errors()
                     if service_errors:
                         summary.extend(["\n\n", service_errors])
+                num_runs += 1
 
         summary = "".join(summary)
         test_status, summary = self._check_cluster_utilization(test_status, summary)

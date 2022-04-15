@@ -39,7 +39,8 @@ class ServiceRegistry(object):
         service.registry = self
 
     def remove(self, service):
-        # del self._services[id(service)]
+        # we don't delete the _services, as in free the node count should go to 0, so we keep it here
+        # with zero nodes to preserve history
         del self._nodes[id(service)]
 
     def to_json(self):

@@ -28,7 +28,7 @@ class TestThingy(Test):
         """ This test uses many nodes, wow!"""
         return ClusterSpec.simple_linux(1000)
 
-    def  test_pi(self):
+    def test_pi(self):
         return {"data": 3.14159}
 
     @ignore

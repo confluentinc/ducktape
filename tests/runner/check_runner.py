@@ -16,7 +16,6 @@ try:
 except ImportError:
     from mock import patch, MagicMock  # noqa: F401
 
-import sys
 from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner

@@ -31,6 +31,14 @@ class PyTest(TestCommand):
         self.run_command('flake8')
         sys.exit(errno)
 
+test_req = [
+    'pytest==4.6.5',
+    'mock==3.0.5',
+    'psutil==5.6.3',
+    'memory_profiler==0.55',
+    'statistics==1.0.3.5',
+    'requests-testadapter==0.3.0'
+]
 
 setup(name="ducktape",
       version=version,
@@ -64,12 +72,8 @@ setup(name="ducktape",
                         'filelock==3.2.1',
                         'cryptography==3.3.2'
                         ],
-      tests_require=['pytest==4.6.5',
-                     'mock==3.0.5',
-                     'psutil==5.6.3',
-                     'memory_profiler==0.55',
-                     'statistics==1.0.3.5',
-                     'requests-testadapter==0.3.0'],
+      tests_require=test_req,
+      extras_require={'test': test_req},
       setup_requires=['flake8==3.7.8'],
       cmdclass={'test': PyTest},
       )
