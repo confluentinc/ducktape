@@ -36,7 +36,7 @@ class ServiceRegistry(object):
     def append(self, service):
         self._services[id(service)] = service
         self._nodes[id(service)] = [str(n.account) for n in service.nodes]
-        service.registry = self
+        service.add_registry(self)
 
     def remove(self, service):
         # we don't delete the _services, as in free the node count should go to 0, so we keep it here
