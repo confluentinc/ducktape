@@ -226,7 +226,7 @@ class JUnitReporter(object):
                     name=name, classname=test.cls_name, time=str(test.run_time_seconds),
                     status=str(test.test_status), assertions=""
                 ))
-                if test.test_status == FAIL:
+                if test.test_status == FAIL or test.test_status == OFAIL:
                     xml_failure = ET.SubElement(xml_testcase, 'failure', attrib=dict(
                         message=test.summary.splitlines()[0]
                     ))
