@@ -34,6 +34,9 @@ class ServiceRegistry(object):
     def __repr__(self):
         return str(self._services.values())
 
+    def destroyed_services(self):
+        return iter(self._destroyed_services.values())
+
     def append(self, service):
         self._services[id(service)] = service
         self._nodes[id(service)] = [str(n.account) for n in service.nodes]

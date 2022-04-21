@@ -200,9 +200,10 @@ def main():
         sys.exit(1)
 
     # Run the tests
+    deflake_num = args_dict['deflake']
     if deflake_num < 1:
         session_logger.warning("specified number of deflake runs specified to be less than 1, running without deflake.")
-    deflake_num = max(1, args_dict['deflake'])
+    deflake_num = max(1, deflake_num)
     runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
     test_results = runner.run_all_tests()
 

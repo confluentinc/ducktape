@@ -64,6 +64,7 @@ class Service(TemplateRenderer):
         """
         super(Service, self).__init__(*args, **kwargs)
         # Keep track of significant events in the lifetime of this service
+        self._is_destroyed = False
         self._init_time = time.time()
         self._start_time = -1
         self._start_duration_seconds = -1
@@ -144,7 +145,8 @@ class Service(TemplateRenderer):
 
         """
         if hasattr(self.context, "services"):
-            same_services = [id(s) for s in self.context.services if type(s) == type(self)]
+            same_services = [id(s) for s in self.context.services.destroyed_services() if type(s) == type(self)]
+            same_services.extend(id(s) for s in self.context.services if type(s) == type(self))
 
             if self not in self.context.services and not self._initialized:
                 # It's possible that _order will be invoked in the constructor *before* self has been registered with
@@ -311,6 +313,7 @@ class Service(TemplateRenderer):
 
         for registry in self._registries:
             registry.remove(self)
+        self._is_destroyed = True
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""
