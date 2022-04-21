@@ -303,15 +303,14 @@ class Service(TemplateRenderer):
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
-        for node in self.nodes:
+        while self.nodes:
+            node = self.nodes.pop()
             self.logger.info("%s: freeing node" % self.who_am_i(node))
             node.account.logger = None
             self.cluster.free(node)
 
         for registry in self._registries:
             registry.remove(self)
-
-        self.nodes = []
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""
