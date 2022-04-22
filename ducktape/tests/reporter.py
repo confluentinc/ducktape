@@ -15,6 +15,9 @@
 from __future__ import print_function
 
 import json
+from pathlib import Path
+
+import yaml
 import os
 import shutil
 import xml.etree.ElementTree as ET
@@ -304,3 +307,40 @@ class HTMLSummaryReporter(SummaryReporter):
 
     def report(self):
         self.format_report()
+
+
+class TestSuiteGeneratorReporter(SummaryReporter):
+
+    def __init__(self, results):
+        super().__init__(results)
+        self.separator = ''.join(["=" * self.width])
+
+    def format_line(self, result):
+        line = f'{result.file_name}::{result.cls_name}.{result.function_name}'
+        if result.injected_args:
+            injected_args_str = json.dumps(result.injected_args, separators=(',', ':'))
+            line += f'@{injected_args_str}'
+        return line
+
+    def dump_test_suite(self, lines):
+        print(self.separator)
+        suite = {self.results.session_context.session_id: lines}
+        file_path = Path(self.results.session_context.results_dir) / "rerun-failed.yml"
+        with file_path.open('w') as fp:
+            print(f'Test suite to rerun failed tests: {file_path}')
+            yaml.dump(suite, stream=fp, indent=4)
+
+    def print_test_string(self, lines):
+        print(self.separator)
+        print('FAILED TEST SYMBOLS')
+        print('Pass the test symbols below to your ducktape run')
+        print(' '.join([f"'{line}'" for line in lines]))
+
+    def report(self):
+        lines = [self.format_line(result) for result in self.results if result.test_status == FAIL]
+        if not lines:
+            return
+
+        self.dump_test_suite(lines)
+        self.print_test_string(lines)
+
