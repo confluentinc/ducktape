@@ -324,6 +324,7 @@ class TestSuiteGeneratorReporter(SummaryReporter):
 
     def dump_test_suite(self, lines):
         print(self.separator)
+        print('FAILED TEST SUITE')
         suite = {self.results.session_context.session_id: lines}
         file_path = Path(self.results.session_context.results_dir) / "rerun-failed.yml"
         with file_path.open('w') as fp:
