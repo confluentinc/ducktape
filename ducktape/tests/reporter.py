@@ -309,13 +309,14 @@ class HTMLSummaryReporter(SummaryReporter):
         self.format_report()
 
 
-class TestSuiteGeneratorReporter(SummaryReporter):
+class FailedTestSymbolReporter(SummaryReporter):
 
     def __init__(self, results):
         super().__init__(results)
         self.separator = "=" * self.width
 
-    def format_line(self, result):
+    @staticmethod
+    def to_symbol(result):
         line = f'{result.file_name}::{result.cls_name}.{result.function_name}'
         if result.injected_args:
             injected_args_str = json.dumps(result.injected_args, separators=(',', ':'))
@@ -331,17 +332,18 @@ class TestSuiteGeneratorReporter(SummaryReporter):
             print(f'Test suite to rerun failed tests: {file_path}')
             yaml.dump(suite, stream=fp, indent=4)
 
-    def print_test_string(self, lines):
+    def print_test_symbols_string(self, lines):
         print(self.separator)
         print('FAILED TEST SYMBOLS')
         print('Pass the test symbols below to your ducktape run')
+        # quote the symbol because json parameters will be processed by shell otherwise, making it not copy-pasteable
         print(' '.join([f"'{line}'" for line in lines]))
 
     def report(self):
-        lines = [self.format_line(result) for result in self.results if result.test_status == FAIL]
-        if not lines:
+        symbols = [self.to_symbol(result) for result in self.results if result.test_status == FAIL]
+        if not symbols:
             return
 
-        self.dump_test_suite(lines)
-        self.print_test_string(lines)
+        self.dump_test_suite(symbols)
+        self.print_test_symbols_string(symbols)
 

@@ -27,7 +27,7 @@ from ducktape.command_line.parse_args import parse_args
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.loggermaker import close_logger
 from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, \
-    HTMLSummaryReporter, JSONReporter, JUnitReporter, TestSuiteGeneratorReporter
+    HTMLSummaryReporter, JSONReporter, JUnitReporter, FailedTestSymbolReporter
 from ducktape.tests.runner import TestRunner
 from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
@@ -189,7 +189,7 @@ def main():
         HTMLSummaryReporter(test_results),
         JSONReporter(test_results),
         JUnitReporter(test_results),
-        TestSuiteGeneratorReporter(test_results)
+        FailedTestSymbolReporter(test_results)
     ]
 
     for r in reporters:
