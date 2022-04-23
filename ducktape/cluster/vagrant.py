@@ -15,11 +15,10 @@
 from __future__ import absolute_import
 
 from .json import JsonCluster
-import json
 import os
 from .remoteaccount import RemoteAccountSSHConfig
 import subprocess
-from ducktape.json_serializable import DucktapeJSONEncoder
+from ducktape.json_serializable import json_dump, json_load
 
 
 class VagrantCluster(JsonCluster):
@@ -40,7 +39,7 @@ class VagrantCluster(JsonCluster):
         cluster_file = kwargs.get("cluster_file")
         if cluster_file is not None:
             try:
-                cluster_json = json.load(open(os.path.abspath(cluster_file)))
+                cluster_json = json_load(open(os.path.abspath(cluster_file)))
                 is_read_from_file = True
             except IOError:
                 # It is OK if file is not found. Call vagrant ssh-info to read the cluster info.
@@ -64,7 +63,7 @@ class VagrantCluster(JsonCluster):
             ]
             cluster_json["nodes"] = nodes
             with open(cluster_file, 'w+') as fd:
-                json.dump(cluster_json, fd, cls=DucktapeJSONEncoder, indent=2, separators=(',', ': '), sort_keys=True)
+                json_dump(cluster_json, fd, indent=2, separators=(',', ': '), sort_keys=True)
 
         # Release any ssh clients used in querying the nodes for metadata
         for node_account in self._available_accounts:

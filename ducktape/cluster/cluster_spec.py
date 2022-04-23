@@ -14,9 +14,8 @@
 
 from __future__ import absolute_import
 
-import json
-
 from ducktape.cluster.node_container import NodeContainer
+from ducktape.json_serializable import json_dumps, json_loads
 
 LINUX = "linux"
 
@@ -40,7 +39,7 @@ class NodeSpec(object):
         dict = {
             "os": self.operating_system,
         }
-        return json.dumps(dict, sort_keys=True)
+        return json_dumps(dict, sort_keys=True)
 
 
 class ClusterSpec(object):
@@ -109,7 +108,7 @@ class ClusterSpec(object):
             node_spec_to_num[node_spec_str] = node_spec_to_num.get(node_spec_str, 0) + 1
         rval = []
         for node_spec_str in sorted(node_spec_to_num.keys()):
-            node_spec = json.loads(node_spec_str)
+            node_spec = json_loads(node_spec_str)
             node_spec["num_nodes"] = node_spec_to_num[node_spec_str]
             rval.append(node_spec)
-        return json.dumps(rval, sort_keys=True)
+        return json_dumps(rval, sort_keys=True)

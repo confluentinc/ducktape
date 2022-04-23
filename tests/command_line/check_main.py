@@ -15,8 +15,8 @@
 from ducktape.command_line.main import get_user_defined_globals
 from ducktape.command_line.main import setup_results_directory
 from ducktape.command_line.main import update_latest_symlink
+from ducktape.json_serializable import json_loads
 
-import json
 import os
 import os.path
 import pickle
@@ -112,7 +112,7 @@ class CheckUserDefinedGlobals(object):
     def check_parseable_json_string(self):
         """Check if globals_json is parseable as JSON, we get back a dictionary view of parsed JSON."""
         globals_dict = get_user_defined_globals(globals_json)
-        assert globals_dict == json.loads(globals_json)
+        assert globals_dict == json_loads(globals_json)
 
     def check_unparseable(self):
         """If globals string is not a path to a file, and not parseable as JSON we want to raise a ValueError
@@ -128,7 +128,7 @@ class CheckUserDefinedGlobals(object):
                 fh.write(globals_json)
 
             global_dict = get_user_defined_globals(fname)
-            assert global_dict == json.loads(globals_json)
+            assert global_dict == json_loads(globals_json)
             assert global_dict["x"] == 200
         finally:
             os.remove(fname)
@@ -151,7 +151,7 @@ class CheckUserDefinedGlobals(object):
         """Valid JSON which does not parse as a dict should raise a ValueError"""
 
         # Should be able to parse this as JSON
-        json.loads(valid_json_not_dict)
+        json_loads(valid_json_not_dict)
 
         with pytest.raises(ValueError):
             get_user_defined_globals(valid_json_not_dict)

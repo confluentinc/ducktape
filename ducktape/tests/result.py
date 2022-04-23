@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import os
 import time
 
 from ducktape.tests.test import TestContext
-from ducktape.json_serializable import DucktapeJSONEncoder
+from ducktape.json_serializable import json_dump
 from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
@@ -100,7 +99,7 @@ class TestResult(object):
     def dump_json(self):
         """Dump this object as json to the given location. By default, dump into self.results_dir/report.json"""
         with open(os.path.join(self.results_dir, "report.json"), "w") as fd:
-            json.dump(self, fd, cls=DucktapeJSONEncoder, sort_keys=True, indent=2)
+            json_dump(self, fd, sort_keys=True, indent=2)
 
     def to_json(self):
         return {

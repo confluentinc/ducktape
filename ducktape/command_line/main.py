@@ -15,7 +15,6 @@
 from __future__ import print_function
 
 import importlib
-import json
 import os
 import random
 from six import iteritems
@@ -24,6 +23,7 @@ import traceback
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
+from ducktape.json_serializable import json_loads
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.loggermaker import close_logger
 from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, \
@@ -52,12 +52,12 @@ def get_user_defined_globals(globals_str):
         # The string appears to be a file, so try loading JSON from file
         # This may raise an IOError if the file can't be read or a ValueError if the contents of the file
         # cannot be parsed.
-        user_globals = json.loads(open(globals_str, "r").read())
+        user_globals = json_loads(open(globals_str, "r").read())
         from_file = True
     else:
         try:
             # try parsing directly as json if it doesn't seem to be a file
-            user_globals = json.loads(globals_str)
+            user_globals = json_loads(globals_str)
         except ValueError as ve:
             message = str(ve)
             message += "\nglobals parameter %s is neither valid JSON nor a valid path to a JSON file." % globals_str
@@ -107,7 +107,7 @@ def main():
     injected_args = None
     if args_dict["parameters"]:
         try:
-            injected_args = json.loads(args_dict["parameters"])
+            injected_args = json_loads(args_dict["parameters"])
         except ValueError as e:
             print("parameters are not valid json: " + str(e))
             sys.exit(1)

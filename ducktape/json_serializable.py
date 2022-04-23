@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from json import JSONEncoder
+from json import JSONEncoder, dumps, dump, loads, load
 
 
 class DucktapeJSONEncoder(JSONEncoder):
@@ -25,3 +24,36 @@ class DucktapeJSONEncoder(JSONEncoder):
         else:
             # Let the base class default method raise the TypeError
             return JSONEncoder.default(self, obj)
+
+
+def json_dumps(obj, **kwargs):
+    """
+    Dump object to json string with Ducktape json encoder.
+    """
+    assert 'cls' not in kwargs, "Passing custom json encoder is forbidden."
+
+    return dumps(obj, cls=DucktapeJSONEncoder, **kwargs)
+
+
+def json_dump(obj, fp, **kwargs):
+    """
+    Dump object to json as a JSON formatted stream to ``fp``
+    (a ``.write()``-supporting file-like object) with Ducktape json encoder.
+    """
+    assert 'cls' not in kwargs, "Passing custom json encoder is forbidden."
+
+    return dump(obj, fp, cls=DucktapeJSONEncoder, **kwargs)
+
+
+def json_loads(s, **kwargs):
+    """
+    Loads object from json string.
+    """
+    return loads(s, **kwargs)
+
+
+def json_load(fp, **kwargs):
+    """
+    Load object from ``fp`` (a ``.read()``-supporting file-like object containing a JSON document)
+    """
+    return load(fp, **kwargs)
