@@ -51,7 +51,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     name = "ducktape" + i.to_s
     config.vm.define name do |worker|
       worker.vm.hostname = name
-      worker.vm.network :private_network, ip: "192.168.50." + (150 + i).to_s
+      worker.vm.network :private_network, ip: "192.168.56." + (150 + i).to_s
     end
   }
 
