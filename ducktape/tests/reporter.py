@@ -346,4 +346,3 @@ class FailedTestSymbolReporter(SummaryReporter):
 
         self.dump_test_suite(symbols)
         self.print_test_symbols_string(symbols)
-

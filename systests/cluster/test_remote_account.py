@@ -16,7 +16,7 @@ from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
 from ducktape.mark.resource import cluster
-from ducktape.mark import matrix, parametrize, ignore
+from ducktape.mark import matrix, parametrize
 
 import os
 import pytest

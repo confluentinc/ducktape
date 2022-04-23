@@ -1,7 +1,5 @@
 from unittest.mock import Mock
 
-import pytest
-
 from ducktape.tests.reporter import FailedTestSymbolReporter
 
 
