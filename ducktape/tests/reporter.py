@@ -313,7 +313,7 @@ class TestSuiteGeneratorReporter(SummaryReporter):
 
     def __init__(self, results):
         super().__init__(results)
-        self.separator = ''.join(["=" * self.width])
+        self.separator = "=" * self.width
 
     def format_line(self, result):
         line = f'{result.file_name}::{result.cls_name}.{result.function_name}'
