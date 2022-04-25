@@ -1,3 +1,6 @@
+[![Documentation Status](https://readthedocs.org/projects/ducktape-docs/badge/?version=latest)](https://ducktape-docs.readthedocs.io/en/latest/?badge=latest)
+
+
 Distributed System Integration & Performance Testing Library
 ============================================================
 
