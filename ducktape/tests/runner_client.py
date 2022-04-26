@@ -149,6 +149,8 @@ class RunnerClient(object):
                 test_status = FAIL
                 err_trace = self._exc_msg(e)
                 summary.append(err_trace)
+                if num_runs != self.deflake_num:
+                    summary.append("~" * max(len(l) for l in err_trace.split('\n')) + "\n")
                 self.log(logging.INFO, "FAIL: " + err_trace)
 
             finally:
