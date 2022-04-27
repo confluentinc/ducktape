@@ -64,14 +64,14 @@ class Service(TemplateRenderer):
         """
         super(Service, self).__init__(*args, **kwargs)
         # Keep track of significant events in the lifetime of this service
-        self._is_destroyed = False
+        # self._is_destroyed = False
         self._init_time = time.time()
         self._start_time = -1
         self._start_duration_seconds = -1
         self._stop_time = -1
         self._stop_duration_seconds = -1
         self._clean_time = -1
-        self._registries = []
+        # self._registries = []
 
         self._initialized = False
         self.cluster_spec = Service.setup_cluster_spec(num_nodes=num_nodes, cluster_spec=cluster_spec)
@@ -145,8 +145,9 @@ class Service(TemplateRenderer):
 
         """
         if hasattr(self.context, "services"):
-            same_services = [id(s) for s in self.context.services.destroyed_services() if type(s) == type(self)]
-            same_services.extend(id(s) for s in self.context.services if type(s) == type(self))
+            same_services = [id(s) for s in self.context.services if type(s) == type(self)]
+            # same_services = [id(s) for s in self.context.services.destroyed_services() if type(s) == type(self)]
+            # same_services.extend(id(s) for s in self.context.services if type(s) == type(self))
 
             if self not in self.context.services and not self._initialized:
                 # It's possible that _order will be invoked in the constructor *before* self has been registered with
@@ -305,15 +306,21 @@ class Service(TemplateRenderer):
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
-        while self.nodes:
-            node = self.nodes.pop()
+        for node in self.nodes:
             self.logger.info("%s: freeing node" % self.who_am_i(node))
             node.account.logger = None
             self.cluster.free(node)
 
-        for registry in self._registries:
-            registry.remove(self)
-        self._is_destroyed = True
+        self.nodes = []
+        # while self.nodes:
+        #     node = self.nodes.pop()
+        #     self.logger.info("%s: freeing node" % self.who_am_i(node))
+        #     node.account.logger = None
+        #     self.cluster.free(node)
+        #
+        # for registry in self._registries:
+        #     registry.remove(self)
+        # self._is_destroyed = True
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""
@@ -354,8 +361,8 @@ class Service(TemplateRenderer):
         for svc in args:
             svc.stop()
 
-    def add_registry(self, registry):
-        self._registries.append(registry)
+    # def add_registry(self, registry):
+    #     self._registries.append(registry)
 
     def to_json(self):
         return {

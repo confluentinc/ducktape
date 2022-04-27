@@ -87,6 +87,20 @@ class GenericService(Service):
         node.account.remove(self.worker_scratch_dir, allow_fail=True)
 
 
+class DebugThisTest(Test):
+
+    def setup(self):
+        self.service = GenericService(self.test_context, 1)
+
+    @cluster(num_nodes=1)
+    def a_test(self):
+        assert False
+
+    @cluster(num_nodes=1)
+    def b_test(self):
+        assert True
+
+
 class UnderUtilizedTest(Test):
 
     def setup(self):

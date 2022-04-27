@@ -102,6 +102,9 @@ class ClusterSpec(object):
         """
         return ClusterSpec(self.nodes.clone())
 
+    def __repr__(self):
+        return self.__str__()
+
     def __str__(self):
         node_spec_to_num = {}
         for node_spec in self.nodes.elements():

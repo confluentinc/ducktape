@@ -23,7 +23,7 @@ class ServiceRegistry(object):
     def __init__(self):
         self._services = OrderedDict()
         self._nodes = {}
-        self._destroyed_services = OrderedDict()
+        # self._destroyed_services = OrderedDict()
 
     def __contains__(self, item):
         return id(item) in self._services
@@ -34,24 +34,25 @@ class ServiceRegistry(object):
     def __repr__(self):
         return str(self._services.values())
 
-    def destroyed_services(self):
-        return iter(self._destroyed_services.values())
+    # def destroyed_services(self):
+    #     return iter(self._destroyed_services.values())
 
     def append(self, service):
         self._services[id(service)] = service
         self._nodes[id(service)] = [str(n.account) for n in service.nodes]
-        service.add_registry(self)
+        # service.add_registry(self)
 
-    def remove(self, service):
-        # we don't delete the _services, as in free the node count should go to 0, so we keep it here
-        # with zero nodes to preserve history
-        del self._nodes[id(service)]
-        del self._services[id(service)]
-        self._destroyed_services[id(service)] = service
+    # def remove(self, service):
+    #     # we don't delete the _services, as in free the node count should go to 0, so we keep it here
+    #     # with zero nodes to preserve history
+    #     del self._nodes[id(service)]
+    #     del self._services[id(service)]
+    #     self._destroyed_services[id(service)] = service
 
     def to_json(self):
-        return [service.to_json() for service in self._services.values()] + \
-            [service.to_json() for service in self._destroyed_services.values()]
+        return [self._services[k].to_json() for k in self._services]
+        # return [service.to_json() for service in self._services.values()] + \
+        #     [service.to_json() for service in self._destroyed_services.values()]
 
     def stop_all(self):
         """Stop all currently registered services in the reverse of the order in which they were added.
@@ -94,7 +95,8 @@ class ServiceRegistry(object):
                 if isinstance(e, KeyboardInterrupt):
                     keyboard_interrupt = e
                 service.logger.warn("Error cleaning service %s: %s" % (service, e))
-
+        self._services = OrderedDict()
+        self._nodes = {}
         if keyboard_interrupt is not None:
             raise keyboard_interrupt
 
@@ -113,8 +115,11 @@ class ServiceRegistry(object):
         Gets a printable string containing any errors produced by the services.
         """
         all_errors = []
-        for service_dict in (self._destroyed_services, self._services):
-            for service in service_dict.values():
-                if hasattr(service, 'error') and service.error:
-                    all_errors.append("%s: %s" % (service.who_am_i(), service.error))
+        for service in self._services.values():
+            if hasattr(service, 'error') and service.error:
+                all_errors.append("%s: %s" % (service.who_am_i(), service.error))
+        # for service_dict in (self._destroyed_services, self._services):
+        #     for service in service_dict.values():
+        #         if hasattr(service, 'error') and service.error:
+        #             all_errors.append("%s: %s" % (service.who_am_i(), service.error))
         return '\n\n'.join(all_errors)

@@ -128,6 +128,7 @@ class RunnerClient(object):
                     else:
                         os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
                 for (operating_system, node_count) in iteritems(os_to_num_nodes):
+                    logging.warning(os_to_num_nodes)
                     num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
                     if node_count > num_avail:
                         raise RuntimeError(
@@ -146,6 +147,7 @@ class RunnerClient(object):
 
             except BaseException as e:
                 # mark the test as failed before doing anything else
+                logging.warning('>>>>>>>>>>>>> EXCEPT - FAIL')
                 test_status = FAIL
                 err_trace = self._exc_msg(e)
                 summary.append(err_trace)
@@ -154,14 +156,17 @@ class RunnerClient(object):
                 self.log(logging.INFO, "FAIL: " + err_trace)
 
             finally:
+                logging.warning('>>>>>>>>>>>>> FINALLY')
+
+                if hasattr(self.test_context, "services"):
+                    service_errors = self.test_context.services.errors()
+                    if service_errors:
+                        summary.extend(["\n\n", service_errors])
+
                 self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
 
                 stop_time = time.time()
 
-                if hasattr(self, "services"):
-                    service_errors = self.test_context.services.errors()
-                    if service_errors:
-                        summary.extend(["\n\n", service_errors])
                 num_runs += 1
 
         summary = "".join(summary)
