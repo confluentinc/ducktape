@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import concurrent.futures
 import logging
 import os
 import signal
+import threading
 import time
 import traceback
 import zmq
@@ -29,6 +30,7 @@ from ducktape.tests.test import test_logger, TestContext
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.services.service_registry import ServiceRegistry
 
 
 def run_client(*args, **kwargs):
@@ -39,10 +41,24 @@ def run_client(*args, **kwargs):
 class RunnerClient(object):
     """Run a single test"""
 
+    def send_heartbeat(self):
+        self.log(logging.WARNING, 'Starting heartbeat')
+        try:
+            while self.running:
+                # self._do_safely(lambda: self.send(self.message.heartbeat(self.test_metadata)),
+                #                 "Problem sending HEARTBEAT message for " + str(self.test_metadata) + ":\n")
+                self.log(logging.WARNING, 'Sending heartbeat')
+                self.send(self.message.heartbeat(self.test_metadata))
+                self.log(logging.WARNING, 'After self.send')
+                time.sleep(40)
+        except Exception:
+            self.f.cancel()
+
     def __init__(self, server_hostname, server_port, test_id,
                  test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization, deflake_num):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
+        self.lock = threading.Lock()
         self.serde = SerDe()
         self.logger = test_logger(logger_name, log_dir, debug)
         self.runner_port = server_port
@@ -54,10 +70,17 @@ class RunnerClient(object):
         self.message = ClientEventFactory(self.test_id, self.test_index, self.id)
         self.sender = Sender(server_hostname, str(self.runner_port), self.message, self.logger)
 
-        ready_reply = self.sender.send(self.message.ready())
+        ready_reply = self.send(self.message.ready())
         self.session_context = ready_reply["session_context"]
         self.test_metadata = ready_reply["test_metadata"]
         self.cluster = ready_reply["cluster"]
+
+        self.log(logging.WARNING, "Creating executor")
+        self.executor = concurrent.futures.ThreadPoolExecutor(1)
+        self.log(logging.WARNING, "Starting executor")
+        self.running = True
+        self.f = self.executor.submit(self.send_heartbeat)
+        self.log(logging.WARNING, f"Submitted: {self.f.running}")
 
         self.deflake_num = deflake_num
 
@@ -65,8 +88,11 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
 
-    def send(self, event):
-        return self.sender.send(event)
+    def send(self, *args, **kwargs):
+        self.lock.acquire(blocking=True)
+        result = self.sender.send(*args, **kwargs)
+        self.lock.release()
+        return result
 
     def _sigterm_handler(self, signum, frame):
         """Translate SIGTERM to SIGINT on this process
@@ -88,6 +114,7 @@ class RunnerClient(object):
         self.log(logging.INFO, "Loading test %s" % str(self.test_metadata))
         self.test_context = self._collect_test_context(**self.test_metadata)
         self.test_context.test_index = self.test_index
+        self.all_services = ServiceRegistry()
 
         self.send(self.message.running())
         if self.test_context.ignore:
@@ -157,6 +184,8 @@ class RunnerClient(object):
 
             finally:
                 logging.warning('>>>>>>>>>>>>> FINALLY')
+                # for sid, service in self.test_context.services.values():
+                #     self.all_services._service[f'{num_runs}-{sid}'] = service
 
                 if hasattr(self.test_context, "services"):
                     service_errors = self.test_context.services.errors()
@@ -171,7 +200,7 @@ class RunnerClient(object):
 
         summary = "".join(summary)
         test_status, summary = self._check_cluster_utilization(test_status, summary)
-
+        # self.test_context.services = self.all_services
         # for flaky tests, we report the start and end time of the successfull run, and not the whole run period
         result = TestResult(
             self.test_context,
@@ -188,6 +217,7 @@ class RunnerClient(object):
 
         result.report()
         # Tell the server we are finished
+        self.running = False
         self._do_safely(lambda: self.send(self.message.finished(result=result)),
                         "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
         # Release test_context resources only after creating the result and finishing logging activity
@@ -275,7 +305,7 @@ class RunnerClient(object):
     def log(self, log_level, msg, *args, **kwargs):
         """Log to the service log and the test log of the current test."""
 
-        if self.test_context is None:
+        if not hasattr(self, 'test_context') or self.test_context is None:
             msg = "%s: %s" % (self.__class__.__name__, str(msg))
             self.logger.log(log_level, msg, *args, **kwargs)
         else:

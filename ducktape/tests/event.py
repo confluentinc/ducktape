@@ -26,9 +26,10 @@ class ClientEventFactory(object):
     TEARING_DOWN = "TEARING_DOWN"
     FINISHED = "FINISHED"
     LOG = "LOG"
+    HEARTBEAT = "HEARTBEAT"
 
     # Types of messages available
-    TYPES = {READY, SETTING_UP, RUNNING, TEARING_DOWN, FINISHED, LOG}
+    TYPES = {READY, SETTING_UP, RUNNING, TEARING_DOWN, FINISHED, LOG, HEARTBEAT}
 
     def __init__(self, test_id, test_index, source_id):
         self.test_id = test_id
@@ -103,6 +104,14 @@ class ClientEventFactory(object):
             }
         )
 
+    def heartbeat(self, metadata):
+        return self._event(
+            event_type=ClientEventFactory.HEARTBEAT,
+            payload={
+                "metadata": metadata
+            }
+        )
+
     def log(self, message, level):
         return self._event(
             event_type=ClientEventFactory.LOG,
@@ -144,6 +153,9 @@ class EventResponseFactory(object):
         }
 
         return self._event_response(client_event, payload)
+
+    def heartbeat_ack(self, client_event):
+        return self._event_response(client_event)
 
     def setting_up(self, client_event):
         return self._event_response(client_event)

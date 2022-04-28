@@ -93,12 +93,11 @@ class DebugThisTest(Test):
         self.service = GenericService(self.test_context, 1)
 
     @cluster(num_nodes=1)
-    def a_test(self):
-        assert False
-
-    @cluster(num_nodes=1)
-    def b_test(self):
-        assert True
+    def timeout_test(self):
+        try:
+            time.sleep(180)
+        except Exception as e:
+            self.logger.error(e)
 
 
 class UnderUtilizedTest(Test):

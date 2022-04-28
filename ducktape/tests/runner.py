@@ -278,8 +278,14 @@ class TestRunner(object):
             self._handle_finished(event)
         elif event["event_type"] == ClientEventFactory.LOG:
             self._handle_log(event)
+        elif event["event_type"] == ClientEventFactory.HEARTBEAT:
+            self._handle_heartbeat(event)
         else:
             raise RuntimeError("Received event with unknown event type: " + str(event))
+
+    def _handle_heartbeat(self, event):
+        self._log(logging.INFO, f"Received heartbeat {event['metadata']}")
+        self.receiver.send(self.event_response.heartbeat_ack(event))
 
     def _handle_ready(self, event):
         test_key = TestKey(event["test_id"], event["test_index"])
