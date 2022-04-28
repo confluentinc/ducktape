@@ -183,7 +183,7 @@ class RunnerClient(object):
         if num_runs > 1:
             # for reporting purposes report all services
             self.test_context.services = all_services
-        # for flaky tests, we report the start and end time of the successfull run, and not the whole run period
+        # for flaky tests, we report the start and end time of the successful run, and not the whole run period
         result = TestResult(
             self.test_context,
             self.test_index,
@@ -329,7 +329,7 @@ class Sender(object):
 
                 if sockets.get(self.socket) == zmq.POLLIN:
                     reply = self.socket.recv()
-                    if reply: 
+                    if reply:
                         return self.serde.deserialize(reply)
                     else:
                         # send another request...

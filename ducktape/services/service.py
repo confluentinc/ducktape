@@ -54,7 +54,6 @@ class MultiRunServiceIdFactory(AbstractServiceIdFactory):
         )
 
 
-
 class Service(TemplateRenderer):
     """Service classes know how to deploy a service onto a set of nodes and then clean up after themselves.
 
