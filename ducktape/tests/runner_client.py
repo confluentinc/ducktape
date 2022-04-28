@@ -20,6 +20,8 @@ import traceback
 import zmq
 
 from six import iteritems
+from ducktape.services.service import MultiRunServiceIdFactory
+from ducktape.services.service_registry import ServiceRegistry
 
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
@@ -108,10 +110,11 @@ class RunnerClient(object):
         test_status = FAIL
         summary = []
         data = None
+        all_services = ServiceRegistry()
 
         num_runs = 1
         while test_status == FAIL and num_runs <= self.deflake_num:
-            self.log(logging.WARNING, "on run {}/{}".format(num_runs, self.deflake_num))
+            self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
             try:
                 # Results from this test, as well as logs will be dumped here
                 mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
@@ -121,7 +124,6 @@ class RunnerClient(object):
                 self.log(logging.DEBUG, "Checking if there are enough nodes...")
                 min_cluster_spec = self.test.min_cluster_spec()
                 os_to_num_nodes = {}
-                self.log(logging.WARNING, repr(min_cluster_spec))
                 for node_spec in min_cluster_spec:
                     if not os_to_num_nodes.get(node_spec.operating_system):
                         os_to_num_nodes[node_spec.operating_system] = 1
@@ -154,19 +156,33 @@ class RunnerClient(object):
                 self.log(logging.INFO, "FAIL: " + err_trace)
 
             finally:
+                for service in self.test_context.services:
+                    if self.deflake_num > 1:
+                        service.service_id_factory = MultiRunServiceIdFactory(service, num_runs)
+                    all_services.append(service)
+
                 self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
 
                 stop_time = time.time()
 
-                if hasattr(self, "services"):
+                if hasattr(self.test_context, "services"):
                     service_errors = self.test_context.services.errors()
                     if service_errors:
                         summary.extend(["\n\n", service_errors])
+
+                # free nodes
+                if self.test:
+                    self.log(logging.DEBUG, "Freeing nodes...")
+                    self._do_safely(self.test.free_nodes, "Error freeing nodes:")
+
                 num_runs += 1
 
         summary = "".join(summary)
         test_status, summary = self._check_cluster_utilization(test_status, summary)
 
+        if num_runs > 1:
+            # for reporting purposes report all services
+            self.test_context.services = all_services
         # for flaky tests, we report the start and end time of the successfull run, and not the whole run period
         result = TestResult(
             self.test_context,
@@ -264,9 +280,6 @@ class RunnerClient(object):
             self.log(logging.DEBUG, "Cleaning up services...")
             self._do_safely(services.clean_all, "Error cleaning services:")
 
-        self.log(logging.DEBUG, "Freeing nodes...")
-        self._do_safely(self.test.free_nodes, "Error freeing nodes:")
-
     def log(self, log_level, msg, *args, **kwargs):
         """Log to the service log and the test log of the current test."""
 
@@ -316,7 +329,7 @@ class Sender(object):
 
                 if sockets.get(self.socket) == zmq.POLLIN:
                     reply = self.socket.recv()
-                    if reply:
+                    if reply: 
                         return self.serde.deserialize(reply)
                     else:
                         # send another request...

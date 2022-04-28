@@ -23,6 +23,38 @@ import tempfile
 import time
 
 
+class AbstractServiceIdFactory:
+    def generate_service_id(self):
+        raise NotImplementedError()
+
+
+class ServiceIdFactory(AbstractServiceIdFactory):
+    def __init__(self, service):
+        self.service = service
+
+    def generate_service_id(self):
+        return "{service_name}-{service_number}-{service_id}".format(
+            service_name=self.service.__class__.__name__,
+            service_number=self.service._order,
+            service_id=id(self.service)
+        )
+
+
+class MultiRunServiceIdFactory(AbstractServiceIdFactory):
+    def __init__(self, service, run_number):
+        self.service = service
+        self.run_number = run_number
+
+    def generate_service_id(self):
+        return "{run_number}-{service_name}-{service_number}-{service_id}".format(
+            run_number=self.run_number,
+            service_name=self.service.__class__.__name__,
+            service_number=self.service._order,
+            service_id=id(self.service)
+        )
+
+
+
 class Service(TemplateRenderer):
     """Service classes know how to deploy a service onto a set of nodes and then clean up after themselves.
 
@@ -64,7 +96,6 @@ class Service(TemplateRenderer):
         """
         super(Service, self).__init__(*args, **kwargs)
         # Keep track of significant events in the lifetime of this service
-        self._is_destroyed = False
         self._init_time = time.time()
         self._start_time = -1
         self._start_duration_seconds = -1
@@ -74,6 +105,7 @@ class Service(TemplateRenderer):
         self._registries = []
 
         self._initialized = False
+        self.service_id_factory = ServiceIdFactory(self)
         self.cluster_spec = Service.setup_cluster_spec(num_nodes=num_nodes, cluster_spec=cluster_spec)
         self.context = context
 
@@ -125,7 +157,7 @@ class Service(TemplateRenderer):
     @property
     def service_id(self):
         """Human-readable identifier (almost certainly) unique within a test run."""
-        return "%s-%d-%d" % (self.__class__.__name__, self._order, id(self))
+        return self.service_id_factory.generate_service_id()
 
     @property
     def _order(self):
@@ -145,8 +177,7 @@ class Service(TemplateRenderer):
 
         """
         if hasattr(self.context, "services"):
-            same_services = [id(s) for s in self.context.services.destroyed_services() if type(s) == type(self)]
-            same_services.extend(id(s) for s in self.context.services if type(s) == type(self))
+            same_services = [id(s) for s in self.context.services if type(s) == type(self)]
 
             if self not in self.context.services and not self._initialized:
                 # It's possible that _order will be invoked in the constructor *before* self has been registered with
@@ -313,7 +344,6 @@ class Service(TemplateRenderer):
 
         for registry in self._registries:
             registry.remove(self)
-        self._is_destroyed = True
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""

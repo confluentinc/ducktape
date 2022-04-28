@@ -428,6 +428,10 @@ class RemoteAccountTest(Test):
         self.account_service.start()
 
     @cluster(num_nodes=1)
+    def test_flaky(self):
+        assert random.choice([True, False, False])
+
+    @cluster(num_nodes=1)
     def test_ssh_capture_combine_stderr(self):
         """Test that ssh_capture correctly captures stderr and stdout from remote process.
         """
