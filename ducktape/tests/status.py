@@ -30,3 +30,5 @@ class TestStatus(object):
 PASS = TestStatus("pass")
 FAIL = TestStatus("fail")
 IGNORE = TestStatus("ignore")
+OPASS = TestStatus("opass")
+OFAIL = TestStatus("ofail")
