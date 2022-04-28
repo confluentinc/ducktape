@@ -102,7 +102,6 @@ class Service(TemplateRenderer):
         self._stop_time = -1
         self._stop_duration_seconds = -1
         self._clean_time = -1
-        self._registries = []
 
         self._initialized = False
         self.service_id_factory = ServiceIdFactory(self)
@@ -342,9 +341,6 @@ class Service(TemplateRenderer):
             node.account.logger = None
             self.cluster.free(node)
 
-        for registry in self._registries:
-            registry.remove(self)
-
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""
         self.start()
@@ -383,9 +379,6 @@ class Service(TemplateRenderer):
             svc.wait()
         for svc in args:
             svc.stop()
-
-    def add_registry(self, registry):
-        self._registries.append(registry)
 
     def to_json(self):
         return {
