@@ -20,7 +20,7 @@ import traceback
 import zmq
 
 from six import iteritems
-from ducktape.services.service import MultiRunServiceIdFactory
+from ducktape.services.service import MultiRunServiceIdFactory, service_id_factory
 from ducktape.services.service_registry import ServiceRegistry
 
 from ducktape.tests.event import ClientEventFactory
@@ -112,8 +112,12 @@ class RunnerClient(object):
         data = None
         all_services = ServiceRegistry()
 
+        sid_factory = service_id_factory
+
         num_runs = 1
         while test_status == FAIL and num_runs <= self.deflake_num:
+            if self.deflake_num > 1:
+                sid_factory = MultiRunServiceIdFactory(num_runs)
             self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
             try:
                 # Results from this test, as well as logs will be dumped here
@@ -157,8 +161,7 @@ class RunnerClient(object):
 
             finally:
                 for service in self.test_context.services:
-                    if self.deflake_num > 1:
-                        service.service_id_factory = MultiRunServiceIdFactory(service, num_runs)
+                    service.service_id_factory = sid_factory
                     all_services.append(service)
 
                 self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
