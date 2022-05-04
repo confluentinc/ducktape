@@ -77,8 +77,6 @@ class ServiceRegistry(object):
         for service in self._services.values():
             try:
                 service.free()
-                self._services.clear()
-                self._nodes.clear()
             except BaseException as e:
                 if isinstance(e, KeyboardInterrupt):
                     keyboard_interrupt = e
@@ -86,6 +84,8 @@ class ServiceRegistry(object):
 
         if keyboard_interrupt is not None:
             raise keyboard_interrupt
+        self._services.clear()
+        self._nodes.clear()
 
     def min_cluster_spec(self):
         """
