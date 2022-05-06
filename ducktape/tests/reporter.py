@@ -26,7 +26,7 @@ import pkg_resources
 
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.utils.util import ducktape_version
-from ducktape.tests.status import PASS, FAIL, IGNORE
+from ducktape.tests.status import PASS, FAIL, IGNORE, FLAKY
 from ducktape.json_serializable import DucktapeJSONEncoder
 
 
@@ -112,6 +112,7 @@ class SimpleSummaryReporter(SummaryReporter):
             "run time:         %s" % format_time(self.results.run_time_seconds),
             "tests run:        %d" % len(self.results),
             "passed:           %d" % self.results.num_passed,
+            "flaky:            %d" % self.results.num_flaky,
             "failed:           %d" % self.results.num_failed,
             "ignored:          %d" % self.results.num_ignored,
             "=" * self.width
@@ -180,7 +181,7 @@ class JUnitReporter(object):
             elif result.test_status == IGNORE:
                 testsuite['skipped'] += 1
 
-        total = self.results.num_failed + self.results.num_ignored + self.results.num_passed
+        total = self.results.num_failed + self.results.num_ignored + self.results.num_passed + self.results.num_flaky
         # Now start building XML document
         root = ET.Element('testsuites', attrib=dict(
             name="ducktape", time=str(self.results.run_time_seconds),
@@ -264,35 +265,43 @@ class HTMLSummaryReporter(SummaryReporter):
 
         num_tests = len(self.results)
         num_passes = 0
-        failed_result_string = ""
-        passed_result_string = ""
-        ignored_result_string = ""
+        failed_result_string = []
+        passed_result_string = []
+        ignored_result_string = []
+        flaky_result_string = []
 
         for result in self.results:
             json_string = json.dumps(self.format_result(result))
             if result.test_status == PASS:
                 num_passes += 1
-                passed_result_string += json_string
-                passed_result_string += ","
+                passed_result_string.append(json_string)
+                passed_result_string.append(",")
             elif result.test_status == FAIL:
-                failed_result_string += json_string
-                failed_result_string += ","
+                failed_result_string.append(json_string)
+                failed_result_string.append(",")
+            elif result.test_status == IGNORE:
+                ignored_result_string.append(json_string)
+                ignored_result_string.append(",")
+            elif result.test_status == FLAKY:
+                flaky_result_string.append(json_string)
+                flaky_result_string.append(",")
             else:
-                ignored_result_string += json_string
-                ignored_result_string += ","
+                raise Exception("Unknown test status in report: {}".format(result.test_status.to_json()))
 
         args = {
             'ducktape_version': ducktape_version(),
             'num_tests': num_tests,
             'num_passes': self.results.num_passed,
+            'num_flaky': self.results.num_flaky,
             'num_failures': self.results.num_failed,
             'num_ignored': self.results.num_ignored,
             'run_time': format_time(self.results.run_time_seconds),
             'session': self.results.session_context.session_id,
-            'passed_tests': passed_result_string,
-            'failed_tests': failed_result_string,
-            'ignored_tests': ignored_result_string,
-            'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE]])
+            'passed_tests': "".join(passed_result_string),
+            'flaky_tests': "".join(flaky_result_string),
+            'failed_tests': "".join(failed_result_string),
+            'ignored_tests': "".join(ignored_result_string),
+            'test_status_names': ",".join(["\'%s\'" % str(status) for status in [PASS, FAIL, IGNORE, FLAKY]])
         }
 
         html = template % args
