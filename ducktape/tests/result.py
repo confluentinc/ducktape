@@ -21,7 +21,7 @@ from ducktape.json_serializable import DucktapeJSONEncoder
 from ducktape.tests.reporter import SingleResultFileReporter
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
-from ducktape.tests.status import PASS, FAIL, IGNORE
+from ducktape.tests.status import FLAKY, PASS, FAIL, IGNORE
 
 
 class TestResult(object):
@@ -163,6 +163,10 @@ class TestResults(object):
         return len([r for r in self._results if r.test_status == IGNORE])
 
     @property
+    def num_flaky(self):
+        return len([r for r in self._results if r.test_status == FLAKY])
+
+    @property
     def run_time_seconds(self):
         if self.start_time < 0:
             return -1
@@ -204,8 +208,7 @@ class TestResults(object):
             cluster_utilization = (1.0 / len(self.cluster)) * (1.0 / self.run_time_seconds) * \
                 sum([r.nodes_used * r.run_time_seconds for r in self])
             parallelism = sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds
-
-        return {
+        result = {
             "ducktape_version": ducktape_version(),
             "session_context": self.session_context,
             "run_time_seconds": self.run_time_seconds,
@@ -222,3 +225,6 @@ class TestResults(object):
             "parallelism": parallelism,
             "results": [r for r in self._results]
         }
+        if self.num_flaky:
+            result['num_flaky'] = self.num_flaky
+        return result

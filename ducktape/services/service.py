@@ -23,6 +23,31 @@ import tempfile
 import time
 
 
+class ServiceIdFactory:
+    def generate_service_id(self, service):
+        return "{service_name}-{service_number}-{service_id}".format(
+            service_name=service.__class__.__name__,
+            service_number=service._order,
+            service_id=id(service)
+        )
+
+
+class MultiRunServiceIdFactory:
+    def __init__(self, run_number=1):
+        self.run_number = run_number
+
+    def generate_service_id(self, service):
+        return "{run_number}-{service_name}-{service_number}-{service_id}".format(
+            run_number=self.run_number,
+            service_name=service.__class__.__name__,
+            service_number=service._order,
+            service_id=id(service)
+        )
+
+
+service_id_factory = ServiceIdFactory()
+
+
 class Service(TemplateRenderer):
     """Service classes know how to deploy a service onto a set of nodes and then clean up after themselves.
 
@@ -72,6 +97,7 @@ class Service(TemplateRenderer):
         self._clean_time = -1
 
         self._initialized = False
+        self.service_id_factory = service_id_factory
         self.cluster_spec = Service.setup_cluster_spec(num_nodes=num_nodes, cluster_spec=cluster_spec)
         self.context = context
 
@@ -125,7 +151,7 @@ class Service(TemplateRenderer):
     @property
     def service_id(self):
         """Human-readable identifier (almost certainly) unique within a test run."""
-        return "%s-%d-%d" % (self.__class__.__name__, self._order, id(self))
+        return self.service_id_factory.generate_service_id(self)
 
     @property
     def _order(self):
@@ -307,12 +333,11 @@ class Service(TemplateRenderer):
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
-        for node in self.nodes:
+        while self.nodes:
+            node = self.nodes.pop()
             self.logger.info("%s: freeing node" % self.who_am_i(node))
             node.account.logger = None
             self.cluster.free(node)
-
-        self.nodes = []
 
     def run(self):
         """Helper that executes run(), wait(), and stop() in sequence."""

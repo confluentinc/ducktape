@@ -84,7 +84,7 @@ class TestRunner(object):
     # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
     stop_testing = False
 
-    def __init__(self, cluster, session_context, session_logger, tests,
+    def __init__(self, cluster, session_context, session_logger, tests, deflake_num,
                  min_port=ConsoleDefaults.TEST_DRIVER_MIN_PORT,
                  max_port=ConsoleDefaults.TEST_DRIVER_MAX_PORT):
 
@@ -100,6 +100,8 @@ class TestRunner(object):
         self.event_response = EventResponseFactory()
         self.hostname = "localhost"
         self.receiver = Receiver(min_port, max_port)
+
+        self.deflake_num = deflake_num
 
         self.session_context = session_context
         self.max_parallel = session_context.max_parallel
@@ -241,7 +243,8 @@ class TestRunner(object):
                 TestContext.logger_name(test_context, current_test_counter),
                 TestContext.results_dir(test_context, current_test_counter),
                 self.session_context.debug,
-                self.session_context.fail_bad_cluster_utilization
+                self.session_context.fail_bad_cluster_utilization,
+                self.deflake_num
             ])
 
         self._client_procs[test_key] = proc
