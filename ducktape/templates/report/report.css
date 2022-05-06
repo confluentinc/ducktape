@@ -66,6 +66,10 @@ h1, h2, h3, h4, h5, h6 {
     background-color: #6c6;
 }
 
+.flaky {
+    background-color: #dd2;
+}
+
 .fail {
     background-color: #c60; 
 }

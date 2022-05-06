@@ -38,7 +38,7 @@ class ServiceRegistry(object):
         self._nodes[id(service)] = [str(n.account) for n in service.nodes]
 
     def to_json(self):
-        return [self._services[k].to_json() for k in self._services]
+        return [service.to_json() for service in self._services.values()]
 
     def stop_all(self):
         """Stop all currently registered services in the reverse of the order in which they were added.
@@ -84,6 +84,8 @@ class ServiceRegistry(object):
 
         if keyboard_interrupt is not None:
             raise keyboard_interrupt
+        self._services.clear()
+        self._nodes.clear()
 
     def min_cluster_spec(self):
         """
@@ -99,8 +101,8 @@ class ServiceRegistry(object):
         """
         Gets a printable string containing any errors produced by the services.
         """
-        all_errors = []
-        for service in self._services.values():
-            if hasattr(service, 'error') and service.error:
-                all_errors.append("%s: %s" % (service.who_am_i(), service.error))
-        return '\n\n'.join(all_errors)
+        return '\n\n'.join(
+            "{}: {}".format(service.who_am_i(), service.error)
+            for service in self._services.values()
+            if hasattr(service, 'error') and service.error
+        )
