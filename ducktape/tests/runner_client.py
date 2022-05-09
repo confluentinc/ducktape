@@ -15,6 +15,7 @@
 import logging
 import os
 import signal
+import threading
 import time
 import traceback
 import zmq
@@ -32,10 +33,14 @@ from ducktape.tests.test import test_logger, TestContext
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
+from concurrent.futures import ThreadPoolExecutor
+
+
+HEARTBEAT_FALLOFF_SECONDS = 5
 
 def run_client(*args, **kwargs):
     client = RunnerClient(*args, **kwargs)
-    client.run()
+    client._run_tests_with_heartbeat()
 
 
 class RunnerClient(object):
@@ -66,9 +71,13 @@ class RunnerClient(object):
         # Wait to instantiate the test object until running the test
         self.test = None
         self.test_context = None
+        self.lock = threading.Lock()
 
-    def send(self, event):
-        return self.sender.send(event)
+    def send(self, *args, **kwargs):
+        self.lock.acquire(blocking=True)
+        result = self.sender.send(*args, **kwargs)
+        self.lock.release()
+        return result
 
     def _sigterm_handler(self, signum, frame):
         """Translate SIGTERM to SIGINT on this process
@@ -76,6 +85,22 @@ class RunnerClient(object):
         python will treat SIGINT as a Keyboard exception. Exception handling does the rest.
         """
         os.kill(os.getpid(), signal.SIGINT)
+
+    def _run_tests_with_heartbeat(self):
+        with ThreadPoolExecutor(1) as executor:
+            future = executor.submit(self.run)
+            while not future.done():
+                try:
+                    self.send_heartbeat()
+                    time.sleep(HEARTBEAT_FALLOFF_SECONDS)
+                except:
+                    future.cancel()
+
+    def send_heartbeat(self):
+        self.log(logging.WARNING, 'Starting heartbeat')
+        self.log(logging.WARNING, 'Sending heartbeat')
+        self.send(self.message.heartbeat(self.test_metadata))
+        self.log(logging.WARNING, 'After self.send')
 
     def _collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
         loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)

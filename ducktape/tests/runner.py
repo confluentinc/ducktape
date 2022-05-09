@@ -278,6 +278,8 @@ class TestRunner(object):
             self._handle_finished(event)
         elif event["event_type"] == ClientEventFactory.LOG:
             self._handle_log(event)
+        elif event["event_type"] == ClientEventFactory.HEARTBEAT:
+            self._handle_heartbeat(event)
         else:
             raise RuntimeError("Received event with unknown event type: " + str(event))
 
@@ -328,6 +330,10 @@ class TestRunner(object):
         if self._should_print_separator:
             terminal_width, y = get_terminal_size()
             self._log(logging.INFO, "~" * int(2 * terminal_width / 3))
+
+    def _handle_heartbeat(self, event):
+        self._log(logging.INFO, f"Received heartbeat {event['metadata']}")
+        self.receiver.send(self.event_response.heartbeat_ack(event))
 
     @property
     def _should_print_separator(self):
