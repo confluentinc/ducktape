@@ -32,6 +32,9 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
+tests_req = open('requirements-test.txt').read()
+
+
 setup(name="ducktape",
       version=version,
       description="Distributed system test tools",
@@ -45,8 +48,8 @@ setup(name="ducktape",
       packages=find_packages(),
       package_data={'ducktape': ['templates/report/*']},
       install_requires=open('requirements.txt').read(),
-      tests_require=open('requirements-test.txt').read(),
-      extras_require={'test': test_req},
+      tests_require=tests_req,
+      extras_require=tests_req,
       setup_requires=['flake8==3.7.8'],
       cmdclass={'test': PyTest},
       )
