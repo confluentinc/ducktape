@@ -104,13 +104,15 @@ class CheckRemoteAccount(object):
                                           [raise_error_checker, raise_no_error_checker]])
     def check_ssh_checker(self, checkers):
         self.server.start()
-        self.account = RemoteAccount(RemoteAccountSSHConfig.from_string(
+        ssh_config = RemoteAccountSSHConfig.from_string(
             """
         Host dummy_host.com
             Hostname dummy_host.name.com
             Port 22
             User dummy
-        """), ssh_exception_checks=checkers)
+            ConnectTimeout 1
+        """)
+        self.account = RemoteAccount(ssh_config, ssh_exception_checks=checkers)
         with pytest.raises(DummyException):
             self.account.ssh('echo test')
 
