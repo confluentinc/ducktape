@@ -31,6 +31,7 @@ class PyTest(TestCommand):
         self.run_command('flake8')
         sys.exit(errno)
 
+
 test_req = [
     'pytest==6.1.0',
     # 4.0 drops py27 support
