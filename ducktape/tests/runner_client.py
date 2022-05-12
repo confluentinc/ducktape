@@ -66,6 +66,7 @@ class RunnerClient(object):
         # Wait to instantiate the test object until running the test
         self.test = None
         self.test_context = None
+        self.all_services = None
 
     def send(self, event):
         return self.sender.send(event)
@@ -110,105 +111,115 @@ class RunnerClient(object):
         test_status = FAIL
         summary = []
         data = None
-        all_services = ServiceRegistry()
+        self.all_services = ServiceRegistry()
 
-        sid_factory = service_id_factory
+        num_runs = 0
 
-        num_runs = 1
-        while test_status == FAIL and num_runs <= self.deflake_num:
-            if self.deflake_num > 1:
-                sid_factory = MultiRunServiceIdFactory(num_runs)
-            self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
-            try:
-                # Results from this test, as well as logs will be dumped here
-                mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
-                # Instantiate test
-                self.test = self.test_context.cls(self.test_context)
-
-                self.log(logging.DEBUG, "Checking if there are enough nodes...")
-                min_cluster_spec = self.test.min_cluster_spec()
-                os_to_num_nodes = {}
-                for node_spec in min_cluster_spec:
-                    if not os_to_num_nodes.get(node_spec.operating_system):
-                        os_to_num_nodes[node_spec.operating_system] = 1
-                    else:
-                        os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
-                for (operating_system, node_count) in iteritems(os_to_num_nodes):
-                    num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
-                    if node_count > num_avail:
-                        raise RuntimeError(
-                            "There are not enough nodes available in the cluster to run this test. "
-                            "Cluster size for %s: %d, Need at least: %d. Services currently registered: %s" %
-                            (operating_system, num_avail, node_count, self.test_context.services))
-
-                # Run the test unit
-                start_time = time.time()
-                self.setup_test()
-
-                data = self.run_test()
-
-                test_status = PASS if num_runs == 1 else FLAKY
-                self.log(logging.INFO, "{} TEST".format(test_status.to_json()))
-
-            except BaseException as e:
-                # mark the test as failed before doing anything else
-                test_status = FAIL
-                err_trace = self._exc_msg(e)
-                summary.append(err_trace)
-                if num_runs != self.deflake_num:
-                    summary.append("~" * max(len(l) for l in err_trace.split('\n')) + "\n")
-                self.log(logging.INFO, "FAIL: " + err_trace)
-
-            finally:
-                for service in self.test_context.services:
-                    service.service_id_factory = sid_factory
-                    all_services.append(service)
-
-                self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
-
-                stop_time = time.time()
-
-                if hasattr(self.test_context, "services"):
-                    service_errors = self.test_context.services.errors()
-                    if service_errors:
-                        summary.extend(["\n\n", service_errors])
-
-                # free nodes
-                if self.test:
-                    self.log(logging.DEBUG, "Freeing nodes...")
-                    self._do_safely(self.test.free_nodes, "Error freeing nodes:")
-
+        try:
+            while test_status == FAIL and num_runs < self.deflake_num:
                 num_runs += 1
+                self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
+                start_time = time.time()
+                test_status, summary, data = self._do_run(num_runs)
+        finally:
+            stop_time = time.time()
+            if test_status == PASS and num_runs > 1:
+                test_status = FLAKY
+            summary = "".join(summary)
+            test_status, summary = self._check_cluster_utilization(test_status, summary)
 
-        summary = "".join(summary)
-        test_status, summary = self._check_cluster_utilization(test_status, summary)
+            if num_runs > 1:
+                # for reporting purposes report all services
+                self.test_context.services = self.all_services
+            # for flaky tests, we report the start and end time of the successful run, and not the whole run period
+            result = TestResult(
+                self.test_context,
+                self.test_index,
+                self.session_context,
+                test_status,
+                summary,
+                data,
+                start_time,
+                stop_time)
 
-        if num_runs > 1:
-            # for reporting purposes report all services
-            self.test_context.services = all_services
-        # for flaky tests, we report the start and end time of the successful run, and not the whole run period
-        result = TestResult(
-            self.test_context,
-            self.test_index,
-            self.session_context,
-            test_status,
-            summary,
-            data,
-            start_time,
-            stop_time)
+            self.log(logging.INFO, "Summary: %s" % str(result.summary))
+            self.log(logging.INFO, "Data: %s" % str(result.data))
 
-        self.log(logging.INFO, "Summary: %s" % str(result.summary))
-        self.log(logging.INFO, "Data: %s" % str(result.data))
+            result.report()
+            # Tell the server we are finished
+            self._do_safely(lambda: self.send(self.message.finished(result=result)),
+                            "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+            # Release test_context resources only after creating the result and finishing logging activity
+            # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
+            self.test_context.close()
+            self.all_services = None
+            self.test_context = None
+            self.test = None
 
-        result.report()
-        # Tell the server we are finished
-        self._do_safely(lambda: self.send(self.message.finished(result=result)),
-                        "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
-        # Release test_context resources only after creating the result and finishing logging activity
-        # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
-        self.test_context.close()
-        self.test_context = None
-        self.test = None
+    def _do_run(self, num_runs):
+        test_status = FAIL
+        summary = []
+        data = None
+        sid_factory = MultiRunServiceIdFactory(num_runs) if self.deflake_num > 1 else service_id_factory
+        try:
+            # Results from this test, as well as logs will be dumped here
+            mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
+            # Instantiate test
+            self.test = self.test_context.cls(self.test_context)
+            # Check if there are enough nodes
+            self._check_min_cluster_spec()
+            # Run the test unit
+
+            self.setup_test()
+
+            data = self.run_test()
+
+            test_status = PASS
+            self.log(logging.INFO, "{} TEST".format(test_status.to_json()))
+
+        except BaseException as e:
+            # mark the test as failed before doing anything else
+            test_status = FAIL
+            err_trace = self._exc_msg(e)
+            summary.append(err_trace)
+            if num_runs != self.deflake_num:
+                summary.append("~" * max(len(l) for l in err_trace.split('\n')) + "\n")
+            self.log(logging.INFO, "FAIL: " + err_trace)
+
+        finally:
+            for service in self.test_context.services:
+                service.service_id_factory = sid_factory
+                self.all_services.append(service)
+
+            self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
+
+            if hasattr(self.test_context, "services"):
+                service_errors = self.test_context.services.errors()
+                if service_errors:
+                    summary.extend(["\n\n", service_errors])
+
+            # free nodes
+            if self.test:
+                self.log(logging.DEBUG, "Freeing nodes...")
+                self._do_safely(self.test.free_nodes, "Error freeing nodes:")
+            return test_status, summary, data
+
+    def _check_min_cluster_spec(self):
+        self.log(logging.DEBUG, "Checking if there are enough nodes...")
+        min_cluster_spec = self.test.min_cluster_spec()
+        os_to_num_nodes = {}
+        for node_spec in min_cluster_spec:
+            if not os_to_num_nodes.get(node_spec.operating_system):
+                os_to_num_nodes[node_spec.operating_system] = 1
+            else:
+                os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
+        for (operating_system, node_count) in iteritems(os_to_num_nodes):
+            num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
+            if node_count > num_avail:
+                raise RuntimeError(
+                    "There are not enough nodes available in the cluster to run this test. "
+                    "Cluster size for %s: %d, Need at least: %d. Services currently registered: %s" %
+                    (operating_system, num_avail, node_count, self.test_context.services))
 
     def _check_cluster_utilization(self, result, summary):
         """Checks if the number of nodes used by a test is less than the number of
