@@ -31,6 +31,7 @@ class PyTest(TestCommand):
         self.run_command('flake8')
         sys.exit(errno)
 
+
 test_req = [
     'pytest==4.6.5',
     'mock==3.0.5',
