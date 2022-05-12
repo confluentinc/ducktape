@@ -34,7 +34,6 @@ class PyTest(TestCommand):
 
 test_req = open('requirements-test.txt').read()
 
-
 setup(name="ducktape",
       version=version,
       description="Distributed system test tools",
