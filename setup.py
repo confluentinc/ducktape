@@ -53,7 +53,7 @@ setup(name="ducktape",
                         'zipp<2.0.0',
                         'pywinrm==0.2.2',
                         'requests==2.24.0',
-                        'paramiko~=2.7.2',
+                        'paramiko==2.10.0',
                         'pyzmq==19.0.2',
                         'pycryptodome==3.9.8',
                         # > 5.0 drops py27 support
