@@ -102,7 +102,6 @@ class CheckRemoteAccount(object):
     @pytest.mark.parametrize("checkers", [[raise_error_checker],
                                           [raise_no_error_checker, raise_error_checker],
                                           [raise_error_checker, raise_no_error_checker]])
-    @pytest.mark.skip("for now")
     def check_ssh_checker(self, checkers):
         self.server.start()
         self.account = RemoteAccount(RemoteAccountSSHConfig.from_string(
