@@ -389,15 +389,22 @@ class TestLoader(object):
         """
         test_files = []
         self.logger.debug('Looking for test files in {}'.format(path_or_glob))
+        # glob is safe to be called on non-glob path - it would just return that same path wrapped in a list
         expanded_glob = glob.glob(path_or_glob)
         self.logger.debug('Expanded {} into {}'.format(path_or_glob, expanded_glob))
-        # glob is safe to be called on non-glob path - it would just return that same path wrapped in a list
+
+        def maybe_add_test_file(f):
+            if self._is_test_file(f):
+                test_files.append(f)
+            else:
+                self.logger.debug("Skipping {} because it isn't a test file".format(f))
+
         for path in expanded_glob:
             if not os.path.exists(path):
                 raise LoaderException('Path {} does not exist'.format(path))
             self.logger.debug('Checking {}'.format(path))
             if os.path.isfile(path):
-                test_files.append(os.path.abspath(path))
+                maybe_add_test_file(path)
             elif os.path.isdir(path):
                 for pwd, dirs, files in os.walk(path):
                     if "__init__.py" not in files:
@@ -405,10 +412,7 @@ class TestLoader(object):
                         continue
                     for f in files:
                         file_path = os.path.abspath(os.path.join(pwd, f))
-                        if self._is_test_file(file_path):
-                            test_files.append(file_path)
-                        else:
-                            self.logger.debug("Skipping {} because it isn't a test file".format(file_path))
+                        maybe_add_test_file(file_path)
             else:
                 raise LoaderException("Got a path that we don't understand: " + path)
 
@@ -556,7 +560,13 @@ class TestLoader(object):
             path_or_glob = os.path.abspath(path_or_glob)
 
             # TODO: consider adding a check to ensure glob or dir is not used together with cls_name and method
-            test_files = self._find_test_files(path_or_glob)
+            test_files = []
+            if os.path.isfile(path_or_glob):
+                # if it is a single file, just add it directly - https://github.com/confluentinc/ducktape/issues/284
+                test_files = [path_or_glob]
+            else:
+                # otherwise, when dealing with a dir or a glob, apply pattern matching rules
+                test_files = self._find_test_files(path_or_glob)
 
             self._add_top_level_dirs_to_sys_path(test_files)
 
