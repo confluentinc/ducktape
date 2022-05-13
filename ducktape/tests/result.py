@@ -64,6 +64,7 @@ class TestResult(object):
         self.test_status = test_status
         self.summary = summary
         self.data = data
+        self.file_name = test_context.file
 
         self.base_results_dir = session_context.results_dir
         if not self.results_dir.endswith(os.path.sep):

@@ -17,11 +17,13 @@ from ducktape.services.service import Service
 import threading
 import traceback
 
+from six import itervalues
+
 
 class BackgroundThreadService(Service):
 
-    def __init__(self, context, num_nodes):
-        super(BackgroundThreadService, self).__init__(context, num_nodes)
+    def __init__(self, context, num_nodes=None, cluster_spec=None, *args, **kwargs):
+        super(BackgroundThreadService, self).__init__(context, num_nodes, cluster_spec, *args, **kwargs)
         self.worker_threads = {}
         self.worker_errors = {}
         self.errors = ''
@@ -72,7 +74,7 @@ class BackgroundThreadService(Service):
         self._propagate_exceptions()
 
     def stop(self):
-        alive_workers = [worker for worker in self.worker_threads.itervalues() if worker.is_alive()]
+        alive_workers = [worker for worker in itervalues(self.worker_threads) if worker.is_alive()]
         if len(alive_workers) > 0:
             self.logger.debug(
                 "Called stop with at least one worker thread is still running: " + str(alive_workers))

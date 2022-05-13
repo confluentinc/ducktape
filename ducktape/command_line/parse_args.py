@@ -26,7 +26,9 @@ import sys
 def create_ducktape_parser():
     parser = argparse.ArgumentParser(description="Discover and run your tests")
     parser.add_argument('test_path', metavar='test_path', type=str, nargs='*', default=[os.getcwd()],
-                        help='one or more space-delimited strings indicating where to search for tests.')
+                        help='One or more test identifiers or test suite paths to execute')
+    parser.add_argument('--exclude', type=str, nargs='*', default=None,
+                        help='one or more space-delimited strings indicating which tests to exclude')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run.")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout.")
     parser.add_argument("--config-file", action="store", default=ConsoleDefaults.USER_CONFIG_FILE,
@@ -70,6 +72,8 @@ def create_ducktape_parser():
                         help="URL of a JSON report file containing stats from a previous test run. If specified, "
                              "this will be used when creating subsets of tests to divide evenly by total run time "
                              "instead of by number of tests.")
+    parser.add_argument("--skip-nodes-allocation", action="store_true", help="Use this flag to skip allocating "
+                        "nodes for services. Can be used when running specific tests on a running platform")
     parser.add_argument("--sample", action="store", type=int,
                         help="The size of a random test sample to run")
     parser.add_argument("--fail-bad-cluster-utilization", action="store_true",

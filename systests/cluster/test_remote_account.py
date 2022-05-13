@@ -16,6 +16,7 @@ from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
 from ducktape.mark.resource import cluster
+from ducktape.mark import matrix, parametrize
 
 import os
 import pytest
@@ -26,6 +27,8 @@ import tempfile
 from threading import Thread
 import time
 import logging
+
+from ducktape.utils.util import wait_until
 
 
 def generate_tempdir_name():
@@ -108,6 +111,33 @@ class UnderUtilizedTest(Test):
         assert self.test_context.cluster.max_used() == 2
 
 
+class FailingTest(Test):
+    """
+    The purpose of this test is to validate reporters. Some of them are intended to fail.
+    """
+    def setup(self):
+        self.service = GenericService(self.test_context, 1)
+
+    @cluster(num_nodes=1)
+    @matrix(string_param=['success-first', 'fail-second', 'fail-third'], int_param=[10, 20, -30])
+    def matrix_test(self, string_param, int_param):
+        assert not string_param.startswith('fail') and int_param > 0
+
+    @cluster(num_nodes=1)
+    @parametrize(string_param=['success-first', 'fail-second'])
+    @parametrize(int_param=[10, -10])
+    def parametrized_test(self, string_param, int_param):
+        assert not string_param.startswith('fail') and int_param > 0
+
+    @cluster(num_nodes=1)
+    def failing_test(self):
+        assert False
+
+    @cluster(num_nodes=1)
+    def successful_test(self):
+        assert True
+
+
 class FileSystemTest(Test):
     """
     Note that in an attempt to isolate the file system methods, validation should be done with ssh/shell commands.
@@ -128,7 +158,7 @@ class FileSystemTest(Test):
 
         # validate existence and contents
         self.node.account.ssh("test -f %s" % fpath)
-        contents = "\n".join([l for l in self.node.account.ssh_capture("cat %s" % fpath)])
+        contents = "\n".join([line for line in self.node.account.ssh_capture("cat %s" % fpath)])
         assert contents == expected_contents
 
         # TODO also check absolute path
@@ -443,9 +473,9 @@ class RemoteAccountTest(Test):
         ssh_output = node.account.ssh_capture(cmd, combine_stderr=True)
         bad_ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)  # Same command, but don't capture stderr
 
-        lines = [int(l.strip()) for l in ssh_output]
+        lines = [int(line.strip()) for line in ssh_output]
         assert lines == [i for i in range(1, 6)]
-        bad_lines = [int(l.strip()) for l in bad_ssh_output]
+        bad_lines = [int(line.strip()) for line in bad_ssh_output]
         assert bad_lines == []
 
     @cluster(num_nodes=1)
@@ -471,7 +501,7 @@ class RemoteAccountTest(Test):
         cmd = "for i in $(seq 1 5); do echo $i; done"
         ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)
 
-        lines = [int(l.strip()) for l in ssh_output]
+        lines = [int(line.strip()) for line in ssh_output]
         assert lines == [i for i in range(1, 6)]
 
     @cluster(num_nodes=1)
@@ -533,6 +563,29 @@ class RemoteAccountTest(Test):
             # expected
             end = time.time()
             assert end - start > timeout, "Should have waited full timeout period while monitoring the log"
+
+    @cluster(num_nodes=1)
+    def test_kill_process(self):
+        """Tests that kill_process correctly works"""
+
+        def get_pids():
+            pid_cmd = "ps ax | grep -i nc | grep -v grep | awk '{print $1}'"
+
+            return list(node.account.ssh_capture(pid_cmd, callback=int))
+
+        node = self.account_service.nodes[0]
+
+        # Run TCP service using netcat
+        node.account.ssh_capture("nohup nc -l -p 5000 > /dev/null 2>&1 &")
+
+        wait_until(lambda: len(get_pids()) > 0, timeout_sec=10,
+                   err_msg="Failed to start process within %d sec" % 10)
+
+        # Kill service.
+        node.account.kill_process("nc")
+
+        wait_until(lambda: len(get_pids()) == 0, timeout_sec=10,
+                   err_msg="Failed to kill process within %d sec" % 10)
 
 
 class TestIterWrapper(Test):

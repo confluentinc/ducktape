@@ -44,7 +44,7 @@ class Test(TemplateRenderer):
 
     @property
     def cluster(self):
-        return self.test_context.session_context.cluster
+        return self.test_context.cluster
 
     @property
     def logger(self):
@@ -294,6 +294,7 @@ class TestContext(object):
         self.session_context = kwargs.get("session_context")
         self.cluster = kwargs.get("cluster")
         self.module = kwargs.get("module")
+        self.test_suite_name = kwargs.get("test_suite_name")
 
         if kwargs.get("file") is not None:
             self.file = os.path.abspath(kwargs.get("file"))

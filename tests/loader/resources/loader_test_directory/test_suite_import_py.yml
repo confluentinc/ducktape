@@ -1,0 +1,7 @@
+import:
+  - test_a.py
+# improper import
+
+simple_suite:
+  - test_a.py
+# 1 test

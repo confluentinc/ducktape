@@ -11,10 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-try:
-    from unittest.mock import patch, MagicMock  # noqa: F401
-except ImportError:
-    from mock import patch, MagicMock  # noqa: F401
+
+from unittest.mock import patch
 
 from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.test import TestContext
@@ -183,30 +181,25 @@ class CheckRunner(object):
         assert results.num_passed == 0
         assert results.num_ignored == 0
 
-    @patch('ducktape.tests.runner_client.mkdir_p')
-    @patch.object(RunnerClient, '_exc_msg')
-    def check_sends_result_when_internal_error(self, exc_msg_mock, mkdir_p_mock):
-        """Validates that any framework error when executing the test
-        doesn't prevent sending the result and completing the test"""
+    # mock an error reporting test failure - this should not prevent subsequent tests from execution and mark
+    # failed test as failed correctly
+    @patch.object(RunnerClient, '_exc_msg', side_effect=Exception)
+    def check_sends_result_when_error_reporting_exception(self, exc_msg_mock):
+        """Validates that an error when reporting an exception in the test doesn't prevent subsequent tests
+        from executing"""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
-
-        # mock an error creating test directory - this will make both test_pi and test_failure fail before execution
-        mkdir_p_mock.side_effect = Exception
-        # mock an error reporting test failure - this should not prevent subsequent tests from execution and mark
-        # failed test as failed correctly
-        exc_msg_mock.side_effect = Exception
-        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
+        test_methods = [TestThingy.test_failure, TestThingy.test_pi]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
                                    cluster=mock_cluster, session_context=session_context)
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
-        assert len(results) == 4
+        assert len(results) == 2
         assert results.num_flaky == 0
-        assert results.num_failed == 2
-        assert results.num_passed == 0
-        assert results.num_ignored == 2
+        assert results.num_failed == 1
+        assert results.num_passed == 1
+        assert results.num_ignored == 0
 
     def check_run_failure_with_bad_cluster_allocation(self):
         """Check expected behavior when running a single test."""

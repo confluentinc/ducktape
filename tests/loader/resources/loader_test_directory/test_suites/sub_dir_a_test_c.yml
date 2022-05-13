@@ -1,0 +1,2 @@
+test_suite:
+  - ../sub_dir_a/test_c.py

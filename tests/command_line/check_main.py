@@ -19,6 +19,7 @@ from ducktape.command_line.main import update_latest_symlink
 import json
 import os
 import os.path
+import pickle
 import pytest
 import tempfile
 
@@ -101,6 +102,13 @@ class CheckUserDefinedGlobals(object):
         with pytest.raises(NotImplementedError):
             global_dict["y"] = 3
 
+    def check_pickleable(self):
+        """Expect the user defined dict object to be pickleable"""
+        globals_dict = get_user_defined_globals(globals_json)
+
+        assert globals_dict  # Need to test non-empty dict, to ensure py3 compatibility
+        assert pickle.loads(pickle.dumps(globals_dict)) == globals_dict
+
     def check_parseable_json_string(self):
         """Check if globals_json is parseable as JSON, we get back a dictionary view of parsed JSON."""
         globals_dict = get_user_defined_globals(globals_json)
@@ -147,3 +155,17 @@ class CheckUserDefinedGlobals(object):
 
         with pytest.raises(ValueError):
             get_user_defined_globals(valid_json_not_dict)
+
+    def check_non_dict_from_file(self):
+        """Validate behavior when given file containing valid JSON which does not parse as a dict"""
+        _, fname = tempfile.mkstemp()
+        try:
+            with open(fname, "w") as fh:
+                # Write valid JSON which does not parse as a dict
+                fh.write(valid_json_not_dict)
+
+            with pytest.raises(ValueError, match=fname):
+                get_user_defined_globals(fname)
+
+        finally:
+            os.remove(fname)

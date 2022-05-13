@@ -1,0 +1,5 @@
+test_suite:
+  included:
+    - ../sub_dir_a/*.py
+  excluded:
+    - ../sub_dir_a/test_d.py

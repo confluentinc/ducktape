@@ -1,0 +1,9 @@
+
+import:
+  - test_suite_cyclic_a.yml # 4 test
+
+test_suite_cyclic_b:
+  - test_a.py # 1 test
+# suite total: 1 test
+
+# total: 5 tests

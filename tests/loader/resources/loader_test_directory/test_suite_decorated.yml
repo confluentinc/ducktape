@@ -1,0 +1,5 @@
+test_suite_decorated:
+  - 'test_decorated.py::TestMatrix.test_thing@[{"x": 1,"y": "test "}, {"x": 2, "y": "test "}]'  # 2 tests
+  - 'test_decorated.py::TestStackedMatrix.test_thing@{"x": 100, "y": 100}'  # ignored, there are no such params in code
+
+# total: 2 tests

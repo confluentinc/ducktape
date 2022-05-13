@@ -33,10 +33,11 @@ class PyTest(TestCommand):
 
 
 test_req = [
-    'pytest==4.6.5',
-    'mock==3.0.5',
-    'psutil==5.6.3',
-    'memory_profiler==0.55',
+    'pytest==6.1.0',
+    # 4.0 drops py27 support
+    'mock==4.0.2',
+    'psutil==5.7.2',
+    'memory_profiler==0.57',
     'statistics==1.0.3.5',
     'requests-testadapter==0.3.0'
 ]
@@ -53,28 +54,25 @@ setup(name="ducktape",
       url="http://github.com/confluentinc/ducktape",
       packages=find_packages(),
       package_data={'ducktape': ['templates/report/*']},
-      install_requires=['jinja2==2.10.1',
-                        'boto3==1.9.217',
+      python_requires='>= 3.6',
+      install_requires=['jinja2==2.11.2',
+                        'boto3==1.15.9',
                         # jinja2 pulls in MarkupSafe with a > constraint, but we need to constrain it for compatibility
                         'MarkupSafe<2.0.0',
                         'pyparsing<3.0.0',
                         'zipp<2.0.0',
                         'pywinrm==0.2.2',
-                        'requests==2.22.0',
-                        'bcrypt==3.1.7',
-                        'paramiko~=2.3.2',
-                        'pysistence==0.4.1',
-                        'pyzmq==18.1.0',
-                        'pycryptodome==3.8.2',
+                        'requests==2.24.0',
+                        'paramiko~=2.7.2',
+                        'pyzmq==19.0.2',
+                        'pycryptodome==3.9.8',
+                        # > 5.0 drops py27 support
                         'more-itertools==5.0.0',
-                        'six==1.12.0',
-                        # for the following packages these are the last versions supporting python 2
-                        'pynacl==1.4.0',
-                        'filelock==3.2.1',
-                        'cryptography==3.3.2'
-                        ],
+                        'tox==3.20.0',
+                        'six==1.15.0',
+                        'PyYAML==5.3.1'],
       tests_require=test_req,
       extras_require={'test': test_req},
-      setup_requires=['flake8==3.7.8'],
+      setup_requires=['flake8==3.8.3'],
       cmdclass={'test': PyTest},
       )

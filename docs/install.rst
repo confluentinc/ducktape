@@ -4,7 +4,9 @@
 Install
 =======
 
-1. Install `cryptography`_ (used by `paramiko` which Ducktape depends on), this may have non-python external requirements
+1. Ducktape requires python 3.7 or later.
+
+2. Install `cryptography`_ (used by `paramiko` which Ducktape depends on), this may have non-python external requirements
 
 .. _cryptography: https://cryptography.io/en/latest/installation
 
@@ -21,9 +23,9 @@ Install
         sudo yum install gcc libffi-devel python-devel openssl-devel
 
 
-2. As a general rule, it's recommended to use an isolation tool such as ``virtualenv``
+3. As a general rule, it's recommended to use an isolation tool such as ``virtualenv``
 
-3. Install Ducktape::
+4. Install Ducktape::
 
     pip install ducktape
 

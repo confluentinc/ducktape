@@ -22,37 +22,18 @@ from six import iteritems
 import sys
 import traceback
 
-import pysistence
-
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.loggermaker import close_logger
 from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, \
-    HTMLSummaryReporter, JSONReporter, JUnitReporter
+    HTMLSummaryReporter, JSONReporter, JUnitReporter, FailedTestSymbolReporter
 from ducktape.tests.runner import TestRunner
 from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.utils import persistence
 from ducktape.utils.util import load_function
-
-
-def extend_import_paths(paths):
-    """Extends sys.path with top-level packages found based on a set of input paths. This only adds top-level packages
-    in order to avoid naming conflict with internal packages, e.g. ensure that a package foo.bar.os does not conflict
-    with the top-level os package.
-
-    Adding these import paths is necessary to make importing tests work even when the test modules are not available on
-    PYTHONPATH/sys.path, as they normally will be since tests generally will not be installed and available for import
-
-    :param paths:
-    :return:
-    """
-    for path in paths:
-        dir = os.path.abspath(path if os.path.isdir(path) else os.path.dirname(path))
-        while os.path.exists(os.path.join(dir, '__init__.py')):
-            dir = os.path.dirname(dir)
-        sys.path.append(dir)
 
 
 def get_user_defined_globals(globals_str):
@@ -64,7 +45,7 @@ def get_user_defined_globals(globals_str):
     :return dict containing user-defined global variables
     """
     if globals_str is None:
-        return pysistence.make_dict()
+        return persistence.make_dict()
 
     from_file = False
     if os.path.isfile(globals_str):
@@ -85,7 +66,7 @@ def get_user_defined_globals(globals_str):
     # Now check that the parsed JSON is a dictionary
     if not isinstance(user_globals, dict):
         if from_file:
-            message = "The JSON contained in file %s must parse to a dict. "
+            message = "The JSON contained in file %s must parse to a dict. " % globals_str
         else:
             message = "JSON string referred to by globals parameter must parse to a dict. "
         message += "I.e. the contents of the JSON must be an object, not an array or primitive. "
@@ -93,9 +74,8 @@ def get_user_defined_globals(globals_str):
 
         raise ValueError(message)
 
-    # Use pysistence to create the immutable dict
-    user_globals = pysistence.make_dict(**user_globals)
-    return user_globals
+    # create the immutable dict
+    return persistence.make_dict(**user_globals)
 
 
 def setup_results_directory(new_results_dir):
@@ -150,11 +130,10 @@ def main():
         session_logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run
-    extend_import_paths(args_dict["test_path"])
     loader = TestLoader(session_context, session_logger, repeat=args_dict["repeat"], injected_args=injected_args,
                         subset=args_dict["subset"], subsets=args_dict["subsets"])
     try:
-        tests = loader.load(args_dict["test_path"])
+        tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
     except LoaderException as e:
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
@@ -213,7 +192,8 @@ def main():
         SimpleFileSummaryReporter(test_results),
         HTMLSummaryReporter(test_results),
         JSONReporter(test_results),
-        JUnitReporter(test_results)
+        JUnitReporter(test_results),
+        FailedTestSymbolReporter(test_results)
     ]
 
     for r in reporters:

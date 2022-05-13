@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import glob
+import json
+import sys
 from operator import attrgetter
 
 import collections
@@ -20,7 +22,10 @@ import inspect
 import itertools
 import os
 import re
+from typing import List
+
 import requests
+import yaml
 
 from ducktape.tests.test import Test, TestContext
 from ducktape.mark import parametrized
@@ -70,36 +75,79 @@ class TestLoader(object):
         # in any discovered test, whether or not it is parametrized
         self.injected_args = injected_args
 
-    def load(self, test_discovery_symbols):
-        """Recurse through packages in file hierarchy starting at base_dir, and return a list of test_context objects
-        for all discovered tests.
+    def load(self, symbols, excluded_test_symbols=None):
+        """
+        Discover tests specified by the symbols parameter (iterable of test symbols and/or test suite file paths).
+        Skip any tests specified by excluded_test_symbols (iterable of test symbols).
 
+        *Test symbol* is a pointer to the test or a group of tests.
+        It is specified by the file/folder path or glob, optionally with Class.method after `::` :
+        - `test-dir/`  - loads all tests under `test-dir`  but does NOT load test suites found under `test-dir`
+        - `test-dir/prefix_*.py` - loads all files with a specified prefix
+        - `/path/to/test/file.py`
+        - `test/file.py::TestClass`
+        - `test/file.py::TestClass.test_method`
+
+        *Test suite* is a yaml file with the following format:
+        ```
+            # multiple test suites can be included:
+            test_suite_name:
+                # list included test symbols
+                - path/to/test.py
+            # optionally test suite can have included and excluded sections:
+            # you may also specify a list of other suite's you wish to import
+            # that will also be loaded when loading this file by using the
+            # import tag.
+            import:
+                # list of yaml files whose suites will also run:
+                - path/to/suite.yml
+            another_test_suite:
+                included:
+                    # list of included test symbols:
+                    - path/to/test-dir/prefix_*.py
+                excluded:
+                    # list of excluded test symbols:
+                    - path/to/test-dir/prefix_excluded.py
+        ```
+        Each file found after parsing a symbol is checked to see if it contains a test:
         - Discover modules that 'look like' a test. By default, this means the filename is "test_*" or "*_test.py"
         - Discover test classes within each test module. A test class is a subclass of Test which is a leaf
           (i.e. it has no subclasses).
         - Discover test methods within each test class. A test method is a method containing 'test' in its name
 
-        :param test_discovery_symbols: list of file paths
+        :param symbols: iterable that contains test symbols and/or test suite file paths.
+        :param excluded_test_symbols: iterable that contains test symbols only.
         :return list of test context objects found during discovery. Note: if self.repeat is set to n, each test_context
             will appear in the list n times.
         """
-        assert type(test_discovery_symbols) == list, "Expected test_discovery_symbols to be a list."
-        all_test_context_list = []
-        for symbol in test_discovery_symbols:
-            directory, module_name, cls_name, method_name = self._parse_discovery_symbol(symbol)
-            directory = os.path.abspath(directory)
 
-            test_context_list_for_symbol = self.discover(directory, module_name, cls_name, method_name)
-            all_test_context_list.extend(test_context_list_for_symbol)
+        test_symbols = []
+        test_suites = []
+        # symbol can point to a test or a test suite
+        for symbol in symbols:
+            if symbol.endswith('.yml'):
+                # if it ends with .yml, its a test suite, read included and excluded paths from the file
+                test_suites.append(symbol)
+            else:
+                # otherwise add it to default suite's included list
+                test_symbols.append(symbol)
 
-            if len(test_context_list_for_symbol) == 0:
-                raise LoaderException("Didn't find any tests for symbol %s." % symbol)
+        contexts_from_suites = self._load_test_suite_files(test_suites)
+        contexts_from_symbols = self._load_test_contexts(test_symbols)
+        all_included = contexts_from_suites.union(contexts_from_symbols)
 
-        self.logger.debug("Discovered these tests: " + str(all_test_context_list))
+        # excluded_test_symbols apply to both tests from suites and tests from symbols
+        global_excluded = self._load_test_contexts(excluded_test_symbols)
+        all_test_context_list = self._filter_excluded_test_contexts(all_included, global_excluded)
+
+        # make sure no test is loaded twice
+        all_test_context_list = self._filter_by_unique_test_id(all_test_context_list)
 
         # Sort to make sure we get a consistent order for when we create subsets
         all_test_context_list = sorted(all_test_context_list, key=attrgetter("test_id"))
-
+        if not all_test_context_list:
+            raise LoaderException("No tests to run!")
+        self.logger.debug("Discovered these tests: " + str(all_test_context_list))
         # Select the subset of tests.
         if self.historical_report:
             # With timing info, try to pack the subsets reasonably evenly based on timing. To do so, get timing info
@@ -130,39 +178,45 @@ class TestLoader(object):
         self.logger.debug("Selected this subset of tests: " + str(subset_test_context_list))
         return subset_test_context_list * self.repeat
 
-    def discover(self, directory, module_name, cls_name, method_name):
+    def discover(self, directory, module_name, cls_name, method_name, injected_args=None):
         """Discover and unpack parametrized tests tied to the given module/class/method
 
-        :param directory: path to the module containing the test method
-        :param module_name: name of the module containing the test method
-        :param cls_name: name of the class containing the test method
-        :param method_name: name of the targeted test method
         :return list of test_context objects
         """
+        self.logger.debug("Discovering tests at {} - {} - {} - {} - {}"
+                          .format(directory, module_name, cls_name, method_name, injected_args))
         # Check validity of path
         path = os.path.join(directory, module_name)
         if not os.path.exists(path):
             raise LoaderException("Path {} does not exist".format(path))
 
         # Recursively search path for test modules
-        test_context_list = []
-        if os.path.isfile(path):
-            test_files = [os.path.abspath(path)]
+        module_and_file = self._import_module(path)
+        if module_and_file:
+            # Find all tests in discovered modules and filter out any that don't match the discovery symbol
+            test_context_list = self._expand_module(module_and_file)
+            if len(cls_name) > 0:
+                test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
+            if len(method_name) > 0:
+                test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
+            if injected_args is not None:
+                if isinstance(injected_args, List):
+                    def condition(t):
+                        return t.injected_args in injected_args
+                else:
+                    def condition(t):
+                        return t.injected_args == injected_args
+                test_context_list = filter(condition, test_context_list)
+
+            listed = list(test_context_list)
+            if not listed:
+                self.logger.warn("No tests loaded for {} - {} - {} - {} - {}"
+                                 .format(directory, module_name, cls_name, method_name, injected_args))
+            return listed
         else:
-            test_files = self._find_test_files(path)
-        modules_and_files = self._import_modules(test_files)
+            return []
 
-        # Find all tests in discovered modules and filter out any that don't match the discovery symbol
-        for mf in modules_and_files:
-            test_context_list.extend(self._expand_module(mf))
-        if len(cls_name) > 0:
-            test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
-        if len(method_name) > 0:
-            test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
-
-        return list(test_context_list)
-
-    def _parse_discovery_symbol(self, discovery_symbol):
+    def _parse_discovery_symbol(self, discovery_symbol, base_dir=None):
         """Parse a single 'discovery symbol'
 
         :param discovery_symbol: a symbol used to target test(s).
@@ -172,117 +226,111 @@ class TestLoader(object):
         :raise LoaderException if it can't be parsed
 
         Examples:
-            "path/to/directory" -> ("path/to/directory", "", "", "")
-            "path/to/test_file.py" -> ("path/to", "test_file.py", "", "")
-            "path/to/test_file.py::ClassName.method" -> ("path/to", "test_file.py", "ClassName", "method")
+            "path/to/directory" -> ("path/to/directory", "", "")
+            "path/to/test_file.py" -> ("path/to/test_file.py", "", "")
+            "path/to/test_file.py::ClassName.method" -> ("path/to/test_file.py", "ClassName", "method")
         """
-        directory = os.path.dirname(discovery_symbol)
-        base = os.path.basename(discovery_symbol)
+        def divide_by_symbol(ds, symbol):
+            if symbol not in ds:
+                return ds, ""
+            return ds.split(symbol, maxsplit=1)
 
-        if base.find("::") >= 0:
-            parts = base.split("::")
-            if len(parts) == 1:
-                module, cls_name = parts[0], ""
-            elif len(parts) == 2:
-                module, cls_name = parts
-            else:
-                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
-
+        self.logger.debug('Trying to parse discovery symbol {}'.format(discovery_symbol))
+        if base_dir:
+            discovery_symbol = os.path.join(base_dir, discovery_symbol)
+        if discovery_symbol.find("::") >= 0:
+            path, cls_name = divide_by_symbol(discovery_symbol, "::")
             # If the part after :: contains a dot, use it to split into class + method
-            parts = cls_name.split('.')
-            if len(parts) == 1:
-                method_name = ""
-            elif len(parts) == 2:
-                cls_name, method_name = parts
+            cls_name, method_name = divide_by_symbol(cls_name, ".")
+            method_name, injected_args_str = divide_by_symbol(method_name, "@")
+
+            if injected_args_str:
+                if self.injected_args:
+                    raise LoaderException("Cannot use both global and per-method test parameters")
+                try:
+                    injected_args = json.loads(injected_args_str)
+                except Exception as e:
+                    raise LoaderException("Invalid discovery symbol: cannot parse params: " + injected_args_str) from e
             else:
-                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
+                injected_args = None
         else:
             # No "::" present in symbol
-            module, cls_name, method_name = base, "", ""
+            path, cls_name, method_name, injected_args = discovery_symbol, "", "", None
 
-        if not module.endswith(".py"):
-            directory = os.path.join(directory, module)
-            module = ""
-        return directory, module, cls_name, method_name
+        return path, cls_name, method_name, injected_args
 
-    def _import_modules(self, file_list):
-        """Attempt to import modules in the file list.
-        Assume all files in the list are absolute paths ending in '.py'
+    def _import_module(self, file_path):
+        """Attempt to import a python module from the file path.
+        Assume file_path is an absolute path ending in '.py'
 
-        Return all imported modules.
+        Return the imported module..
 
-        :param file_list: list of files which we will try to import
-        :return list of ModuleAndFile objects; each object contains the successfully imported module and
+        :param file_path: file to import module from.
+        :return ModuleAndFile object that contains the successfully imported module and
             the file from which it was imported
         """
-        module_and_file_list = []
+        self.logger.debug("Trying to import module at path {}".format(file_path))
+        if file_path[-3:] != ".py" or not os.path.isabs(file_path):
+            raise Exception("Expected absolute path ending in '.py' but got " + file_path)
 
-        for f in file_list:
-            if f[-3:] != ".py" or not os.path.isabs(f):
-                raise Exception("Expected absolute path ending in '.py' but got " + f)
+        # Try all possible module imports for given file
+        # Strip off '.py' before splitting
+        path_pieces = [piece for piece in file_path[:-3].split("/") if len(piece) > 0]
+        while len(path_pieces) > 0:
+            module_name = '.'.join(path_pieces)
+            # Try to import the current file as a module
+            self.logger.debug("Trying to import module {}".format(module_name))
+            try:
+                module_and_file = ModuleAndFile(module=importlib.import_module(module_name), file=file_path)
+                self.logger.debug("Successfully imported " + module_name)
+                return module_and_file
+            except Exception as e:
+                # Because of the way we are searching for
+                # valid modules in this loop, we expect some of the
+                # module names we construct to fail to import.
+                #
+                # Therefore we check if the failure "looks normal", and log
+                # expected failures only at debug level.
+                #
+                # Unexpected errors are aggressively logged, e.g. if the module
+                # is valid but itself triggers an ImportError (e.g. typo in an
+                # import line), or a SyntaxError.
+                expected_error = False
+                if isinstance(e, ImportError):
+                    match = re.search(r"No module named '?([^\s\']+)'?", str(e))
 
-            # Try all possible module imports for given file
-            path_pieces = [piece for piece in f[:-3].split("/") if len(piece) > 0]  # Strip off '.py' before splitting
-            successful_import = False
-            while len(path_pieces) > 0:
-                module_name = '.'.join(path_pieces)
-                # Try to import the current file as a module
-                try:
-                    module_and_file_list.append(
-                        ModuleAndFile(module=importlib.import_module(module_name), file=f))
-                    self.logger.debug("Successfully imported " + module_name)
-                    successful_import = True
-                    break  # no need to keep trying
-                except Exception as e:
-                    # Because of the way we are searching for
-                    # valid modules in this loop, we expect some of the
-                    # module names we construct to fail to import.
-                    #
-                    # Therefore we check if the failure "looks normal", and log
-                    # expected failures only at debug level.
-                    #
-                    # Unexpected errors are aggressively logged, e.g. if the module
-                    # is valid but itself triggers an ImportError (e.g. typo in an
-                    # import line), or a SyntaxError.
+                    if match is not None:
+                        missing_module = match.groups()[0]
 
-                    expected_error = False
-                    if isinstance(e, ImportError):
-                        match = re.search(r"No module named ([^\s]+)", str(e))
+                        if missing_module in module_name:
+                            expected_error = True
+                        else:
+                            # The error is still an expected error if missing_module is a suffix of module_name.
+                            # This is because the error message may contain only a suffix
+                            # of the original module_name if leftmost chunk of module_name is a legitimate
+                            # module name, but the rightmost part doesn't exist.
+                            #
+                            # Check this by seeing if it is a "piecewise suffix" of module_name - i.e. if the parts
+                            # delimited by dots match. This is a little bit stricter than just checking for a suffix
+                            #
+                            # E.g. "fancy.cool_module" is a piecewise suffix of "my.fancy.cool_module",
+                            # but  "module" is not a piecewise suffix of "my.fancy.cool_module"
+                            missing_module_pieces = missing_module.split(".")
+                            expected_error = (missing_module_pieces == path_pieces[-len(missing_module_pieces):])
 
-                        if match is not None:
-                            missing_module = match.groups()[0]
+                if expected_error:
+                    self.logger.debug(
+                        "Failed to import %s. This is likely an artifact of the "
+                        "ducktape module loading process: %s: %s", module_name, e.__class__.__name__, e)
+                else:
+                    self.logger.error(
+                        "Failed to import %s, which may indicate a "
+                        "broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
+            finally:
+                path_pieces = path_pieces[1:]
 
-                            if missing_module == module_name:
-                                expected_error = True
-                            else:
-                                # The error is still an expected error if missing_module is a suffix of module_name.
-                                # This is because the error message may contain only a suffix
-                                # of the original module_name if leftmost chunk of module_name is a legitimate
-                                # module name, but the rightmost part doesn't exist.
-                                #
-                                # Check this by seeing if it is a "piecewise suffix" of module_name - i.e. if the parts
-                                # delimited by dots match. This is a little bit stricter than just checking for a suffix
-                                #
-                                # E.g. "fancy.cool_module" is a piecewise suffix of "my.fancy.cool_module",
-                                # but  "module" is not a piecewise suffix of "my.fancy.cool_module"
-                                missing_module_pieces = missing_module.split(".")
-                                expected_error = (missing_module_pieces == path_pieces[-len(missing_module_pieces):])
-
-                    if expected_error:
-                        self.logger.debug(
-                            "Failed to import %s. This is likely an artifact of the "
-                            "ducktape module loading process: %s: %s", module_name, e.__class__.__name__, e)
-                    else:
-                        self.logger.error(
-                            "Failed to import %s, which may indicate a "
-                            "broken test that cannot be loaded: %s: %s", module_name, e.__class__.__name__, e)
-                finally:
-                    path_pieces = path_pieces[1:]
-
-            if not successful_import:
-                self.logger.debug("Unable to import %s" % f)
-
-        return module_and_file_list
+        self.logger.debug("Unable to import %s" % file_path)
+        return None
 
     def _expand_module(self, module_and_file):
         """Return a list of TestContext objects, one object for every 'testable unit' in module"""
@@ -328,22 +376,41 @@ class TestLoader(object):
             t_ctx.cluster)
         return expander.expand(self.injected_args)
 
-    def _find_test_files(self, base_dir):
-        """Return a list of files underneath base_dir that look like test files.
+    def _find_test_files(self, path_or_glob):
+        """
+        Return a list of files at the specified path (or glob) that look like test files.
 
-        :param base_dir: the base directory from which to search recursively for test files.
+        - Globs are not recursive, so ** is not supported.
+        - However, if the glob matches a folder (or is not a glob but simply a folder path),
+            we will load all tests in that folder and recursively search the sub folders.
+
+        :param path_or_glob: path to a test file, folder with test files or a glob that expands to folders and files
         :return: list of absolute paths to test files
         """
         test_files = []
-
-        for pwd, dirs, files in os.walk(base_dir):
-            if "__init__.py" not in files:
-                # Not a package - ignore this directory
-                continue
-            for f in files:
-                file_path = os.path.abspath(os.path.join(pwd, f))
-                if self._is_test_file(file_path):
-                    test_files.append(file_path)
+        self.logger.debug('Looking for test files in {}'.format(path_or_glob))
+        expanded_glob = glob.glob(path_or_glob)
+        self.logger.debug('Expanded {} into {}'.format(path_or_glob, expanded_glob))
+        # glob is safe to be called on non-glob path - it would just return that same path wrapped in a list
+        for path in expanded_glob:
+            if not os.path.exists(path):
+                raise LoaderException('Path {} does not exist'.format(path))
+            self.logger.debug('Checking {}'.format(path))
+            if os.path.isfile(path):
+                test_files.append(os.path.abspath(path))
+            elif os.path.isdir(path):
+                for pwd, dirs, files in os.walk(path):
+                    if "__init__.py" not in files:
+                        # Not a package - ignore this directory
+                        continue
+                    for f in files:
+                        file_path = os.path.abspath(os.path.join(pwd, f))
+                        if self._is_test_file(file_path):
+                            test_files.append(file_path)
+                        else:
+                            self.logger.debug("Skipping {} because it isn't a test file".format(file_path))
+            else:
+                raise LoaderException("Got a path that we don't understand: " + path)
 
         return test_files
 
@@ -364,3 +431,163 @@ class TestLoader(object):
             return False
 
         return re.match(self.test_function_pattern, function.__name__) is not None
+
+    def _load_test_suite_files(self, test_suite_files):
+        suites = list()
+
+        suites.extend(self._read_test_suite_from_file(test_suite_files))
+
+        all_contexts = set()
+        for suite in suites:
+            all_contexts.update(self._load_test_suite(**suite))
+        return all_contexts
+
+    def _load_file(self, suite_file_path):
+        if not os.path.exists(suite_file_path):
+            raise LoaderException(f'Path {suite_file_path} does not exist')
+        if not os.path.isfile(suite_file_path):
+            raise LoaderException(f'{suite_file_path} is not a file, so it cannot be a test suite')
+
+        with open(suite_file_path) as fp:
+            try:
+                file_content = yaml.load(fp, Loader=yaml.FullLoader)
+            except Exception as e:
+                raise LoaderException("Failed to load test suite from file: " + suite_file_path, e)
+
+        if not file_content:
+            raise LoaderException("Test suite file is empty: " + suite_file_path)
+        if not isinstance(file_content, dict):
+            raise LoaderException("Malformed test suite file: " + suite_file_path)
+
+        for suite_name, suite_content in file_content.items():
+            if not suite_content:
+                raise LoaderException("Empty test suite " + suite_name + " in " + suite_file_path)
+        return file_content
+
+    def _load_suites(self, file_path, file_content):
+        suites = []
+        for suite_name, suite_content in file_content.items():
+            if not suite_content:
+                raise LoaderException(f"Empty test suite {suite_name} in {file_path}")
+
+            # if test suite is just a list of paths, those are included paths
+            # otherwise, expect separate sections for included and excluded
+            if isinstance(suite_content, list):
+                included_paths = suite_content
+                excluded_paths = None
+            elif isinstance(suite_content, dict):
+                included_paths = suite_content.get('included')
+                excluded_paths = suite_content.get('excluded')
+            else:
+                raise LoaderException(f"Malformed test suite {suite_name} in {file_path}")
+            suites.append({
+                'name': suite_name,
+                'included': included_paths,
+                'excluded': excluded_paths,
+                'base_dir': os.path.dirname(file_path)
+            })
+        return suites
+
+    def _read_test_suite_from_file(self, root_suite_file_paths):
+        root_suite_file_paths = [os.path.abspath(file_path) for file_path in root_suite_file_paths]
+        files = {file: self._load_file(file) for file in root_suite_file_paths}
+        stack = root_suite_file_paths
+
+        # load all files
+        while len(stack) != 0:
+            curr = stack.pop()
+            loaded = files[curr]
+            if 'import' in loaded:
+                if isinstance(loaded['import'], str):
+                    loaded['import'] = [loaded['import']]
+                directory = os.path.dirname(curr)
+                # apply path of current file to the files inside
+                abs_file_iter = (os.path.abspath(os.path.join(directory, file))
+                                 for file in loaded.get('import', []))
+                imported = [file for file in abs_file_iter if file not in files]
+                for file in imported:
+                    files[file] = self._load_file(file)
+                stack.extend(imported)
+                del files[curr]['import']
+
+        # load all suites from all loaded files
+        suites = []
+        for file_name, file_context in files.items():
+            suites.extend(self._load_suites(file_name, file_context))
+
+        return suites
+
+    def _load_test_suite(self, **kwargs):
+        name = kwargs['name']
+        included = kwargs['included']
+        excluded = kwargs.get('excluded')
+        base_dir = kwargs.get('base_dir')
+        excluded_contexts = self._load_test_contexts(excluded, base_dir=base_dir)
+        included_contexts = self._load_test_contexts(included, base_dir=base_dir)
+
+        self.logger.debug("Including tests: " + str(included_contexts))
+        self.logger.debug("Excluding tests: " + str(excluded_contexts))
+
+        # filter out any excluded test from the included tests set
+        all_test_context_list = self._filter_excluded_test_contexts(included_contexts, excluded_contexts)
+        if not all_test_context_list:
+            raise LoaderException("No tests found in  " + name)
+
+        return all_test_context_list
+
+    def _load_test_contexts(self, test_discovery_symbols, base_dir=None):
+        """
+        Load all test_context objects found in test_discovery_symbols.
+        Each test discovery symbol is a dir or file path, optionally with with a ::Class or ::Class.method specified.
+
+        :param test_discovery_symbols: list of test symbols to look into
+        :return: List of test_context objects discovered by checking test_discovery_symbols (may be empty if none were
+            discovered)
+        """
+        if not test_discovery_symbols:
+            return set()
+        if not isinstance(test_discovery_symbols, list):
+            raise LoaderException("Expected test_discovery_symbols to be a list.")
+        all_test_context_list = set()
+        for symbol in test_discovery_symbols:
+            path_or_glob, cls_name, method, injected_args = self._parse_discovery_symbol(symbol, base_dir)
+            self.logger.debug('Parsed symbol into {} - {} - {} - {}'
+                              .format(path_or_glob, cls_name, method, injected_args))
+            path_or_glob = os.path.abspath(path_or_glob)
+
+            # TODO: consider adding a check to ensure glob or dir is not used together with cls_name and method
+            test_files = self._find_test_files(path_or_glob)
+
+            self._add_top_level_dirs_to_sys_path(test_files)
+
+            for test_file in test_files:
+                directory = os.path.dirname(test_file)
+                module_name = os.path.basename(test_file)
+                test_context_list_for_file = self.discover(
+                    directory, module_name, cls_name, method, injected_args=injected_args)
+                all_test_context_list.update(test_context_list_for_file)
+                if len(test_context_list_for_file) == 0:
+                    self.logger.warn("Didn't find any tests in %s " % test_file)
+
+        return all_test_context_list
+
+    def _filter_by_unique_test_id(self, contexts):
+        contexts_dict = dict()
+        for context in contexts:
+            if context.test_id not in contexts_dict:
+                contexts_dict[context.test_id] = context
+        return contexts_dict.values()
+
+    def _filter_excluded_test_contexts(self, included_contexts, excluded_contexts):
+        excluded_test_ids = set(map(lambda ctx: ctx.test_id, excluded_contexts))
+        return set(filter(lambda ctx: ctx.test_id not in excluded_test_ids, included_contexts))
+
+    def _add_top_level_dirs_to_sys_path(self, test_files):
+        seen_dirs = set()
+        for path in test_files:
+            dir = os.path.dirname(path)
+            while os.path.exists(os.path.join(dir, '__init__.py')):
+                dir = os.path.dirname(dir)
+            if dir not in seen_dirs:
+                sys.path.append(dir)
+                seen_dirs.add(dir)
