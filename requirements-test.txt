@@ -1,0 +1,10 @@
+pytest~=6.2.0
+# 4.0 drops py27 support
+mock==4.0.2
+psutil==5.7.2
+memory_profiler==0.57
+statistics==1.0.3.5
+requests-testadapter==0.3.0
+flake8~=4.0.0
+pytest-cov~=3.0
+pytest-xdist~=2.5
