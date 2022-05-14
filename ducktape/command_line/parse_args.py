@@ -85,7 +85,12 @@ def create_ducktape_parser():
                         help="Python module path(s) to a function that takes an exception and a remote account"
                         " that will be called when an ssh error occurs, this can give some "
                         "validation or better logging when an ssh error occurs. Specify any "
-                        "number of module paths after this flag to be called.")
+                        "number of module paths after this flag to be called."),
+    parser.add_argument("--deflake", action="store", type=int, default=1,
+                        help="the number of times a failed test should be ran in total (including its initial run) "
+                             "to determine flakyness. When not present, deflake will not be used, "
+                             "and a test will be marked as either passed or failed. "
+                             "When enabled tests will be marked as flaky if it passes on any of the reruns")
     return parser
 
 
