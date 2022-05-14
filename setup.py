@@ -32,14 +32,7 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
-test_req = [
-    'pytest==4.6.5',
-    'mock==3.0.5',
-    'psutil==5.6.3',
-    'memory_profiler==0.55',
-    'statistics==1.0.3.5',
-    'requests-testadapter==0.3.0'
-]
+test_req = open('requirements-test.txt').read()
 
 setup(name="ducktape",
       version=version,
@@ -53,26 +46,7 @@ setup(name="ducktape",
       url="http://github.com/confluentinc/ducktape",
       packages=find_packages(),
       package_data={'ducktape': ['templates/report/*']},
-      install_requires=['jinja2==2.10.1',
-                        'boto3==1.9.217',
-                        # jinja2 pulls in MarkupSafe with a > constraint, but we need to constrain it for compatibility
-                        'MarkupSafe<2.0.0',
-                        'pyparsing<3.0.0',
-                        'zipp<2.0.0',
-                        'pywinrm==0.2.2',
-                        'requests==2.22.0',
-                        'bcrypt==3.1.7',
-                        'paramiko~=2.3.2',
-                        'pysistence==0.4.1',
-                        'pyzmq==18.1.0',
-                        'pycryptodome==3.8.2',
-                        'more-itertools==5.0.0',
-                        'six==1.12.0',
-                        # for the following packages these are the last versions supporting python 2
-                        'pynacl==1.4.0',
-                        'filelock==3.2.1',
-                        'cryptography==3.3.2'
-                        ],
+      install_requires=open('requirements.txt').read(),
       tests_require=test_req,
       extras_require={'test': test_req},
       setup_requires=['flake8==3.7.8'],
