@@ -175,7 +175,8 @@ class RunnerClient(object):
             data = self.run_test()
 
             test_status = PASS
-            self.log(logging.INFO, "{} TEST".format(test_status.to_json()))
+            # test_status.to_json() simply prints PASS - str(self).upper() - so might as well just print PASS directly
+            self.log(logging.INFO, "PASS")
 
         except BaseException as e:
             # mark the test as failed before doing anything else
