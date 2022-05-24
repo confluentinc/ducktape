@@ -125,7 +125,7 @@ class RunnerClient(object):
                 if test_status == PASS and num_runs > 1:
                     test_status = FLAKY
 
-                msg = "{}".format(test_status.to_json())
+                msg = str(test_status.to_json())
                 if summary:
                     msg += ": {}".format(summary)
                 if num_runs != self.deflake_num:
