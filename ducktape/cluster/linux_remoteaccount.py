@@ -31,7 +31,7 @@ class LinuxRemoteAccount(RemoteAccount):
         This is an imperfect heuristic, but should work for simple local testing."""
         return self.hostname == "localhost" and self.user is None and self.ssh_config is None
 
-    # deprecated, please just use the remove externally routable device
+    # deprecated, please use the self.externally_routable_ip that is set in your cluster
     @deprecated
     def fetch_externally_routable_ip(self, is_aws=None):
         if is_aws is not None:
@@ -40,16 +40,17 @@ class LinuxRemoteAccount(RemoteAccount):
         devices = [
             device
             for device in self.sftp_client.listdir('/sys/class/net')
-            if device != 'lo' # do not include local device
+            if device != 'lo'  # do not include local device
+            and ("eth" in device or "ens" in device) # filter out other devices
         ]
 
         self.logger.debug("found devices: {}".format(devices))
 
-        if len(devices) == 0:
+        if not devices:
             raise RemoteAccountError("Couldn't find any network devices")
 
         fmt_cmd = (
-            "/sbin/ifconfig {device} | " 
+            "/sbin/ifconfig {device} | "
             "grep 'inet ' | "
             "tail -n 1 | "
             r"egrep -o '[0-9\.]+' | "
