@@ -129,7 +129,7 @@ class RunnerClient(object):
                 if summary:
                     msg += ": {}".format(summary)
                 if num_runs != self.deflake_num:
-                    msg += "\n" + "~" * max(len(l) for l in summary.split('\n'))
+                    msg += "\n" + "~" * max(len(line) for line in summary.split('\n'))
 
                 self.log(logging.INFO, msg)
 
