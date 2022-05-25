@@ -152,7 +152,6 @@ class RunnerClient(object):
                 start_time,
                 stop_time)
 
-            self.log(logging.INFO, "Summary: %s" % str(result.summary))
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
             result.report()
@@ -185,7 +184,6 @@ class RunnerClient(object):
             data = self.run_test()
 
             test_status = PASS
-            self.log(logging.INFO, "{} TEST".format(test_status.to_json()))
 
         except BaseException as e:
             # mark the test as failed before doing anything else
