@@ -121,11 +121,21 @@ class RunnerClient(object):
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
                 test_status, summary, data = self._do_run(num_runs)
+
+                if test_status == PASS and num_runs > 1:
+                    test_status = FLAKY
+
+                msg = str(test_status.to_json())
+                if summary:
+                    msg += ": {}".format(summary)
+                if num_runs != self.deflake_num:
+                    msg += "\n" + "~" * max(len(line) for line in summary.split('\n'))
+
+                self.log(logging.INFO, msg)
+
         finally:
             stop_time = time.time()
-            if test_status == PASS and num_runs > 1:
-                test_status = FLAKY
-            summary = "".join(summary)
+
             test_status, summary = self._check_cluster_utilization(test_status, summary)
 
             if num_runs > 1:
@@ -142,7 +152,6 @@ class RunnerClient(object):
                 start_time,
                 stop_time)
 
-            self.log(logging.INFO, "Summary: %s" % str(result.summary))
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
             result.report()
@@ -175,16 +184,12 @@ class RunnerClient(object):
             data = self.run_test()
 
             test_status = PASS
-            self.log(logging.INFO, "{} TEST".format(test_status.to_json()))
 
         except BaseException as e:
             # mark the test as failed before doing anything else
             test_status = FAIL
             err_trace = self._exc_msg(e)
             summary.append(err_trace)
-            if num_runs != self.deflake_num:
-                summary.append("~" * max(len(line) for line in err_trace.split('\n')) + "\n")
-            self.log(logging.INFO, "FAIL: " + err_trace)
 
         finally:
             for service in self.test_context.services:
@@ -202,7 +207,7 @@ class RunnerClient(object):
             if self.test:
                 self.log(logging.DEBUG, "Freeing nodes...")
                 self._do_safely(self.test.free_nodes, "Error freeing nodes:")
-            return test_status, summary, data
+            return test_status, "".join(summary), data
 
     def _check_min_cluster_spec(self):
         self.log(logging.DEBUG, "Checking if there are enough nodes...")
