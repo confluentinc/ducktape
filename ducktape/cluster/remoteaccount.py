@@ -44,7 +44,8 @@ def check_ssh(method):
 
 
 class RemoteAccountSSHConfig(object):
-    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
+    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None,
+                 connecttimeout=None, **kwargs):
         """Wrapper for ssh configs used by ducktape to connect to remote machines.
 
         The fields in this class are lowercase versions of a small selection of ssh config properties
@@ -57,6 +58,8 @@ class RemoteAccountSSHConfig(object):
         self.port = int(self.port)
         self.password = password
         self.identityfile = identityfile
+        # None is default, and it means default TCP timeout will be used.
+        self.connecttimeout = int(connecttimeout) if connecttimeout is not None else None
 
     @staticmethod
     def from_string(config_str):
@@ -188,7 +191,8 @@ class RemoteAccount(HttpMixin):
             username=self.ssh_config.user,
             password=self.ssh_config.password,
             key_filename=self.ssh_config.identityfile,
-            look_for_keys=False)
+            look_for_keys=False,
+            timeout=self.ssh_config.connecttimeout)
 
         if self._ssh_client:
             self._ssh_client.close()

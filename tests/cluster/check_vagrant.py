@@ -107,7 +107,8 @@ class CheckVagrantCluster(object):
                     "user": node_account.ssh_config.user,
                     "identityfile": node_account.ssh_config.identityfile,
                     "password": node_account.ssh_config.password,
-                    "port": node_account.ssh_config.port
+                    "port": node_account.ssh_config.port,
+                    "connecttimeout": None
                 }
             }
             for node_account in cluster._available_accounts
@@ -135,7 +136,8 @@ class CheckVagrantCluster(object):
                 "user": "vagrant",
                 "port": 2222,
                 "password": "password",
-                "identityfile": "/path/to/identfile3"
+                "identityfile": "/path/to/identfile3",
+                "connecttimeout": None
             }
         }
         nodes_expected.append(node1_expected)
@@ -148,7 +150,8 @@ class CheckVagrantCluster(object):
                 "user": "vagrant",
                 "port": 2223,
                 "password": None,
-                "identityfile": "/path/to/indentfile2"
+                "identityfile": "/path/to/indentfile2",
+                "connecttimeout": 10
             }
         }
         nodes_expected.append(node2_expected)
