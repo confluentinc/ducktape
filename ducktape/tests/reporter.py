@@ -322,11 +322,12 @@ class FailedTestSymbolReporter(SummaryReporter):
 
     def __init__(self, results):
         super().__init__(results)
+        self.working_dir = Path().absolute()
         self.separator = "=" * self.width
 
-    @staticmethod
-    def to_symbol(result):
-        line = f'{result.file_name}::{result.cls_name}.{result.function_name}'
+    def to_symbol(self, result):
+        p = Path(result.file_name).relative_to(self.working_dir)
+        line = f'{p}::{result.cls_name}.{result.function_name}'
         if result.injected_args:
             injected_args_str = json.dumps(result.injected_args, separators=(',', ':'))
             line += f'@{injected_args_str}'

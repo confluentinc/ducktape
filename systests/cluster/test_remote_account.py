@@ -124,8 +124,8 @@ class FailingTest(Test):
         assert not string_param.startswith('fail') and int_param > 0
 
     @cluster(num_nodes=1)
-    @parametrize(string_param=['success-first', 'fail-second'])
-    @parametrize(int_param=[10, -10])
+    @parametrize(string_param='success-first', int_param=10)
+    @parametrize(string_param='fail-second', int_param=-10)
     def parametrized_test(self, string_param, int_param):
         assert not string_param.startswith('fail') and int_param > 0
 
