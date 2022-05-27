@@ -35,7 +35,7 @@ def check_ssh(method):
             return method(self, *args, **kwargs)
         except (SSHException, NoValidConnectionsError, socket.error) as e:
             if self._custom_ssh_exception_checks:
-                self._log(logging.DEBUG, "caught ssh error: " + str(e))
+                self._log(logging.DEBUG, "caught ssh error", exc_info=True)
                 self._log(logging.DEBUG, "starting ssh checks:")
                 self._log(logging.DEBUG, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
                 for func in self._custom_ssh_exception_checks:
