@@ -83,7 +83,7 @@ class VagrantCluster(JsonCluster):
             account = None
             try:
                 account = JsonCluster.make_remote_account(ssh_config, ssh_exception_checks=self.ssh_exception_checks)
-                externally_routable_ip = account.fetch_externally_routable_ip(self.is_aws)
+                externally_routable_ip = account.fetch_externally_routable_ip()
             finally:
                 if account:
                     account.close()
@@ -102,18 +102,3 @@ class VagrantCluster(JsonCluster):
                                                   # Force to text mode in py2/3 compatible way
                                                   universal_newlines=True).communicate()
         return ssh_config_info, error
-
-    @property
-    def is_aws(self):
-        """Heuristic to detect whether the slave nodes are local or aws.
-
-        Return true if they are running on aws.
-        """
-        if self._is_aws is None:
-            proc = subprocess.Popen("vagrant status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    close_fds=True,
-                                    # Force to text mode in py2/3 compatible way
-                                    universal_newlines=True)
-            output, _ = proc.communicate()
-            self._is_aws = output.find("aws") >= 0
-        return self._is_aws
