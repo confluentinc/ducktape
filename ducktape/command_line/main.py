@@ -160,6 +160,11 @@ def main():
         sys.exit(1)
 
     if args_dict["collect_only"]:
+        if args_dict["total_size"]:
+            total_nodes = sum(test.expected_cluster_spec.size() for test in tests)
+            print(total_nodes)
+            sys.exit(0)
+
         print("Collected %d tests:" % len(tests))
         for test in tests:
             print("    " + str(test))

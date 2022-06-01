@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS, LINUX, NodeSpec
 from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
@@ -415,6 +415,18 @@ class TestClusterSpec(Test):
     @cluster(cluster_spec=ClusterSpec.simple_linux(2))
     def test_create_two_node_service(self):
         self.service = GenericService(self.test_context, 2)
+        for node in self.service.nodes:
+            node.account.ssh("echo hi")
+
+    @cluster(cluster_spec=ClusterSpec.from_nodes(
+        [
+            NodeSpec(operating_system=WINDOWS),
+            NodeSpec(operating_system=LINUX),
+            NodeSpec()  # this one is also linux
+        ]
+    ))
+    def three_nodes_test(self):
+        self.service = GenericService(self.test_context, 3)
         for node in self.service.nodes:
             node.account.ssh("echo hi")
 
