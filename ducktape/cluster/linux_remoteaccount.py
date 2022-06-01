@@ -35,7 +35,7 @@ class LinuxRemoteAccount(RemoteAccount):
     @deprecated
     def fetch_externally_routable_ip(self, is_aws=None):
         if is_aws is not None:
-            self.logger.warning("fetch_externally_routable_ip: is_aws is a depricated flag, and does nothing")
+            self.logger.warning("fetch_externally_routable_ip: is_aws is a deprecated flag, and does nothing")
 
         devices = [
             device
