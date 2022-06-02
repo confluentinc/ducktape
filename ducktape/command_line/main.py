@@ -166,7 +166,7 @@ def main():
         sys.exit(0)
 
     if args_dict["collect_num_nodes"]:
-        total_nodes = sum(test.expected_cluster_spec.size() for test in tests)
+        total_nodes = sum(test.expected_num_nodes for test in tests)
         print(total_nodes)
         sys.exit(0)
 
