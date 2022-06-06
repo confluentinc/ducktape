@@ -34,7 +34,6 @@ class VagrantCluster(JsonCluster):
     """
 
     def __init__(self, *args, **kwargs):
-        self._is_aws = None
         is_read_from_file = False
         self.ssh_exception_checks = kwargs.get("ssh_exception_checks")
         cluster_file = kwargs.get("cluster_file")
