@@ -30,6 +30,8 @@ def create_ducktape_parser():
     parser.add_argument('--exclude', type=str, nargs='*', default=None,
                         help='one or more space-delimited strings indicating which tests to exclude')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run.")
+    parser.add_argument("--collect-num-nodes", action="store_true",
+                        help="display total number of nodes requested by all tests, but do not run anything.")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout.")
     parser.add_argument("--config-file", action="store", default=ConsoleDefaults.USER_CONFIG_FILE,
                         help="path to project-specific configuration file.")
