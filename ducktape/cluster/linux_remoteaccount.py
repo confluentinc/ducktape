@@ -31,18 +31,33 @@ class LinuxRemoteAccount(RemoteAccount):
         This is an imperfect heuristic, but should work for simple local testing."""
         return self.hostname == "localhost" and self.user is None and self.ssh_config is None
 
+    def get_network_devices(self):
+        """
+        Utility to get all network devices on a linux account
+        """
+        return [
+            device
+            for device in self.sftp_client.listdir('/sys/class/net')
+        ]
+
+    def get_external_accessible_network_devices(self):
+        """
+        gets the subset of devices accessible through an external conenction
+        """
+        return [
+            device
+            for device in self.get_network_devices()
+            if device != 'lo'  # do not include local device
+            and ("eth" in device or "ens" in device)  # filter out other devices
+        ]
+
     # deprecated, please use the self.externally_routable_ip that is set in your cluster
     @deprecated
     def fetch_externally_routable_ip(self, is_aws=None):
         if is_aws is not None:
             self.logger.warning("fetch_externally_routable_ip: is_aws is a deprecated flag, and does nothing")
 
-        devices = [
-            device
-            for device in self.sftp_client.listdir('/sys/class/net')
-            if device != 'lo'  # do not include local device
-            and ("eth" in device or "ens" in device) # filter out other devices
-        ]
+        devices = self.get_external_accessible_network_devices()
 
         self.logger.debug("found devices: {}".format(devices))
 
