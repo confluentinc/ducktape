@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from time import time
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.test import Test
 from ducktape.mark import ignore, parametrize
@@ -30,6 +31,9 @@ class TestThingy(Test):
 
     def test_pi(self):
         return {"data": 3.14159}
+    
+    def test_delayed(self):
+        time.sleep(1)
 
     @ignore
     def test_ignore1(self):
