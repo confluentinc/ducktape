@@ -208,6 +208,7 @@ class TestRunner(object):
                         err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
                         err_str += "\n" + traceback.format_exc(limit=16)
                         self._log(logging.ERROR, err_str)
+
                         # All processes are on the same machine, so treat communication failure as a fatal error
                         for proc in self._client_procs.values():
                             proc.terminate()
