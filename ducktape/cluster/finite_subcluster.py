@@ -28,7 +28,11 @@ class FiniteSubcluster(Cluster):
         self._in_use_nodes = NodeContainer()
 
     def do_alloc(self, cluster_spec):
-        allocated = self._available_nodes.remove_spec(cluster_spec)
+        # there shouldn't be any bad nodes here,
+        # since FiniteSubcluster operates on ClusterNode objects
+        # which do not implement `available()` method,
+        # so their health won't be checked in `remove_spec`
+        allocated, _, __ = self._available_nodes.remove_spec(cluster_spec)
         self._in_use_nodes.add_nodes(allocated)
         return allocated
 

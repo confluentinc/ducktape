@@ -273,6 +273,13 @@ class RemoteAccount(HttpMixin):
             return False
 
     @check_ssh
+    def available(self):
+        try:
+            return self.ssh("echo ping") == 0
+        except Exception:
+            return False
+
+    @check_ssh
     def ssh(self, cmd, allow_fail=False):
         """Run the given command on the remote host, and block until the command has finished running.
 

@@ -138,6 +138,19 @@ class FailingTest(Test):
         assert True
 
 
+class DebugThisTest(Test):
+
+    @cluster(num_nodes=2)
+    def two_node_test(self):
+        self.service = GenericService(self.test_context, 2)
+        assert True
+
+    @cluster(num_nodes=3)
+    def three_node_test(self):
+        self.service = GenericService(self.test_context, 3)
+        assert True
+
+
 class FileSystemTest(Test):
     """
     Note that in an attempt to isolate the file system methods, validation should be done with ssh/shell commands.

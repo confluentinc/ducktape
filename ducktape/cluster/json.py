@@ -14,13 +14,18 @@
 
 from __future__ import absolute_import
 
+import logging
+from typing import Dict
+
 from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
-from ducktape.cluster.node_container import NodeContainer
+from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.utils.util import wait_until
 from .cluster import Cluster, ClusterNode
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
-from .remoteaccount import RemoteAccountSSHConfig
+from .remoteaccount import RemoteAccountSSHConfig, RemoteAccount
+from ducktape.errors import TimeoutError
 
 import json
 import os
@@ -75,8 +80,9 @@ class JsonCluster(Cluster):
 
         """
         super(JsonCluster, self).__init__()
-        self._available_accounts = NodeContainer()
-        self._in_use_nodes = NodeContainer()
+        self._available_accounts: NodeContainer = NodeContainer()
+        self._bad_accounts: NodeContainer = NodeContainer()
+        self._in_use_nodes: NodeContainer = NodeContainer()
         if cluster_json is None:
             # This is a directly instantiation of JsonCluster rather than from a subclass (e.g. VagrantCluster)
             cluster_file = kwargs.get("cluster_file")
@@ -111,12 +117,28 @@ class JsonCluster(Cluster):
             return LinuxRemoteAccount(ssh_config, *args, **kwargs)
 
     def do_alloc(self, cluster_spec):
-        allocated_accounts = self._available_accounts.remove_spec(cluster_spec)
+        allocated_accounts, bad_accounts, err = self._available_accounts.remove_spec(cluster_spec)
+
+        # if we had any bad nodes, remove them from the cluster permanently
+        # consider just returning them back to the pool
+        # pros:
+        # - if error is intermittent, then next test might be able to pick it up
+        # cons:
+        # - if error is permanent, we lose time on health checks for this node every time
+        #       we try to alloc - and with ssh timeout it might be time consuming?
+        if bad_accounts:
+            self._bad_accounts.add_nodes(bad_accounts)
+
+        if err:
+            raise InsufficientResourcesError("Not enough healthy nodes available to allocate. " + err)
+
+        # if not msg, then allocated_accounts is not empty
         allocated_nodes = []
         for account in allocated_accounts:
             allocated_nodes.append(ClusterNode(account, slot_id=self._id_supplier))
             self._id_supplier += 1
         self._in_use_nodes.add_nodes(allocated_nodes)
+
         return allocated_nodes
 
     def free_single(self, node):

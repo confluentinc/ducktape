@@ -22,6 +22,7 @@ import time
 import traceback
 import zmq
 
+from ducktape.cluster.node_container import InsufficientResourcesError
 from ducktape.tests.serde import SerDe
 from ducktape.tests.test import TestContext
 from ducktape.command_line.defaults import ConsoleDefaults
@@ -197,7 +198,23 @@ class TestRunner(object):
             try:
                 while self._ready_to_trigger_more_tests:
                     next_test_context = self.scheduler.next()
-                    self._preallocate_subcluster(next_test_context)
+                    try:
+                        self._preallocate_subcluster(next_test_context)
+                    except InsufficientResourcesError as exc:
+                        result = TestResult(
+                            next_test_context,
+                            self.test_counter,
+                            self.session_context,
+                            test_status=FAIL,
+                            summary=str(exc),
+                            start_time=time.time(),
+                            stop_time=time.time())
+                        self.results.append(result)
+                        result.report()
+
+                        self.test_counter += 1
+                        continue
+
                     self._run_single_test(next_test_context)
 
                 if self._expect_client_requests:

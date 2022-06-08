@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Dict, List
 
 from six import iteritems
 
@@ -24,7 +25,9 @@ class InsufficientResourcesError(Exception):
 
 
 class NodeContainer(object):
-    def __init__(self, nodes=None):
+    os_to_nodes: Dict = None
+
+    def __init__(self, nodes: List = None):
         """
         Create a NodeContainer with the given nodes.
 
@@ -112,16 +115,45 @@ class NodeContainer(object):
         :throws InsufficientResourcesError:     If there are not enough nodes in the NodeContainer.
                                                 Nothing will be removed unless enough are available.
         """
-        msg = self.attempt_remove_spec(cluster_spec)
-        if len(msg) > 0:
-            raise InsufficientResourcesError("Not enough nodes available to allocate. " + msg)
-        removed = []
+        err = self.attempt_remove_spec(cluster_spec)
+        if len(err) > 0:
+            raise InsufficientResourcesError("Not enough nodes available to allocate. " + err)
+
+        # TODO: what should happen in attempt_remove_spec? health checks or not
+        err = ""
+        good = []
+        bad = []
         for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
             num_nodes = len(node_specs)
+            good_per_os = []
+            bad_per_os = []
             avail_nodes = self.os_to_nodes.get(os, [])
             for i in range(0, num_nodes):
-                removed.append(avail_nodes.pop(0))
-        return removed
+                node = avail_nodes.pop(0)
+                if hasattr(node, "available"):
+                    if node.available():
+                        good_per_os.append(node)
+                    else:
+                        bad_per_os.append(node)
+                else:
+                    good_per_os.append(node)
+
+            bad.extend(bad_per_os)
+            # for node in bad_per_os:
+            #     # return bad nodes back to the cluster
+            #     self.add_node(node)
+            # if we don't have enough good linux/windows nodes to allocate
+            if len(good_per_os) < num_nodes:
+                err = err + "%s nodes requested: %d. %s healthy nodes available: %d" % \
+                      (os, num_nodes, os, len(good_per_os))
+                # if we don't have enough healthy nodes, return all good ones back to the cluster
+                for node in good_per_os:
+                    self.add_node(node)
+            else:
+                good.extend(good_per_os)
+
+        return good, bad, err
+        # return good, err
 
     def can_remove_spec(self, cluster_spec):
         """
