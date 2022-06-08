@@ -230,7 +230,7 @@ class CheckRunner(object):
         assert results.num_ignored == 0
 
     def check_runner_timeout(self):
-        """Check expected behavior when running a single test."""
+        """Check process cleanup and error handling in a parallel runner client run."""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context(max_parallel=1000, test_runner_timeout=1    )
 
