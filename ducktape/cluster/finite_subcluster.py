@@ -14,7 +14,7 @@
 
 from ducktape.cluster.cluster import Cluster
 from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.cluster.node_container import NodeContainer
+from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 
 
 class FiniteSubcluster(Cluster):
@@ -32,7 +32,13 @@ class FiniteSubcluster(Cluster):
         # since FiniteSubcluster operates on ClusterNode objects
         # which do not implement `available()` method,
         # so their health won't be checked in `remove_spec`
-        allocated, _, __ = self._available_nodes.remove_spec(cluster_spec)
+        # however there could be an error, specifically if a test decides to alloc more nodes than are available
+        # in a previous ducktape version this exception was raised by remove_spec
+        # in this one, for consistency, we let the cluster itself deal with allocation errors
+        allocated, bad, err = self._available_nodes.remove_spec(cluster_spec)
+        if err:
+            raise InsufficientResourcesError(err)
+
         self._in_use_nodes.add_nodes(allocated)
         return allocated
 

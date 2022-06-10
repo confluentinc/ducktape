@@ -272,12 +272,12 @@ class RemoteAccount(HttpMixin):
         except Exception:
             return False
 
-    @check_ssh
     def available(self):
         try:
             return self.ssh("echo ping") == 0
         except Exception:
             return False
+
 
     @check_ssh
     def ssh(self, cmd, allow_fail=False):

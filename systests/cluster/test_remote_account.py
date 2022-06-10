@@ -142,17 +142,23 @@ class DebugThisTest(Test):
 
     @cluster(num_nodes=1)
     def one_node_test(self):
-        self.service = GenericService(self.test_context, 2)
+        self.service = GenericService(self.test_context, 1)
+        self.logger.warning('one_node_test - Sleeping for 90s')
+        time.sleep(90)
         assert True
 
     @cluster(num_nodes=1)
     def another_one_node_test(self):
-        self.service = GenericService(self.test_context, 2)
+        self.service = GenericService(self.test_context, 1)
+        self.logger.warning('another_one_node_test - Sleeping for 30s')
+        time.sleep(30)
         assert True
 
     @cluster(num_nodes=1)
     def yet_another_one_node_test(self):
-        self.service = GenericService(self.test_context, 2)
+        self.service = GenericService(self.test_context, 1)
+        self.logger.warning('yet_another_one_node_test - Sleeping for 30s')
+        time.sleep(30)
         assert True
 
     @cluster(num_nodes=2)
@@ -171,22 +177,26 @@ class DebugThisTest(Test):
         assert True
 
     @cluster(num_nodes=3)
-    def hanging_three_node_test(self):
+    def another_three_node_test(self):
         self.service = GenericService(self.test_context, 3)
         self.logger.warning('Sleeping for 30s')
         time.sleep(30)
         assert True
 
-    @cluster(num_nodes=2)
-    def yet_another_two_node_test(self):
+    @cluster(num_nodes=3)
+    def hanging_three_node_test(self):
         self.service = GenericService(self.test_context, 3)
         assert True
 
     @cluster(num_nodes=2)
-    def hanging_two_node_test(self):
+    def yet_another_two_node_test(self):
+        self.service = GenericService(self.test_context, 2)
+        assert True
+
+    @cluster(num_nodes=2)
+    def bad_alloc_test(self):
+        # @cluster annotation specifies 2 nodes, but we ask for 3
         self.service = GenericService(self.test_context, 3)
-        # self.logger.warning('Sleeping for 30s')
-        # time.sleep(30)
         assert True
 
 

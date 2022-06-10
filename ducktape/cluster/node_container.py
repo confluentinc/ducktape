@@ -15,6 +15,8 @@ from typing import Dict, List
 
 from six import iteritems
 
+from ducktape.cluster.remoteaccount import RemoteAccount
+
 
 class NodeNotPresentError(Exception):
     pass
@@ -123,26 +125,33 @@ class NodeContainer(object):
             good_per_os = []
             bad_per_os = []
             avail_nodes = self.os_to_nodes.get(os, [])
-            for i in range(0, num_nodes):
-                node = avail_nodes.pop(0)
-                if hasattr(node, "available"):
-                    if node.available():
-                        good_per_os.append(node)
-                    else:
-                        bad_per_os.append(node)
-                else:
-                    good_per_os.append(node)
-
-            bad.extend(bad_per_os)
-            # if we don't have enough good linux/windows nodes to allocate,
-            # report it and don't actually allocate anything
-            if len(good_per_os) < num_nodes:
-                err = err + "%s nodes requested: %d. Healthy %s nodes available: %d" % \
+            if len(avail_nodes) < num_nodes:
+                err = err + "%s nodes requested: %d. Total %s nodes available: %d" % \
                       (os, num_nodes, os, len(good_per_os))
-                for node in good_per_os:
-                    self.add_node(node)
             else:
-                good.extend(good_per_os)
+                for i in range(0, num_nodes):
+                    node = avail_nodes.pop(0)
+                    if isinstance(node, RemoteAccount):
+                        try:
+                            if node.available():
+                                good_per_os.append(node)
+                            else:
+                                bad_per_os.append(node)
+                        finally:
+                            node.close()
+                    else:
+                        good_per_os.append(node)
+
+                bad.extend(bad_per_os)
+                # if we don't have enough good linux/windows nodes to allocate,
+                # report it and don't actually allocate anything
+                if len(good_per_os) < num_nodes:
+                    err = err + "%s nodes requested: %d. Healthy %s nodes available: %d" % \
+                          (os, num_nodes, os, len(good_per_os))
+                    for node in good_per_os:
+                        self.add_node(node)
+                else:
+                    good.extend(good_per_os)
 
         return good, bad, err
 
