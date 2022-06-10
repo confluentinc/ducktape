@@ -294,7 +294,7 @@ class RunnerClient(object):
 
 
 class Sender(object):
-    REQUEST_TIMEOUT_MS = 3000
+    REQUEST_TIMEOUT_MS = 1000
     NUM_RETRIES = 5
 
     def __init__(self, server_host, server_port, message_supplier, logger):
@@ -311,6 +311,9 @@ class Sender(object):
 
     def _init_socket(self):
         self.socket = self.zmq_context.socket(zmq.REQ)
+        # Should be able to send immediately
+        self.socket.setsockopt(zmq.SNDTIMEO, self.REQUEST_TIMEOUT_MS)
+
         self.socket.connect(self.server_endpoint)
         self.poller.register(self.socket, zmq.POLLIN)
 
