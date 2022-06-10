@@ -19,7 +19,6 @@ import multiprocessing
 import os
 import signal
 import time
-import traceback
 import zmq
 
 from ducktape.cluster.node_container import InsufficientResourcesError
@@ -118,7 +117,8 @@ class TestRunner(object):
         # This immutable dict tracks test_id -> test_context
         self._test_context = persistence.make_dict(**{t.test_id: t for t in tests})
         self._test_cluster = {}  # Track subcluster assigned to a particular TestKey
-        self._client_procs = {}  # track client processes running tests
+        # track client processes running tests
+        self._client_procs: dict[str, multiprocessing.Process] = {}
         self.active_tests = {}
         self.finished_tests = {}
         self.test_schedule_log = []
@@ -234,7 +234,8 @@ class TestRunner(object):
                         self._handle(event)
                     except Exception as e:
                         err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
-                        err_str += "\n" + traceback.format_exc(limit=16)
+                        # this is redundant output
+                        # err_str += "\n" + traceback.format_exc(limit=16)
                         self._log(logging.ERROR, err_str)
 
                         # All processes are on the same machine, so treat communication failure as a fatal error
