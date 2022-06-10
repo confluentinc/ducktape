@@ -115,11 +115,6 @@ class NodeContainer(object):
         :throws InsufficientResourcesError:     If there are not enough nodes in the NodeContainer.
                                                 Nothing will be removed unless enough are available.
         """
-        err = self.attempt_remove_spec(cluster_spec)
-        if len(err) > 0:
-            raise InsufficientResourcesError("Not enough nodes available to allocate. " + err)
-
-        # TODO: what should happen in attempt_remove_spec? health checks or not
         err = ""
         good = []
         bad = []
@@ -139,21 +134,17 @@ class NodeContainer(object):
                     good_per_os.append(node)
 
             bad.extend(bad_per_os)
-            # for node in bad_per_os:
-            #     # return bad nodes back to the cluster
-            #     self.add_node(node)
-            # if we don't have enough good linux/windows nodes to allocate
+            # if we don't have enough good linux/windows nodes to allocate,
+            # report it and don't actually allocate anything
             if len(good_per_os) < num_nodes:
-                err = err + "%s nodes requested: %d. %s healthy nodes available: %d" % \
+                err = err + "%s nodes requested: %d. Healthy %s nodes available: %d" % \
                       (os, num_nodes, os, len(good_per_os))
-                # if we don't have enough healthy nodes, return all good ones back to the cluster
                 for node in good_per_os:
                     self.add_node(node)
             else:
                 good.extend(good_per_os)
 
         return good, bad, err
-        # return good, err
 
     def can_remove_spec(self, cluster_spec):
         """

@@ -98,6 +98,7 @@ class TestRunner(object):
         # session_logger, message logger,
         self.session_logger = session_logger
         self.cluster = cluster
+        self.cluster_size = len(self.cluster)
         self.event_response = EventResponseFactory()
         self.hostname = "localhost"
         self.receiver = Receiver(min_port, max_port)
@@ -162,34 +163,48 @@ class TestRunner(object):
     def _expect_client_requests(self):
         return len(self.active_tests) > 0
 
+    def _report_unschedulable(self, unschedulable, err_msg=None):
+        if not unschedulable:
+            return
+
+        self._log(logging.ERROR,
+                  "There are %d tests which cannot be run due to insufficient cluster resources" %
+                  len(unschedulable))
+        for tc in unschedulable:
+            if err_msg:
+                msg = err_msg
+            else:
+                msg = "Test %s requires more resources than are available in the whole cluster. " % tc.test_id
+                msg += self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)
+
+            self._log(logging.ERROR, msg)
+
+            result = TestResult(
+                tc,
+                self.test_counter,
+                self.session_context,
+                test_status=FAIL,
+                summary=msg,
+                start_time=time.time(),
+                stop_time=time.time())
+            self.results.append(result)
+            result.report()
+
+            self.test_counter += 1
+
+    def _check_cluster_size_changed(self):
+        new_cluster_size = len(self.cluster)
+        if new_cluster_size < self.cluster_size:
+            # cluster was shrunk, check if there are tests that can no longer be scheduled on the new cluster size
+            self.cluster_size = new_cluster_size
+            self._report_unschedulable(self.scheduler.filter_unschedulable_tests())
+
     def run_all_tests(self):
         self.receiver.start()
         self.results.start_time = time.time()
 
         # Report tests which cannot be run
-        if len(self.scheduler.unschedulable) > 0:
-            self._log(logging.ERROR,
-                      "There are %d tests which cannot be run due to insufficient cluster resources" %
-                      len(self.scheduler.unschedulable))
-
-            for tc in self.scheduler.unschedulable:
-                msg = "Test %s requires more resources than are available in the whole cluster. " % tc.test_id
-                msg += self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)
-
-                self._log(logging.ERROR, msg)
-
-                result = TestResult(
-                    tc,
-                    self.test_counter,
-                    self.session_context,
-                    test_status=FAIL,
-                    summary=msg,
-                    start_time=time.time(),
-                    stop_time=time.time())
-                self.results.append(result)
-                result.report()
-
-                self.test_counter += 1
+        self._report_unschedulable(self.scheduler.filter_unschedulable_tests())
 
         # Run the tests!
         self._log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
@@ -197,24 +212,22 @@ class TestRunner(object):
         while self._ready_to_trigger_more_tests or self._expect_client_requests:
             try:
                 while self._ready_to_trigger_more_tests:
-                    next_test_context = self.scheduler.next()
+                    # check if the cluster size changed between tests
+                    # which could make more tests unschedulable
+                    self._check_cluster_size_changed()
+                    next_test_context = self.scheduler.peek()
                     try:
                         self._preallocate_subcluster(next_test_context)
                     except InsufficientResourcesError as exc:
-                        result = TestResult(
-                            next_test_context,
-                            self.test_counter,
-                            self.session_context,
-                            test_status=FAIL,
-                            summary=str(exc),
-                            start_time=time.time(),
-                            stop_time=time.time())
-                        self.results.append(result)
-                        result.report()
-
-                        self.test_counter += 1
+                        # We were not able to allocate the subcluster for this test,
+                        # this means not enough nodes passed health check.
+                        # Don't mark this test as failed just yet, some other test might finish running and
+                        # free up healthy nodes.
+                        # We'll check if it becomes unschedulable in `_check_cluster_size_changed()`
                         continue
 
+                    # only remove the test from the scheduler when we have successfully allocated a subcluster for it
+                    self.scheduler.remove(next_test_context)
                     self._run_single_test(next_test_context)
 
                 if self._expect_client_requests:
