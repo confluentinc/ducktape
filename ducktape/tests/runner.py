@@ -66,10 +66,12 @@ class Receiver(object):
             # use default value of 1800000 or 30 minutes
             timeout = 1800000
         self.socket.RCVTIMEO = timeout
+        t_0 = time.time()
         try:
             message = self.socket.recv()
         except zmq.Again:
-            raise TimeoutError("runner client unresponsive")
+            t_x = time.time()
+            raise TimeoutError(f"runner client unresponsive after {t_x - t_0:.2f} seconds.")
         return self.serde.deserialize(message)
 
     def send(self, event):
