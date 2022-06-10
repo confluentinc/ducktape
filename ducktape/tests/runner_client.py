@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import faulthandler
 import logging
 import os
 import signal
@@ -45,6 +46,8 @@ class RunnerClient(object):
     def __init__(self, server_hostname, server_port, test_id,
                  test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization, deflake_num):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
+        # for debugging stuck processes
+        faulthandler.register(signal.SIGUSR1)
 
         self.serde = SerDe()
         self.logger = test_logger(logger_name, log_dir, debug)
