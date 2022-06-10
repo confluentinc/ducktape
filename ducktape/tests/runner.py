@@ -38,6 +38,8 @@ from ducktape.errors import TimeoutError
 
 
 class Receiver(object):
+    LINGER_MS = 500
+
     def __init__(self, min_port, max_port):
         assert min_port <= max_port, "Expected min_port <= max_port, but instead: min_port: %s, max_port %s" % \
                                      (min_port, max_port)
@@ -49,6 +51,8 @@ class Receiver(object):
 
         self.zmq_context = zmq.Context()
         self.socket = self.zmq_context.socket(zmq.REP)
+        # Set a reasonable linger time to help with unclean shutdown
+        self.socket.setsockopt(zmq.LINGER, self.LINGER_MS)
 
     def start(self):
         """Bind to a random port in the range [self.min_port, self.max_port], inclusive
@@ -72,7 +76,6 @@ class Receiver(object):
         self.socket.send(self.serde.serialize(event))
 
     def close(self):
-        self.socket.setsockopt(zmq.LINGER, 0)
         self.socket.close()
 
 
