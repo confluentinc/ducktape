@@ -98,6 +98,7 @@ class TestRunner(object):
         # handler is inherited by all forked child processes, and it prevents the default python behavior
         # of translating SIGINT into a KeyboardInterrupt exception
         signal.signal(signal.SIGTERM, self._propagate_sigterm)
+        signal.signal(signal.SIGUSR1, self._propagate_sigusr1)
 
         # session_logger, message logger,
         self.session_logger = session_logger
@@ -127,6 +128,16 @@ class TestRunner(object):
         self.active_tests = {}
         self.finished_tests = {}
         self.test_schedule_log = []
+
+    def _propagate_sigusr1(self, signum, frame):
+        """ Propagate SIGUSR1 to all client processes. """
+        if os.getpid() != self.main_process_pid:
+            return
+
+        for p in self._client_procs.values():
+            assert p.pid != os.getpid(), "Signal handler unexpected in client subprocess."
+            if p.is_alive():
+                os.kill(p.pid, signal.SIGUSR1)
 
     def _propagate_sigterm(self, signum, frame):
         """Handler SIGTERM and SIGINT by propagating SIGTERM to all client processes.
