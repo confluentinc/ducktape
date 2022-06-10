@@ -197,6 +197,7 @@ class DebugThisTest(Test):
     def bad_alloc_test(self):
         # @cluster annotation specifies 2 nodes, but we ask for 3
         self.service = GenericService(self.test_context, 3)
+        time.sleep(10)
         assert True
 
 

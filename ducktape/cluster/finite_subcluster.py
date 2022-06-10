@@ -37,7 +37,7 @@ class FiniteSubcluster(Cluster):
         # in this one, for consistency, we let the cluster itself deal with allocation errors
         allocated, bad, err = self._available_nodes.remove_spec(cluster_spec)
         if err:
-            raise InsufficientResourcesError(err)
+            raise InsufficientResourcesError("Not enough nodes available to allocate. " + err)
 
         self._in_use_nodes.add_nodes(allocated)
         return allocated
