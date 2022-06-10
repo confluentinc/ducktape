@@ -18,12 +18,17 @@ import importlib
 import json
 import os
 import random
+import signal
+from time import sleep
+from typing import Optional
 from six import iteritems
 import sys
 import traceback
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
+from ducktape.errors import TimeoutError
+from ducktape.tests.result import TestResults
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.loggermaker import close_logger
 from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, \
@@ -189,7 +194,26 @@ def main():
         session_logger.warning("specified number of deflake runs specified to be less than 1, running without deflake.")
     deflake_num = max(1, deflake_num)
     runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
-    test_results = runner.run_all_tests()
+
+    # Detect hung tests
+    test_results: Optional[TestResults] = None
+    try:
+        test_results = runner.run_all_tests()
+    except TimeoutError as e:
+        print(f"Timeout: assuming hung test.\n{e}")
+        for p in runner._client_procs.values():
+            assert p.pid != os.getpid(), "Main pid shouldn't be in client_procs"
+            if p.is_alive():
+                print(f"Hung test stacktrace: Sending SIGUSR1 to child pid {p.pid}")
+                os.kill(p.pid, signal.SIGUSR1)
+
+        sleep(0.2)  # wait for signal handlers to print, might not be necessary?
+        # try to force stuck clients to do cleanup and exit
+        for p in runner._client_procs.values():
+            if p.is_alive():
+                print(f"Sending SIGINT to child pid {p.pid}")
+                os.kill(p.pid, signal.SIGINT)
+                p.join()
 
     # Report results
     reporters = [
@@ -200,12 +224,26 @@ def main():
         JUnitReporter(test_results),
         FailedTestSymbolReporter(test_results)
     ]
+=======
+    runner = TestRunner(cluster, session_context, session_logger, tests)
+
+    # Report results
+    reporters: list[SummaryReporter] = []
+    if test_results:
+        reporters += [
+            SimpleStdoutSummaryReporter(test_results),
+            SimpleFileSummaryReporter(test_results),
+            HTMLSummaryReporter(test_results),
+            JSONReporter(test_results),
+            JUnitReporter(test_results)
+        ]
+>>>>>>> 80360b1 (main: Add debugging for hung tests)
 
     for r in reporters:
         r.report()
 
     update_latest_symlink(args_dict["results_root"], results_dir)
     close_logger(session_logger)
-    if not test_results.get_aggregate_success():
+    if not (test_results and test_results.get_aggregate_success()):
         # Non-zero exit if at least one test failed
         sys.exit(1)
