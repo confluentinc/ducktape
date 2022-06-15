@@ -18,4 +18,6 @@ pynacl==1.4.0
 filelock==3.2.1
 cryptography==3.3.2
 certifi==2020.04.05.1
+# xmltodict is required for pywinrm, but as they didn't pin their python2 version, we have to
+xmltodict==0.12.0
 Python-Deprecated~=1.1.0
