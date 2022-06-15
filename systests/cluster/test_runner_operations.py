@@ -11,14 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS, LINUX, NodeSpec
 from ducktape.services.service import Service
 from ducktape.tests.test import Test
-from ducktape.errors import TimeoutError
 from ducktape.mark.resource import cluster
 import time
-
-
 
 
 class SimpleEchoService(Service):
@@ -37,6 +33,7 @@ class SimpleEchoService(Service):
     def echo(self):
         self.nodes[0].account.ssh("echo {} >> /tmp/log".format(self.count))
         self.count += 1
+
 
 class SimpleRunnerTest(Test):
     def setup(self):

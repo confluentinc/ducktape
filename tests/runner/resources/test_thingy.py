@@ -31,7 +31,7 @@ class TestThingy(Test):
 
     def test_pi(self):
         return {"data": 3.14159}
-    
+
     def test_delayed(self):
         time.sleep(1)
 

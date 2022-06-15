@@ -232,7 +232,7 @@ class CheckRunner(object):
     def check_runner_timeout(self):
         """Check process cleanup and error handling in a parallel runner client run."""
         mock_cluster = LocalhostCluster(num_nodes=1000)
-        session_context = tests.ducktape_mock.session_context(max_parallel=1000, test_runner_timeout=1    )
+        session_context = tests.ducktape_mock.session_context(max_parallel=1000, test_runner_timeout=1)
 
         test_methods = [TestThingy.test_delayed, TestThingy.test_failure]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
@@ -240,6 +240,6 @@ class CheckRunner(object):
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         with pytest.raises(TimeoutError):
-            results = runner.run_all_tests()
+            runner.run_all_tests()
 
         assert not runner._client_procs
