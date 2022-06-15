@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from deprecated import deprecated
 from ducktape.cluster.cluster_spec import LINUX
 from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountError
 
@@ -51,8 +50,8 @@ class LinuxRemoteAccount(RemoteAccount):
             and ("eth" in device or "ens" in device)  # filter out other devices
         ]
 
-    # deprecated, please use the self.externally_routable_ip that is set in your cluster
-    @deprecated
+    # deprecated, please use the self.externally_routable_ip that is set in your cluster,
+    # not explicitly deprecating it as it's used by vagrant cluster
     def fetch_externally_routable_ip(self, is_aws=None):
         if is_aws is not None:
             self.logger.warning("fetch_externally_routable_ip: is_aws is a deprecated flag, and does nothing")
