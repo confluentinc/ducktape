@@ -28,10 +28,9 @@ class FiniteSubcluster(Cluster):
         self._in_use_nodes = NodeContainer()
 
     def do_alloc(self, cluster_spec):
-        # there shouldn't be any bad nodes here,
-        # since FiniteSubcluster operates on ClusterNode objects
-        # which do not implement `available()` method,
-        # so their health won't be checked in `remove_spec`
+        # there cannot be any bad nodes here,
+        # since FiniteSubcluster operates on ClusterNode objects,
+        # which are not checked for health by NodeContainer.remove_spec
         # however there could be an error, specifically if a test decides to alloc more nodes than are available
         # in a previous ducktape version this exception was raised by remove_spec
         # in this one, for consistency, we let the cluster itself deal with allocation errors

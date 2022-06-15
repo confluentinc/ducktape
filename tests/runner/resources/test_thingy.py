@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.test import Test
@@ -59,3 +60,42 @@ class ClusterTestThingy(Test):
     @cluster(num_nodes=0)
     def test_good_num_nodes(self):
         pass
+
+
+class SchedulerTestThingy(Test):
+    """
+    Allocates various number of nodes.
+    """
+
+    @cluster(num_nodes=5)
+    def test_five_nodes_a(self):
+        assert True
+
+    @cluster(num_nodes=5)
+    def test_five_nodes_b(self):
+        assert True
+
+    @cluster(num_nodes=4)
+    def test_four_nodes(self):
+        assert True
+
+    @cluster(num_nodes=3)
+    def test_three_nodes_asleep(self):
+        time.sleep(3)
+        assert True
+
+    @cluster(num_nodes=3)
+    def test_three_nodes_a(self):
+        assert True
+
+    @cluster(num_nodes=3)
+    def test_three_nodes_b(self):
+        assert True
+
+    @cluster(num_nodes=2)
+    def test_two_nodes_a(self):
+        assert True
+
+    @cluster(num_nodes=2)
+    def test_two_nodes_b(self):
+        assert True

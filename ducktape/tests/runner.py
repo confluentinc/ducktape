@@ -122,6 +122,7 @@ class TestRunner(object):
         self._client_procs = {}  # track client processes running tests
         self.active_tests = {}
         self.finished_tests = {}
+        self.test_schedule_log = []
 
     def _propagate_sigterm(self, signum, frame):
         """Handler SIGTERM and SIGINT by propagating SIGTERM to all client processes.
@@ -262,6 +263,7 @@ class TestRunner(object):
         # Test is considered "active" as soon as we start it up in a subprocess
         test_key = TestKey(test_context.test_id, current_test_counter)
         self.active_tests[test_key] = True
+        self.test_schedule_log.append(test_key)
 
         proc = multiprocessing.Process(
             target=run_client,
