@@ -316,6 +316,33 @@ class CheckRunner(object):
         actual_scheduling_order = [x.test_id for x in runner.test_schedule_log]
         assert actual_scheduling_order == expected_scheduling_order
 
+    def check_cluster_shrink_to_zero(self):
+        """
+        Validates that if the cluster is shrunk to zero nodes size, no tests can run but
+        we still exit gracefully.
+        """
+
+        mock_cluster = ShrinkingLocalhostCluster(num_nodes=1, shrink_on=1)
+        session_context = tests.ducktape_mock.session_context(max_parallel=10)
+
+        test_methods = [
+            SchedulerTestThingy.test_one_node_a,
+            SchedulerTestThingy.test_one_node_b,
+        ]
+
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=SchedulerTestThingy,
+                                   test_methods=test_methods, cluster=mock_cluster,
+                                   session_context=session_context)
+
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+
+        assert len(results) == 2
+        assert results.num_flaky == 0
+        assert results.num_failed == 2
+        assert results.num_passed == 0
+        assert results.num_ignored == 0
+
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
 

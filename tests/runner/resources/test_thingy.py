@@ -99,3 +99,11 @@ class SchedulerTestThingy(Test):
     @cluster(num_nodes=2)
     def test_two_nodes_b(self):
         assert True
+
+    @cluster(num_nodes=1)
+    def test_one_node_a(self):
+        assert True
+
+    @cluster(num_nodes=1)
+    def test_one_node_b(self):
+        assert True

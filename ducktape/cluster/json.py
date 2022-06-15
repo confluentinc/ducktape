@@ -32,11 +32,20 @@ import os
 import traceback
 
 
+def make_remote_account(ssh_config, *args, **kwargs):
+    """Factory function for creating the correct RemoteAccount implementation."""
+
+    if ssh_config.host and WINDOWS in ssh_config.host:
+        return WindowsRemoteAccount(ssh_config, *args, **kwargs)
+    else:
+        return LinuxRemoteAccount(ssh_config, *args, **kwargs)
+
+
 class JsonCluster(Cluster):
     """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
-    def __init__(self, cluster_json=None, *args, **kwargs):
+    def __init__(self, cluster_json=None, make_remote_account_func=make_remote_account, *args, **kwargs):
         """Initialize JsonCluster
 
         JsonCluster can be initialized from:
@@ -97,8 +106,8 @@ class JsonCluster(Cluster):
 
                 ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
                 remote_account = \
-                    JsonCluster.make_remote_account(ssh_config, ninfo.get("externally_routable_ip"),
-                                                    ssh_exception_checks=kwargs.get("ssh_exception_checks"))
+                    make_remote_account_func(ssh_config, ninfo.get("externally_routable_ip"),
+                                             ssh_exception_checks=kwargs.get("ssh_exception_checks"))
                 if remote_account.externally_routable_ip is None:
                     remote_account.externally_routable_ip = self._externally_routable_ip(remote_account)
                 self._available_accounts.add_node(remote_account)
@@ -106,15 +115,6 @@ class JsonCluster(Cluster):
             msg = "JSON cluster definition invalid: %s: %s" % (e, traceback.format_exc(limit=16))
             raise ValueError(msg)
         self._id_supplier = 0
-
-    @staticmethod
-    def make_remote_account(ssh_config, *args, **kwargs):
-        """Factory function for creating the correct RemoteAccount implementation."""
-
-        if ssh_config.host and WINDOWS in ssh_config.host:
-            return WindowsRemoteAccount(ssh_config, *args, **kwargs)
-        else:
-            return LinuxRemoteAccount(ssh_config, *args, **kwargs)
 
     def do_alloc(self, cluster_spec):
         allocated_accounts, bad_accounts, err = self._available_accounts.remove_spec(cluster_spec)

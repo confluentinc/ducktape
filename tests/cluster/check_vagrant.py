@@ -19,6 +19,8 @@ import pickle
 import os
 import random
 
+from tests.runner.fake_remote_account import create_fake_remote_account
+
 TWO_HOSTS = """Host worker1
   HostName 127.0.0.1
   User vagrant
@@ -42,6 +44,10 @@ Host worker2
   LogLevel FATAL
 
 """
+
+
+def make_vagrant_cluster(*args, **kwargs):
+    return VagrantCluster(make_remote_account_func=create_fake_remote_account, *args, **kwargs)
 
 
 class CheckVagrantCluster(object):
@@ -75,7 +81,7 @@ class CheckVagrantCluster(object):
         """
         self._set_monkeypatch_attr(monkeypatch)
 
-        cluster = VagrantCluster()
+        cluster = make_vagrant_cluster()
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
         node1, node2 = cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
@@ -96,7 +102,7 @@ class CheckVagrantCluster(object):
         self._set_monkeypatch_attr(monkeypatch)
         assert not os.path.exists(self.cluster_file)
 
-        cluster = VagrantCluster(cluster_file=self.cluster_file)
+        cluster = make_vagrant_cluster(cluster_file=self.cluster_file)
         cluster_json_expected = {}
         nodes = [
             {
@@ -162,7 +168,7 @@ class CheckVagrantCluster(object):
                   indent=2, separators=(',', ': '), sort_keys=True)
 
         # Load the cluster from the json file we just created
-        cluster = VagrantCluster(cluster_file=self.cluster_file)
+        cluster = make_vagrant_cluster(cluster_file=self.cluster_file)
 
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2

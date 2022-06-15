@@ -213,9 +213,6 @@ class TestRunner(object):
         while self._ready_to_trigger_more_tests or self._expect_client_requests:
             try:
                 while self._ready_to_trigger_more_tests:
-                    # check if the cluster size changed between tests
-                    # which could make more tests unschedulable
-                    self._check_cluster_size_changed()
                     next_test_context = self.scheduler.peek()
                     try:
                         self._preallocate_subcluster(next_test_context)
@@ -224,7 +221,10 @@ class TestRunner(object):
                         # this means not enough nodes passed health check.
                         # Don't mark this test as failed just yet, some other test might finish running and
                         # free up healthy nodes.
-                        # We'll check if it becomes unschedulable in `_check_cluster_size_changed()`
+                        #
+                        # But if the cluster size changed between tests
+                        # this can make more tests unschedulable
+                        self._check_cluster_size_changed()
                         continue
 
                     # only remove the test from the scheduler when we have successfully allocated a subcluster for it
