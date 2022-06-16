@@ -144,6 +144,11 @@ def main():
             print("    " + str(test))
         sys.exit(0)
 
+    if args_dict["collect_num_nodes"]:
+        total_nodes = sum(test.expected_num_nodes for test in tests)
+        print(total_nodes)
+        sys.exit(0)
+
     if args_dict["sample"]:
         print("Running a sample of %d tests" % args_dict["sample"])
         try:

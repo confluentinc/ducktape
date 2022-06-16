@@ -14,6 +14,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.test import TestContext
@@ -28,7 +30,7 @@ from tests.runner.resources.test_fails_to_init_in_setup import FailsToInitInSetu
 from .resources.test_thingy import ClusterTestThingy, TestThingy, SchedulerTestThingy
 from .resources.test_failing_tests import FailingTest
 from ducktape.tests.reporter import JUnitReporter
-
+from ducktape.errors import TimeoutError
 
 from mock import Mock
 import os
@@ -221,6 +223,21 @@ class CheckRunner(object):
         assert results.num_failed == 1
         assert results.num_passed == 1
         assert results.num_ignored == 0
+
+    def check_runner_timeout(self):
+        """Check process cleanup and error handling in a parallel runner client run."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(max_parallel=1000, test_runner_timeout=1)
+
+        test_methods = [TestThingy.test_delayed, TestThingy.test_failure]
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        with pytest.raises(TimeoutError):
+            runner.run_all_tests()
+
+        assert not runner._client_procs
 
     def check_cluster_shrink(self):
         """
