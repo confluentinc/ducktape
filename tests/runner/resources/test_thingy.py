@@ -13,7 +13,6 @@
 # limitations under the License.
 import time
 
-from time import time
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.test import Test
 from ducktape.mark import ignore, parametrize
