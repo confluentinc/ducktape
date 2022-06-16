@@ -294,7 +294,7 @@ class CheckRunner(object):
         """
 
         mock_cluster = ShrinkingLocalhostCluster(num_nodes=6, shrink_on=2)
-        session_context = tests.ducktape_mock.session_context(max_parallel=10, debug=True, test_runner_timeout=3600000)
+        session_context = tests.ducktape_mock.session_context(max_parallel=10)
 
         test_methods = [
             SchedulerTestThingy.test_three_nodes_asleep,
