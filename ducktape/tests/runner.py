@@ -193,19 +193,15 @@ class TestRunner(object):
 
             self.test_counter += 1
 
-    def _check_cluster_size_changed(self):
-        new_cluster_size = len(self.cluster)
-        if new_cluster_size < self.cluster_size:
-            # cluster was shrunk, check if there are tests that can no longer be scheduled on the new cluster size
-            self.cluster_size = new_cluster_size
-            self._report_unschedulable(self.scheduler.filter_unschedulable_tests())
+    def _check_unschedulable(self):
+        self._report_unschedulable(self.scheduler.filter_unschedulable_tests())
 
     def run_all_tests(self):
         self.receiver.start()
         self.results.start_time = time.time()
 
         # Report tests which cannot be run
-        self._report_unschedulable(self.scheduler.filter_unschedulable_tests())
+        self._check_unschedulable()
 
         # Run the tests!
         self._log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
@@ -221,10 +217,9 @@ class TestRunner(object):
                         # this means not enough nodes passed health check.
                         # Don't mark this test as failed just yet, some other test might finish running and
                         # free up healthy nodes.
-                        #
-                        # But if the cluster size changed between tests
-                        # this can make more tests unschedulable
-                        self._check_cluster_size_changed()
+                        # However, if some nodes failed, cluster size changed too, so we need to check if
+                        # there are any tests that can no longer be scheduled.
+                        self._check_unschedulable()
                         continue
 
                     # only remove the test from the scheduler when we have successfully allocated a subcluster for it

@@ -222,7 +222,7 @@ class CheckRunner(object):
         assert results.num_passed == 1
         assert results.num_ignored == 0
 
-    def check_cluster_shrink_mid_test(self):
+    def check_cluster_shrink(self):
         """
         Check what happens if cluster loses a node while the runner is already running.
         SchedulerTestThingy has two 5-node tests, and one of each for 4, 3, and 2 nodes.
@@ -318,8 +318,8 @@ class CheckRunner(object):
 
     def check_cluster_shrink_to_zero(self):
         """
-        Validates that if the cluster is shrunk to zero nodes size, no tests can run but
-        we still exit gracefully.
+        Validates that if the cluster is shrunk to zero nodes size, no tests can run,
+        but we still exit gracefully.
         """
 
         mock_cluster = ShrinkingLocalhostCluster(num_nodes=1, shrink_on=1)
@@ -373,7 +373,3 @@ class ShrinkingLocalhostCluster(LocalhostCluster):
                 raise InsufficientResourcesError("yeah")
 
         return allocated
-
-
-
-

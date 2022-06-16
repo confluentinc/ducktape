@@ -27,10 +27,13 @@ FakeContext = collections.namedtuple('FakeContext', ['test_id', 'expected_num_no
 class CheckScheduler(object):
     def setup_method(self, _):
         self.cluster = FakeCluster(100)
+        self.tc0 = FakeContext(0, expected_num_nodes=10, expected_cluster_spec=ClusterSpec.simple_linux(10))
+        self.tc1 = FakeContext(1, expected_num_nodes=50, expected_cluster_spec=ClusterSpec.simple_linux(50))
+        self.tc2 = FakeContext(2, expected_num_nodes=100, expected_cluster_spec=ClusterSpec.simple_linux(100))
         self.tc_list = [
-            FakeContext(0, expected_num_nodes=10, expected_cluster_spec=ClusterSpec.simple_linux(10)),
-            FakeContext(1, expected_num_nodes=50, expected_cluster_spec=ClusterSpec.simple_linux(50)),
-            FakeContext(2, expected_num_nodes=100, expected_cluster_spec=ClusterSpec.simple_linux(100)),
+            self.tc0,
+            self.tc1,
+            self.tc2,
         ]
 
     def check_empty(self):
@@ -80,7 +83,7 @@ class CheckScheduler(object):
         nodes = self.cluster.alloc(Service.setup_cluster_spec(num_nodes=60))
         assert self.cluster.num_available_nodes() == 40
         t = scheduler.peek()
-        assert t.test_id == 0
+        assert t == self.tc0
         scheduler.remove(t)
         assert scheduler.peek() is None
 
@@ -91,7 +94,7 @@ class CheckScheduler(object):
         self.cluster.free(return_nodes)
         assert self.cluster.num_available_nodes() == 50
         t = scheduler.peek()
-        assert t.test_id == 1
+        assert t == self.tc1
         scheduler.remove(t)
         assert scheduler.peek() is None
 
@@ -101,8 +104,19 @@ class CheckScheduler(object):
         self.cluster.free(return_nodes)
         assert self.cluster.num_available_nodes() == len(self.cluster)
         t = scheduler.peek()
-        assert t.test_id == 2
+        assert t == self.tc2
         scheduler.remove(t)
         # scheduler should become empty now
         assert len(scheduler) == 0
         assert scheduler.peek() is None
+
+    def check_filter_unschedulable_tests(self):
+        self.cluster = FakeCluster(49)  # only test id 0 can be scheduled on this cluster
+        scheduler = TestScheduler(self.tc_list, self.cluster)
+
+        unschedulable = scheduler.filter_unschedulable_tests()
+        assert set(unschedulable) == {self.tc1, self.tc2}
+        # subsequent calls should return empty list and not modify scheduler
+        assert not scheduler.filter_unschedulable_tests()
+        assert scheduler.peek() == self.tc0
+
