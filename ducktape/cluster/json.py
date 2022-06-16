@@ -14,18 +14,14 @@
 
 from __future__ import absolute_import
 
-import logging
-from typing import Dict
 
 from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.command_line.defaults import ConsoleDefaults
-from ducktape.utils.util import wait_until
 from .cluster import Cluster, ClusterNode
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
-from .remoteaccount import RemoteAccountSSHConfig, RemoteAccount
-from ducktape.errors import TimeoutError
+from .remoteaccount import RemoteAccountSSHConfig
 
 import json
 import os

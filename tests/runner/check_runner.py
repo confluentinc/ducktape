@@ -304,7 +304,6 @@ class CheckRunner(object):
         # however the cluster would shrink to 5 nodes after scheduling the first 3-node test,
         # leaving no space for the second 3-node test to be scheduled, bumping it down the line,
         # while two 2-node tests will be scheduled alongside the
-        prefix = "SchedulerTestThingy"
         expected_scheduling_order = [
             "SchedulerTestThingy.test_three_nodes_asleep",
             "SchedulerTestThingy.test_two_nodes_a",

@@ -14,7 +14,6 @@
 
 
 import collections
-import pytest
 
 from ducktape.cluster.cluster_spec import ClusterSpec
 from tests.ducktape_mock import FakeCluster
@@ -119,4 +118,3 @@ class CheckScheduler(object):
         # subsequent calls should return empty list and not modify scheduler
         assert not scheduler.filter_unschedulable_tests()
         assert scheduler.peek() == self.tc0
-

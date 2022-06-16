@@ -127,7 +127,7 @@ class NodeContainer(object):
             avail_nodes = self.os_to_nodes.get(os, [])
             if len(avail_nodes) < num_nodes:
                 err = err + "%s nodes requested: %d. Total %s nodes available: %d" % \
-                      (os, num_nodes, os, len(avail_nodes))
+                  (os, num_nodes, os, len(avail_nodes))
             else:
                 for i in range(0, num_nodes):
                     node = avail_nodes.pop(0)
@@ -147,7 +147,7 @@ class NodeContainer(object):
                 # report it and don't actually allocate anything
                 if len(good_per_os) < num_nodes:
                     err = err + "%s nodes requested: %d. Healthy %s nodes available: %d" % \
-                          (os, num_nodes, os, len(good_per_os))
+                      (os, num_nodes, os, len(good_per_os))
                     for node in good_per_os:
                         self.add_node(node)
                 else:
