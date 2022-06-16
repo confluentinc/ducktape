@@ -98,7 +98,6 @@ class TestRunner(object):
         # session_logger, message logger,
         self.session_logger = session_logger
         self.cluster = cluster
-        self.cluster_size = len(self.cluster)
         self.event_response = EventResponseFactory()
         self.hostname = "localhost"
         self.receiver = Receiver(min_port, max_port)
