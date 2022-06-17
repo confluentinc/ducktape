@@ -80,6 +80,9 @@ class RunnerClient(object):
 
     def _collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
         loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)
+        # TODO: deal with this in a more graceful fashion.
+        #       In an unlikely even that discover either raises the exception or fails to find exactly one test
+        #       we should probably continue trying other tests rather than killing this process
         loaded_context_list = loader.discover(directory, file_name, cls_name, method_name)
 
         assert len(loaded_context_list) == 1

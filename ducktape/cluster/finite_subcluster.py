@@ -14,7 +14,7 @@
 
 from ducktape.cluster.cluster import Cluster
 from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError, RemoveSpecResult
+from ducktape.cluster.node_container import NodeContainer, RemoveSpecResult
 
 
 class FiniteSubcluster(Cluster):

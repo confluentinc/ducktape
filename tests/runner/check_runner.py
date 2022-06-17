@@ -18,6 +18,7 @@ import pytest
 
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
+from ducktape.tests.status import PASS, FAIL
 from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
@@ -27,7 +28,8 @@ from tests.ducktape_mock import FakeCluster
 import tests.ducktape_mock
 from tests.runner.resources.test_fails_to_init import FailsToInitTest
 from tests.runner.resources.test_fails_to_init_in_setup import FailsToInitInSetupTest
-from .resources.test_thingy import ClusterTestThingy, TestThingy, SchedulerTestThingy
+from .resources.test_bad_actor import BadActorTest
+from .resources.test_thingy import ClusterTestThingy, TestThingy
 from .resources.test_failing_tests import FailingTest
 from ducktape.tests.reporter import JUnitReporter
 from ducktape.errors import TimeoutError
@@ -36,6 +38,7 @@ from mock import Mock
 import os
 import xml.etree.ElementTree as ET
 
+from .resources.test_various_num_nodes import VariousNumNodesTest
 
 TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
@@ -45,6 +48,10 @@ FAILS_TO_INIT_TEST_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init.py"))
 FAILS_TO_INIT_IN_SETUP_TEST_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init_in_setup.py"))
+VARIOUS_NUM_NODES_TEST_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_various_num_nodes.py"))
+BAD_ACTOR_TEST_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_bad_actor.py"))
 
 
 class CheckRunner(object):
@@ -224,6 +231,27 @@ class CheckRunner(object):
         assert results.num_passed == 1
         assert results.num_ignored == 0
 
+    def check_test_failure_with_too_many_nodes_requested(self):
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(debug=True)
+
+        ctx_list = self._do_expand(test_file=BAD_ACTOR_TEST_FILE, test_class=BadActorTest,
+                                   test_methods=[BadActorTest.test_too_many_nodes],
+                                   cluster=mock_cluster, session_context=session_context)
+        ctx_list.extend(self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
+                                        test_methods=[VariousNumNodesTest.test_one_node_a],
+                                        cluster=mock_cluster, session_context=session_context))
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+        assert results.num_flaky == 0
+        assert results.num_failed == 1
+        assert results.num_passed == 1
+        assert results.num_ignored == 0
+        passed = [r for r in results if r.test_status == PASS]
+        failed = [r for r in results if r.test_status == FAIL]
+        assert passed[0].test_id == 'tests.runner.resources.test_various_num_nodes.VariousNumNodesTest.test_one_node_a'
+        assert failed[0].test_id == 'tests.runner.resources.test_bad_actor.BadActorTest.test_too_many_nodes'
+
     def check_runner_timeout(self):
         """Check process cleanup and error handling in a parallel runner client run."""
         mock_cluster = LocalhostCluster(num_nodes=1000)
@@ -253,14 +281,14 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context(max_parallel=10)
 
         test_methods = [
-            SchedulerTestThingy.test_five_nodes_a,
-            SchedulerTestThingy.test_five_nodes_b,
-            SchedulerTestThingy.test_four_nodes,
-            SchedulerTestThingy.test_three_nodes_a,
-            SchedulerTestThingy.test_two_nodes_a
+            VariousNumNodesTest.test_five_nodes_a,
+            VariousNumNodesTest.test_five_nodes_b,
+            VariousNumNodesTest.test_four_nodes,
+            VariousNumNodesTest.test_three_nodes_a,
+            VariousNumNodesTest.test_two_nodes_a
         ]
 
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=SchedulerTestThingy,
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
                                    test_methods=test_methods, cluster=mock_cluster,
                                    session_context=session_context)
 
@@ -297,13 +325,13 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context(max_parallel=10)
 
         test_methods = [
-            SchedulerTestThingy.test_three_nodes_asleep,
-            SchedulerTestThingy.test_three_nodes_b,
-            SchedulerTestThingy.test_two_nodes_a,
-            SchedulerTestThingy.test_two_nodes_b
+            VariousNumNodesTest.test_three_nodes_asleep,
+            VariousNumNodesTest.test_three_nodes_b,
+            VariousNumNodesTest.test_two_nodes_a,
+            VariousNumNodesTest.test_two_nodes_b
         ]
 
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=SchedulerTestThingy,
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
                                    test_methods=test_methods, cluster=mock_cluster,
                                    session_context=session_context)
 
@@ -322,10 +350,10 @@ class CheckRunner(object):
         # leaving no space for the second 3-node test to be scheduled, bumping it down the line,
         # while two 2-node tests will be scheduled alongside the
         expected_scheduling_order = [
-            "SchedulerTestThingy.test_three_nodes_asleep",
-            "SchedulerTestThingy.test_two_nodes_a",
-            "SchedulerTestThingy.test_two_nodes_b",
-            "SchedulerTestThingy.test_three_nodes_b"
+            "VariousNumNodesTest.test_three_nodes_asleep",
+            "VariousNumNodesTest.test_two_nodes_a",
+            "VariousNumNodesTest.test_two_nodes_b",
+            "VariousNumNodesTest.test_three_nodes_b"
         ]
         # We check the actual order the tests were scheduled in, since completion order might be different,
         # with so many fast tests running in parallel.
@@ -342,11 +370,11 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context(max_parallel=10)
 
         test_methods = [
-            SchedulerTestThingy.test_one_node_a,
-            SchedulerTestThingy.test_one_node_b,
+            VariousNumNodesTest.test_one_node_a,
+            VariousNumNodesTest.test_one_node_b,
         ]
 
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=SchedulerTestThingy,
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
                                    test_methods=test_methods, cluster=mock_cluster,
                                    session_context=session_context)
 

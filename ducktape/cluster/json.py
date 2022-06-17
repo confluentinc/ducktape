@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 
 from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
-from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError, RemoveSpecResult, InsufficientHealthyNodesError
+from ducktape.cluster.node_container import NodeContainer, RemoveSpecResult, InsufficientHealthyNodesError
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterNode
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount

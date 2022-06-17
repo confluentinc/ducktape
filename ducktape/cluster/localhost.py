@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError, RemoveSpecResult
+from ducktape.cluster.node_container import NodeContainer, RemoveSpecResult
 from .cluster import Cluster, ClusterNode
 from .linux_remoteaccount import LinuxRemoteAccount
 from .remoteaccount import RemoteAccountSSHConfig
