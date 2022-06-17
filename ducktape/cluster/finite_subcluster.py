@@ -14,7 +14,7 @@
 
 from ducktape.cluster.cluster import Cluster
 from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
+from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError, RemoveSpecResult
 
 
 class FiniteSubcluster(Cluster):
@@ -34,12 +34,12 @@ class FiniteSubcluster(Cluster):
         # however there could be an error, specifically if a test decides to alloc more nodes than are available
         # in a previous ducktape version this exception was raised by remove_spec
         # in this one, for consistency, we let the cluster itself deal with allocation errors
-        allocated, bad, err = self._available_nodes.remove_spec(cluster_spec)
-        if err:
-            raise InsufficientResourcesError("Not enough nodes available to allocate. " + err)
+        r: RemoveSpecResult = self._available_nodes.remove_spec(cluster_spec)
+        if not r.ok:
+            raise InsufficientResourcesError("Not enough nodes available to allocate. " + r.message)
 
-        self._in_use_nodes.add_nodes(allocated)
-        return allocated
+        self._in_use_nodes.add_nodes(r.good_nodes)
+        return r.good_nodes
 
     def free_single(self, node):
         self._in_use_nodes.remove_node(node)
