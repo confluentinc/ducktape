@@ -151,13 +151,10 @@ class NodeContainer(object):
             while avail_nodes and (len(good) < num_nodes):
                 node = avail_nodes.pop(0)
                 if isinstance(node, RemoteAccount):
-                    try:
-                        if node.available():
-                            good.append(node)
-                        else:
-                            r.bad_nodes.append(node)
-                    finally:
-                        node.close()
+                    if node.available():
+                        good.append(node)
+                    else:
+                        r.bad_nodes.append(node)
                 else:
                     good.append(node)
 
