@@ -182,7 +182,7 @@ class CheckVagrantCluster(object):
         """
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
         monkeypatch.setattr("ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.get_network_devices",
-            lambda account: [])
+                            lambda account: [])
 
         with pytest.raises(RemoteAccountError):
             VagrantCluster()
