@@ -47,7 +47,8 @@ class LinuxRemoteAccount(RemoteAccount):
             device
             for device in self.get_network_devices()
             if device != 'lo'  # do not include local device
-            and ("eth" in device or "ens" in device)  # filter out other devices
+            and (device.startswith("en") or device.startswith('eth'))  # filter out other devices; "en" means ethernet
+            # eth0 can also sometimes happen, see https://unix.stackexchange.com/q/134483
         ]
 
     # deprecated, please use the self.externally_routable_ip that is set in your cluster,

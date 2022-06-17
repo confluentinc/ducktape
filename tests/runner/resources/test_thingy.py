@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from time import time
+import time
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.test import Test
 from ducktape.mark import ignore, parametrize
