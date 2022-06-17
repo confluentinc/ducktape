@@ -33,7 +33,7 @@ class VagrantCluster(JsonCluster):
     - Otherwise, retrieve cluster info via "vagrant ssh-config" from vagrant
     """
 
-    def __init__(self, make_remote_account_func=make_remote_account, *args, **kwargs):
+    def __init__(self, *args, make_remote_account_func=make_remote_account, **kwargs):
         is_read_from_file = False
         self.ssh_exception_checks = kwargs.get("ssh_exception_checks")
         cluster_file = kwargs.get("cluster_file")
@@ -51,7 +51,7 @@ class VagrantCluster(JsonCluster):
             }
 
         super(VagrantCluster, self).__init__(
-            cluster_json, make_remote_account_func=make_remote_account_func, *args, **kwargs)
+            cluster_json, *args, make_remote_account_func=make_remote_account_func, **kwargs)
 
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:

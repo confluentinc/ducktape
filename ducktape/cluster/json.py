@@ -41,7 +41,7 @@ class JsonCluster(Cluster):
     """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
-    def __init__(self, cluster_json=None, make_remote_account_func=make_remote_account, *args, **kwargs):
+    def __init__(self, cluster_json=None, *args, make_remote_account_func=make_remote_account, **kwargs):
         """Initialize JsonCluster
 
         JsonCluster can be initialized from:
