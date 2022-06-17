@@ -137,7 +137,6 @@ class NodeContainer(object):
         for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
             num_nodes = len(node_specs)
             good = []
-            bad = []
             avail_nodes = self.os_to_nodes.get(os, [])
             # loop over all available nodes
             # for i in range(0, len(avail_nodes)):
@@ -148,13 +147,12 @@ class NodeContainer(object):
                         if node.available():
                             good.append(node)
                         else:
-                            bad.append(node)
+                            r.bad_nodes.append(node)
                     finally:
                         node.close()
                 else:
                     good.append(node)
 
-            r.bad_nodes.extend(bad)
             r.good_nodes.extend(good)
             # if we don't have enough good nodes to allocate for this OS,
             # set the status as failed
