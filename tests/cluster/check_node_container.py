@@ -14,7 +14,8 @@
 
 from ducktape.cluster.cluster import ClusterNode
 from ducktape.cluster.cluster_spec import ClusterSpec, NodeSpec, LINUX, WINDOWS
-from ducktape.cluster.node_container import NodeContainer, NodeNotPresentError
+from ducktape.cluster.node_container import NodeContainer, NodeNotPresentError, InsufficientResourcesError, \
+    InsufficientHealthyNodesError
 import pytest
 
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
@@ -74,11 +75,9 @@ class CheckNodeContainer(object):
         def _remove_single_node(one_node_spec, os):
             assert container.can_remove_spec(one_node_spec)
             r = container.remove_spec(one_node_spec)
-            assert r.ok
             assert r.good_nodes and len(r.good_nodes) == 1
             assert r.good_nodes[0].os == os
             assert not r.bad_nodes
-            assert not r.message
 
         _remove_single_node(one_windows_node_spec, WINDOWS)
         assert len(container.os_to_nodes.get(LINUX)) == 2
@@ -88,7 +87,8 @@ class CheckNodeContainer(object):
         assert len(container.os_to_nodes.get(LINUX)) == 2
         assert not container.os_to_nodes.get(WINDOWS)
         assert not container.can_remove_spec(one_windows_node_spec)
-        assert not container.remove_spec(one_windows_node_spec).ok
+        with pytest.raises(InsufficientResourcesError):
+            container.remove_spec(one_windows_node_spec)
 
         _remove_single_node(one_linux_node_spec, LINUX)
         assert len(container.os_to_nodes.get(LINUX)) == 1
@@ -98,7 +98,8 @@ class CheckNodeContainer(object):
         assert not container.os_to_nodes.get(LINUX)
         assert not container.os_to_nodes.get(WINDOWS)
         assert not container.can_remove_spec(one_linux_node_spec)
-        assert not container.remove_spec(one_linux_node_spec).ok
+        with pytest.raises(InsufficientResourcesError):
+            container.remove_spec(one_linux_node_spec)
 
     @pytest.mark.parametrize("cluster_spec", [
         pytest.param(ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)]),
@@ -121,10 +122,9 @@ class CheckNodeContainer(object):
         assert not container.can_remove_spec(cluster_spec)
         assert len(container.attempt_remove_spec(cluster_spec)) > 0
 
-        r = container.remove_spec(cluster_spec)
-        assert not r.ok
-        assert not r.good_nodes
-        assert not r.bad_nodes
+        with pytest.raises(InsufficientResourcesError):
+            container.remove_spec(cluster_spec)
+
         # check that container was not modified
         assert container.os_to_nodes == original_container.os_to_nodes
 
@@ -154,10 +154,9 @@ class CheckNodeContainer(object):
         expected_bad_nodes = [acc for acc in accounts if not acc.is_available]
         spec = ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)])
         assert container.can_remove_spec(spec)
-        r = container.remove_spec(spec)
-        assert not r.ok
-        assert r.bad_nodes == expected_bad_nodes
-        assert not r.good_nodes
+        with pytest.raises(InsufficientHealthyNodesError) as exc_info:
+            container.remove_spec(spec)
+        assert exc_info.value.bad_nodes == expected_bad_nodes
         # check that no nodes were actually allocated, but unhealthy ones were removed from the cluster
         original_container.remove_nodes(expected_bad_nodes)
         assert container.os_to_nodes == original_container.os_to_nodes
@@ -198,7 +197,6 @@ class CheckNodeContainer(object):
         r = container.remove_spec(spec)
 
         # alloc should succeed
-        assert r.ok
         # check that we did catch a bad node if any
         assert r.bad_nodes == expected_bad_nodes
         # check that container has exactly the right number of nodes left -

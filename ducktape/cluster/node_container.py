@@ -27,12 +27,17 @@ class InsufficientResourcesError(Exception):
     pass
 
 
+class InsufficientHealthyNodesError(InsufficientResourcesError):
+
+    def __init__(self, bad_nodes, *args):
+        self.bad_nodes = bad_nodes
+        super().__init__(*args)
+
+
 @dataclass
 class RemoveSpecResult:
     good_nodes: List = field(default_factory=list)
     bad_nodes: List = field(default_factory=list)
-    ok: bool = True
-    message: str = ""
 
 
 class NodeContainer(object):
@@ -125,14 +130,17 @@ class NodeContainer(object):
         :returns:                               An instance of `AllocResult`, which contains good nodes that passed
                                                 health checks, bad nodes that didn't, overall success/failure and
                                                 a detailed message (if any).
+        :raises:                                InsufficientResourcesError when there aren't enough total nodes
+                                                InsufficientHealthyNodesError when there aren't enough healthy nodes
         """
 
         err = self.attempt_remove_spec(cluster_spec)
         if err:
-            # there weren't enough nodes to even attempt allocations, return the result
-            return RemoveSpecResult(ok=False, message=err)
+            # there weren't enough nodes to even attempt allocations, raise the exception
+            raise InsufficientResourcesError(err)
 
         r = RemoveSpecResult()
+        msg = ""
         # we have enough nodes for each OS, now try allocating while doing health checks if nodes support them
         for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
             num_nodes = len(node_specs)
@@ -157,16 +165,17 @@ class NodeContainer(object):
             # if we don't have enough good nodes to allocate for this OS,
             # set the status as failed
             if len(good) < num_nodes:
-                r.ok = False
-                r.message += f"{os} nodes requested: {num_nodes}. Healthy {os} nodes available: {len(good)}"
+                msg += f"{os} nodes requested: {num_nodes}. Healthy {os} nodes available: {len(good)}"
 
         # we didn't have enough healthy nodes for at least one of the OS-s
         # no need to keep the allocated nodes, since there aren't enough of them
         # let's return good ones back to this container
-        if not r.ok:
+        # and raise the exception with bad ones
+        if msg:
             for node in r.good_nodes:
                 self.add_node(node)
-            r.good_nodes = []
+            raise InsufficientHealthyNodesError(r.bad_nodes, msg)
+
         return r
 
     def can_remove_spec(self, cluster_spec):

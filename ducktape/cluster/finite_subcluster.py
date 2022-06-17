@@ -35,9 +35,6 @@ class FiniteSubcluster(Cluster):
         # in a previous ducktape version this exception was raised by remove_spec
         # in this one, for consistency, we let the cluster itself deal with allocation errors
         r: RemoveSpecResult = self._available_nodes.remove_spec(cluster_spec)
-        if not r.ok:
-            raise InsufficientResourcesError("Not enough nodes available to allocate. " + r.message)
-
         self._in_use_nodes.add_nodes(r.good_nodes)
         return r.good_nodes
 

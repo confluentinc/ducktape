@@ -41,8 +41,6 @@ class LocalhostCluster(Cluster):
         # there shouldn't be any bad nodes in localhost cluster
         # since ClusterNode object does not implement `available()` method
         r: RemoveSpecResult = self._available_nodes.remove_spec(cluster_spec)
-        if not r.ok:
-            raise InsufficientResourcesError("Not enough nodes available to allocate. " + r.message)
         self._in_use_nodes.add_nodes(r.good_nodes)
         return r.good_nodes
 

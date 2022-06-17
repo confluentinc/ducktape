@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 
 from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
-from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError, RemoveSpecResult
+from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError, RemoveSpecResult, InsufficientHealthyNodesError
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterNode
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
@@ -113,22 +113,17 @@ class JsonCluster(Cluster):
         self._id_supplier = 0
 
     def do_alloc(self, cluster_spec):
-        r: RemoveSpecResult = self._available_accounts.remove_spec(cluster_spec)
+        try:
+            r: RemoveSpecResult = self._available_accounts.remove_spec(cluster_spec)
+        except InsufficientHealthyNodesError as e:
+            self._bad_accounts.add_nodes(e)
+            raise e
 
-        # if we had any bad nodes, remove them from the cluster permanently
-        # consider just returning them back to the pool
-        # pros:
-        # - if error is intermittent, then next test might be able to pick it up
-        # cons:
-        # - if error is permanent, we lose time on health checks for this node every time
-        #       we try to alloc - and with ssh timeout it might be time consuming?
+        # even in case of no exceptions, we can still run into bad nodes, so let's track them
         if r.bad_nodes:
             self._bad_accounts.add_nodes(r.bad_nodes)
 
-        if not r.ok:
-            raise InsufficientResourcesError("Not enough healthy nodes available to allocate. " + r.message)
-
-        # if not msg, then allocated_accounts is not empty
+        # now let's gather all the good ones and convert them into ClusterNode objects
         allocated_nodes = []
         for account in r.good_nodes:
             allocated_nodes.append(ClusterNode(account, slot_id=self._id_supplier))
