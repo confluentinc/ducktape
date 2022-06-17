@@ -18,6 +18,8 @@ import json
 import pickle
 import os
 import random
+import pytest
+from ducktape.cluster.remoteaccount import RemoteAccountError
 
 TWO_HOSTS = """Host worker1
   HostName 127.0.0.1
@@ -173,3 +175,14 @@ class CheckVagrantCluster(object):
         assert node2.account.user == "vagrant"
         assert node2.account.ssh_hostname == '127.0.0.3'
         assert node2.account.ssh_config.to_json() == node1_expected["ssh_config"]
+
+    def check_no_valid_network_devices(self, monkeypatch):
+        """
+        test to make sure that a remote account error is raised when no network devices are found
+        """
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
+        monkeypatch.setattr("ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.get_network_devices",
+                            lambda account: [])
+
+        with pytest.raises(RemoteAccountError):
+            VagrantCluster()

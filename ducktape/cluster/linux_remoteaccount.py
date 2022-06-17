@@ -62,7 +62,7 @@ class LinuxRemoteAccount(RemoteAccount):
         self.logger.debug("found devices: {}".format(devices))
 
         if not devices:
-            raise RemoteAccountError("Couldn't find any network devices")
+            raise RemoteAccountError(self, "Couldn't find any network devices")
 
         fmt_cmd = (
             "/sbin/ifconfig {device} | "
