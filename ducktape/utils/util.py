@@ -51,8 +51,7 @@ def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg="", retry_on_exc=
             last_exception = e
             if not retry_on_exc:
                 raise e
-        finally:
-            time.sleep(backoff_sec)
+        time.sleep(backoff_sec)
 
     # it is safe to call Exception from None - will be just treated as a normal exception
     raise TimeoutError(err_msg() if callable(err_msg) else err_msg) from last_exception
