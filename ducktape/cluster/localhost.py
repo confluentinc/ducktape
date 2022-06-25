@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.cluster.node_container import NodeContainer, RemoveSpecResult
+from ducktape.cluster.node_container import NodeContainer
 from .cluster import Cluster, ClusterNode
 from .linux_remoteaccount import LinuxRemoteAccount
 from .remoteaccount import RemoteAccountSSHConfig
@@ -40,9 +40,9 @@ class LocalhostCluster(Cluster):
     def do_alloc(self, cluster_spec):
         # there shouldn't be any bad nodes in localhost cluster
         # since ClusterNode object does not implement `available()` method
-        r: RemoveSpecResult = self._available_nodes.remove_spec(cluster_spec)
-        self._in_use_nodes.add_nodes(r.good_nodes)
-        return r.good_nodes
+        good_nodes, bad_nodes = self._available_nodes.remove_spec(cluster_spec)
+        self._in_use_nodes.add_nodes(good_nodes)
+        return good_nodes
 
     def free_single(self, node):
         self._in_use_nodes.remove_node(node)

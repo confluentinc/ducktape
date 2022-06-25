@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 
 from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
-from ducktape.cluster.node_container import NodeContainer, RemoveSpecResult, InsufficientHealthyNodesError
+from ducktape.cluster.node_container import NodeContainer, InsufficientHealthyNodesError
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterNode
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
@@ -114,18 +114,18 @@ class JsonCluster(Cluster):
 
     def do_alloc(self, cluster_spec):
         try:
-            r: RemoveSpecResult = self._available_accounts.remove_spec(cluster_spec)
+            good_nodes, bad_nodes = self._available_accounts.remove_spec(cluster_spec)
         except InsufficientHealthyNodesError as e:
             self._bad_accounts.add_nodes(e)
             raise e
 
         # even in case of no exceptions, we can still run into bad nodes, so let's track them
-        if r.bad_nodes:
-            self._bad_accounts.add_nodes(r.bad_nodes)
+        if bad_nodes:
+            self._bad_accounts.add_nodes(bad_nodes)
 
         # now let's gather all the good ones and convert them into ClusterNode objects
         allocated_nodes = []
-        for account in r.good_nodes:
+        for account in good_nodes:
             allocated_nodes.append(ClusterNode(account, slot_id=self._id_supplier))
             self._id_supplier += 1
         self._in_use_nodes.add_nodes(allocated_nodes)

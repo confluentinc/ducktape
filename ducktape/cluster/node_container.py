@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from six import iteritems
 
@@ -32,12 +32,6 @@ class InsufficientHealthyNodesError(InsufficientResourcesError):
     def __init__(self, bad_nodes, *args):
         self.bad_nodes = bad_nodes
         super().__init__(*args)
-
-
-@dataclass
-class RemoveSpecResult:
-    good_nodes: List = field(default_factory=list)
-    bad_nodes: List = field(default_factory=list)
 
 
 class NodeContainer(object):
@@ -122,14 +116,12 @@ class NodeContainer(object):
         for node in nodes:
             self.remove_node(node)
 
-    def remove_spec(self, cluster_spec) -> RemoveSpecResult:
+    def remove_spec(self, cluster_spec) -> Tuple[List, List]:
         """
         Remove nodes matching a ClusterSpec from this NodeContainer.
 
         :param cluster_spec:                    The cluster spec.  This will not be modified.
-        :returns:                               An instance of `AllocResult`, which contains good nodes that passed
-                                                health checks, bad nodes that didn't, overall success/failure and
-                                                a detailed message (if any).
+        :returns:                               List of good nodes and a list of bad nodes.
         :raises:                                InsufficientResourcesError when there aren't enough total nodes
                                                 InsufficientHealthyNodesError when there aren't enough healthy nodes
         """
@@ -139,41 +131,42 @@ class NodeContainer(object):
             # there weren't enough nodes to even attempt allocations, raise the exception
             raise InsufficientResourcesError(err)
 
-        r = RemoveSpecResult()
+        good_nodes = []
+        bad_nodes = []
         msg = ""
         # we have enough nodes for each OS, now try allocating while doing health checks if nodes support them
         for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
             num_nodes = len(node_specs)
-            good = []
+            good_per_os = []
             avail_nodes = self.os_to_nodes.get(os, [])
             # loop over all available nodes
             # for i in range(0, len(avail_nodes)):
-            while avail_nodes and (len(good) < num_nodes):
+            while avail_nodes and (len(good_per_os) < num_nodes):
                 node = avail_nodes.pop(0)
                 if isinstance(node, RemoteAccount):
                     if node.available():
-                        good.append(node)
+                        good_per_os.append(node)
                     else:
-                        r.bad_nodes.append(node)
+                        bad_nodes.append(node)
                 else:
-                    good.append(node)
+                    good_per_os.append(node)
 
-            r.good_nodes.extend(good)
+            good_nodes.extend(good_per_os)
             # if we don't have enough good nodes to allocate for this OS,
             # set the status as failed
-            if len(good) < num_nodes:
-                msg += f"{os} nodes requested: {num_nodes}. Healthy {os} nodes available: {len(good)}"
+            if len(good_per_os) < num_nodes:
+                msg += f"{os} nodes requested: {num_nodes}. Healthy {os} nodes available: {len(good_per_os)}"
 
         # we didn't have enough healthy nodes for at least one of the OS-s
         # no need to keep the allocated nodes, since there aren't enough of them
         # let's return good ones back to this container
         # and raise the exception with bad ones
         if msg:
-            for node in r.good_nodes:
+            for node in good_nodes:
                 self.add_node(node)
-            raise InsufficientHealthyNodesError(r.bad_nodes, msg)
+            raise InsufficientHealthyNodesError(bad_nodes, msg)
 
-        return r
+        return good_nodes, bad_nodes
 
     def can_remove_spec(self, cluster_spec):
         """

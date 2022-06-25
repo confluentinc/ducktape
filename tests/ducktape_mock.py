@@ -47,9 +47,9 @@ class FakeCluster(Cluster):
         self._in_use_nodes = NodeContainer()
 
     def do_alloc(self, cluster_spec):
-        r = self._available_nodes.remove_spec(cluster_spec)
-        self._in_use_nodes.add_nodes(r.good_nodes)
-        return r.good_nodes
+        good_nodes, bad_nodes = self._available_nodes.remove_spec(cluster_spec)
+        self._in_use_nodes.add_nodes(good_nodes)
+        return good_nodes
 
     def free_single(self, node):
         self._in_use_nodes.remove_node(node)

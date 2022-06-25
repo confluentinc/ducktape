@@ -74,10 +74,10 @@ class CheckNodeContainer(object):
 
         def _remove_single_node(one_node_spec, os):
             assert container.can_remove_spec(one_node_spec)
-            r = container.remove_spec(one_node_spec)
-            assert r.good_nodes and len(r.good_nodes) == 1
-            assert r.good_nodes[0].os == os
-            assert not r.bad_nodes
+            good_nodes, bad_nodes = container.remove_spec(one_node_spec)
+            assert good_nodes and len(good_nodes) == 1
+            assert good_nodes[0].os == os
+            assert not bad_nodes
 
         _remove_single_node(one_windows_node_spec, WINDOWS)
         assert len(container.os_to_nodes.get(LINUX)) == 2
@@ -194,19 +194,19 @@ class CheckNodeContainer(object):
         spec = ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)])
 
         assert container.can_remove_spec(spec)
-        r = container.remove_spec(spec)
+        good_nodes, bad_nodes = container.remove_spec(spec)
 
         # alloc should succeed
         # check that we did catch a bad node if any
-        assert r.bad_nodes == expected_bad_nodes
+        assert bad_nodes == expected_bad_nodes
         # check that container has exactly the right number of nodes left -
         # we removed len(spec) healthy nodes, plus len(expected_bad_nodes) of unhealthy nodes.
         assert len(container) == len(original_container) - len(spec) - len(expected_bad_nodes)
 
         # check that we got 2 windows nodes and two linux nodes in response,
         # don't care which ones in particular
-        assert len(r.good_nodes) == 4
-        actual_linux = [node for node in r.good_nodes if node.os == LINUX]
+        assert len(good_nodes) == 4
+        actual_linux = [node for node in good_nodes if node.os == LINUX]
         assert len(actual_linux) == 2
-        actual_win = [node for node in r.good_nodes if node.os == WINDOWS]
+        actual_win = [node for node in good_nodes if node.os == WINDOWS]
         assert len(actual_win) == 2
