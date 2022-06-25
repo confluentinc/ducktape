@@ -168,14 +168,13 @@ class TestRunner(object):
             return
 
         self._log(logging.ERROR,
-                  "There are %d tests which cannot be run due to insufficient cluster resources" %
-                  len(unschedulable))
+                  f"There are {len(unschedulable)} tests which cannot be run due to insufficient cluster resources")
         for tc in unschedulable:
             if err_msg:
                 msg = err_msg
             else:
-                msg = "Test %s requires more resources than are available in the whole cluster. " % tc.test_id
-                msg += self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)
+                msg = f"Test {tc.test_id} requires more resources than are available in the whole cluster. " \
+                      f"{self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)}"
 
             self._log(logging.ERROR, msg)
 
