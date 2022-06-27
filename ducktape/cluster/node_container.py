@@ -29,7 +29,7 @@ class InsufficientResourcesError(Exception):
 
 class InsufficientHealthyNodesError(InsufficientResourcesError):
 
-    def __init__(self, bad_nodes, *args):
+    def __init__(self, bad_nodes: List, *args):
         self.bad_nodes = bad_nodes
         super().__init__(*args)
 
