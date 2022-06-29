@@ -272,6 +272,16 @@ class RemoteAccount(HttpMixin):
         except Exception:
             return False
 
+    def available(self):
+        try:
+            self.ssh_client
+        except Exception:
+            return False
+        else:
+            return True
+        finally:
+            self.close()
+
     @check_ssh
     def ssh(self, cmd, allow_fail=False):
         """Run the given command on the remote host, and block until the command has finished running.

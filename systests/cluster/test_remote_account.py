@@ -16,7 +16,6 @@ from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
 from ducktape.mark.resource import cluster
-from ducktape.mark import matrix, parametrize
 
 import os
 import pytest
@@ -109,33 +108,6 @@ class UnderUtilizedTest(Test):
         self.service.free()
         assert len(self.test_context.cluster.used()) == 1
         assert self.test_context.cluster.max_used() == 2
-
-
-class FailingTest(Test):
-    """
-    The purpose of this test is to validate reporters. Some of them are intended to fail.
-    """
-    def setup(self):
-        self.service = GenericService(self.test_context, 1)
-
-    @cluster(num_nodes=1)
-    @matrix(string_param=['success-first', 'fail-second', 'fail-third'], int_param=[10, 20, -30])
-    def matrix_test(self, string_param, int_param):
-        assert not string_param.startswith('fail') and int_param > 0
-
-    @cluster(num_nodes=1)
-    @parametrize(string_param='success-first', int_param=10)
-    @parametrize(string_param='fail-second', int_param=-10)
-    def parametrized_test(self, string_param, int_param):
-        assert not string_param.startswith('fail') and int_param > 0
-
-    @cluster(num_nodes=1)
-    def failing_test(self):
-        assert False
-
-    @cluster(num_nodes=1)
-    def successful_test(self):
-        assert True
 
 
 class FileSystemTest(Test):

@@ -14,7 +14,7 @@
 
 from __future__ import absolute_import
 
-from .json import JsonCluster
+from .json import JsonCluster, make_remote_account
 import json
 import os
 from .remoteaccount import RemoteAccountSSHConfig
@@ -33,7 +33,7 @@ class VagrantCluster(JsonCluster):
     - Otherwise, retrieve cluster info via "vagrant ssh-config" from vagrant
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, make_remote_account_func=make_remote_account, **kwargs):
         is_read_from_file = False
         self.ssh_exception_checks = kwargs.get("ssh_exception_checks")
         cluster_file = kwargs.get("cluster_file")
@@ -47,10 +47,11 @@ class VagrantCluster(JsonCluster):
 
         if not is_read_from_file:
             cluster_json = {
-                "nodes": self._get_nodes_from_vagrant()
+                "nodes": self._get_nodes_from_vagrant(make_remote_account_func)
             }
 
-        super(VagrantCluster, self).__init__(cluster_json, *args, **kwargs)
+        super(VagrantCluster, self).__init__(
+            cluster_json, *args, make_remote_account_func=make_remote_account_func, **kwargs)
 
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
@@ -69,7 +70,7 @@ class VagrantCluster(JsonCluster):
         for node_account in self._available_accounts:
             node_account.close()
 
-    def _get_nodes_from_vagrant(self):
+    def _get_nodes_from_vagrant(self, make_remote_account_func):
         ssh_config_info, error = self._vagrant_ssh_config()
 
         nodes = []
@@ -81,7 +82,7 @@ class VagrantCluster(JsonCluster):
 
             account = None
             try:
-                account = JsonCluster.make_remote_account(ssh_config, ssh_exception_checks=self.ssh_exception_checks)
+                account = make_remote_account_func(ssh_config, ssh_exception_checks=self.ssh_exception_checks)
                 externally_routable_ip = account.fetch_externally_routable_ip()
             finally:
                 if account:
