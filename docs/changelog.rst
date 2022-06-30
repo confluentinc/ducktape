@@ -4,6 +4,9 @@
 Changelog
 ====
 
+0.10.0
+======
+- Do not schedule tests on unresponsive nodes - `#325 <https://github.com/confluentinc/ducktape/pull/325>`_
 
 0.9.1
 =====
