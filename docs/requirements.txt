@@ -4,3 +4,5 @@ sphinx-rtd-theme==0.2.4
 boto3==1.15.9
 pycryptodome==3.9.8
 pywinrm==0.2.2
+jinja2==2.11.2
+MarkupSafe<2.0.0
