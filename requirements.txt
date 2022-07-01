@@ -1,4 +1,4 @@
-jinja2==2.11.2
+jinja2==2.11.3
 boto3==1.15.9
 # jinja2 pulls in MarkupSafe with a > constraint, but we need to constrain it for compatibility
 MarkupSafe<2.0.0
