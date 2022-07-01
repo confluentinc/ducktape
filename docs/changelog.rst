@@ -11,7 +11,7 @@ Changelog
 - clean up process properly after an exception during test runner execution - `#323 <https://github.com/confluentinc/ducktape/pull/323>`_
 - log ssh errors - `#319 <https://github.com/confluentinc/ducktape/pull/319>`_
 - update vagrant tests to use ubuntu20 - `#328 <https://github.com/confluentinc/ducktape/pull/328>`_
-- add flag that can print the total number of nodes a test run will require - `#320 <https://github.com/confluentinc/ducktape/pull/320>`_
+- added command to print the total number of nodes the tests run will require - `#320 <https://github.com/confluentinc/ducktape/pull/320>`_
 - drop support for python 3.6 and add support for python 3.9 - `#317 <https://github.com/confluentinc/ducktape/pull/317>`_
 
 0.9.0
