@@ -210,3 +210,12 @@ class CheckNodeContainer(object):
         assert len(actual_linux) == 2
         actual_win = [node for node in good_nodes if node.os == WINDOWS]
         assert len(actual_win) == 2
+
+    def check_empty_cluster_spec(self):
+        accounts = [fake_account('host1'), fake_account('host2'), fake_account('host3')]
+        container = NodeContainer(accounts)
+        spec = ClusterSpec.empty()
+        assert container.attempt_remove_spec(spec)
+        assert not container.can_remove_spec(spec)
+        with pytest.raises(InsufficientResourcesError):
+            container.remove_spec(spec)

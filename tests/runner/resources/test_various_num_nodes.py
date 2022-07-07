@@ -49,3 +49,10 @@ class VariousNumNodesTest(Test):
     @cluster(num_nodes=1)
     def test_one_node_b(self):
         assert True
+
+    def test_no_cluster_annotation(self):
+        assert True
+
+    @cluster()
+    def test_empty_cluster_annotation(self):
+        assert True

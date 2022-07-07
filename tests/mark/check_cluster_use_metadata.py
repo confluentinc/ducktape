@@ -64,6 +64,23 @@ class CheckClusterUseAnnotation(object):
         assert len(test_context_list) == 1
         assert test_context_list[0].expected_num_nodes == num_nodes
 
+    def check_empty_cluster_annotation(self):
+        @cluster()
+        def function():
+            return "hi"
+
+        assert hasattr(function, "marks")
+
+        tc_list = MarkedFunctionExpander(function=function).expand()
+        assert tc_list[0].expected_num_nodes == 0
+
+    def check_no_cluster_annotation(self):
+        def function():
+            return "hi"
+
+        tc_list = MarkedFunctionExpander(function=function).expand()
+        assert tc_list[0].expected_num_nodes == 0
+
     def check_with_parametrize(self):
         num_nodes = 200
 

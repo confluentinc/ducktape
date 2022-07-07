@@ -178,14 +178,10 @@ class RunnerClient(object):
             mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
             # Instantiate test
             self.test = self.test_context.cls(self.test_context)
-            # Check if there are enough nodes
-            self._check_min_cluster_spec()
+
             # Run the test unit
-
             self.setup_test()
-
             data = self.run_test()
-
             test_status = PASS
 
         except BaseException as e:
@@ -211,23 +207,6 @@ class RunnerClient(object):
                 self.log(logging.DEBUG, "Freeing nodes...")
                 self._do_safely(self.test.free_nodes, "Error freeing nodes:")
             return test_status, "".join(summary), data
-
-    def _check_min_cluster_spec(self):
-        self.log(logging.DEBUG, "Checking if there are enough nodes...")
-        min_cluster_spec = self.test.min_cluster_spec()
-        os_to_num_nodes = {}
-        for node_spec in min_cluster_spec:
-            if not os_to_num_nodes.get(node_spec.operating_system):
-                os_to_num_nodes[node_spec.operating_system] = 1
-            else:
-                os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
-        for (operating_system, node_count) in iteritems(os_to_num_nodes):
-            num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
-            if node_count > num_avail:
-                raise RuntimeError(
-                    "There are not enough nodes available in the cluster to run this test. "
-                    "Cluster size for %s: %d, Need at least: %d. Services currently registered: %s" %
-                    (operating_system, num_avail, node_count, self.test_context.services))
 
     def _check_cluster_utilization(self, result, summary):
         """Checks if the number of nodes used by a test is less than the number of

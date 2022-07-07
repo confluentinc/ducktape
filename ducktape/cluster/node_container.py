@@ -186,6 +186,8 @@ class NodeContainer(object):
         :returns:                               An empty string if we can remove the nodes;
                                                 an error string otherwise.
         """
+        if not cluster_spec:
+            return "cluster spec missing"
         msg = ""
         for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
             num_nodes = len(node_specs)

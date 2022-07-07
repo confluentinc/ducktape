@@ -217,18 +217,17 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context(
             fail_bad_cluster_utilization="fail_bad_cluster_utilization")
 
-        test_methods = [ClusterTestThingy.test_bad_num_nodes, ClusterTestThingy.test_good_num_nodes]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=ClusterTestThingy,
-                                   test_methods=test_methods, cluster=mock_cluster,
+                                   test_methods=[ClusterTestThingy.test_bad_num_nodes], cluster=mock_cluster,
                                    session_context=session_context)
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
 
-        assert len(results) == 2
+        assert len(results) == 1
         assert results.num_flaky == 0
         assert results.num_failed == 1
-        assert results.num_passed == 1
+        assert results.num_passed == 0
         assert results.num_ignored == 0
 
     def check_test_failure_with_too_many_nodes_requested(self):
@@ -266,6 +265,24 @@ class CheckRunner(object):
             runner.run_all_tests()
 
         assert not runner._client_procs
+
+    def check_dont_fail_if_no_cluster_annotation(self):
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        test_methods = [
+            VariousNumNodesTest.test_empty_cluster_annotation,
+            VariousNumNodesTest.test_no_cluster_annotation
+        ]
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
+                                   test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+        assert results.num_flaky == 0
+        assert results.num_failed == 2
+        assert results.num_passed == 0
+        assert results.num_ignored == 0
 
     def check_cluster_shrink(self):
         """

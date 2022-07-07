@@ -50,40 +50,6 @@ class Test(TemplateRenderer):
     def logger(self):
         return self.test_context.logger
 
-    def min_cluster_spec(self):
-        """
-        Returns a specification for the minimal cluster we need to run this test.
-
-        This method replaces the deprecated min_cluster_size.  Unlike min_cluster_size, it can handle
-        non-Linux operating systems.
-
-        In general, most Tests don't need to override this method.  The default implementation
-        seen here works well in most cases.  However, the default implementation only takes into account
-        the services that exist at the time of the call.  You may need to override this method if you add
-        new services during the course of your test.
-
-        :return:            A ClusterSpec object.
-        """
-        try:
-            # If the Test overrode the deprecated min_cluster_size method, we will use that.
-            num_linux_nodes = self.min_cluster_size()
-            return ClusterSpec.simple_linux(num_linux_nodes)
-        except NotImplementedError:
-            # Otherwise, ask the service registry what kind of cluster spec we need for currently
-            # extant services.
-            return self.test_context.services.min_cluster_spec()
-
-    def min_cluster_size(self):
-        """
-        Returns the number of linux nodes which this test needs.
-
-        THIS METHOD IS DEPRECATED, and provided only for backwards compatibility.
-        Please implement min_cluster_spec instead.
-
-        :return:            An integer.
-        """
-        raise NotImplementedError
-
     def setup(self):
         """Override this for custom setup logic."""
 
@@ -394,10 +360,8 @@ class TestContext(object):
             return cluster_spec
         elif cluster_size is not None:
             return ClusterSpec.simple_linux(cluster_size)
-        elif self.cluster is None:
-            return ClusterSpec.empty()
         else:
-            return self.cluster.all()
+            return ClusterSpec.empty()
 
     @property
     def globals(self):
