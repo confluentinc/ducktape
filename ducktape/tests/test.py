@@ -23,6 +23,7 @@ import tempfile
 
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.loggermaker import LoggerMaker, close_logger
+from ducktape.tests.session import SessionContext
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.services.service_registry import ServiceRegistry
@@ -257,7 +258,7 @@ class TestContext(object):
         :param cluster_use_metadata: dict containing information about how this test will use cluster resources
         """
 
-        self.session_context = kwargs.get("session_context")
+        self.session_context: SessionContext = kwargs.get("session_context")
         self.cluster = kwargs.get("cluster")
         self.module = kwargs.get("module")
         self.test_suite_name = kwargs.get("test_suite_name")
@@ -360,8 +361,10 @@ class TestContext(object):
             return cluster_spec
         elif cluster_size is not None:
             return ClusterSpec.simple_linux(cluster_size)
-        else:
+        elif not self.cluster or self.session_context.fail_greedy_tests:
             return ClusterSpec.empty()
+        else:
+            return self.cluster.all()
 
     @property
     def globals(self):

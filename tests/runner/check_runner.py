@@ -61,7 +61,8 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context()
 
         test_context = TestContext(session_context=session_context, module=None, cls=TestThingy,
-                                   function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster)
+                                   function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster,
+                                   cluster_use_metadata={'num_nodes': 1000})
         runner = TestRunner(mock_cluster, session_context, Mock(), [test_context], 1)
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
@@ -266,9 +267,10 @@ class CheckRunner(object):
 
         assert not runner._client_procs
 
-    def check_dont_fail_if_no_cluster_annotation(self):
+    @pytest.mark.parametrize('fail_greedy_tests', [True, False])
+    def check_fail_if_no_cluster_annotation(self, fail_greedy_tests):
         mock_cluster = LocalhostCluster(num_nodes=1000)
-        session_context = tests.ducktape_mock.session_context()
+        session_context = tests.ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
 
         test_methods = [
             VariousNumNodesTest.test_empty_cluster_annotation,
@@ -280,8 +282,8 @@ class CheckRunner(object):
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
         assert results.num_flaky == 0
-        assert results.num_failed == 2
-        assert results.num_passed == 0
+        assert results.num_failed == (2 if fail_greedy_tests else 0)
+        assert results.num_passed == (0 if fail_greedy_tests else 2)
         assert results.num_ignored == 0
 
     def check_cluster_shrink(self):
