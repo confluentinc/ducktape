@@ -229,4 +229,3 @@ class CheckNodeContainer(object):
         assert not container.can_remove_spec(spec)
         with pytest.raises(InsufficientResourcesError):
             container.remove_spec(spec)
-
