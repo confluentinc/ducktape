@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import time
-from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.test import Test
 from ducktape.mark import ignore, parametrize
 from ducktape.mark.resource import cluster
@@ -61,4 +60,3 @@ class ClusterTestThingy(Test):
     @cluster(num_nodes=10)
     def test_bad_num_nodes(self):
         pass
-

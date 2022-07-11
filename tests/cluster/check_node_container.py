@@ -215,7 +215,18 @@ class CheckNodeContainer(object):
         accounts = [fake_account('host1'), fake_account('host2'), fake_account('host3')]
         container = NodeContainer(accounts)
         spec = ClusterSpec.empty()
+        assert not container.attempt_remove_spec(spec)
+        assert container.can_remove_spec(spec)
+        good, bad = container.remove_spec(spec)
+        assert not good
+        assert not bad
+
+    def check_none_cluster_spec(self):
+        accounts = [fake_account('host1'), fake_account('host2'), fake_account('host3')]
+        container = NodeContainer(accounts)
+        spec = None
         assert container.attempt_remove_spec(spec)
         assert not container.can_remove_spec(spec)
         with pytest.raises(InsufficientResourcesError):
             container.remove_spec(spec)
+

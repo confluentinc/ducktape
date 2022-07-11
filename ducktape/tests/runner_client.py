@@ -19,7 +19,6 @@ import time
 import traceback
 import zmq
 
-from six import iteritems
 from ducktape.services.service import MultiRunServiceIdFactory, service_id_factory
 from ducktape.services.service_registry import ServiceRegistry
 

@@ -286,10 +286,9 @@ class TestContext(object):
 
     def __repr__(self):
         return \
-            "<module=%s, cls=%s, function=%s, injected_args=%s, file=%s, ignore=%s, " \
-            "cluster_size=%s, cluster_spec=%s>" % \
-            (self.module, self.cls_name, self.function_name, str(self.injected_args), str(self.file),
-             str(self.ignore), str(self.expected_num_nodes), str(self.expected_cluster_spec))
+            f"<module={self.module}, cls={self.cls_name}, function={self.function_name}, " \
+            f"injected_args={self.injected_args}, file={self.file}, ignore={self.ignore}, " \
+            f"cluster_spec={self.expected_cluster_spec}>"
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object
@@ -343,17 +342,19 @@ class TestContext(object):
     def expected_num_nodes(self):
         """
         How many nodes of any type we expect this test to consume when run.
+        Note that this will be 0 for both unschedulable tests and the tests that legitimately need 0 nodes.
 
         :return:            an integer number of nodes.
         """
-        return self.expected_cluster_spec.size()
+        return self.expected_cluster_spec.size() if self.expected_cluster_spec else 0
 
     @property
     def expected_cluster_spec(self):
         """
         The cluster spec we expect this test to consume when run.
 
-        :return:            A ClusterSpec object.
+        :return:            A ClusterSpec object or None if the test cannot be run
+                            (e.g. session context settings disallow tests with no cluster metadata attached).
         """
         cluster_spec = self.cluster_use_metadata.get(CLUSTER_SPEC_KEYWORD)
         cluster_size = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
@@ -361,8 +362,10 @@ class TestContext(object):
             return cluster_spec
         elif cluster_size is not None:
             return ClusterSpec.simple_linux(cluster_size)
-        elif not self.cluster or self.session_context.fail_greedy_tests:
+        elif not self.cluster:
             return ClusterSpec.empty()
+        elif self.session_context.fail_greedy_tests:
+            return None
         else:
             return self.cluster.all()
 

@@ -186,8 +186,15 @@ class NodeContainer(object):
         :returns:                               An empty string if we can remove the nodes;
                                                 an error string otherwise.
         """
-        if not cluster_spec:
-            return "cluster spec missing"
+        # if cluster_spec is None this means the test cannot be run at all
+        # e.g. users didn't specify `@cluster` annotation on it but the session context has a flag to fail
+        # on such tests or any other state where the test deems its cluster spec incorrect.
+        if cluster_spec is None:
+            return "Invalid or missing cluster spec"
+        # cluster spec may be empty and that's ok, shortcut to returning no error messages
+        elif len(cluster_spec) == 0:
+            return ""
+
         msg = ""
         for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
             num_nodes = len(node_specs)

@@ -268,13 +268,14 @@ class CheckRunner(object):
         assert not runner._client_procs
 
     @pytest.mark.parametrize('fail_greedy_tests', [True, False])
-    def check_fail_if_no_cluster_annotation(self, fail_greedy_tests):
+    def check_fail_greedy_tests(self, fail_greedy_tests):
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
 
         test_methods = [
             VariousNumNodesTest.test_empty_cluster_annotation,
-            VariousNumNodesTest.test_no_cluster_annotation
+            VariousNumNodesTest.test_no_cluster_annotation,
+            VariousNumNodesTest.test_zero_nodes
         ]
         ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
                                    test_methods=test_methods,
@@ -283,7 +284,8 @@ class CheckRunner(object):
         results = runner.run_all_tests()
         assert results.num_flaky == 0
         assert results.num_failed == (2 if fail_greedy_tests else 0)
-        assert results.num_passed == (0 if fail_greedy_tests else 2)
+        # zero-node test should always pass, whether we fail on greedy or not
+        assert results.num_passed == (1 if fail_greedy_tests else 3)
         assert results.num_ignored == 0
 
     def check_cluster_shrink(self):

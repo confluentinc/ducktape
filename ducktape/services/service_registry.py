@@ -15,8 +15,6 @@
 
 from collections import OrderedDict
 
-from ducktape.cluster.cluster_spec import ClusterSpec
-
 
 class ServiceRegistry(object):
 
