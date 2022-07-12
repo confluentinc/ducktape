@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from unittest.mock import Mock
 
-
+from ducktape.cluster import LocalhostCluster
 from ducktape.mark import parametrize, matrix, ignore, defaults
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.mark.resource import cluster
@@ -20,9 +21,11 @@ from ducktape.cluster.cluster_spec import ClusterSpec
 
 import pytest
 
+from tests import ducktape_mock
+
 
 class CheckClusterUseAnnotation(object):
-    # TODO: review these tests
+
     def check_basic_usage_arbitrary_metadata(self):
         cluster_use_metadata = {
             'a': 2,
@@ -64,22 +67,49 @@ class CheckClusterUseAnnotation(object):
         assert len(test_context_list) == 1
         assert test_context_list[0].expected_num_nodes == num_nodes
 
-    def check_empty_cluster_annotation(self):
+    @pytest.mark.parametrize('fail_greedy_tests', [True, False])
+    @pytest.mark.parametrize('has_annotation', [True, False])
+    def check_empty_cluster_annotation(self, fail_greedy_tests, has_annotation):
+
         @cluster()
+        def function_with_annotation():
+            return "hi"
+
+        def function_no_annotation():
+            return "hello"
+
+        assert hasattr(function_with_annotation, "marks")
+        assert not hasattr(function_no_annotation, "marks")
+
+        # no annotation and empty annotation behave identically as far as this functionality is concerned
+        function = function_with_annotation if has_annotation else function_no_annotation
+
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
+        tc_list = MarkedFunctionExpander(function=function, cluster=mock_cluster, session_context=session_context).expand()
+
+        assert len(tc_list) == 1
+        if fail_greedy_tests:
+            assert tc_list[0].expected_num_nodes == 0
+            assert tc_list[0].expected_cluster_spec is None
+        else:
+            assert tc_list[0].expected_num_nodes == 1000
+
+    @pytest.mark.parametrize('fail_greedy_tests', [True, False])
+    def check_zero_nodes_annotation(self, fail_greedy_tests):
+        @cluster(num_nodes=0)
         def function():
             return "hi"
 
         assert hasattr(function, "marks")
-
-        tc_list = MarkedFunctionExpander(function=function).expand()
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
+        tc_list = MarkedFunctionExpander(function=function, cluster=mock_cluster,
+                                         session_context=session_context).expand()
+        assert len(tc_list) == 1
         assert tc_list[0].expected_num_nodes == 0
-
-    def check_no_cluster_annotation(self):
-        def function():
-            return "hi"
-
-        tc_list = MarkedFunctionExpander(function=function).expand()
-        assert tc_list[0].expected_num_nodes == 0
+        assert tc_list[0].expected_cluster_spec is not None
+        assert len(tc_list[0].expected_cluster_spec) == 0
 
     def check_with_parametrize(self):
         num_nodes = 200
