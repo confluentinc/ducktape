@@ -44,6 +44,10 @@ class ClusterUseMetadata(Mark):
 def cluster(**kwargs):
     """Test method decorator used to provide hints about how the test will use the given cluster.
 
+    If this decorator is not provided, the test will either claim all cluster resources or fail immediately,
+    depending on the flags passed to ducktape.
+
+
     :Keywords used by ducktape:
 
         - ``num_nodes`` provide hint about how many nodes the test will consume
