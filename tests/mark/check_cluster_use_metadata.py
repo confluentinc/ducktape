@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from unittest.mock import Mock
 
 from ducktape.cluster import LocalhostCluster
 from ducktape.mark import parametrize, matrix, ignore, defaults
@@ -86,7 +85,8 @@ class CheckClusterUseAnnotation(object):
 
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
-        tc_list = MarkedFunctionExpander(function=function, cluster=mock_cluster, session_context=session_context).expand()
+        tc_list = MarkedFunctionExpander(
+            function=function, cluster=mock_cluster, session_context=session_context).expand()
 
         assert len(tc_list) == 1
         if fail_greedy_tests:
