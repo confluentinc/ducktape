@@ -51,6 +51,22 @@ class Test(TemplateRenderer):
     def logger(self):
         return self.test_context.logger
 
+    def min_cluster_spec(self):
+        """
+        THIS METHOD IS DEPRECATED AND WILL BE REMOVED IN THE SUBSEQUENT RELEASES.
+        Nothing in the ducktape framework calls it, it is only provided so that subclasses don't break.
+        If you're overriding this method in your subclass, please remove it.
+        """
+        raise NotImplementedError
+
+    def min_cluster_size(self):
+        """
+        THIS METHOD IS DEPRECATED AND WILL BE REMOVED IN THE SUBSEQUENT RELEASES.
+        Nothing in the ducktape framework calls it, it is only provided so that subclasses don't break.
+        If you're overriding this method in your subclass, please remove it.
+        """
+        raise NotImplementedError
+
     def setup(self):
         """Override this for custom setup logic."""
 
