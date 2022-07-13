@@ -55,10 +55,12 @@ class TestScheduler(object):
 
         Sort from largest cluster users to smallest
         """
-        # sort from largest cluster users to smallest
-        self._test_context_list = sorted(self._test_context_list,
-                                         key=lambda tc: tc.expected_num_nodes,
-                                         reverse=True)
+        # sort from the largest cluster users to smallest
+        self._test_context_list = sorted(
+            self._test_context_list,
+            key=lambda tc: tc.expected_num_nodes,
+            reverse=True
+        )
 
     def peek(self):
         """Locate and return the next object to be scheduled, without removing it internally.

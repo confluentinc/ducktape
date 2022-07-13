@@ -15,8 +15,6 @@
 
 from collections import OrderedDict
 
-from ducktape.cluster.cluster_spec import ClusterSpec
-
 
 class ServiceRegistry(object):
 
@@ -86,16 +84,6 @@ class ServiceRegistry(object):
             raise keyboard_interrupt
         self._services.clear()
         self._nodes.clear()
-
-    def min_cluster_spec(self):
-        """
-        Returns the minimum cluster specification that would be required to run all the currently
-        extant services.
-        """
-        cluster_spec = ClusterSpec()
-        for service in self._services.values():
-            cluster_spec.add(service.cluster_spec)
-        return cluster_spec
 
     def errors(self):
         """

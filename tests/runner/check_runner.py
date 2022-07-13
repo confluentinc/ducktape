@@ -61,7 +61,8 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context()
 
         test_context = TestContext(session_context=session_context, module=None, cls=TestThingy,
-                                   function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster)
+                                   function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster,
+                                   cluster_use_metadata={'num_nodes': 1000})
         runner = TestRunner(mock_cluster, session_context, Mock(), [test_context], 1)
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
@@ -217,18 +218,17 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context(
             fail_bad_cluster_utilization="fail_bad_cluster_utilization")
 
-        test_methods = [ClusterTestThingy.test_bad_num_nodes, ClusterTestThingy.test_good_num_nodes]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=ClusterTestThingy,
-                                   test_methods=test_methods, cluster=mock_cluster,
+                                   test_methods=[ClusterTestThingy.test_bad_num_nodes], cluster=mock_cluster,
                                    session_context=session_context)
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
 
-        assert len(results) == 2
+        assert len(results) == 1
         assert results.num_flaky == 0
         assert results.num_failed == 1
-        assert results.num_passed == 1
+        assert results.num_passed == 0
         assert results.num_ignored == 0
 
     def check_test_failure_with_too_many_nodes_requested(self):
@@ -266,6 +266,27 @@ class CheckRunner(object):
             runner.run_all_tests()
 
         assert not runner._client_procs
+
+    @pytest.mark.parametrize('fail_greedy_tests', [True, False])
+    def check_fail_greedy_tests(self, fail_greedy_tests):
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
+
+        test_methods = [
+            VariousNumNodesTest.test_empty_cluster_annotation,
+            VariousNumNodesTest.test_no_cluster_annotation,
+            VariousNumNodesTest.test_zero_nodes
+        ]
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
+                                   test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+        assert results.num_flaky == 0
+        assert results.num_failed == (2 if fail_greedy_tests else 0)
+        # zero-node test should always pass, whether we fail on greedy or not
+        assert results.num_passed == (1 if fail_greedy_tests else 3)
+        assert results.num_ignored == 0
 
     def check_cluster_shrink(self):
         """

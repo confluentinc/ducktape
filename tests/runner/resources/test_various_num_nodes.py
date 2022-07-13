@@ -49,3 +49,17 @@ class VariousNumNodesTest(Test):
     @cluster(num_nodes=1)
     def test_one_node_b(self):
         assert True
+
+    def test_no_cluster_annotation(self):
+        assert True
+
+    @cluster()
+    def test_empty_cluster_annotation(self):
+        assert True
+
+    # this one is valid regardless of
+    # whether the greedy tests are allowed or not
+    # because it's not greedy, quite the opposite
+    @cluster(num_nodes=0)
+    def test_zero_nodes(self):
+        assert True

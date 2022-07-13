@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import time
-from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.tests.test import Test
 from ducktape.mark import ignore, parametrize
 from ducktape.mark.resource import cluster
@@ -25,28 +24,30 @@ _flake = False
 class TestThingy(Test):
     """Fake ducktape test class"""
 
-    def min_cluster_spec(self):
-        """ This test uses many nodes, wow!"""
-        return ClusterSpec.simple_linux(1000)
-
+    @cluster(num_nodes=1000)
     def test_pi(self):
         return {"data": 3.14159}
 
+    @cluster(num_nodes=1000)
     def test_delayed(self):
         time.sleep(1)
 
+    @cluster(num_nodes=1000)
     @ignore
     def test_ignore1(self):
         pass
 
+    @cluster(num_nodes=1000)
     @ignore(x=5)
     @parametrize(x=5)
     def test_ignore2(self, x=2):
         pass
 
+    @cluster(num_nodes=1000)
     def test_failure(self):
         raise Exception("This failed")
 
+    @cluster(num_nodes=1000)
     def test_flaky(self):
         global _flake
         flake, _flake = _flake, not _flake
@@ -58,8 +59,4 @@ class ClusterTestThingy(Test):
 
     @cluster(num_nodes=10)
     def test_bad_num_nodes(self):
-        pass
-
-    @cluster(num_nodes=0)
-    def test_good_num_nodes(self):
         pass

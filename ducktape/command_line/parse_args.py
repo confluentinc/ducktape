@@ -79,7 +79,14 @@ def create_ducktape_parser():
     parser.add_argument("--sample", action="store", type=int,
                         help="The size of a random test sample to run")
     parser.add_argument("--fail-bad-cluster-utilization", action="store_true",
-                        help="Fail a test if the cluster node utilization does not match the cluster node usage.")
+                        help="Fail a test if the test declared that it needs more nodes than it actually used. "
+                             "E.g. if the test had `@cluster(num_nodes=10)` annotation, "
+                             "but never used more than 5 nodes during its execution.")
+    parser.add_argument("--fail-greedy-tests", action="store_true",
+                        help="Fail a test if it has no @cluster annotation "
+                             "or if @cluster annotation is empty. "
+                             "You can still specify 0-sized cluster explicitly using either num_nodes=0 "
+                             "or cluster_spec=ClusterSpec.empty()")
     parser.add_argument("--test-runner-timeout", action="store", type=int, default=1800000,
                         help="Amount of time in milliseconds between test communicating between the test runner"
                              " before a timeout error occurs. Default is 30 minutes")
