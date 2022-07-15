@@ -4,8 +4,13 @@
 Changelog
 ====
 
+0.10.1
+======
+- Disable health checks for nodes, effectively disabling `#325 <https://github.com/confluentinc/ducktape/pull/325>`_. See github issue for details - `#339 <https://github.com/confluentinc/ducktape/issues/339>`_
+
 0.10.0
 ======
+- **DO NOT USE**, this release has a nasty bug - `#339 <https://github.com/confluentinc/ducktape/issues/339>`_
 - Do not schedule tests on unresponsive nodes - `#325 <https://github.com/confluentinc/ducktape/pull/325>`_
 
 0.9.1
