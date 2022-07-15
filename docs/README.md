@@ -1,23 +1,35 @@
 Ducktape documentation quick start guide
 ========================================
 
-This file provides a quick guide on how to compile the Ducktape documentation.
-
-
-Setup the environment
----------------------
-
-To compile the documentation you need Sphinx Python library. To install it and all its dependencies run::
-
-    pip install -r requirements.txt
-
 
 Build the documentation
 -----------------------
 
 To render the pages run::
-
-    make html
+```shell
+tox -e docs
+```
     
 The rendered pages will be in ``docs/_build/html``
+
+
+Specify documentation format
+----------------------------
+
+Documentation is built using [sphinx-build](https://www.sphinx-doc.org/en/master/man/sphinx-build.html) command.
+You can select which builder to use using SPHINX_BUILDER command:
+```shell
+SPHINX_BUILDER=man tox -e docs
+```
+All available values: https://www.sphinx-doc.org/en/master/man/sphinx-build.html#cmdoption-sphinx-build-M
+
+
+Pass options to sphinx-build
+----------------------------
+Any argument after `--` will be passed to the 
+[sphinx-build](https://www.sphinx-doc.org/en/master/man/sphinx-build.html) command directly:
+```shell
+tox -e docs -- -E
+```
+
 
