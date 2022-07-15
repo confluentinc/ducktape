@@ -40,25 +40,25 @@ class FailingTest(Test):
 
 class DebugThisTest(Test):
 
-    # @cluster(num_nodes=1)
-    # def one_node_test_sleep_90s(self):
-    #     self.service = GenericService(self.test_context, 1)
-    #     self.logger.warning('one_node_test - Sleeping for 90s')
-    #     time.sleep(90)
-    #     assert True
+    @cluster(num_nodes=1)
+    def one_node_test_sleep_90s(self):
+        self.service = GenericService(self.test_context, 1)
+        self.logger.warning('one_node_test - Sleeping for 90s')
+        time.sleep(90)
+        assert True
 
     @cluster(num_nodes=1)
     def one_node_test_sleep_30s(self):
         self.service = GenericService(self.test_context, 1)
         self.logger.warning('another_one_node_test - Sleeping for 30s')
-        time.sleep(10)
+        time.sleep(30)
         assert True
 
     @cluster(num_nodes=1)
     def another_one_node_test_sleep_30s(self):
         self.service = GenericService(self.test_context, 1)
         self.logger.warning('yet_another_one_node_test - Sleeping for 30s')
-        time.sleep(10)
+        time.sleep(30)
         assert True
 
     @cluster(num_nodes=2)
@@ -90,7 +90,7 @@ class DebugThisTest(Test):
     def three_node_test_sleeping_30s(self):
         self.service = GenericService(self.test_context, 3)
         self.logger.warning('Sleeping for 30s')
-        time.sleep(10)
+        time.sleep(30)
         assert True
 
     @cluster(num_nodes=3)
