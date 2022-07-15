@@ -218,11 +218,10 @@ class TestRunner(object):
                         # However, if some nodes failed, cluster size changed too, so we need to check if
                         # there are any tests that can no longer be scheduled.
                         self._check_unschedulable()
-                        continue
-
-                    # only remove the test from the scheduler when we have successfully allocated a subcluster for it
-                    self.scheduler.remove(next_test_context)
-                    self._run_single_test(next_test_context)
+                    else:
+                        # only remove the test from the scheduler once we've successfully allocated a subcluster for it
+                        self.scheduler.remove(next_test_context)
+                        self._run_single_test(next_test_context)
 
                 if self._expect_client_requests:
                     try:

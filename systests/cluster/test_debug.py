@@ -5,7 +5,7 @@ They're separate from test_remote_account.py for that reason.
 """
 import time
 
-from ducktape.mark import matrix, parametrize
+from ducktape.mark import matrix, parametrize, ignore
 from ducktape.mark.resource import cluster
 from ducktape.tests.test import Test
 from systests.cluster.test_remote_account import GenericService
@@ -40,25 +40,25 @@ class FailingTest(Test):
 
 class DebugThisTest(Test):
 
-    @cluster(num_nodes=1)
-    def one_node_test_sleep_90s(self):
-        self.service = GenericService(self.test_context, 1)
-        self.logger.warning('one_node_test - Sleeping for 90s')
-        time.sleep(90)
-        assert True
+    # @cluster(num_nodes=1)
+    # def one_node_test_sleep_90s(self):
+    #     self.service = GenericService(self.test_context, 1)
+    #     self.logger.warning('one_node_test - Sleeping for 90s')
+    #     time.sleep(90)
+    #     assert True
 
     @cluster(num_nodes=1)
     def one_node_test_sleep_30s(self):
         self.service = GenericService(self.test_context, 1)
         self.logger.warning('another_one_node_test - Sleeping for 30s')
-        time.sleep(30)
+        time.sleep(10)
         assert True
 
     @cluster(num_nodes=1)
     def another_one_node_test_sleep_30s(self):
         self.service = GenericService(self.test_context, 1)
         self.logger.warning('yet_another_one_node_test - Sleeping for 30s')
-        time.sleep(30)
+        time.sleep(10)
         assert True
 
     @cluster(num_nodes=2)
@@ -70,6 +70,11 @@ class DebugThisTest(Test):
     def another_two_node_test(self):
         self.service = GenericService(self.test_context, 2)
         assert True
+
+    @ignore
+    @cluster(num_nodes=2)
+    def a_two_node_ignored_test(self):
+        assert False
 
     @cluster(num_nodes=2)
     def yet_another_two_node_test(self):
@@ -85,7 +90,7 @@ class DebugThisTest(Test):
     def three_node_test_sleeping_30s(self):
         self.service = GenericService(self.test_context, 3)
         self.logger.warning('Sleeping for 30s')
-        time.sleep(30)
+        time.sleep(10)
         assert True
 
     @cluster(num_nodes=3)
