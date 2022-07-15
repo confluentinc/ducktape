@@ -25,7 +25,10 @@ class TestScheduler(object):
 
         # Track tests which would never be offered up by the scheduling algorithm due to insufficient
         # cluster resources
-        self._test_context_list = test_contexts.copy()
+        # self._test_context_list = test_contexts.copy()
+        self._test_context_list = []
+        for tc in test_contexts:
+            self._test_context_list.append(tc)
 
         self._sort_test_context_list()
 
