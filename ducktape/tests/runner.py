@@ -210,7 +210,7 @@ class TestRunner(object):
                     next_test_context = self.scheduler.peek()
                     try:
                         self._preallocate_subcluster(next_test_context)
-                    except InsufficientResourcesError as exc:
+                    except InsufficientResourcesError:
                         # We were not able to allocate the subcluster for this test,
                         # this means not enough nodes passed health check.
                         # Don't mark this test as failed just yet, some other test might finish running and
