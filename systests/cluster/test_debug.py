@@ -5,7 +5,7 @@ They're separate from test_remote_account.py for that reason.
 """
 import time
 
-from ducktape.mark import matrix, parametrize
+from ducktape.mark import matrix, parametrize, ignore
 from ducktape.mark.resource import cluster
 from ducktape.tests.test import Test
 from systests.cluster.test_remote_account import GenericService
@@ -70,6 +70,11 @@ class DebugThisTest(Test):
     def another_two_node_test(self):
         self.service = GenericService(self.test_context, 2)
         assert True
+
+    @ignore
+    @cluster(num_nodes=2)
+    def a_two_node_ignored_test(self):
+        assert False
 
     @cluster(num_nodes=2)
     def yet_another_two_node_test(self):

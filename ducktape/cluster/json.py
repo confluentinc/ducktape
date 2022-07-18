@@ -116,7 +116,7 @@ class JsonCluster(Cluster):
         try:
             good_nodes, bad_nodes = self._available_accounts.remove_spec(cluster_spec)
         except InsufficientHealthyNodesError as e:
-            self._bad_accounts.add_nodes(e)
+            self._bad_accounts.add_nodes(e.bad_nodes)
             raise e
 
         # even in case of no exceptions, we can still run into bad nodes, so let's track them
