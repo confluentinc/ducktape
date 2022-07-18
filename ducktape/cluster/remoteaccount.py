@@ -273,14 +273,16 @@ class RemoteAccount(HttpMixin):
             return False
 
     def available(self):
-        try:
-            self.ssh_client
-        except Exception:
-            return False
-        else:
-            return True
-        finally:
-            self.close()
+        # TODO: https://github.com/confluentinc/ducktape/issues/339
+        # try:
+        #     self.ssh_client
+        # except Exception:
+        #     return False
+        # else:
+        #     return True
+        # finally:
+        #     self.close()
+        return True
 
     @check_ssh
     def ssh(self, cmd, allow_fail=False):
