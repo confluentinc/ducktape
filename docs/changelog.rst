@@ -4,6 +4,10 @@
 Changelog
 ====
 
+0.11.0
+======
+- Option to fail tests without `@cluster` annotation. Deprecate ``min_cluster_spec()`` method in the ``Test`` class - `#336 <https://github.com/confluentinc/ducktape/pull/336>`_
+
 0.10.1
 ======
 - Disable health checks for nodes, effectively disabling `#325 <https://github.com/confluentinc/ducktape/pull/325>`_. See github issue for details - `#339 <https://github.com/confluentinc/ducktape/issues/339>`_
