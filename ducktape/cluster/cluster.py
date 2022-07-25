@@ -35,7 +35,6 @@ class Cluster(object):
     This interface doesn't define any mapping of roles/services to nodes. It only interacts with some underlying
     system that can describe available resources and mediates reservations of those resources.
     """
-
     def __init__(self):
         self.max_used_nodes = 0
 
@@ -67,7 +66,7 @@ class Cluster(object):
 
     def free(self, nodes):
         """Free the given node or list of nodes"""
-        if isinstance(nodes, collections.Iterable):
+        if isinstance(nodes, collections.abc.Iterable):
             for s in nodes:
                 self.free_single(s)
         else:
