@@ -4,6 +4,10 @@
 Changelog
 ====
 
+0.10.2
+======
+- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
 0.10.1
 ======
 - Disable health checks for nodes, effectively disabling `#325 <https://github.com/confluentinc/ducktape/pull/325>`_. See github issue for details - `#339 <https://github.com/confluentinc/ducktape/issues/339>`_
