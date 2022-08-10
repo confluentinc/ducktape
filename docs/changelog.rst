@@ -17,6 +17,10 @@ Changelog
 - **DO NOT USE**, this release has a nasty bug - `#339 <https://github.com/confluentinc/ducktape/issues/339>`_
 - Do not schedule tests on unresponsive nodes - `#325 <https://github.com/confluentinc/ducktape/pull/325>`_
 
+0.9.3
+=====
+- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
 0.9.2
 =====
 - Service release, no ducktape changes, simply fixed readthedocs configs.
