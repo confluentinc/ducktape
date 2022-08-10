@@ -35,6 +35,10 @@ Changelog
 - Upgrade paramiko version to 2.10.0 - `#312 <https://github.com/confluentinc/ducktape/pull/312>`_
 - Support SSH timeout - `#311 <https://github.com/confluentinc/ducktape/pull/311>`_
 
+0.8.17
+======
+- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
 0.8.x
 =====
 - Support test suites
