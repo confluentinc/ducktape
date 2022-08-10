@@ -582,7 +582,7 @@ class RemoteAccountTest(Test):
         grep_str = '"nc -l -p 5000"'
 
         def get_pids():
-            pid_cmd = f"ps ax | grep -i {grep_str} | grep -v grep | awk '{{print $1}}'" % grep_str
+            pid_cmd = f"ps ax | grep -i {grep_str} | grep -v grep | awk '{{print $1}}'"
 
             return list(node.account.ssh_capture(pid_cmd, callback=int))
 
