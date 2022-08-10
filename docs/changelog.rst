@@ -4,6 +4,10 @@
 Changelog
 ====
 
+0.8.17
+======
+- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
 0.8.x
 =====
 - Support test suites
