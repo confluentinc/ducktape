@@ -4,6 +4,10 @@
 Changelog
 ====
 
+0.11.1
+======
+- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
 0.11.0
 ======
 - Option to fail tests without `@cluster` annotation. Deprecate ``min_cluster_spec()`` method in the ``Test`` class - `#336 <https://github.com/confluentinc/ducktape/pull/336>`_
