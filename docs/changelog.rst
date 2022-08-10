@@ -7,6 +7,7 @@ Changelog
 0.11.1
 ======
 - Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+- Bumped `jinja2` to `3.0.x`
 
 0.11.0
 ======
