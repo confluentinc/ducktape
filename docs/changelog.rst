@@ -4,6 +4,10 @@
 Changelog
 ====
 
+0.9.3
+=====
+- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
 0.9.2
 =====
 - Service release, no ducktape changes, simply fixed readthedocs configs.
