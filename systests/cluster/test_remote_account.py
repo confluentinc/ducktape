@@ -579,9 +579,10 @@ class RemoteAccountTest(Test):
     @cluster(num_nodes=1)
     def test_kill_process(self):
         """Tests that kill_process correctly works"""
+        grep_str = '"nc -l -p 5000"'
 
         def get_pids():
-            pid_cmd = "ps ax | grep -i nc | grep -v grep | awk '{print $1}'"
+            pid_cmd = f"ps ax | grep -i {grep_str} | grep -v grep | awk '{{print $1}}'"
 
             return list(node.account.ssh_capture(pid_cmd, callback=int))
 
@@ -594,7 +595,7 @@ class RemoteAccountTest(Test):
                    err_msg="Failed to start process within %d sec" % 10)
 
         # Kill service.
-        node.account.kill_process("nc")
+        node.account.kill_process(grep_str)
 
         wait_until(lambda: len(get_pids()) == 0, timeout_sec=10,
                    err_msg="Failed to kill process within %d sec" % 10)
