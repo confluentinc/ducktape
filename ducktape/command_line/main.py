@@ -186,7 +186,9 @@ def main():
     for r in reporters:
         r.report()
 
-    update_latest_symlink(args_dict["results_root"], results_dir)
+    # Update the symlink to the session ID (i.e. the relativized path) rather
+    # than the full path to support bound volumes.
+    update_latest_symlink(args_dict["results_root"], session_id)
     close_logger(session_logger)
     if not test_results.get_aggregate_success():
         # Non-zero exit if at least one test failed
