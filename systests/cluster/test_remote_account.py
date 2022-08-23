@@ -525,7 +525,7 @@ class RemoteAccountTest(Test):
             assert self.wrote_log_line
 
         logging_thread.join(5.0)
-        if logging_thread.isAlive():
+        if logging_thread.is_alive():
             raise Exception("Timed out waiting for background thread.")
 
     @cluster(num_nodes=1)

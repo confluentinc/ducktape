@@ -122,24 +122,35 @@ class RunnerClient(object):
                 num_runs += 1
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
-                test_status, summary, data = self._do_run(num_runs)
+                test_status, run_summary, data = self._do_run(num_runs)
+                # if deflake is enabled, and there is a summary to display, add a run msg
+                if run_summary and self.deflake_num > 1:
+                    run_msg = f"run {num_runs} summary:"
+                    summary.append(run_msg)
+                # if run passed, and not on the first run, mention that it is now passing
+                elif not run_summary and num_runs > 1 and test_status == PASS:
+                    summary.append(f"run {num_runs}: PASSED")
+                summary.extend(run_summary)
 
                 if test_status == PASS and num_runs > 1:
                     test_status = FLAKY
 
                 msg = str(test_status.to_json())
-                if summary:
-                    msg += ": {}".format(summary)
-                if num_runs != self.deflake_num:
-                    msg += "\n" + "~" * max(len(line) for line in summary.split('\n'))
+                if run_summary:
+                    msg += ": {}".format("\n".join(run_summary))
 
+                if num_runs != self.deflake_num and test_status == FAIL:
+                    break_line = "~" * max(len(line) for line in summary) if summary else ""
+                    msg += "\n" + break_line
+                    summary.append(break_line)
                 self.log(logging.INFO, msg)
 
         finally:
             stop_time = time.time()
 
             test_status, summary = self._check_cluster_utilization(test_status, summary)
-
+            # convert summary from list to string
+            summary = "\n".join(summary)
             if num_runs > 1:
                 # for reporting purposes report all services
                 self.test_context.services = self.all_services
@@ -187,7 +198,7 @@ class RunnerClient(object):
             # mark the test as failed before doing anything else
             test_status = FAIL
             err_trace = self._exc_msg(e)
-            summary.append(err_trace)
+            summary.extend(err_trace.split('\n'))
 
         finally:
             for service in self.test_context.services:
@@ -199,13 +210,13 @@ class RunnerClient(object):
             if hasattr(self.test_context, "services"):
                 service_errors = self.test_context.services.errors()
                 if service_errors:
-                    summary.extend(["\n\n", service_errors])
+                    summary.extend(["", "", service_errors])
 
             # free nodes
             if self.test:
                 self.log(logging.DEBUG, "Freeing nodes...")
                 self._do_safely(self.test.free_nodes, "Error freeing nodes:")
-            return test_status, "".join(summary), data
+            return test_status, summary, data
 
     def _check_cluster_utilization(self, result, summary):
         """Checks if the number of nodes used by a test is less than the number of
@@ -223,7 +234,7 @@ class RunnerClient(object):
                     self.log(logging.INFO, "FAIL: " + message)
 
                 result = FAIL
-                summary += message
+                summary.append(message)
             else:
                 self.log(logging.WARN, message)
         return result, summary
