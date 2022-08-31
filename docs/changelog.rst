@@ -9,13 +9,21 @@ Changelog
 - Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
 - Bumped `jinja2` to `3.0.x`
 
-0.11.0
-======
-- Option to fail tests without `@cluster` annotation. Deprecate ``min_cluster_spec()`` method in the ``Test`` class - `#336 <https://github.com/confluentinc/ducktape/pull/336>`_
-
 0.10.2
 ======
 - Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
+0.9.3
+=====
+- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
+0.8.17
+======
+- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
+
+0.11.0
+======
+- Option to fail tests without `@cluster` annotation. Deprecate ``min_cluster_spec()`` method in the ``Test`` class - `#336 <https://github.com/confluentinc/ducktape/pull/336>`_
 
 0.10.1
 ======
@@ -25,10 +33,6 @@ Changelog
 ======
 - **DO NOT USE**, this release has a nasty bug - `#339 <https://github.com/confluentinc/ducktape/issues/339>`_
 - Do not schedule tests on unresponsive nodes - `#325 <https://github.com/confluentinc/ducktape/pull/325>`_
-
-0.9.3
-=====
-- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
 
 0.9.2
 =====
@@ -47,10 +51,6 @@ Changelog
 =====
 - Upgrade paramiko version to 2.10.0 - `#312 <https://github.com/confluentinc/ducktape/pull/312>`_
 - Support SSH timeout - `#311 <https://github.com/confluentinc/ducktape/pull/311>`_
-
-0.8.17
-======
-- Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
 
 0.8.x
 =====
