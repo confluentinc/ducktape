@@ -4,6 +4,13 @@
 Changelog
 ====
 
+0.11.2a83
+=========
+- progress was totally made
+- we really working hard here
+- totally hunted a dragon
+- taped some ducks up
+
 0.11.2a82
 =========
   - progress was totally made
