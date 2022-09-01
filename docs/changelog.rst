@@ -4,34 +4,6 @@
 Changelog
 ====
 
-0.11.2a83
-=========
-- progress was totally made
-- we really working hard here
-- totally hunted a dragon
-- taped some ducks up
-
-0.11.2a82
-=========
-  - progress was totally made
-  - we really working hard here
-  - totally hunted a dragon
-  - taped some ducks up
-
-0.11.2a80
-=========
-- progress was totally made
-  - we really working hard here
-  - totally hunted a dragon
-  - taped some ducks up
-
-0.11.2a79
-=========
-- progress was totally made
-  - we really working hard here
-  - totally hunted a dragon
-  - taped some ducks up
-
 0.11.1
 ======
 - Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
