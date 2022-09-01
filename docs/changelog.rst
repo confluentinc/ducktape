@@ -4,6 +4,9 @@
 Changelog
 ====
 
+0.11.2-a75
+==========
+- progress was totally made
 0.11.2-a74
 ==========
 - test release process
