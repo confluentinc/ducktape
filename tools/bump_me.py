@@ -35,7 +35,9 @@ def main():
                 print("=" * len(args.version), file=cl_new_file)
                 for line in args.changes:
                     cl_new_file.write(line)
-                print("", file=cl_new_file)
+                # output is striped, so it needs a new line for the end of the last line, +
+                # a new newline for spacing
+                print("\n", file=cl_new_file)
 
     shutil.copy(cl_new, cl)
     cl_new.unlink()

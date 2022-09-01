@@ -4,18 +4,6 @@
 Changelog
 ====
 
-0.11.2a77
-=========
-- progress was totally made
-0.11.2-a76
-==========
-- progress was totally made
-0.11.2-a75
-==========
-- progress was totally made
-0.11.2-a74
-==========
-- test release process
 0.11.1
 ======
 - Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
