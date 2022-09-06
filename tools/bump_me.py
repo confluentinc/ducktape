@@ -20,6 +20,8 @@ def main():
     this_path = Path(__file__).absolute()
     docs_dir = this_path.parent.parent / "docs"
     cl = docs_dir / "changelog.rst"
+    if not cl.exists():
+        raise Exception("Changelog doesn't exist, return early")
     cl_new = docs_dir / "changelog.rst.tmp"
     cl_new.touch()
 
@@ -35,7 +37,7 @@ def main():
                 print("=" * len(args.version), file=cl_new_file)
                 for line in args.changes:
                     cl_new_file.write(line)
-                # output is striped, so it needs a new line for the end of the last line, +
+                # output is stripped, so it needs a new line for the end of the last line, +
                 # a new newline for spacing
                 print("\n", file=cl_new_file)
 
