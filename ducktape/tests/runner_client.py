@@ -69,6 +69,10 @@ class RunnerClient(object):
         self.test_context = None
         self.all_services = None
 
+    @property
+    def deflake_enabled(self) -> bool:
+        return self.deflake_num > 1
+
     def send(self, event):
         return self.sender.send(event)
 
@@ -117,8 +121,7 @@ class RunnerClient(object):
         self.all_services = ServiceRegistry()
 
         # mapping of summaries to the failing iteration
-        failure_summaries: Mapping[str: List[int]] = defaultdict(list)
-
+        summaries = []
         num_runs = 0
 
         try:
@@ -128,8 +131,8 @@ class RunnerClient(object):
                 start_time = time.time()
                 test_status, run_summary, data = self._do_run(num_runs)
                 # if deflake is enabled, and there is a summary to display, add a run msg
-                if run_summary and self.deflake_num > 1:
-                    failure_summaries[tuple(run_summary)].append(num_runs)
+                if run_summary:
+                    summaries.append(run_summary)
                 # if run passed, and not on the first run, mention that it is now passing
 
                 if test_status == PASS and num_runs > 1:
@@ -143,36 +146,7 @@ class RunnerClient(object):
         finally:
             stop_time = time.time()
 
-            summary = []
-
-            # handle run summaries for each deflake run:
-            if  self.deflake_num > 1:
-                sub_summaries = []
-                for individual_summary, runs in failure_summaries.items():
-                    sub_summary = []
-                    runs = ", ".join(str(r) for r in runs)
-                    run_msg = f"run{'s' if len(runs) > 1 else ''} {runs} summary:"
-                    sub_summary.append(run_msg)
-                    sub_summary.extend(individual_summary)
-                    sub_summaries.append(sub_summary)
-                if test_status == FLAKY:
-                    sub_summaries.append([f"run {num_runs}: PASSED"])
-                for sub_summary in sub_summaries[:-1]:
-                    summary.extend(sub_summary)
-                    break_line = "~" * max(len(line) for line in summary) if summary else ""
-                    summary.append(break_line)
-
-                # the pass case could have no summaries, so need to validate that a subsummary exists
-                if sub_summaries:
-                    summary.extend(sub_summaries[-1])
-
-            else:
-                # should only be one failure in dict if failed
-                if failure_summaries:
-                    summary.append(next(iter(failure_summaries)))
-                else:
-                    summary.append("Test passed")
-
+            summary = self.process_run_summaries(summaries, test_status)
             test_status, summary = self._check_cluster_utilization(test_status, summary)
             # convert summary from list to string
             summary = "\n".join(summary)
@@ -203,11 +177,56 @@ class RunnerClient(object):
             self.test_context = None
             self.test = None
 
+    def process_run_summaries(self, run_summaries: List[List[str]], test_status: TestStatus) -> List[str]:
+        """
+        Converts individual run summaries (there may be multiple if deflake is enabled)
+        into a single run summary
+        """
+        # no summary case, return test passed
+        if not run_summaries:
+            return ["Test Passed"]
+        # single run, can just return the summary
+        if not self.deflake_enabled:
+            return run_summaries[0]
+
+        failure_summaries: Mapping[str: List[int]] = defaultdict(list)
+        # populate run summaries grouping run numbers by stack trace
+        for run_num, summary in enumerate(run_summaries):
+            # convert to tuple to be serializable (+1 for human readability 1 based indexing)
+            failure_summaries[tuple(summary)].append(run_num + 1)
+
+        final_summary = []
+
+        # handle run summaries for each deflake run:
+        sub_summaries = []
+        for individual_summary, runs in failure_summaries.items():
+            sub_summary = []
+            runs = ", ".join(str(r) for r in runs)
+            run_msg = f"run{'s' if len(runs) > 1 else ''} {runs} summary:"
+            sub_summary.append(run_msg)
+            sub_summary.extend(individual_summary)
+            sub_summaries.append(sub_summary)
+
+        if test_status == FLAKY:
+            sub_summaries.append([f"run {len(run_summaries)}: PASSED"])
+
+        # combine summaries, with a '~~~~~' divider
+        for sub_summary in sub_summaries[:-1]:
+            final_summary.extend(sub_summary)
+            break_line = "~" * max(len(line) for line in final_summary) if final_summary else ""
+            final_summary.append(break_line)
+
+        # the pass case could have no summaries, so need to validate that a subsummary exists
+        if sub_summaries:
+            final_summary.extend(sub_summaries[-1])
+
+        return final_summary
+
     def _do_run(self, num_runs):
         test_status = FAIL
         summary = []
         data = None
-        sid_factory = MultiRunServiceIdFactory(num_runs) if self.deflake_num > 1 else service_id_factory
+        sid_factory = MultiRunServiceIdFactory(num_runs) if self.deflake_enabled else service_id_factory
         try:
             # Results from this test, as well as logs will be dumped here
             mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
