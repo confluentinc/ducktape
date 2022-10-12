@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import defaultdict
 import logging
 import os
 import signal
 import time
 import traceback
+from typing import List, Mapping
 import zmq
 
 from ducktape.services.service import MultiRunServiceIdFactory, service_id_factory
@@ -111,9 +113,11 @@ class RunnerClient(object):
         start_time = -1
         stop_time = -1
         test_status = FAIL
-        summary = []
         data = None
         self.all_services = ServiceRegistry()
+
+        # mapping of summaries to the failing iteration
+        failure_summaries: Mapping[str: List[int]] = defaultdict(list)
 
         num_runs = 0
 
@@ -125,12 +129,8 @@ class RunnerClient(object):
                 test_status, run_summary, data = self._do_run(num_runs)
                 # if deflake is enabled, and there is a summary to display, add a run msg
                 if run_summary and self.deflake_num > 1:
-                    run_msg = f"run {num_runs} summary:"
-                    summary.append(run_msg)
+                    failure_summaries[tuple(run_summary)].append(num_runs)
                 # if run passed, and not on the first run, mention that it is now passing
-                elif not run_summary and num_runs > 1 and test_status == PASS:
-                    summary.append(f"run {num_runs}: PASSED")
-                summary.extend(run_summary)
 
                 if test_status == PASS and num_runs > 1:
                     test_status = FLAKY
@@ -138,15 +138,40 @@ class RunnerClient(object):
                 msg = str(test_status.to_json())
                 if run_summary:
                     msg += ": {}".format("\n".join(run_summary))
-
-                if num_runs != self.deflake_num and test_status == FAIL:
-                    break_line = "~" * max(len(line) for line in summary) if summary else ""
-                    msg += "\n" + break_line
-                    summary.append(break_line)
                 self.log(logging.INFO, msg)
 
         finally:
             stop_time = time.time()
+
+            summary = []
+
+            # handle run summaries for each deflake run:
+            if  self.deflake_num > 1:
+                sub_summaries = []
+                for individual_summary, runs in failure_summaries.items():
+                    sub_summary = []
+                    runs = ", ".join(str(r) for r in runs)
+                    run_msg = f"run{'s' if len(runs) > 1 else ''} {runs} summary:"
+                    sub_summary.append(run_msg)
+                    sub_summary.extend(individual_summary)
+                    sub_summaries.append(sub_summary)
+                if test_status == FLAKY:
+                    sub_summaries.append([f"run {num_runs}: PASSED"])
+                for sub_summary in sub_summaries[:-1]:
+                    summary.extend(sub_summary)
+                    break_line = "~" * max(len(line) for line in summary) if summary else ""
+                    summary.append(break_line)
+
+                # the pass case could have no summaries, so need to validate that a subsummary exists
+                if sub_summaries:
+                    summary.extend(sub_summaries[-1])
+
+            else:
+                # should only be one failure in dict if failed
+                if failure_summaries:
+                    summary.append(next(iter(failure_summaries)))
+                else:
+                    summary.append("Test passed")
 
             test_status, summary = self._check_cluster_utilization(test_status, summary)
             # convert summary from list to string
