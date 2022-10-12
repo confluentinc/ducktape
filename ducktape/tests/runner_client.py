@@ -27,7 +27,7 @@ from ducktape.services.service_registry import ServiceRegistry
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
-from ducktape.tests.status import FLAKY
+from ducktape.tests.status import FLAKY, TestStatus
 from ducktape.tests.test import test_logger, TestContext
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
