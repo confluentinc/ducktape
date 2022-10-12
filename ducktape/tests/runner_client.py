@@ -129,11 +129,10 @@ class RunnerClient(object):
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
                 test_status, run_summary, data = self._do_run(num_runs)
-                # if deflake is enabled, and there is a summary to display, add a run msg
                 if run_summary:
                     summaries.append(run_summary)
-                # if run passed, and not on the first run, mention that it is now passing
 
+                # if run passed, and not on the first run, the test is flaky
                 if test_status == PASS and num_runs > 1:
                     test_status = FLAKY
 
