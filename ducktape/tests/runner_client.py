@@ -120,7 +120,6 @@ class RunnerClient(object):
         data = None
         self.all_services = ServiceRegistry()
 
-        # mapping of summaries to the failing iteration
         summaries = []
         num_runs = 0
 
