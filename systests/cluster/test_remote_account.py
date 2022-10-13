@@ -443,7 +443,17 @@ class RemoteAccountTest(Test):
 
     @cluster(num_nodes=1)
     def test_flaky(self):
-        assert random.choice([True, False, False])
+        choices = [
+            Exception("FLAKE 1"),
+            Exception("FLAKE 1"),
+            Exception("FLAKE 2"),
+            Exception("FLAKE 2"),
+            Exception("FLAKE 3"),
+            None,
+        ]
+        exp = random.choice(choices)
+        if exp:
+            raise exp
 
     @cluster(num_nodes=1)
     def test_ssh_capture_combine_stderr(self):
@@ -525,7 +535,7 @@ class RemoteAccountTest(Test):
             assert self.wrote_log_line
 
         logging_thread.join(5.0)
-        if logging_thread.isAlive():
+        if logging_thread.is_alive():
             raise Exception("Timed out waiting for background thread.")
 
     @cluster(num_nodes=1)

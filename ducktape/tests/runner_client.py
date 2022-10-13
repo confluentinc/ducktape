@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import defaultdict
 import logging
 import os
 import signal
 import time
 import traceback
+from typing import List, Mapping
 import zmq
 
 from ducktape.services.service import MultiRunServiceIdFactory, service_id_factory
@@ -25,7 +27,7 @@ from ducktape.services.service_registry import ServiceRegistry
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
-from ducktape.tests.status import FLAKY
+from ducktape.tests.status import FLAKY, TestStatus
 from ducktape.tests.test import test_logger, TestContext
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
@@ -66,6 +68,10 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
         self.all_services = None
+
+    @property
+    def deflake_enabled(self) -> bool:
+        return self.deflake_num > 1
 
     def send(self, event):
         return self.sender.send(event)
@@ -111,10 +117,10 @@ class RunnerClient(object):
         start_time = -1
         stop_time = -1
         test_status = FAIL
-        summary = []
         data = None
         self.all_services = ServiceRegistry()
 
+        summaries = []
         num_runs = 0
 
         try:
@@ -122,24 +128,26 @@ class RunnerClient(object):
                 num_runs += 1
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
-                test_status, summary, data = self._do_run(num_runs)
+                test_status, run_summary, data = self._do_run(num_runs)
+                if run_summary:
+                    summaries.append(run_summary)
 
+                # if run passed, and not on the first run, the test is flaky
                 if test_status == PASS and num_runs > 1:
                     test_status = FLAKY
 
                 msg = str(test_status.to_json())
-                if summary:
-                    msg += ": {}".format(summary)
-                if num_runs != self.deflake_num:
-                    msg += "\n" + "~" * max(len(line) for line in summary.split('\n'))
-
+                if run_summary:
+                    msg += ": {}".format("\n".join(run_summary))
                 self.log(logging.INFO, msg)
 
         finally:
             stop_time = time.time()
 
+            summary = self.process_run_summaries(summaries, test_status)
             test_status, summary = self._check_cluster_utilization(test_status, summary)
-
+            # convert summary from list to string
+            summary = "\n".join(summary)
             if num_runs > 1:
                 # for reporting purposes report all services
                 self.test_context.services = self.all_services
@@ -167,11 +175,56 @@ class RunnerClient(object):
             self.test_context = None
             self.test = None
 
+    def process_run_summaries(self, run_summaries: List[List[str]], test_status: TestStatus) -> List[str]:
+        """
+        Converts individual run summaries (there may be multiple if deflake is enabled)
+        into a single run summary
+        """
+        # no summary case, return test passed
+        if not run_summaries:
+            return ["Test Passed"]
+        # single run, can just return the summary
+        if not self.deflake_enabled:
+            return run_summaries[0]
+
+        failure_summaries: Mapping[str: List[int]] = defaultdict(list)
+        # populate run summaries grouping run numbers by stack trace
+        for run_num, summary in enumerate(run_summaries):
+            # convert to tuple to be serializable (+1 for human readability 1 based indexing)
+            failure_summaries[tuple(summary)].append(run_num + 1)
+
+        final_summary = []
+
+        # handle run summaries for each deflake run:
+        sub_summaries = []
+        for individual_summary, runs in failure_summaries.items():
+            sub_summary = []
+            runs = ", ".join(str(r) for r in runs)
+            run_msg = f"run{'s' if len(runs) > 1 else ''} {runs} summary:"
+            sub_summary.append(run_msg)
+            sub_summary.extend(individual_summary)
+            sub_summaries.append(sub_summary)
+
+        if test_status == FLAKY:
+            sub_summaries.append([f"run {len(run_summaries)}: PASSED"])
+
+        # combine summaries, with a '~~~~~' divider
+        for sub_summary in sub_summaries[:-1]:
+            final_summary.extend(sub_summary)
+            break_line = "~" * max(len(line) for line in final_summary) if final_summary else ""
+            final_summary.append(break_line)
+
+        # the pass case could have no summaries, so need to validate that a subsummary exists
+        if sub_summaries:
+            final_summary.extend(sub_summaries[-1])
+
+        return final_summary
+
     def _do_run(self, num_runs):
         test_status = FAIL
         summary = []
         data = None
-        sid_factory = MultiRunServiceIdFactory(num_runs) if self.deflake_num > 1 else service_id_factory
+        sid_factory = MultiRunServiceIdFactory(num_runs) if self.deflake_enabled else service_id_factory
         try:
             # Results from this test, as well as logs will be dumped here
             mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
@@ -187,7 +240,7 @@ class RunnerClient(object):
             # mark the test as failed before doing anything else
             test_status = FAIL
             err_trace = self._exc_msg(e)
-            summary.append(err_trace)
+            summary.extend(err_trace.split('\n'))
 
         finally:
             for service in self.test_context.services:
@@ -199,13 +252,13 @@ class RunnerClient(object):
             if hasattr(self.test_context, "services"):
                 service_errors = self.test_context.services.errors()
                 if service_errors:
-                    summary.extend(["\n\n", service_errors])
+                    summary.extend(["", "", service_errors])
 
             # free nodes
             if self.test:
                 self.log(logging.DEBUG, "Freeing nodes...")
                 self._do_safely(self.test.free_nodes, "Error freeing nodes:")
-            return test_status, "".join(summary), data
+            return test_status, summary, data
 
     def _check_cluster_utilization(self, result, summary):
         """Checks if the number of nodes used by a test is less than the number of
@@ -223,7 +276,7 @@ class RunnerClient(object):
                     self.log(logging.INFO, "FAIL: " + message)
 
                 result = FAIL
-                summary += message
+                summary.append(message)
             else:
                 self.log(logging.WARN, message)
         return result, summary
