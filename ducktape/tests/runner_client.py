@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 import logging
 import os
 import signal
@@ -28,7 +28,7 @@ from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
 from ducktape.tests.status import FLAKY, TestStatus
-from ducktape.tests.test import test_logger, TestContext
+from ducktape.tests.test import Test, test_logger, TestContext
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.utils.local_filesystem_utils import mkdir_p
@@ -36,14 +36,110 @@ from ducktape.utils.local_filesystem_utils import mkdir_p
 
 def run_client(*args, **kwargs):
     client = RunnerClient(*args, **kwargs)
+    client.ready()
     client.run()
+
+
+class Sender(object):
+    REQUEST_TIMEOUT_MS = 3000
+    NUM_RETRIES = 5
+
+    serde: SerDe
+    message_supplier: ClientEventFactory
+    server_endpoint: str
+
+    zmq_context: zmq.Context
+    socket: zmq.Socket
+    poller: zmq.Poller
+
+
+    def __init__(self, server_host: str, server_port: int, message_supplier: ClientEventFactory, logger: logging.Logger):
+        self.serde = SerDe()
+        self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
+        self.zmq_context = zmq.Context()
+        self.socket = None
+        self.poller = zmq.Poller()
+
+        self.message_supplier = message_supplier
+        self.logger = logger
+
+        self._init_socket()
+
+    def _init_socket(self):
+        self.socket = self.zmq_context.socket(zmq.REQ)
+        self.socket.connect(self.server_endpoint)
+        self.poller.register(self.socket, zmq.POLLIN)
+
+    def send(self, event, blocking=True):
+
+        retries_left = Sender.NUM_RETRIES
+
+        while retries_left > 0:
+            serialized_event = self.serde.serialize(event)
+            self.socket.send(serialized_event)
+            retries_left -= 1
+            waiting_for_reply = True
+
+            while waiting_for_reply:
+                sockets = dict(self.poller.poll(Sender.REQUEST_TIMEOUT_MS))
+
+                if sockets.get(self.socket) == zmq.POLLIN:
+                    reply = self.socket.recv()
+                    if reply:
+                        return self.serde.deserialize(reply)
+                    else:
+                        # send another request...
+                        break
+                else:
+                    self.close()
+                    self._init_socket()
+                    waiting_for_reply = False
+                # Ensure each message we attempt to send has a unique id
+                # This copy constructor gives us a duplicate with a new message id
+                event = self.message_supplier.copy(event)
+
+        raise RuntimeError("Unable to receive response from driver")
+
+    def close(self):
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close()
+        self.poller.unregister(self.socket)
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, server_hostname, server_port, test_id,
-                 test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization, deflake_num):
+    serde: SerDe
+    logger: logging.Logger
+    runner_port: int
+    message: ClientEventFactory
+    sender: Sender
+
+
+    test_id: str
+    test_index: int
+    id: str
+
+    test: Test
+    test_context: TestContext
+    all_services: ServiceRegistry
+
+    # configs
+    fail_bad_cluster_utilization: bool
+    deflake_num: int
+
+    def __init__(
+        self,
+        server_hostname: str,
+        server_port: int,
+        test_id: str,
+        test_index: int,
+        logger_name: str,
+        log_dir: str,
+        debug: bool,
+        fail_bad_cluster_utilization: bool,
+        deflake_num: int
+    ):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
         self.serde = SerDe()
@@ -57,11 +153,6 @@ class RunnerClient(object):
         self.message = ClientEventFactory(self.test_id, self.test_index, self.id)
         self.sender = Sender(server_hostname, str(self.runner_port), self.message, self.logger)
 
-        ready_reply = self.sender.send(self.message.ready())
-        self.session_context = ready_reply["session_context"]
-        self.test_metadata = ready_reply["test_metadata"]
-        self.cluster = ready_reply["cluster"]
-
         self.deflake_num = deflake_num
 
         # Wait to instantiate the test object until running the test
@@ -72,6 +163,12 @@ class RunnerClient(object):
     @property
     def deflake_enabled(self) -> bool:
         return self.deflake_num > 1
+
+    def ready(self):
+        ready_reply = self.sender.send(self.message.ready())
+        self.session_context = ready_reply["session_context"]
+        self.test_metadata = ready_reply["test_metadata"]
+        self.cluster = ready_reply["cluster"]
 
     def send(self, event):
         return self.sender.send(event)
@@ -344,60 +441,3 @@ class RunnerClient(object):
             self.logger.log(log_level, msg, *args, **kwargs)
 
         self.send(self.message.log(msg, level=log_level))
-
-
-class Sender(object):
-    REQUEST_TIMEOUT_MS = 3000
-    NUM_RETRIES = 5
-
-    def __init__(self, server_host, server_port, message_supplier, logger):
-        self.serde = SerDe()
-        self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
-        self.zmq_context = zmq.Context()
-        self.socket = None
-        self.poller = zmq.Poller()
-
-        self.message_supplier = message_supplier
-        self.logger = logger
-
-        self._init_socket()
-
-    def _init_socket(self):
-        self.socket = self.zmq_context.socket(zmq.REQ)
-        self.socket.connect(self.server_endpoint)
-        self.poller.register(self.socket, zmq.POLLIN)
-
-    def send(self, event, blocking=True):
-
-        retries_left = Sender.NUM_RETRIES
-
-        while retries_left > 0:
-            serialized_event = self.serde.serialize(event)
-            self.socket.send(serialized_event)
-            retries_left -= 1
-            waiting_for_reply = True
-
-            while waiting_for_reply:
-                sockets = dict(self.poller.poll(Sender.REQUEST_TIMEOUT_MS))
-
-                if sockets.get(self.socket) == zmq.POLLIN:
-                    reply = self.socket.recv()
-                    if reply:
-                        return self.serde.deserialize(reply)
-                    else:
-                        # send another request...
-                        break
-                else:
-                    self.close()
-                    self._init_socket()
-                    waiting_for_reply = False
-                # Ensure each message we attempt to send has a unique id
-                # This copy constructor gives us a duplicate with a new message id
-                event = self.message_supplier.copy(event)
-
-        raise RuntimeError("Unable to receive response from driver")
-
-    def close(self):
-        self.socket.setsockopt(zmq.LINGER, 0)
-        self.socket.close()
-        self.poller.unregister(self.socket)

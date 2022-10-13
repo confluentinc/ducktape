@@ -15,6 +15,7 @@
 from unittest.mock import patch
 
 import pytest
+from ducktape.cluster.cluster import Cluster
 
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
@@ -23,7 +24,7 @@ from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
-from tests.ducktape_mock import FakeCluster
+from tests.ducktape_mock import FakeCluster, MockSender
 
 import tests.ducktape_mock
 from tests.runner.resources.test_fails_to_init import FailsToInitTest
@@ -34,7 +35,7 @@ from .resources.test_failing_tests import FailingTest
 from ducktape.tests.reporter import JUnitReporter
 from ducktape.errors import TimeoutError
 
-from mock import Mock
+from unittest.mock import Mock, MagicMock
 import os
 import xml.etree.ElementTree as ET
 
@@ -407,6 +408,27 @@ class CheckRunner(object):
         assert results.num_failed == 2
         assert results.num_passed == 0
         assert results.num_ignored == 0
+
+    def check_runner_client_report(self):
+        """Validates that an error when reporting an exception in the test doesn't prevent subsequent tests
+        from executing"""
+        mock_cluster = tests.ducktape_mock.mock_cluster()
+        session_context = tests.ducktape_mock.session_context()
+        test_context = tests.ducktape_mock.test_context(session_context=session_context)
+        rc = RunnerClient(
+            "localhost", 22, test_context.test_id, 0, "dummy", "/tmp/dummy", True, False, 5
+        )
+        rc.sender = MockSender()
+        rc.cluster = mock_cluster
+        rc.session_context = session_context
+        rc.test_metadata = MagicMock()
+        with patch('ducktape.tests.runner_client.RunnerClient._collect_test_context') as test_collect_patch:
+            test_collect_patch.return_value = test_context
+            rc.run()
+        # get the last message, get the args send to that message, and get the first arg
+        finished_result = rc.sender.send_results[-1][0][0]
+        assert finished_result.get("event_type") == "FINISHED"
+        assert finished_result["result"].summary == "Test Passed"
 
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
