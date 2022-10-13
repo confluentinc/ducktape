@@ -52,7 +52,13 @@ class Sender(object):
     socket: zmq.Socket
     poller: zmq.Poller
 
-    def __init__(self, server_host: str, server_port: int, message_supplier: ClientEventFactory, logger: logging.Logger):
+    def __init__(
+        self,
+        server_host: str,
+        server_port: int,
+        message_supplier: ClientEventFactory,
+        logger: logging.Logger
+    ):
         self.serde = SerDe()
         self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
         self.zmq_context = zmq.Context()
