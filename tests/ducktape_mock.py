@@ -118,6 +118,7 @@ class MockAccount(LinuxRemoteAccount):
 
 class MockSender(MagicMock):
     send_results: List[Tuple]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.send_results = []

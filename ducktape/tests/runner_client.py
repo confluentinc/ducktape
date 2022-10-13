@@ -52,7 +52,6 @@ class Sender(object):
     socket: zmq.Socket
     poller: zmq.Poller
 
-
     def __init__(self, server_host: str, server_port: int, message_supplier: ClientEventFactory, logger: logging.Logger):
         self.serde = SerDe()
         self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
@@ -114,7 +113,6 @@ class RunnerClient(object):
     runner_port: int
     message: ClientEventFactory
     sender: Sender
-
 
     test_id: str
     test_index: int
