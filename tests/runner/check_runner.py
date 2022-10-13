@@ -15,7 +15,6 @@
 from unittest.mock import patch
 
 import pytest
-from ducktape.cluster.cluster import Cluster
 
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
