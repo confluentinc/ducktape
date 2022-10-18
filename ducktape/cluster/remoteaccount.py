@@ -286,15 +286,17 @@ class RemoteAccount(HttpMixin):
 
         # Unfortunately we need to read over the channel to ensure that recv_exit_status won't hang. See:
         # http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.recv_exit_status
-        stdout.read()
+        stdout_val = stdout.read()
+        stderr_val = stderr.read()
         exit_status = stdout.channel.recv_exit_status()
+        self._log(logging.DEBUG, "SSH command stdout: %s\nstderr: %s" % (stdout_val, stderr_val))
         try:
             if exit_status != 0:
                 if not allow_fail:
                     raise RemoteCommandError(self, cmd, exit_status, stderr.read())
                 else:
-                    self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
-                              (cmd, exit_status, stderr.read()))
+                    self._log(logging.DEBUG, "SSH command '%s' exited with\nstatus: %d\nstdout: %s\n stderr: %s" %
+                              (cmd, exit_status, stdout_val, stderr_val))
         finally:
             stdin.close()
             stdout.close()
