@@ -288,8 +288,9 @@ class RemoteAccount(HttpMixin):
         # http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.recv_exit_status
         stdout_val = stdout.read()
         stderr_val = stderr.read()
+        self._log(logging.WARN, "SSH command stdout: %s\nstderr: %s" % (stdout_val, stderr_val))
         exit_status = stdout.channel.recv_exit_status()
-        self._log(logging.DEBUG, "SSH command stdout: %s\nstderr: %s" % (stdout_val, stderr_val))
+        self._log(logging.WARN, "SSH command exit status: %s" % exit_status)
         try:
             if exit_status != 0:
                 if not allow_fail:
