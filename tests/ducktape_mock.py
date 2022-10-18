@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import List, Tuple
 from ducktape.cluster.cluster import Cluster
 from ducktape.cluster.cluster_spec import ClusterSpec, LINUX
 from ducktape.cluster.node_container import NodeContainer
 from ducktape.tests.session import SessionContext
-from ducktape.tests.test import TestContext
+from ducktape.tests.test import Test, TestContext
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
-from mock import MagicMock
+from unittest.mock import MagicMock
 
 
 import os
@@ -27,7 +28,11 @@ import tempfile
 
 
 def mock_cluster():
-    return MagicMock()
+    return MagicMock(
+        all=lambda: [MagicMock(spec=ClusterSpec)] * 3,
+        max_used=lambda: 3,
+        max_used_nodes=3
+    )
 
 
 class FakeClusterNode(object):
@@ -74,9 +79,21 @@ def session_context(**kwargs):
     return SessionContext(session_id="test_session", **kwargs)
 
 
+class TestMockTest(Test):
+    def mock_test(self):
+        pass
+
+
 def test_context(session_context=session_context(), cluster=mock_cluster()):
     """Return a TestContext object"""
-    return TestContext(session_context=session_context, file="a/b/c", cluster=cluster)
+    return TestContext(
+        session_context=session_context,
+        file="tests/ducktape_mock.py",
+        module=__name__,
+        cls=TestMockTest,
+        function=TestMockTest.mock_test,
+        cluster=cluster
+    )
 
 
 class MockNode(object):
@@ -97,3 +114,16 @@ class MockAccount(LinuxRemoteAccount):
             port=22)
 
         super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None, **kwargs)
+
+
+class MockSender(MagicMock):
+    send_results: List[Tuple]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.send_results = []
+
+    def send(self, *args, **kwargs):
+        self.send_results.append((
+            args, kwargs
+        ))
