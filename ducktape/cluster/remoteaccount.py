@@ -400,7 +400,7 @@ class RemoteAccount(HttpMixin):
             stdin.close()
             stdout.close()
             stderr.close()
-
+        self._log(logging.DEBUG, "Returning ssh command output:\n%s" % stdoutdata)
         return stdoutdata
 
     def alive(self, pid):
