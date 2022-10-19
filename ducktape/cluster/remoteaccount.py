@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import paramiko
+# Constant that is responsible for updating ssh keys after
+# more than REKEY_BYTES data passed through the connection
+# Changing it due to https://github.com/redpanda-data/redpanda/issues/6792
+paramiko.packet.Packetizer.REKEY_BYTES = pow(2, 32)
+
 from contextlib import contextmanager
 import logging
 import os
