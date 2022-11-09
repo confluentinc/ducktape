@@ -1,0 +1,5 @@
+name: ducktape
+lang: unknown
+lang_version: unknown
+git:
+  enable: true
