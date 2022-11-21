@@ -147,7 +147,7 @@ def ring_process(stream: Iterator, buffersize=NUM_RING_LINES):
     dq = deque(maxlen=buffersize)
     dq.extend(stream)
     if len(dq) == buffersize:
-        dq.appendleft(f"Showing the last {buffersize-1} lines...")
+        dq[0] = (f"Showing the last {buffersize-1} lines...")
     return dq
 
 
