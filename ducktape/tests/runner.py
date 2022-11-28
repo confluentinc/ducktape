@@ -209,6 +209,7 @@ class TestRunner(object):
                 while self._ready_to_trigger_more_tests:
                     next_test_context = self.scheduler.peek()
                     try:
+                        self._debug(f"Trying to preallocate subcluster for {next_test_context}")
                         self._preallocate_subcluster(next_test_context)
                     except InsufficientResourcesError:
                         # We were not able to allocate the subcluster for this test,
@@ -225,6 +226,7 @@ class TestRunner(object):
                         self._check_unschedulable()
                     else:
                         # only remove the test from the scheduler once we've successfully allocated a subcluster for it
+                        self._debug(f"Successfully preallocated subcluster for {next_test_context}, running...")
                         self.scheduler.remove(next_test_context)
                         self._run_single_test(next_test_context)
 
@@ -327,27 +329,34 @@ class TestRunner(object):
 
     def _handle_finished(self, event):
         test_key = TestKey(event["test_id"], event["test_index"])
+        self._debug(f"Sending finished response for {test_key}")
         self.receiver.send(self.event_response.finished(event))
 
         result = event['result']
         if result.test_status == FAIL and self.exit_first:
+            self._debug(f"Test failed and `exit_first` is true, stopping: {test_key}")
             self.stop_testing = True
 
         # Transition this test from running to finished
+        self._debug(f"Move test from running to finished: {test_key}")
         del self.active_tests[test_key]
         self.finished_tests[test_key] = event
+        self._debug(f"Append test result: {test_key}")
         self.results.append(result)
 
         # Free nodes used by the test
+        self._debug(f"Free nodes used by the test: {test_key}")
         subcluster = self._test_cluster[test_key]
         self.cluster.free(subcluster.nodes)
         del self._test_cluster[test_key]
 
+        self._debug(f"Join on the finished test process: {test_key}")
         # Join on the finished test process
         self._client_procs[test_key].join()
 
         # Report partial result summaries - it is helpful to have partial test reports available if the
         # ducktape process is killed with a SIGKILL partway through
+        self._debug(f"Report partial result summaries: {test_key}")
         test_results = copy.copy(self.results)  # shallow copy
         reporters = [
             SimpleFileSummaryReporter(test_results),
@@ -360,6 +369,7 @@ class TestRunner(object):
         if self._should_print_separator:
             terminal_width, y = get_terminal_size()
             self._log(logging.INFO, "~" * int(2 * terminal_width / 3))
+        self._debug(f"Done _handle_finished: {test_key}")
 
     @property
     def _should_print_separator(self):
@@ -380,3 +390,6 @@ class TestRunner(object):
     def _log(self, log_level, msg, *args, **kwargs):
         """Log to the service log of the current test."""
         self.session_logger.log(log_level, msg, *args, **kwargs)
+
+    def _debug(self, msg, *args, **kwargs):
+        self._log(logging.DEBUG, msg, *args, **kwargs)
