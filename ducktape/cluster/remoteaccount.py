@@ -143,14 +143,6 @@ class RemoteCommandError(RemoteAccountError):
         return "\n".join(lines)
 
 
-def ring_process(stream: Iterator, buffersize=NUM_RING_LINES):
-    dq = deque(maxlen=buffersize)
-    dq.extend(stream)
-    if len(dq) == buffersize:
-        dq[0] = (f"Showing the last {buffersize-1} lines...")
-    return dq
-
-
 class RemoteAccount(HttpMixin):
     """RemoteAccount is the heart of interaction with cluster nodes,
     and every allocated cluster node has a reference to an instance of RemoteAccount.
@@ -323,12 +315,12 @@ class RemoteAccount(HttpMixin):
 
         # Unfortunately we need to read over the channel to ensure that recv_exit_status won't hang. See:
         # http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.recv_exit_status
-        ring_buff_stdout = ring_process(stdout)
+        stdout_lines = stdout.readlines()
         exit_status = stdout.channel.recv_exit_status()
         try:
             if exit_status != 0:
                 if not allow_fail:
-                    raise RemoteCommandError(self, cmd, exit_status, stdout=ring_buff_stdout, stderr=ring_process(stderr))
+                    raise RemoteCommandError(self, cmd, exit_status, stdout=stdout_lines, stderr=stderr.readlines())
                 else:
                     self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
                               (cmd, exit_status, stderr.read()))
@@ -383,7 +375,7 @@ class RemoteAccount(HttpMixin):
                 exit_status = stdout.channel.recv_exit_status()
                 if exit_status != 0:
                     if not allow_fail:
-                        raise RemoteCommandError(self, cmd, exit_status, stdout=stdout_buff, stderr=ring_process(stderr))
+                        raise RemoteCommandError(self, cmd, exit_status, stdout=stdout_buff, stderr=stderr.readlines())
                     else:
                         self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
                                   (cmd, exit_status, stderr.read()))
@@ -426,7 +418,7 @@ class RemoteAccount(HttpMixin):
             exit_status = stdin.channel.recv_exit_status()
             if exit_status != 0:
                 if not allow_fail:
-                    raise RemoteCommandError(self, cmd, exit_status, stdout=stdoutdata.split("\n"), stderr=ring_process(stderr))
+                    raise RemoteCommandError(self, cmd, exit_status, stdout=stdoutdata.split("\n"), stderr=stderr.readlines())
                 else:
                     self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
                               (cmd, exit_status, stderr.read()))
