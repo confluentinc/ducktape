@@ -78,7 +78,7 @@ class ServiceRegistry(object):
             except BaseException as e:
                 if isinstance(e, KeyboardInterrupt):
                     keyboard_interrupt = e
-                service.logger.warn("Error cleaning service %s: %s" % (service, e))
+                service.logger.warn("Error freeing service %s: %s" % (service, e))
 
         if keyboard_interrupt is not None:
             raise keyboard_interrupt
