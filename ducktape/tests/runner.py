@@ -38,6 +38,9 @@ from ducktape.utils import persistence
 from ducktape.errors import TimeoutError
 
 
+DEFAULT_MP_JOIN_TIMEOUT = 30
+
+
 class Receiver(object):
     def __init__(self, min_port, max_port):
         assert min_port <= max_port, "Expected min_port <= max_port, but instead: min_port: %s, max_port %s" % \
@@ -123,6 +126,26 @@ class TestRunner(object):
         self.finished_tests = {}
         self.test_schedule_log = []
 
+    def _terminate_process(self, process: multiprocessing.Process):
+            # use os.kill rather than multiprocessing.terminate for more control
+            assert process.pid != os.getpid(), "Signal handler should not reach this point in a client subprocess."
+            if process.is_alive():
+                os.kill(process.pid, signal.SIGTERM)
+
+    def _join_timeout(self, process: multiprocessing.Process, timeout: int = DEFAULT_MP_JOIN_TIMEOUT):
+        # waits for process to complete, if it doesn't terminate it 
+        start = time.time()
+        while time.time() - start <= timeout:
+            if process.is_alive():
+                break
+            time.sleep(.1)
+        else:
+            # Note: This can lead to some tmp files being uncleaned, otherwise nothing else should be executed by the
+            #       client after this point.
+            self._log(logging.ERROR, f"after waiting {timeout}s, process {process.name} failed to complete.  Terminating...")
+            self._terminate_process(process)
+        process.join()
+
     def _propagate_sigterm(self, signum, frame):
         """Handler SIGTERM and SIGINT by propagating SIGTERM to all client processes.
 
@@ -141,12 +164,7 @@ class TestRunner(object):
 
         self.stop_testing = True
         for p in self._client_procs.values():
-
-            # this handler should be a noop if we're in a client process, so it's an error if the current pid
-            # is in self._client_procs
-            assert p.pid != os.getpid(), "Signal handler should not reach this point in a client subprocess."
-            if p.is_alive():
-                os.kill(p.pid, signal.SIGTERM)
+            self._terminate_process(p)
 
     def who_am_i(self):
         """Human-readable name helpful for logging."""
@@ -248,8 +266,12 @@ class TestRunner(object):
                           "Received KeyboardInterrupt. Now waiting for currently running tests to finish...")
                 self.stop_testing = True
 
+        # All clients should be cleaned up in their finish block
+        if self._client_procs:
+            self._log(logging.WARNING, f"Some clients failed to clean up, waiting 10min to join: {self._client_procs}")
         for proc in self._client_procs.values():
-            proc.join()
+            self._join_timeout(proc, 600)  # timeout final client join in 10 minutes.
+
         self.receiver.close()
 
         return self.results
@@ -344,7 +366,7 @@ class TestRunner(object):
         del self._test_cluster[test_key]
 
         # Join on the finished test process
-        self._client_procs[test_key].join()
+        self._join_timeout(self._client_procs[test_key])
 
         # Report partial result summaries - it is helpful to have partial test reports available if the
         # ducktape process is killed with a SIGKILL partway through
