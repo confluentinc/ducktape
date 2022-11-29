@@ -15,6 +15,7 @@
 import logging
 import os
 import signal
+import threading
 import time
 import traceback
 import zmq
@@ -122,7 +123,12 @@ class RunnerClient(object):
                 num_runs += 1
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
+                msg = '\n'.join([t.name for t in threading.enumerate()])
+                self.log(logging.DEBUG, f"threads before test start:\n {msg}")
                 test_status, summary, data = self._do_run(num_runs)
+
+                msg = '\n'.join([t.name for t in threading.enumerate()])
+                self.log(logging.DEBUG, f"threads after test complete:\n {msg}")
 
                 if test_status == PASS and num_runs > 1:
                     test_status = FLAKY
@@ -164,6 +170,10 @@ class RunnerClient(object):
             # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
             self.log(logging.DEBUG, "Closing test context")
             self.test_context.close()
+
+            msg = '\n'.join([t.name for t in threading.enumerate()])
+            self.log(logging.DEBUG, f"threads after test close:\n {msg}")
+
             self.all_services = None
             self.test_context = None
             self.test = None
