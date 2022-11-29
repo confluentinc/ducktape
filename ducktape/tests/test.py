@@ -449,15 +449,22 @@ class TestContext(object):
 
     def close(self):
         """Release resources, etc."""
+        self.logger.debug(f"Closing test {self.test_id}")
         if hasattr(self, "services"):
+            self.logger.debug("Closing services")
             for service in self.services:
+                self.logger.debug(f"Closing service {service}")
                 service.close()
             # Remove reference to services. This is important to prevent potential memory leaks if users write services
             # which themselves have references to large memory-intensive objects
+            self.logger.debug("Deleting services collection")
             del self.services
+        else:
+            self.logger.debug("No services to close")
 
         # Remove local scratch directory
         if self._local_scratch_dir and os.path.exists(self._local_scratch_dir):
+            self.logger.debug("Removing local scratch directory")
             shutil.rmtree(self._local_scratch_dir)
 
         # Release file handles held by logger

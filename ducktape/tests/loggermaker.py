@@ -47,6 +47,7 @@ class LoggerMaker(object):
 
 def close_logger(logger):
     """Filehandles etc are not closed automatically, so close them here"""
+    logger.debug(f"Closing logger {logger}")
     if logger is not None:
         handlers = logger.handlers[:]
         for handler in handlers:
