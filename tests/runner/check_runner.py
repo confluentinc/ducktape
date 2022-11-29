@@ -15,6 +15,7 @@
 from unittest.mock import patch
 
 import pytest
+import time
 
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
@@ -24,6 +25,7 @@ from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
 from tests.ducktape_mock import FakeCluster, MockSender
+from ducktape.tests.runner_client import run_client
 
 import tests.ducktape_mock
 from tests.runner.resources.test_fails_to_init import FailsToInitTest
@@ -52,6 +54,11 @@ VARIOUS_NUM_NODES_TEST_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_various_num_nodes.py"))
 BAD_ACTOR_TEST_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_bad_actor.py"))
+
+
+def run_with_timeout_failure(*args, **kwargs):
+    run_client(*args, **kwargs)
+    time.sleep(5)
 
 
 class CheckRunner(object):
@@ -428,6 +435,21 @@ class CheckRunner(object):
         finished_result = rc.sender.send_results[-1][0][0]
         assert finished_result.get("event_type") == "FINISHED"
         assert finished_result["result"].summary == "Test Passed"
+
+    def check_runner_client_timeout(self):
+        mock_cluster = FakeCluster(1)
+        session_context = tests.ducktape_mock.session_context(max_parallel=10)
+        test_cxt = tests.ducktape_mock.test_context(session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), [test_cxt], 1)
+        runner.finish_join_timeout = 0
+
+        with patch('ducktape.tests.runner_client.RunnerClient.run_test'), \
+                patch('ducktape.tests.runner_client.RunnerClient.teardown_test'), \
+                patch('ducktape.tests.runner_client.RunnerClient.setup_test'), \
+                patch('ducktape.tests.runner.run_client', run_with_timeout_failure):
+            results = runner.run_all_tests()
+        # assert that it was terminated
+        assert next(iter(runner.client_report.values())).get("exitcode") != 0
 
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
