@@ -74,6 +74,7 @@ class BackgroundThreadService(Service):
         self._propagate_exceptions()
 
     def stop(self):
+        self.logger.debug(f"Stopping background thread: {self.who_am_i()}")
         alive_workers = [worker for worker in itervalues(self.worker_threads) if worker.is_alive()]
         if len(alive_workers) > 0:
             self.logger.debug(
