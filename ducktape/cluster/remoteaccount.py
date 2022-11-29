@@ -445,6 +445,8 @@ class RemoteAccount(HttpMixin):
 
         :param match:               The AWK expression to match
         """
+        out = self.ssh_output(f"jcmd | awk /{match}/", allow_fail=True)
+        self.logger.debug(f"jcmd output: {out}")
         cmd = """jcmd | awk '/%s/ { print $1 }'""" % match
         return [int(pid) for pid in self.ssh_capture(cmd, allow_fail=True)]
 
@@ -457,6 +459,8 @@ class RemoteAccount(HttpMixin):
                                     false if we should shut down with SIGKILL.
         :param allow_fail:          True if we should throw exceptions if the ssh commands fail.
         """
+        out = self.ssh_output(f"jcmd | awk /{match}/", allow_fail=True)
+        self.logger.debug(f"jcmd output: {out}")
         cmd = """jcmd | awk '/%s/ { print $1 }'""" % match
         pids = [pid for pid in self.ssh_capture(cmd, allow_fail=True)]
 
