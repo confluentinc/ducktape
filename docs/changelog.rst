@@ -4,6 +4,12 @@
 Changelog
 ====
 
+0.11.2
+======
+Wednesday, November 30th, 2022
+------------------------------
+- Bugfix: fixed an edge case when BackgroundThread wait() method errors out if start() method has never been called.
+
 0.11.1
 ======
 - Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
