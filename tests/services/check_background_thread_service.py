@@ -107,6 +107,11 @@ class CheckBackgroundThreadService(object):
         self.service.stop_node(node)
         assert self.service.wait_node(node)
 
+    def check_wait_node_no_start(self):
+        self.service = DummyService(self.context, run_time_sec=float('inf'))
+        node = self.service.nodes[0]
+        assert self.service.wait_node(node)
+
     def check_background_exception(self):
         self.service = DummyService(self.context, float('inf'), Exception('failure'))
         self.service.start()
