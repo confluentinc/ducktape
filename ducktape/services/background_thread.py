@@ -87,9 +87,14 @@ class BackgroundThreadService(Service):
 
     def wait_node(self, node, timeout_sec=600):
         idx = self.idx(node)
-        worker_thread = self.worker_threads[idx]
-        worker_thread.join(timeout_sec)
-        return not(worker_thread.is_alive())
+        worker_thread = self.worker_threads.get(idx)
+        # worker thread can be absent if this node has never been started
+        if worker_thread:
+            worker_thread.join(timeout_sec)
+            return not (worker_thread.is_alive())
+        else:
+            self.logger.debug(f"Worker thread not found for {self.who_am_i(node)}")
+            return True
 
     def _propagate_exceptions(self):
         """

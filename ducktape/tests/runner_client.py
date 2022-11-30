@@ -15,6 +15,7 @@
 import logging
 import os
 import signal
+import threading
 import time
 import traceback
 import zmq
@@ -123,7 +124,9 @@ class RunnerClient(object):
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
                 test_status, summary, data = self._do_run(num_runs)
-
+                # dump threads after the test is complete;
+                # if any thread is not terminated correctly by the test we'll see it here
+                self.dump_threads(f"Threads after {self.test_id} finished")
                 if test_status == PASS and num_runs > 1:
                     test_status = FLAKY
 
@@ -291,6 +294,10 @@ class RunnerClient(object):
             self.logger.log(log_level, msg, *args, **kwargs)
 
         self.send(self.message.log(msg, level=log_level))
+
+    def dump_threads(self, msg):
+        dump = '\n'.join([t.name for t in threading.enumerate()])
+        self.log(logging.DEBUG, f"{msg}: {dump}")
 
 
 class Sender(object):
