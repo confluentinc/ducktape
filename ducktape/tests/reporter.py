@@ -224,7 +224,8 @@ class HTMLSummaryReporter(SummaryReporter):
     def format_test_name(self, result):
         lines = ["Module: " + result.module_name,
                  "Class:  " + result.cls_name,
-                 "Method: " + result.function_name]
+                 "Method: " + result.function_name,
+                 "Nodes:  " + str(result.nodes_used)]
 
         if result.injected_args is not None:
             lines.append("Arguments:")
