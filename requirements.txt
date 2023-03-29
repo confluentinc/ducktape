@@ -20,3 +20,4 @@ cryptography==3.3.2
 certifi==2020.04.05.1
 # xmltodict is required for pywinrm, but as they didn't pin their python2 version, we have to
 xmltodict==0.12.0
+pyspnego<0.2.0
