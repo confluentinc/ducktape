@@ -146,3 +146,25 @@ class CheckParseArgs(object):
             assert args_dict["parameters"] == "PARAMETERS-user"
         finally:
             shutil.rmtree(tmpdir)
+
+    def check_config_file_option_with_test_path(self):
+        """Check that config file option works when excludes and test_path present"""
+        tmpdir = tempfile.mkdtemp(dir="/tmp")
+        user_cfg_filename = os.path.join(tmpdir, "ducktape-user.cfg")
+
+        user_cfg = [
+            "--results-root RESULTSROOT-user",
+            "--parameters PARAMETERS-user",
+            "--exclude foo-test"
+        ]
+
+        try:
+            with open(user_cfg_filename, "w") as user_f:
+                user_f.write("\n".join(user_cfg))
+            args_dict = parse_args(["my_test_path", "--config-file", user_cfg_filename])
+            assert args_dict["test_path"] == ["my_test_path"]
+            assert args_dict["results_root"] == "RESULTSROOT-user"
+            assert args_dict["parameters"] == "PARAMETERS-user"
+            assert args_dict["exclude"] == ["foo-test"]
+        finally:
+            shutil.rmtree(tmpdir)
