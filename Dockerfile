@@ -1,6 +1,6 @@
 # An image of ducktape that can be used to setup a Docker cluster where ducktape is run inside the container.
 
-FROM ubuntu:14.04
+FROM ubuntu:14.abc
 
 RUN apt-get update && \
     apt-get install -y libffi-dev libssl-dev openssh-server python-dev python-pip python-virtualenv && \
