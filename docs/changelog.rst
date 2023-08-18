@@ -3,6 +3,9 @@
 ====
 Changelog
 ====
+0.8.18
+======
+- Updated `requests` version to `2.31.0`
 
 0.8.17
 ======
