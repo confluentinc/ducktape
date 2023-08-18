@@ -4,6 +4,12 @@
 Changelog
 ====
 
+0.10.3
+======
+Friday, August 18th, 2023
+-------------------------
+- Updated `requests` version to 2.31.0
+
 0.10.2
 ======
 - Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
