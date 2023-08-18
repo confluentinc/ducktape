@@ -26,6 +26,7 @@ Changelog
 - Upgrade paramiko version to 2.10.0 - `#312 <https://github.com/confluentinc/ducktape/pull/312>`_
 - Support SSH timeout - `#311 <https://github.com/confluentinc/ducktape/pull/311>`_
 
+
 0.8.18
 ======
 - Updated `requests` version to `2.31.0`
