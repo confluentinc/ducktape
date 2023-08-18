@@ -5,7 +5,7 @@ MarkupSafe<2.0.0
 pyparsing<3.0.0
 zipp<2.0.0
 pywinrm==0.2.2
-requests==2.24.0
+requests==2.31.0
 paramiko~=2.10.0
 pyzmq==19.0.2
 pycryptodome==3.9.8
