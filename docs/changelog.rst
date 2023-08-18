@@ -4,6 +4,12 @@
 Changelog
 ====
 
+0.11.4
+======
+Friday, August 18th, 2023
+-------------------------
+- Updated `requests` version to 2.31.0
+
 0.11.3
 ======
 Wednesday, November 30th, 2022
