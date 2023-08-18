@@ -6,6 +6,12 @@ Changelog
 
 0.8.18
 ======
+Friday, August 18th, 2023
+-------------------------
+-
+
+0.8.18
+======
 - Updated `requests` version to `2.31.0`
 
 0.8.17
