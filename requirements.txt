@@ -12,4 +12,3 @@ pycryptodome==3.9.8
 more-itertools==5.0.0
 six==1.15.0
 PyYAML==5.3.1
-
