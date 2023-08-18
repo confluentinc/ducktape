@@ -4,6 +4,12 @@
 Changelog
 ====
 
+0.11.4
+======
+Friday, August 18th, 2023
+-------------------------
+- Updated `requests` version to 2.31.0
+
 0.11.3
 ======
 Wednesday, November 30th, 2022
@@ -25,6 +31,12 @@ Wednesday, November 30th, 2022
 ======
 - Option to fail tests without `@cluster` annotation. Deprecate ``min_cluster_spec()`` method in the ``Test`` class - `#336 <https://github.com/confluentinc/ducktape/pull/336>`_
 
+0.10.3
+======
+Friday, August 18th, 2023
+-------------------------
+- Updated `requests` version to 2.31.0
+
 0.10.2
 ======
 - Removed `tox` from requirements. It was not used, but was breaking our builds due to recent pushes to `virtualenv`.
@@ -37,6 +49,12 @@ Wednesday, November 30th, 2022
 ======
 - **DO NOT USE**, this release has a nasty bug - `#339 <https://github.com/confluentinc/ducktape/issues/339>`_
 - Do not schedule tests on unresponsive nodes - `#325 <https://github.com/confluentinc/ducktape/pull/325>`_
+
+0.9.4
+=====
+Friday, August 18th, 2023
+-------------------------
+- Updated `requests` version to 2.31.0
 
 0.9.3
 =====
