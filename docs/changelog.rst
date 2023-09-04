@@ -4,6 +4,12 @@
 Changelog
 ====
 
+0.8.19
+======
+Monday, September 04th, 2023
+----------------------------
+- reverting requests version upgrade (downgraded it to 2.24.0)
+
 0.8.18
 ======
 Friday, August 18th, 2023
