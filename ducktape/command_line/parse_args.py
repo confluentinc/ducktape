@@ -141,6 +141,7 @@ def parse_non_default_args(parser: argparse.ArgumentParser, defaults: dict, args
 
     return parsed_args
 
+
 def parse_args(args):
     """Parse in command-line and config file options.
 
@@ -158,14 +159,14 @@ def parse_args(args):
     # Collect arguments from project config file, user config file, and command line
     # later arguments supersede earlier arguments
     parsed_args_list = []
-    
+
     # First collect all the default values
     defaults = vars(parser.parse_args([]))
 
     project_config_file = ConsoleDefaults.PROJECT_CONFIG_FILE
     # Load all non-default args from project config file.
     if os.path.exists(project_config_file):
-        
+
         parsed_args_list.append(
             parse_non_default_args(
                 parser,
