@@ -128,6 +128,20 @@ def config_file_to_args_list(config_file):
     return list(itertools.chain(*[line.split() for line in config_lines]))
 
 
+def parse_non_default_args(parser: argparse.ArgumentParser, defaults: dict, args: list) -> dict:
+    """
+    Parse and remove default args from a list of args, and return the dict of the parsed args.
+    """
+    parsed_args = vars(parser.parse_args(args))
+
+    # remove defaults
+    for key, value in defaults.items():
+        if parsed_args[key] == value:
+            del parsed_args[key]
+
+    return parsed_args
+
+
 def parse_args(args):
     """Parse in command-line and config file options.
 
@@ -144,21 +158,50 @@ def parse_args(args):
 
     # Collect arguments from project config file, user config file, and command line
     # later arguments supersede earlier arguments
-    args_list = []
+    parsed_args_list = []
+
+    # First collect all the default values
+    defaults = vars(parser.parse_args([]))
 
     project_config_file = ConsoleDefaults.PROJECT_CONFIG_FILE
+    # Load all non-default args from project config file.
     if os.path.exists(project_config_file):
-        args_list.extend(config_file_to_args_list(project_config_file))
 
+        parsed_args_list.append(
+            parse_non_default_args(
+                parser,
+                defaults,
+                config_file_to_args_list(project_config_file)
+            )
+        )
+
+    # Load all non-default args from user config file.
     user_config_file = get_user_config_file(args)
     if os.path.exists(user_config_file):
-        args_list.extend(config_file_to_args_list(user_config_file))
+        parsed_args_list.append(
+            parse_non_default_args(
+                parser,
+                defaults,
+                config_file_to_args_list(user_config_file)
+            )
+        )
 
-    args_list.extend(args)
-    parsed_args_dict = vars(parser.parse_args(args_list))
+    # Load all non-default args from the command line.
+    parsed_args_list.append(
+        parse_non_default_args(
+            parser,
+            defaults,
+            args
+        )
+    )
+
+    # Don't need to copy, done with the defaults dict.
+    # Start with the default args, and layer on changes.
+    parsed_args_dict = defaults
+    for parsed_args in parsed_args_list:
+        parsed_args_dict.update(parsed_args)
 
     if parsed_args_dict["version"]:
         print(ducktape_version())
         sys.exit(0)
-
     return parsed_args_dict
