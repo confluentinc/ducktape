@@ -6,7 +6,7 @@ labels: ''
 assignees: ''
 
 ---
-@confluentinc/quality-eng is tagged for visibility
+@confluentinc/testframeworks-and-insights is tagged for visibility
 
 **Describe the bug**
 A clear and concise description of what the bug is.
