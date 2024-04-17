@@ -10,7 +10,6 @@ execution_time_limit:
 global_job_config:
   prologue:
     commands:
-      - . vault-setup
       - sem-version python 3.9
       - pip install tox
       - checkout
