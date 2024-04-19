@@ -7,6 +7,7 @@ sonarqube:
   enable: false
 github:
   enable: true
+  repo_name: confluentinc/ducktape
 semaphore:
   enable: true
   pipeline_enable: false
