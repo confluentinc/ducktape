@@ -161,6 +161,7 @@ class TestRunner(object):
 
     @property
     def _expect_client_requests(self):
+        self._log(logging.DEBUG, "active_tests: %s" % self.active_tests)
         return len(self.active_tests) > 0
 
     def _report_unschedulable(self, unschedulable, err_msg=None):
@@ -230,6 +231,7 @@ class TestRunner(object):
 
                 if self._expect_client_requests:
                     try:
+                        self._log(logging.DEBUG, "**** Waiting for client requests...")
                         event = self.receiver.recv(timeout=self.session_context.test_runner_timeout)
                         self._handle(event)
                     except Exception as e:
@@ -299,6 +301,7 @@ class TestRunner(object):
         self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = FiniteSubcluster(allocated)
 
     def _handle(self, event):
+        self._log(logging.ERROR, "**** Inside event handler")
         self._log(logging.DEBUG, str(event))
 
         if event["event_type"] == ClientEventFactory.READY:
