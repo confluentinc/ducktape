@@ -80,6 +80,7 @@ class SingleResultReporter(object):
 
 class SingleResultFileReporter(SingleResultReporter):
     def report(self):
+        print('******* Start of SingleResultFileReporter.report() *******')
         self.width = DEFAULT_SEPARATOR_WIDTH
         report_file = os.path.join(self.result.results_dir, "report.txt")
         with open(report_file, "w") as fp:
@@ -90,6 +91,8 @@ class SingleResultFileReporter(SingleResultReporter):
             data_file = os.path.join(self.result.results_dir, "data.json")
             with open(data_file, "w") as fp:
                 fp.write(json.dumps(self.result.data))
+        print('******* End of SingleResultFileReporter.report() *******')
+
 
 
 class SummaryReporter(object):
@@ -133,15 +136,19 @@ class SimpleSummaryReporter(SummaryReporter):
 
 class SimpleFileSummaryReporter(SimpleSummaryReporter):
     def report(self):
+        print('******* Start of SimpleFileSummaryReporter.report() *******')
         self.width = DEFAULT_SEPARATOR_WIDTH
         report_file = os.path.join(self.results.session_context.results_dir, "report.txt")
         with open(report_file, "w") as fp:
             fp.write(self.report_string())
+        print('******* End of SimpleFileSummaryReporter.report() *******')
 
 
 class SimpleStdoutSummaryReporter(SimpleSummaryReporter):
     def report(self):
+        print('******* Start of SimpleStdoutSummaryReporter.report() *******')
         print(self.report_string())
+        print('******* End of SimpleStdoutSummaryReporter.report() *******')
 
 
 class JSONReporter(object):
@@ -149,9 +156,11 @@ class JSONReporter(object):
         self.results = results
 
     def report(self):
+        print('******* Start of JSONReporter.report() *******')
         report_file = os.path.abspath(os.path.join(self.results.session_context.results_dir, "report.json"))
         with open(report_file, "w") as f:
             f.write(json.dumps(self.results, cls=DucktapeJSONEncoder, sort_keys=True, indent=2, separators=(',', ': ')))
+        print('******* End of JSONReporter.report() *******')
 
 
 class JUnitReporter(object):
@@ -159,6 +168,7 @@ class JUnitReporter(object):
         self.results = results
 
     def report(self):
+        print('******* Start of JUnitReporter.report() *******')
         report_file = os.path.abspath(os.path.join(self.results.session_context.results_dir, "report.xml"))
         testsuites = {}
 
@@ -217,6 +227,7 @@ class JUnitReporter(object):
             if isinstance(content, bytes):
                 content = content.decode("utf-8")
             f.write(content)
+        print('******* End of JUnitReporter.report() *******')
 
 
 class HTMLSummaryReporter(SummaryReporter):
@@ -351,9 +362,11 @@ class FailedTestSymbolReporter(SummaryReporter):
         print(' '.join([f"'{line}'" for line in lines]))
 
     def report(self):
+        print('******* Start of FailedTestSymbolReporter.report() *******')
         symbols = [self.to_symbol(result) for result in self.results if result.test_status == FAIL]
         if not symbols:
             return
 
         self.dump_test_suite(symbols)
         self.print_test_symbols_string(symbols)
+        print('******* End of FailedTestSymbolReporter.report() *******')
