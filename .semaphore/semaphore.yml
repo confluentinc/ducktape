@@ -1,0 +1,23 @@
+version: v1.0
+name: pr-test-job
+agent:
+  machine:
+    type: s1-prod-ubuntu20-04-amd64-0
+
+execution_time_limit:
+  hours: 1
+
+global_job_config:
+  prologue:
+    commands:
+      - sem-version python 3.7
+      - pip install tox
+      - checkout
+blocks:
+  - name: Test
+    task:
+      jobs:
+        - name: Test
+          commands:
+            - export PYTESTARGS='--junitxml=test/results.xml'
+            - tox
