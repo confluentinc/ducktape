@@ -21,8 +21,8 @@ import pytest
 
 import logging
 from threading import Thread
-from six.moves import SimpleHTTPServer
-from six.moves import socketserver
+from http.server import SimpleHTTPRequestHandler
+import socketserver
 import threading
 import time
 
@@ -45,7 +45,7 @@ class SimpleServer(object):
 
     def __init__(self):
         self.port = find_available_port()
-        self.handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+        self.handler = SimpleHTTPRequestHandler
         self.httpd = socketserver.TCPServer(("", self.port), self.handler)
         self.close_signal = threading.Event()
         self.server_started = False

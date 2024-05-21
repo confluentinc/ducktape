@@ -14,7 +14,6 @@
 
 
 from ducktape.errors import DucktapeError
-from six import iteritems
 
 import functools
 import itertools
@@ -72,7 +71,7 @@ class Mark(object):
         raise NotImplementedError("Subclasses should implement apply")
 
     def __eq__(self, other):
-        if type(self) != type(other):
+        if not isinstance(self, type(other)):
             return False
 
         return self.name == other.name
@@ -198,7 +197,7 @@ class Parametrize(Mark):
 class Env(Mark):
     def __init__(self, **kwargs):
         self.injected_args = kwargs
-        self.should_ignore = any(os.environ.get(key) != value for key, value in iteritems(kwargs))
+        self.should_ignore = any(os.environ.get(key) != value for key, value in kwargs.items())
 
     @property
     def name(self):
@@ -307,9 +306,11 @@ def matrix(**kwargs):
         # x = 2, y = -1
         # x = 2, y = -2
     """
+
     def parametrizer(f):
         Mark.mark(f, Matrix(**kwargs))
         return f
+
     return parametrizer
 
 
@@ -341,9 +342,11 @@ def defaults(**kwargs):
         # x = 3, y = 4, z = 2
         # x = 3, y = 4, z = 999
     """
+
     def parametrizer(f):
         Mark.mark(f, Defaults(**kwargs))
         return f
+
     return parametrizer
 
 
@@ -365,9 +368,11 @@ def parametrize(**kwargs):
         # x = 1, y = 2, z = -1
         # x = 3, y = 4, z = 5
     """
+
     def parametrizer(f):
         Mark.mark(f, Parametrize(**kwargs))
         return f
+
     return parametrizer
 
 
@@ -437,4 +442,5 @@ def _inject(*args, **kwargs):
         wrapper.function = f
 
         return wrapper
+
     return injector

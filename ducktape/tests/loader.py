@@ -30,7 +30,6 @@ import yaml
 from ducktape.tests.test import Test, TestContext
 from ducktape.mark import parametrized
 from ducktape.mark.mark_expander import MarkedFunctionExpander
-from six import itervalues
 
 
 class LoaderException(Exception):
@@ -155,7 +154,7 @@ class TestLoader(object):
             # packing tests into bins based on the least full bin at the time.
             raw_results = _requests_session.get(self.historical_report).json()["results"]
             time_results = {r['test_id']: r['run_time_seconds'] for r in raw_results}
-            avg_result_time = sum(itervalues(time_results)) / len(time_results)
+            avg_result_time = sum(time_results.values()) / len(time_results)
             time_results = {tc.test_id: time_results.get(tc.test_id, avg_result_time) for tc in all_test_context_list}
             all_test_context_list = sorted(all_test_context_list, key=lambda x: time_results[x.test_id], reverse=True)
 

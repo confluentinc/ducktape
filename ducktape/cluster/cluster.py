@@ -67,7 +67,7 @@ class Cluster(object):
 
     def free(self, nodes):
         """Free the given node or list of nodes"""
-        if isinstance(nodes, collections.Iterable):
+        if isinstance(nodes, collections.abc.Iterable):
             for s in nodes:
                 self.free_single(s)
         else:
