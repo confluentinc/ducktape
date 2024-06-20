@@ -14,7 +14,7 @@
 
 from ducktape.command_line.parse_args import parse_args
 
-from six.moves import cStringIO as StringIO
+from io import StringIO
 
 import os
 import re
@@ -144,5 +144,43 @@ class CheckParseArgs(object):
             args_dict = parse_args(["--config-file", user_cfg_filename])
             assert args_dict["results_root"] == "RESULTSROOT-user"
             assert args_dict["parameters"] == "PARAMETERS-user"
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def check_config_overrides_for_n_args(self, monkeypatch):
+        """Check that parsed arguments pick up values from config files, and that overrides match precedence."""
+
+        tmpdir = tempfile.mkdtemp(dir="/tmp")
+        # Create tmp file for global config
+        project_cfg_filename = os.path.join(tmpdir, "ducktape-project.cfg")
+        user_cfg_filename = os.path.join(tmpdir, "ducktape-user.cfg")
+
+        project_cfg = [
+            "--exclude", "test1", "test2", "test3",
+        ]
+
+        # user_cfg options should override project_cfg
+        user_cfg = [
+            "test1", "test2", "test3",
+        ]
+
+        try:
+            monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE",
+                                project_cfg_filename)
+            monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.USER_CONFIG_FILE", user_cfg_filename)
+
+            with open(project_cfg_filename, "w") as project_f:
+                project_f.write("\n".join(project_cfg))
+
+            with open(user_cfg_filename, "w") as user_f:
+                user_f.write("\n".join(user_cfg))
+
+            # command-line options should override user_cfg and project_cfg
+            args_dict = parse_args(["test1", "test2", "test3", "test4", "--max-parallel", "9000"])
+
+            assert args_dict["test_path"] == ["test1", "test2", "test3", "test4"]
+            assert args_dict["exclude"] == ["test1", "test2", "test3"]
+            assert args_dict["max_parallel"] == 9000
+
         finally:
             shutil.rmtree(tmpdir)

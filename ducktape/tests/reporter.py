@@ -15,6 +15,7 @@
 from __future__ import print_function
 
 import json
+import sys
 from pathlib import Path
 
 import yaml
@@ -22,13 +23,10 @@ import os
 import shutil
 import xml.etree.ElementTree as ET
 
-import pkg_resources
-
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.utils.util import ducktape_version
 from ducktape.tests.status import PASS, FAIL, IGNORE, FLAKY
 from ducktape.json_serializable import DucktapeJSONEncoder
-
 
 DEFAULT_SEPARATOR_WIDTH = 100
 
@@ -222,9 +220,10 @@ class JUnitReporter(object):
 class HTMLSummaryReporter(SummaryReporter):
 
     def format_test_name(self, result):
-        lines = ["Module: " + result.module_name,
-                 "Class:  " + result.cls_name,
-                 "Method: " + result.function_name]
+        lines = ["Module:      " + result.module_name,
+                 "Class:       " + result.cls_name,
+                 "Method:      " + result.function_name,
+                 f"Nodes (used/allocated): {result.nodes_used}/{result.nodes_allocated}"]
 
         if result.injected_args is not None:
             lines.append("Arguments:")
@@ -261,7 +260,12 @@ class HTMLSummaryReporter(SummaryReporter):
         return test_results_dir[len(base_dir):]  # truncate the "absolute" portion
 
     def format_report(self):
-        template = pkg_resources.resource_string(__name__, '../templates/report/report.html').decode('utf-8')
+        if sys.version_info >= (3, 9):
+            import importlib.resources as importlib_resources
+            template = importlib_resources.files('ducktape').joinpath('templates/report/report.html').read_text('utf-8')
+        else:
+            import pkg_resources
+            template = pkg_resources.resource_string(__name__, '../templates/report/report.html').decode('utf-8')
 
         num_tests = len(self.results)
         num_passes = 0
@@ -311,8 +315,16 @@ class HTMLSummaryReporter(SummaryReporter):
             fp.close()
 
         report_css = os.path.join(self.results.session_context.results_dir, "report.css")
-        report_css_origin = pkg_resources.resource_filename(__name__, '../templates/report/report.css')
-        shutil.copy2(report_css_origin, report_css)
+
+        if sys.version_info >= (3, 9):
+            import importlib.resources as importlib_resources
+            with importlib_resources.as_file(importlib_resources.files('ducktape')
+                                             / 'templates/report/report.css') as report_css_origin:
+                shutil.copy2(report_css_origin, report_css)
+        else:
+            import pkg_resources
+            report_css_origin = pkg_resources.resource_filename(__name__, '../templates/report/report.css')
+            shutil.copy2(report_css_origin, report_css)
 
     def report(self):
         self.format_report()
@@ -322,11 +334,12 @@ class FailedTestSymbolReporter(SummaryReporter):
 
     def __init__(self, results):
         super().__init__(results)
+        self.working_dir = Path().absolute()
         self.separator = "=" * self.width
 
-    @staticmethod
-    def to_symbol(result):
-        line = f'{result.file_name}::{result.cls_name}.{result.function_name}'
+    def to_symbol(self, result):
+        p = Path(result.file_name).relative_to(self.working_dir)
+        line = f'{p}::{result.cls_name}.{result.function_name}'
         if result.injected_args:
             injected_args_str = json.dumps(result.injected_args, separators=(',', ':'))
             line += f'@{injected_args_str}'

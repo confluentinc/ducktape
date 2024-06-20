@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Dict, List, Tuple
 
-from six import iteritems
+from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class NodeNotPresentError(Exception):
@@ -23,8 +24,17 @@ class InsufficientResourcesError(Exception):
     pass
 
 
+class InsufficientHealthyNodesError(InsufficientResourcesError):
+
+    def __init__(self, bad_nodes: List, *args):
+        self.bad_nodes = bad_nodes
+        super().__init__(*args)
+
+
 class NodeContainer(object):
-    def __init__(self, nodes=None):
+    os_to_nodes: Dict = None
+
+    def __init__(self, nodes: List = None):
         """
         Create a NodeContainer with the given nodes.
 
@@ -103,25 +113,57 @@ class NodeContainer(object):
         for node in nodes:
             self.remove_node(node)
 
-    def remove_spec(self, cluster_spec):
+    def remove_spec(self, cluster_spec) -> Tuple[List, List]:
         """
         Remove nodes matching a ClusterSpec from this NodeContainer.
 
         :param cluster_spec:                    The cluster spec.  This will not be modified.
-        :returns:                               A list of the nodes that were removed.
-        :throws InsufficientResourcesError:     If there are not enough nodes in the NodeContainer.
-                                                Nothing will be removed unless enough are available.
+        :returns:                               List of good nodes and a list of bad nodes.
+        :raises:                                InsufficientResourcesError when there aren't enough total nodes
+                                                InsufficientHealthyNodesError when there aren't enough healthy nodes
         """
-        msg = self.attempt_remove_spec(cluster_spec)
-        if len(msg) > 0:
-            raise InsufficientResourcesError("Not enough nodes available to allocate. " + msg)
-        removed = []
-        for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
+
+        err = self.attempt_remove_spec(cluster_spec)
+        if err:
+            # there weren't enough nodes to even attempt allocations, raise the exception
+            raise InsufficientResourcesError(err)
+
+        good_nodes = []
+        bad_nodes = []
+        msg = ""
+        # we have enough nodes for each OS, now try allocating while doing health checks if nodes support them
+        for os, node_specs in cluster_spec.nodes.os_to_nodes.items():
             num_nodes = len(node_specs)
+            good_per_os = []
             avail_nodes = self.os_to_nodes.get(os, [])
-            for i in range(0, num_nodes):
-                removed.append(avail_nodes.pop(0))
-        return removed
+            # loop over all available nodes
+            # for i in range(0, len(avail_nodes)):
+            while avail_nodes and (len(good_per_os) < num_nodes):
+                node = avail_nodes.pop(0)
+                if isinstance(node, RemoteAccount):
+                    if node.available():
+                        good_per_os.append(node)
+                    else:
+                        bad_nodes.append(node)
+                else:
+                    good_per_os.append(node)
+
+            good_nodes.extend(good_per_os)
+            # if we don't have enough good nodes to allocate for this OS,
+            # set the status as failed
+            if len(good_per_os) < num_nodes:
+                msg += f"{os} nodes requested: {num_nodes}. Healthy {os} nodes available: {len(good_per_os)}"
+
+        # we didn't have enough healthy nodes for at least one of the OS-s
+        # no need to keep the allocated nodes, since there aren't enough of them
+        # let's return good ones back to this container
+        # and raise the exception with bad ones
+        if msg:
+            for node in good_nodes:
+                self.add_node(node)
+            raise InsufficientHealthyNodesError(bad_nodes, msg)
+
+        return good_nodes, bad_nodes
 
     def can_remove_spec(self, cluster_spec):
         """
@@ -142,8 +184,17 @@ class NodeContainer(object):
         :returns:                               An empty string if we can remove the nodes;
                                                 an error string otherwise.
         """
+        # if cluster_spec is None this means the test cannot be run at all
+        # e.g. users didn't specify `@cluster` annotation on it but the session context has a flag to fail
+        # on such tests or any other state where the test deems its cluster spec incorrect.
+        if cluster_spec is None:
+            return "Invalid or missing cluster spec"
+        # cluster spec may be empty and that's ok, shortcut to returning no error messages
+        elif len(cluster_spec) == 0:
+            return ""
+
         msg = ""
-        for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
+        for os, node_specs in cluster_spec.nodes.os_to_nodes.items():
             num_nodes = len(node_specs)
             avail_nodes = len(self.os_to_nodes.get(os, []))
             if avail_nodes < num_nodes:
@@ -156,7 +207,7 @@ class NodeContainer(object):
         Returns a deep copy of this object.
         """
         container = NodeContainer()
-        for operating_system, nodes in iteritems(self.os_to_nodes):
+        for operating_system, nodes in self.os_to_nodes.items():
             for node in nodes:
                 container.os_to_nodes.setdefault(operating_system, []).append(node)
         return container

@@ -18,7 +18,6 @@ import importlib
 import json
 import os
 import random
-from six import iteritems
 import sys
 import traceback
 
@@ -126,7 +125,7 @@ def main():
 
     session_context = SessionContext(session_id=session_id, results_dir=results_dir, **args_dict)
     session_logger = SessionLoggerMaker(session_context).logger
-    for k, v in iteritems(args_dict):
+    for k, v in args_dict.items():
         session_logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run
@@ -142,6 +141,11 @@ def main():
         print("Collected %d tests:" % len(tests))
         for test in tests:
             print("    " + str(test))
+        sys.exit(0)
+
+    if args_dict["collect_num_nodes"]:
+        total_nodes = sum(test.expected_num_nodes for test in tests)
+        print(total_nodes)
         sys.exit(0)
 
     if args_dict["sample"]:

@@ -18,6 +18,10 @@ import json
 import pickle
 import os
 import random
+import pytest
+from ducktape.cluster.remoteaccount import RemoteAccountError
+
+from tests.runner.fake_remote_account import create_fake_remote_account
 
 TWO_HOSTS = """Host worker1
   HostName 127.0.0.1
@@ -44,6 +48,10 @@ Host worker2
 """
 
 
+def make_vagrant_cluster(*args, **kwargs):
+    return VagrantCluster(make_remote_account_func=create_fake_remote_account, *args, **kwargs)
+
+
 class CheckVagrantCluster(object):
 
     def setup_method(self, _):
@@ -59,10 +67,9 @@ class CheckVagrantCluster(object):
 
     def _set_monkeypatch_attr(self, monkeypatch):
         monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster.is_aws", lambda vc: False)
         monkeypatch.setattr(
             "ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.fetch_externally_routable_ip",
-            lambda vc, node_account: "127.0.0.1")
+            lambda vc: "127.0.0.1")
 
     def check_pickleable(self, monkeypatch):
         self._set_monkeypatch_attr(monkeypatch)
@@ -75,7 +82,7 @@ class CheckVagrantCluster(object):
         """
         self._set_monkeypatch_attr(monkeypatch)
 
-        cluster = VagrantCluster()
+        cluster = make_vagrant_cluster()
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
         node1, node2 = cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
@@ -96,7 +103,7 @@ class CheckVagrantCluster(object):
         self._set_monkeypatch_attr(monkeypatch)
         assert not os.path.exists(self.cluster_file)
 
-        cluster = VagrantCluster(cluster_file=self.cluster_file)
+        cluster = make_vagrant_cluster(cluster_file=self.cluster_file)
         cluster_json_expected = {}
         nodes = [
             {
@@ -107,7 +114,8 @@ class CheckVagrantCluster(object):
                     "user": node_account.ssh_config.user,
                     "identityfile": node_account.ssh_config.identityfile,
                     "password": node_account.ssh_config.password,
-                    "port": node_account.ssh_config.port
+                    "port": node_account.ssh_config.port,
+                    "connecttimeout": None
                 }
             }
             for node_account in cluster._available_accounts
@@ -135,7 +143,8 @@ class CheckVagrantCluster(object):
                 "user": "vagrant",
                 "port": 2222,
                 "password": "password",
-                "identityfile": "/path/to/identfile3"
+                "identityfile": "/path/to/identfile3",
+                "connecttimeout": None
             }
         }
         nodes_expected.append(node1_expected)
@@ -148,7 +157,8 @@ class CheckVagrantCluster(object):
                 "user": "vagrant",
                 "port": 2223,
                 "password": None,
-                "identityfile": "/path/to/indentfile2"
+                "identityfile": "/path/to/indentfile2",
+                "connecttimeout": 10
             }
         }
         nodes_expected.append(node2_expected)
@@ -159,7 +169,7 @@ class CheckVagrantCluster(object):
                   indent=2, separators=(',', ': '), sort_keys=True)
 
         # Load the cluster from the json file we just created
-        cluster = VagrantCluster(cluster_file=self.cluster_file)
+        cluster = make_vagrant_cluster(cluster_file=self.cluster_file)
 
         assert len(cluster) == 2
         assert cluster.num_available_nodes() == 2
@@ -174,3 +184,14 @@ class CheckVagrantCluster(object):
         assert node2.account.user == "vagrant"
         assert node2.account.ssh_hostname == '127.0.0.3'
         assert node2.account.ssh_config.to_json() == node1_expected["ssh_config"]
+
+    def check_no_valid_network_devices(self, monkeypatch):
+        """
+        test to make sure that a remote account error is raised when no network devices are found
+        """
+        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
+        monkeypatch.setattr("ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.get_network_devices",
+                            lambda account: [])
+
+        with pytest.raises(RemoteAccountError):
+            VagrantCluster()

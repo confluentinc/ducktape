@@ -30,6 +30,8 @@ def create_ducktape_parser():
     parser.add_argument('--exclude', type=str, nargs='*', default=None,
                         help='one or more space-delimited strings indicating which tests to exclude')
     parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run.")
+    parser.add_argument("--collect-num-nodes", action="store_true",
+                        help="display total number of nodes requested by all tests, but do not run anything.")
     parser.add_argument("--debug", action="store_true", help="pipe more verbose test output to stdout.")
     parser.add_argument("--config-file", action="store", default=ConsoleDefaults.USER_CONFIG_FILE,
                         help="path to project-specific configuration file.")
@@ -77,7 +79,14 @@ def create_ducktape_parser():
     parser.add_argument("--sample", action="store", type=int,
                         help="The size of a random test sample to run")
     parser.add_argument("--fail-bad-cluster-utilization", action="store_true",
-                        help="Fail a test if the cluster node utilization does not match the cluster node usage.")
+                        help="Fail a test if the test declared that it needs more nodes than it actually used. "
+                             "E.g. if the test had `@cluster(num_nodes=10)` annotation, "
+                             "but never used more than 5 nodes during its execution.")
+    parser.add_argument("--fail-greedy-tests", action="store_true",
+                        help="Fail a test if it has no @cluster annotation "
+                             "or if @cluster annotation is empty. "
+                             "You can still specify 0-sized cluster explicitly using either num_nodes=0 "
+                             "or cluster_spec=ClusterSpec.empty()")
     parser.add_argument("--test-runner-timeout", action="store", type=int, default=1800000,
                         help="Amount of time in milliseconds between test communicating between the test runner"
                              " before a timeout error occurs. Default is 30 minutes")
@@ -87,10 +96,10 @@ def create_ducktape_parser():
                         "validation or better logging when an ssh error occurs. Specify any "
                         "number of module paths after this flag to be called."),
     parser.add_argument("--deflake", action="store", type=int, default=1,
-                        help=
-                        "the number of times a failed test should be ran total (including its initial run) to determin flakyness,"
-                        "when not present, deflake will not be used, and a test will be marked as either passed or failed, when enabled"
-                        "tests will be marked as flaky if it passes any of the reruns")
+                        help="the number of times a failed test should be ran in total (including its initial run) "
+                             "to determine flakyness. When not present, deflake will not be used, "
+                             "and a test will be marked as either passed or failed. "
+                             "When enabled tests will be marked as flaky if it passes on any of the reruns")
     return parser
 
 
@@ -119,6 +128,20 @@ def config_file_to_args_list(config_file):
     return list(itertools.chain(*[line.split() for line in config_lines]))
 
 
+def parse_non_default_args(parser: argparse.ArgumentParser, defaults: dict, args: list) -> dict:
+    """
+    Parse and remove default args from a list of args, and return the dict of the parsed args.
+    """
+    parsed_args = vars(parser.parse_args(args))
+
+    # remove defaults
+    for key, value in defaults.items():
+        if parsed_args[key] == value:
+            del parsed_args[key]
+
+    return parsed_args
+
+
 def parse_args(args):
     """Parse in command-line and config file options.
 
@@ -135,21 +158,50 @@ def parse_args(args):
 
     # Collect arguments from project config file, user config file, and command line
     # later arguments supersede earlier arguments
-    args_list = []
+    parsed_args_list = []
+
+    # First collect all the default values
+    defaults = vars(parser.parse_args([]))
 
     project_config_file = ConsoleDefaults.PROJECT_CONFIG_FILE
+    # Load all non-default args from project config file.
     if os.path.exists(project_config_file):
-        args_list.extend(config_file_to_args_list(project_config_file))
 
+        parsed_args_list.append(
+            parse_non_default_args(
+                parser,
+                defaults,
+                config_file_to_args_list(project_config_file)
+            )
+        )
+
+    # Load all non-default args from user config file.
     user_config_file = get_user_config_file(args)
     if os.path.exists(user_config_file):
-        args_list.extend(config_file_to_args_list(user_config_file))
+        parsed_args_list.append(
+            parse_non_default_args(
+                parser,
+                defaults,
+                config_file_to_args_list(user_config_file)
+            )
+        )
 
-    args_list.extend(args)
-    parsed_args_dict = vars(parser.parse_args(args_list))
+    # Load all non-default args from the command line.
+    parsed_args_list.append(
+        parse_non_default_args(
+            parser,
+            defaults,
+            args
+        )
+    )
+
+    # Don't need to copy, done with the defaults dict.
+    # Start with the default args, and layer on changes.
+    parsed_args_dict = defaults
+    for parsed_args in parsed_args_list:
+        parsed_args_dict.update(parsed_args)
 
     if parsed_args_dict["version"]:
         print(ducktape_version())
         sys.exit(0)
-
     return parsed_args_dict

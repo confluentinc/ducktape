@@ -43,12 +43,11 @@ class TestResult(object):
         @param data          data returned by the test, e.g. throughput
         """
         self.nodes_allocated = len(test_context.cluster)
+        self.nodes_used = test_context.cluster.max_used_nodes
         if hasattr(test_context, "services"):
             self.services = test_context.services.to_json()
-            self.nodes_used = test_context.services.min_cluster_spec().size()
         else:
             self.services = {}
-            self.nodes_used = 0
 
         self.test_id = test_context.test_id
         self.module_name = test_context.module_name

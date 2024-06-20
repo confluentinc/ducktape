@@ -171,7 +171,7 @@ class Service(TemplateRenderer):
 
         """
         if hasattr(self.context, "services"):
-            same_services = [id(s) for s in self.context.services if type(s) == type(self)]
+            same_services = [id(s) for s in self.context.services if isinstance(self, type(s))]
 
             if self not in self.context.services and not self._initialized:
                 # It's possible that _order will be invoked in the constructor *before* self has been registered with

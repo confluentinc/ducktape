@@ -12,23 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections import defaultdict
 import logging
 import os
 import signal
 import threading
 import time
 import traceback
+from typing import List, Mapping
 import zmq
 
-from six import iteritems
 from ducktape.services.service import MultiRunServiceIdFactory, service_id_factory
 from ducktape.services.service_registry import ServiceRegistry
 
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
 from ducktape.tests.serde import SerDe
-from ducktape.tests.status import FLAKY
-from ducktape.tests.test import test_logger, TestContext
+from ducktape.tests.status import FLAKY, TestStatus
+from ducktape.tests.test import Test, test_logger, TestContext
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
 from ducktape.utils.local_filesystem_utils import mkdir_p
@@ -40,14 +41,114 @@ HEARTBEAT_FALLOFF_SECONDS = 5
 
 def run_client(*args, **kwargs):
     client = RunnerClient(*args, **kwargs)
+    client.ready()
     client._run_tests_with_heartbeat()
+
+
+class Sender(object):
+    REQUEST_TIMEOUT_MS = 3000
+    NUM_RETRIES = 5
+
+    serde: SerDe
+    message_supplier: ClientEventFactory
+    server_endpoint: str
+
+    zmq_context: zmq.Context
+    socket: zmq.Socket
+    poller: zmq.Poller
+
+    def __init__(
+        self,
+        server_host: str,
+        server_port: int,
+        message_supplier: ClientEventFactory,
+        logger: logging.Logger
+    ):
+        self.serde = SerDe()
+        self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
+        self.zmq_context = zmq.Context()
+        self.socket = None
+        self.poller = zmq.Poller()
+
+        self.message_supplier = message_supplier
+        self.logger = logger
+
+        self._init_socket()
+
+    def _init_socket(self):
+        self.socket = self.zmq_context.socket(zmq.REQ)
+        self.socket.connect(self.server_endpoint)
+        self.poller.register(self.socket, zmq.POLLIN)
+
+    def send(self, event, blocking=True):
+
+        retries_left = Sender.NUM_RETRIES
+
+        while retries_left > 0:
+            serialized_event = self.serde.serialize(event)
+            self.socket.send(serialized_event)
+            retries_left -= 1
+            waiting_for_reply = True
+
+            while waiting_for_reply:
+                sockets = dict(self.poller.poll(Sender.REQUEST_TIMEOUT_MS))
+
+                if sockets.get(self.socket) == zmq.POLLIN:
+                    reply = self.socket.recv()
+                    if reply:
+                        return self.serde.deserialize(reply)
+                    else:
+                        # send another request...
+                        break
+                else:
+                    self.close()
+                    self._init_socket()
+                    waiting_for_reply = False
+                # Ensure each message we attempt to send has a unique id
+                # This copy constructor gives us a duplicate with a new message id
+                event = self.message_supplier.copy(event)
+
+        raise RuntimeError("Unable to receive response from driver")
+
+    def close(self):
+        self.socket.setsockopt(zmq.LINGER, 0)
+        self.socket.close()
+        self.poller.unregister(self.socket)
 
 
 class RunnerClient(object):
     """Run a single test"""
 
-    def __init__(self, server_hostname, server_port, test_id,
-                 test_index, logger_name, log_dir, debug, fail_bad_cluster_utilization, deflake_num):
+    serde: SerDe
+    logger: logging.Logger
+    runner_port: int
+    message: ClientEventFactory
+    sender: Sender
+
+    test_id: str
+    test_index: int
+    id: str
+
+    test: Test
+    test_context: TestContext
+    all_services: ServiceRegistry
+
+    # configs
+    fail_bad_cluster_utilization: bool
+    deflake_num: int
+
+    def __init__(
+        self,
+        server_hostname: str,
+        server_port: int,
+        test_id: str,
+        test_index: int,
+        logger_name: str,
+        log_dir: str,
+        debug: bool,
+        fail_bad_cluster_utilization: bool,
+        deflake_num: int
+    ):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
         self.serde = SerDe()
@@ -61,17 +162,23 @@ class RunnerClient(object):
         self.message = ClientEventFactory(self.test_id, self.test_index, self.id)
         self.sender = Sender(server_hostname, str(self.runner_port), self.message, self.logger)
 
-        ready_reply = self.sender.send(self.message.ready())
-        self.session_context = ready_reply["session_context"]
-        self.test_metadata = ready_reply["test_metadata"]
-        self.cluster = ready_reply["cluster"]
-
         self.deflake_num = deflake_num
 
         # Wait to instantiate the test object until running the test
         self.test = None
         self.test_context = None
         self.lock = threading.Lock()
+        self.all_services = None
+
+    @property
+    def deflake_enabled(self) -> bool:
+        return self.deflake_num > 1
+
+    def ready(self):
+        ready_reply = self.sender.send(self.message.ready())
+        self.session_context = ready_reply["session_context"]
+        self.test_metadata = ready_reply["test_metadata"]
+        self.cluster = ready_reply["cluster"]
 
     def send(self, *args, **kwargs):
         self.lock.acquire(blocking=True)
@@ -104,6 +211,9 @@ class RunnerClient(object):
 
     def _collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
         loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)
+        # TODO: deal with this in a more graceful fashion.
+        #       In an unlikely even that discover either raises the exception or fails to find exactly one test
+        #       we should probably continue trying other tests rather than killing this process
         loaded_context_list = loader.discover(directory, file_name, cls_name, method_name)
 
         assert len(loaded_context_list) == 1
@@ -133,107 +243,152 @@ class RunnerClient(object):
         start_time = -1
         stop_time = -1
         test_status = FAIL
+        data = None
+        self.all_services = ServiceRegistry()
+
+        summaries = []
+        num_runs = 0
+
+        try:
+            while test_status == FAIL and num_runs < self.deflake_num:
+                num_runs += 1
+                self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
+                start_time = time.time()
+                test_status, run_summary, data = self._do_run(num_runs)
+                if run_summary:
+                    summaries.append(run_summary)
+
+                # dump threads after the test is complete;
+                # if any thread is not terminated correctly by the test we'll see it here
+                self.dump_threads(f"Threads after {self.test_id} finished")
+
+                # if run passed, and not on the first run, the test is flaky
+                if test_status == PASS and num_runs > 1:
+                    test_status = FLAKY
+
+                msg = str(test_status.to_json())
+                if run_summary:
+                    msg += ": {}".format("\n".join(run_summary))
+                self.log(logging.INFO, msg)
+
+        finally:
+            stop_time = time.time()
+
+            summary = self.process_run_summaries(summaries, test_status)
+            test_status, summary = self._check_cluster_utilization(test_status, summary)
+            # convert summary from list to string
+            summary = "\n".join(summary)
+            if num_runs > 1:
+                # for reporting purposes report all services
+                self.test_context.services = self.all_services
+            # for flaky tests, we report the start and end time of the successful run, and not the whole run period
+            result = TestResult(
+                self.test_context,
+                self.test_index,
+                self.session_context,
+                test_status,
+                summary,
+                data,
+                start_time,
+                stop_time)
+
+            self.log(logging.INFO, "Data: %s" % str(result.data))
+
+            result.report()
+            # Tell the server we are finished
+            self._do_safely(lambda: self.send(self.message.finished(result=result)),
+                            "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+            # Release test_context resources only after creating the result and finishing logging activity
+            # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
+            self.test_context.close()
+            self.all_services = None
+            self.test_context = None
+            self.test = None
+
+    def process_run_summaries(self, run_summaries: List[List[str]], test_status: TestStatus) -> List[str]:
+        """
+        Converts individual run summaries (there may be multiple if deflake is enabled)
+        into a single run summary
+        """
+        # no summary case, return test passed
+        if not run_summaries:
+            return ["Test Passed"]
+        # single run, can just return the summary
+        if not self.deflake_enabled:
+            return run_summaries[0]
+
+        failure_summaries: Mapping[str: List[int]] = defaultdict(list)
+        # populate run summaries grouping run numbers by stack trace
+        for run_num, summary in enumerate(run_summaries):
+            # convert to tuple to be serializable (+1 for human readability 1 based indexing)
+            failure_summaries[tuple(summary)].append(run_num + 1)
+
+        final_summary = []
+
+        # handle run summaries for each deflake run:
+        sub_summaries = []
+        for individual_summary, runs in failure_summaries.items():
+            sub_summary = []
+            runs = ", ".join(str(r) for r in runs)
+            run_msg = f"run{'s' if len(runs) > 1 else ''} {runs} summary:"
+            sub_summary.append(run_msg)
+            sub_summary.extend(individual_summary)
+            sub_summaries.append(sub_summary)
+
+        if test_status == FLAKY:
+            sub_summaries.append([f"run {len(run_summaries)}: PASSED"])
+
+        # combine summaries, with a '~~~~~' divider
+        for sub_summary in sub_summaries[:-1]:
+            final_summary.extend(sub_summary)
+            break_line = "~" * max(len(line) for line in final_summary) if final_summary else ""
+            final_summary.append(break_line)
+
+        # the pass case could have no summaries, so need to validate that a subsummary exists
+        if sub_summaries:
+            final_summary.extend(sub_summaries[-1])
+
+        return final_summary
+
+    def _do_run(self, num_runs):
+        test_status = FAIL
         summary = []
         data = None
-        all_services = ServiceRegistry()
+        sid_factory = MultiRunServiceIdFactory(num_runs) if self.deflake_enabled else service_id_factory
+        try:
+            # Results from this test, as well as logs will be dumped here
+            mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
+            # Instantiate test
+            self.test = self.test_context.cls(self.test_context)
 
-        sid_factory = service_id_factory
+            # Run the test unit
+            self.setup_test()
+            data = self.run_test()
+            test_status = PASS
 
-        num_runs = 1
-        while test_status == FAIL and num_runs <= self.deflake_num:
-            if self.deflake_num > 1:
-                sid_factory = MultiRunServiceIdFactory(num_runs)
-            self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
-            try:
-                # Results from this test, as well as logs will be dumped here
-                mkdir_p(TestContext.results_dir(self.test_context, self.test_index))
-                # Instantiate test
-                self.test = self.test_context.cls(self.test_context)
+        except BaseException as e:
+            # mark the test as failed before doing anything else
+            test_status = FAIL
+            err_trace = self._exc_msg(e)
+            summary.extend(err_trace.split('\n'))
 
-                self.log(logging.DEBUG, "Checking if there are enough nodes...")
-                min_cluster_spec = self.test.min_cluster_spec()
-                os_to_num_nodes = {}
-                for node_spec in min_cluster_spec:
-                    if not os_to_num_nodes.get(node_spec.operating_system):
-                        os_to_num_nodes[node_spec.operating_system] = 1
-                    else:
-                        os_to_num_nodes[node_spec.operating_system] = os_to_num_nodes[node_spec.operating_system] + 1
-                for (operating_system, node_count) in iteritems(os_to_num_nodes):
-                    num_avail = len(list(self.cluster.all().nodes.elements(operating_system=operating_system)))
-                    if node_count > num_avail:
-                        raise RuntimeError(
-                            "There are not enough nodes available in the cluster to run this test. "
-                            "Cluster size for %s: %d, Need at least: %d. Services currently registered: %s" %
-                            (operating_system, num_avail, node_count, self.test_context.services))
+        finally:
+            for service in self.test_context.services:
+                service.service_id_factory = sid_factory
+                self.all_services.append(service)
 
-                # Run the test unit
-                start_time = time.time()
-                self.setup_test()
+            self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
 
-                data = self.run_test()
+            if hasattr(self.test_context, "services"):
+                service_errors = self.test_context.services.errors()
+                if service_errors:
+                    summary.extend(["", "", service_errors])
 
-                test_status = PASS if num_runs == 1 else FLAKY
-                self.log(logging.INFO, "{} TEST".format(test_status.to_json()))
-
-            except BaseException as e:
-                # mark the test as failed before doing anything else
-                test_status = FAIL
-                err_trace = self._exc_msg(e)
-                summary.append(err_trace)
-                if num_runs != self.deflake_num:
-                    summary.append("~" * max(len(l) for l in err_trace.split('\n')) + "\n")
-                self.log(logging.INFO, "FAIL: " + err_trace)
-
-            finally:
-                for service in self.test_context.services:
-                    service.service_id_factory = sid_factory
-                    all_services.append(service)
-
-                self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
-
-                stop_time = time.time()
-
-                if hasattr(self.test_context, "services"):
-                    service_errors = self.test_context.services.errors()
-                    if service_errors:
-                        summary.extend(["\n\n", service_errors])
-
-                # free nodes
-                if self.test:
-                    self.log(logging.DEBUG, "Freeing nodes...")
-                    self._do_safely(self.test.free_nodes, "Error freeing nodes:")
-
-                num_runs += 1
-
-        summary = "".join(summary)
-        test_status, summary = self._check_cluster_utilization(test_status, summary)
-
-        if num_runs > 1:
-            # for reporting purposes report all services
-            self.test_context.services = all_services
-        # for flaky tests, we report the start and end time of the successful run, and not the whole run period
-        result = TestResult(
-            self.test_context,
-            self.test_index,
-            self.session_context,
-            test_status,
-            summary,
-            data,
-            start_time,
-            stop_time)
-
-        self.log(logging.INFO, "Summary: %s" % str(result.summary))
-        self.log(logging.INFO, "Data: %s" % str(result.data))
-
-        result.report()
-        # Tell the server we are finished
-        self._do_safely(lambda: self.send(self.message.finished(result=result)),
-                        "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
-        # Release test_context resources only after creating the result and finishing logging activity
-        # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
-        self.test_context.close()
-        self.test_context = None
-        self.test = None
+            # free nodes
+            if self.test:
+                self.log(logging.DEBUG, "Freeing nodes...")
+                self._do_safely(self.test.free_nodes, "Error freeing nodes:")
+            return test_status, summary, data
 
     def _check_cluster_utilization(self, result, summary):
         """Checks if the number of nodes used by a test is less than the number of
@@ -251,7 +406,7 @@ class RunnerClient(object):
                     self.log(logging.INFO, "FAIL: " + message)
 
                 result = FAIL
-                summary += message
+                summary.append(message)
             else:
                 self.log(logging.WARN, message)
         return result, summary
@@ -320,59 +475,6 @@ class RunnerClient(object):
 
         self.send(self.message.log(msg, level=log_level))
 
-
-class Sender(object):
-    REQUEST_TIMEOUT_MS = 3000
-    NUM_RETRIES = 5
-
-    def __init__(self, server_host, server_port, message_supplier, logger):
-        self.serde = SerDe()
-        self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
-        self.zmq_context = zmq.Context()
-        self.socket = None
-        self.poller = zmq.Poller()
-
-        self.message_supplier = message_supplier
-        self.logger = logger
-
-        self._init_socket()
-
-    def _init_socket(self):
-        self.socket = self.zmq_context.socket(zmq.REQ)
-        self.socket.connect(self.server_endpoint)
-        self.poller.register(self.socket, zmq.POLLIN)
-
-    def send(self, event, blocking=True):
-
-        retries_left = Sender.NUM_RETRIES
-
-        while retries_left > 0:
-            serialized_event = self.serde.serialize(event)
-            self.socket.send(serialized_event)
-            retries_left -= 1
-            waiting_for_reply = True
-
-            while waiting_for_reply:
-                sockets = dict(self.poller.poll(Sender.REQUEST_TIMEOUT_MS))
-
-                if sockets.get(self.socket) == zmq.POLLIN:
-                    reply = self.socket.recv()
-                    if reply:
-                        return self.serde.deserialize(reply)
-                    else:
-                        # send another request...
-                        break
-                else:
-                    self.close()
-                    self._init_socket()
-                    waiting_for_reply = False
-                # Ensure each message we attempt to send has a unique id
-                # This copy constructor gives us a duplicate with a new message id
-                event = self.message_supplier.copy(event)
-
-        raise RuntimeError("Unable to receive response from driver")
-
-    def close(self):
-        self.socket.setsockopt(zmq.LINGER, 0)
-        self.socket.close()
-        self.poller.unregister(self.socket)
+    def dump_threads(self, msg):
+        dump = '\n'.join([t.name for t in threading.enumerate()])
+        self.log(logging.DEBUG, f"{msg}: {dump}")

@@ -14,25 +14,31 @@
 
 from unittest.mock import patch
 
+import pytest
+
+from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
+from ducktape.tests.status import PASS, FAIL
 from ducktape.tests.test import TestContext
 from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
-from tests.ducktape_mock import FakeCluster
+from tests.ducktape_mock import FakeCluster, MockSender
 
 import tests.ducktape_mock
 from tests.runner.resources.test_fails_to_init import FailsToInitTest
 from tests.runner.resources.test_fails_to_init_in_setup import FailsToInitInSetupTest
+from .resources.test_bad_actor import BadActorTest
 from .resources.test_thingy import ClusterTestThingy, TestThingy
 from .resources.test_failing_tests import FailingTest
 from ducktape.tests.reporter import JUnitReporter
+from ducktape.errors import TimeoutError
 
-
-from mock import Mock
+from unittest.mock import Mock, MagicMock
 import os
 import xml.etree.ElementTree as ET
 
+from .resources.test_various_num_nodes import VariousNumNodesTest
 
 TEST_THINGY_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
@@ -42,6 +48,10 @@ FAILS_TO_INIT_TEST_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init.py"))
 FAILS_TO_INIT_IN_SETUP_TEST_FILE = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init_in_setup.py"))
+VARIOUS_NUM_NODES_TEST_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_various_num_nodes.py"))
+BAD_ACTOR_TEST_FILE = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "resources/test_bad_actor.py"))
 
 
 class CheckRunner(object):
@@ -51,7 +61,8 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context()
 
         test_context = TestContext(session_context=session_context, module=None, cls=TestThingy,
-                                   function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster)
+                                   function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster,
+                                   cluster_use_metadata={'num_nodes': 1000})
         runner = TestRunner(mock_cluster, session_context, Mock(), [test_context], 1)
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
@@ -202,21 +213,249 @@ class CheckRunner(object):
         assert results.num_ignored == 0
 
     def check_run_failure_with_bad_cluster_allocation(self):
-        """Check expected behavior when running a single test."""
+        """Check test should be marked failed if it under-utilizes the cluster resources."""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context(
             fail_bad_cluster_utilization="fail_bad_cluster_utilization")
 
-        test_methods = [ClusterTestThingy.test_bad_num_nodes, ClusterTestThingy.test_good_num_nodes]
         ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=ClusterTestThingy,
-                                   test_methods=test_methods, cluster=mock_cluster,
+                                   test_methods=[ClusterTestThingy.test_bad_num_nodes], cluster=mock_cluster,
                                    session_context=session_context)
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
 
-        assert len(results) == 2
+        assert len(results) == 1
+        assert results.num_flaky == 0
+        assert results.num_failed == 1
+        assert results.num_passed == 0
+        assert results.num_ignored == 0
+
+    def check_test_failure_with_too_many_nodes_requested(self):
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(debug=True)
+
+        ctx_list = self._do_expand(test_file=BAD_ACTOR_TEST_FILE, test_class=BadActorTest,
+                                   test_methods=[BadActorTest.test_too_many_nodes],
+                                   cluster=mock_cluster, session_context=session_context)
+        ctx_list.extend(self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
+                                        test_methods=[VariousNumNodesTest.test_one_node_a],
+                                        cluster=mock_cluster, session_context=session_context))
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
         assert results.num_flaky == 0
         assert results.num_failed == 1
         assert results.num_passed == 1
         assert results.num_ignored == 0
+        passed = [r for r in results if r.test_status == PASS]
+        failed = [r for r in results if r.test_status == FAIL]
+        assert passed[0].test_id == 'tests.runner.resources.test_various_num_nodes.VariousNumNodesTest.test_one_node_a'
+        assert failed[0].test_id == 'tests.runner.resources.test_bad_actor.BadActorTest.test_too_many_nodes'
+
+    def check_runner_timeout(self):
+        """Check process cleanup and error handling in a parallel runner client run."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(max_parallel=1000, test_runner_timeout=1)
+
+        test_methods = [TestThingy.test_delayed, TestThingy.test_failure]
+        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        with pytest.raises(TimeoutError):
+            runner.run_all_tests()
+
+        assert not runner._client_procs
+
+    @pytest.mark.parametrize('fail_greedy_tests', [True, False])
+    def check_fail_greedy_tests(self, fail_greedy_tests):
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
+
+        test_methods = [
+            VariousNumNodesTest.test_empty_cluster_annotation,
+            VariousNumNodesTest.test_no_cluster_annotation,
+            VariousNumNodesTest.test_zero_nodes
+        ]
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
+                                   test_methods=test_methods,
+                                   cluster=mock_cluster, session_context=session_context)
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+        assert results.num_flaky == 0
+        assert results.num_failed == (2 if fail_greedy_tests else 0)
+        # zero-node test should always pass, whether we fail on greedy or not
+        assert results.num_passed == (1 if fail_greedy_tests else 3)
+        assert results.num_ignored == 0
+
+    def check_cluster_shrink(self):
+        """
+        Check what happens if cluster loses a node while the runner is already running.
+        SchedulerTestThingy has two 5-node tests, and one of each for 4, 3, and 2 nodes.
+
+        Thus both 5-node tests should pass, first one failing during pre-allocation phase,
+        second one shouldn't even attempt to be allocated.
+        And all the other tests should pass still.
+        """
+
+        mock_cluster = ShrinkingLocalhostCluster(num_nodes=5)
+        session_context = tests.ducktape_mock.session_context(max_parallel=10)
+
+        test_methods = [
+            VariousNumNodesTest.test_five_nodes_a,
+            VariousNumNodesTest.test_five_nodes_b,
+            VariousNumNodesTest.test_four_nodes,
+            VariousNumNodesTest.test_three_nodes_a,
+            VariousNumNodesTest.test_two_nodes_a
+        ]
+
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
+                                   test_methods=test_methods, cluster=mock_cluster,
+                                   session_context=session_context)
+
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+
+        assert len(results) == 5
+        assert results.num_flaky == 0
+        assert results.num_failed == 2  # both of the 5-node tests should fail
+        assert results.num_passed == 3  # 4-node, 3-node and 2-node should all pass
+        assert results.num_ignored == 0
+
+    def check_cluster_shrink_reschedule(self):
+        """
+        Test that the test that failed to schedule initially due to a node going offline is not lost and is still
+        scheduled when more nodes become available.
+
+        We start with a 6-node cluster.
+        First we run a long-ish 3-node test, leaving 3 nodes available.
+        Then when trying to run a second 3-node test, we shrink the cluster, emulating one of the nodes
+        going down - this leaves only 2 nodes available, so we cannot run this test.
+
+        However, after the first 3-node test finishes running, it will return its 3 nodes back to the cluster,
+        so the second 3-node test becomes schedulable again - this is what we test for.
+
+        Also two two-node tests should pass too - they should be scheduled before the second 3-node test,
+        while two nodes are waiting for the first 3-node test to finish.
+
+        It's generally not a good practice to rely on sleep, but I think it's acceptable in this case,
+        since we do need to rely on parallelism.
+        """
+
+        mock_cluster = ShrinkingLocalhostCluster(num_nodes=6, shrink_on=2)
+        session_context = tests.ducktape_mock.session_context(max_parallel=10)
+
+        test_methods = [
+            VariousNumNodesTest.test_three_nodes_asleep,
+            VariousNumNodesTest.test_three_nodes_b,
+            VariousNumNodesTest.test_two_nodes_a,
+            VariousNumNodesTest.test_two_nodes_b
+        ]
+
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
+                                   test_methods=test_methods, cluster=mock_cluster,
+                                   session_context=session_context)
+
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+
+        assert len(results) == 4
+        assert results.num_flaky == 0
+        assert results.num_failed == 0
+        assert results.num_passed == 4
+        assert results.num_ignored == 0
+
+        # normal order on a 6-node cluster would be:
+        #  - test_three_nodes_asleep, test_three_nodes_b, test_two_nodes_a, test_two_nodes_b
+        # however the cluster would shrink to 5 nodes after scheduling the first 3-node test,
+        # leaving no space for the second 3-node test to be scheduled, bumping it down the line,
+        # while two 2-node tests will be scheduled alongside the
+        expected_scheduling_order = [
+            "VariousNumNodesTest.test_three_nodes_asleep",
+            "VariousNumNodesTest.test_two_nodes_a",
+            "VariousNumNodesTest.test_two_nodes_b",
+            "VariousNumNodesTest.test_three_nodes_b"
+        ]
+        # We check the actual order the tests were scheduled in, since completion order might be different,
+        # with so many fast tests running in parallel.
+        actual_scheduling_order = [x.test_id for x in runner.test_schedule_log]
+        assert actual_scheduling_order == expected_scheduling_order
+
+    def check_cluster_shrink_to_zero(self):
+        """
+        Validates that if the cluster is shrunk to zero nodes size, no tests can run,
+        but we still exit gracefully.
+        """
+
+        mock_cluster = ShrinkingLocalhostCluster(num_nodes=1, shrink_on=1)
+        session_context = tests.ducktape_mock.session_context(max_parallel=10)
+
+        test_methods = [
+            VariousNumNodesTest.test_one_node_a,
+            VariousNumNodesTest.test_one_node_b,
+        ]
+
+        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
+                                   test_methods=test_methods, cluster=mock_cluster,
+                                   session_context=session_context)
+
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+
+        assert len(results) == 2
+        assert results.num_flaky == 0
+        assert results.num_failed == 2
+        assert results.num_passed == 0
+        assert results.num_ignored == 0
+
+    def check_runner_client_report(self):
+        """Validates that an error when reporting an exception in the test doesn't prevent subsequent tests
+        from executing"""
+        mock_cluster = tests.ducktape_mock.mock_cluster()
+        session_context = tests.ducktape_mock.session_context()
+        test_context = tests.ducktape_mock.test_context(session_context=session_context)
+        rc = RunnerClient(
+            "localhost", 22, test_context.test_id, 0, "dummy", "/tmp/dummy", True, False, 5
+        )
+        rc.sender = MockSender()
+        rc.cluster = mock_cluster
+        rc.session_context = session_context
+        rc.test_metadata = MagicMock()
+        with patch('ducktape.tests.runner_client.RunnerClient._collect_test_context') as test_collect_patch:
+            test_collect_patch.return_value = test_context
+            rc.run()
+        # get the last message, get the args send to that message, and get the first arg
+        finished_result = rc.sender.send_results[-1][0][0]
+        assert finished_result.get("event_type") == "FINISHED"
+        assert finished_result["result"].summary == "Test Passed"
+
+
+class ShrinkingLocalhostCluster(LocalhostCluster):
+
+    def __init__(self, *args, shrink_on=1, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bad_nodes = NodeContainer()
+        # which call to shrink on
+        self.shrink_on = shrink_on
+        self.num_alloc_calls = 0
+
+    def do_alloc(self, cluster_spec):
+        allocated = super().do_alloc(cluster_spec)
+        self.num_alloc_calls += 1
+        if self.shrink_on == self.num_alloc_calls:
+            bad_node = allocated.pop()
+            self._in_use_nodes.remove_node(bad_node)
+            self.bad_nodes.add_node(bad_node)
+
+            # simplified logic, we know all nodes are of the same OS/type
+            # check if we don't have enough nodes any more
+            # (which really should be true every time, since the largest test would be scheduled)
+            if len(allocated) < len(cluster_spec):
+                # return all good nodes back to be available
+                for node in allocated:
+                    self._in_use_nodes.remove_node(node)
+                    self._available_nodes.add_node(node)
+
+                raise InsufficientResourcesError("yeah")
+
+        return allocated

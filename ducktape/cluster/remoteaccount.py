@@ -35,6 +35,7 @@ def check_ssh(method):
             return method(self, *args, **kwargs)
         except (SSHException, NoValidConnectionsError, socket.error) as e:
             if self._custom_ssh_exception_checks:
+                self._log(logging.DEBUG, "caught ssh error", exc_info=True)
                 self._log(logging.DEBUG, "starting ssh checks:")
                 self._log(logging.DEBUG, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
                 for func in self._custom_ssh_exception_checks:
@@ -44,7 +45,8 @@ def check_ssh(method):
 
 
 class RemoteAccountSSHConfig(object):
-    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
+    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None,
+                 connecttimeout=None, **kwargs):
         """Wrapper for ssh configs used by ducktape to connect to remote machines.
 
         The fields in this class are lowercase versions of a small selection of ssh config properties
@@ -57,6 +59,8 @@ class RemoteAccountSSHConfig(object):
         self.port = int(self.port)
         self.password = password
         self.identityfile = identityfile
+        # None is default, and it means default TCP timeout will be used.
+        self.connecttimeout = int(connecttimeout) if connecttimeout is not None else None
 
     @staticmethod
     def from_string(config_str):
@@ -188,7 +192,8 @@ class RemoteAccount(HttpMixin):
             username=self.ssh_config.user,
             password=self.ssh_config.password,
             key_filename=self.ssh_config.identityfile,
-            look_for_keys=False)
+            look_for_keys=False,
+            timeout=self.ssh_config.connecttimeout)
 
         if self._ssh_client:
             self._ssh_client.close()
@@ -266,6 +271,18 @@ class RemoteAccount(HttpMixin):
             return True
         except Exception:
             return False
+
+    def available(self):
+        # TODO: https://github.com/confluentinc/ducktape/issues/339
+        # try:
+        #     self.ssh_client
+        # except Exception:
+        #     return False
+        # else:
+        #     return True
+        # finally:
+        #     self.close()
+        return True
 
     @check_ssh
     def ssh(self, cmd, allow_fail=False):
@@ -395,7 +412,7 @@ class RemoteAccount(HttpMixin):
             stdin.close()
             stdout.close()
             stderr.close()
-
+        self._log(logging.DEBUG, "Returning ssh command output:\n%s" % stdoutdata)
         return stdoutdata
 
     def alive(self, pid):

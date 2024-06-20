@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from six.moves.urllib.request import build_opener, Request
+from urllib.request import build_opener, Request
 
 
 class HttpMixin(object):
