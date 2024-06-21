@@ -32,13 +32,17 @@ class LocalhostCluster(Cluster):
         self._available_nodes = NodeContainer()
         for i in range(num_nodes):
             ssh_config = RemoteAccountSSHConfig("localhost%d" % i, hostname="localhost", port=22)
-            self._available_nodes.add_node(ClusterNode(LinuxRemoteAccount(ssh_config)))
+            self._available_nodes.add_node(ClusterNode(
+                LinuxRemoteAccount(ssh_config,
+                                   ssh_exception_checks=kwargs.get("ssh_exception_checks"))))
         self._in_use_nodes = NodeContainer()
 
     def do_alloc(self, cluster_spec):
-        allocated = self._available_nodes.remove_spec(cluster_spec)
-        self._in_use_nodes.add_nodes(allocated)
-        return allocated
+        # there shouldn't be any bad nodes in localhost cluster
+        # since ClusterNode object does not implement `available()` method
+        good_nodes, bad_nodes = self._available_nodes.remove_spec(cluster_spec)
+        self._in_use_nodes.add_nodes(good_nodes)
+        return good_nodes
 
     def free_single(self, node):
         self._in_use_nodes.remove_node(node)

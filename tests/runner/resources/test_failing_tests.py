@@ -14,6 +14,7 @@
 
 from __future__ import print_function
 
+from ducktape.mark.resource import cluster
 from ducktape.tests.test import Test
 from ducktape.mark import matrix
 
@@ -24,6 +25,7 @@ class FailingTest(Test):
     def __init__(self, test_context):
         super(FailingTest, self).__init__(test_context)
 
+    @cluster(num_nodes=1000)
     @matrix(x=[_ for _ in range(2)])
     def test_fail(self, x):
         print("Test %s fails!" % x)

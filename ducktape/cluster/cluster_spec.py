@@ -47,6 +47,7 @@ class ClusterSpec(object):
     """
     The specification for a ducktape cluster.
     """
+    nodes: NodeContainer = None
 
     @staticmethod
     def empty():

@@ -13,14 +13,13 @@
 # limitations under the License.
 
 from ducktape.cluster.cluster_spec import LINUX
-from ducktape.cluster.remoteaccount import RemoteAccount
+from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountError
 
 
 class LinuxRemoteAccount(RemoteAccount):
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
-        super(LinuxRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
-                                                 logger=logger)
+    def __init__(self, *args, **kwargs):
+        super(LinuxRemoteAccount, self).__init__(*args, **kwargs)
         self._ssh_client = None
         self._sftp_client = None
         self.os = LINUX
@@ -31,11 +30,54 @@ class LinuxRemoteAccount(RemoteAccount):
         This is an imperfect heuristic, but should work for simple local testing."""
         return self.hostname == "localhost" and self.user is None and self.ssh_config is None
 
-    def fetch_externally_routable_ip(self, is_aws):
-        if is_aws:
-            cmd = "/sbin/ifconfig eth0 "
-        else:
-            cmd = "/sbin/ifconfig eth1 "
-        cmd += r"| grep 'inet ' | tail -n 1 | egrep -o '[0-9\.]+' | head -n 1 2>&1"
-        output = "".join(self.ssh_capture(cmd))
-        return output.strip()
+    def get_network_devices(self):
+        """
+        Utility to get all network devices on a linux account
+        """
+        return [
+            device
+            for device in self.sftp_client.listdir('/sys/class/net')
+        ]
+
+    def get_external_accessible_network_devices(self):
+        """
+        gets the subset of devices accessible through an external conenction
+        """
+        return [
+            device
+            for device in self.get_network_devices()
+            if device != 'lo'  # do not include local device
+            and (device.startswith("en") or device.startswith('eth'))  # filter out other devices; "en" means ethernet
+            # eth0 can also sometimes happen, see https://unix.stackexchange.com/q/134483
+        ]
+
+    # deprecated, please use the self.externally_routable_ip that is set in your cluster,
+    # not explicitly deprecating it as it's used by vagrant cluster
+    def fetch_externally_routable_ip(self, is_aws=None):
+        if is_aws is not None:
+            self.logger.warning("fetch_externally_routable_ip: is_aws is a deprecated flag, and does nothing")
+
+        devices = self.get_external_accessible_network_devices()
+
+        self.logger.debug("found devices: {}".format(devices))
+
+        if not devices:
+            raise RemoteAccountError(self, "Couldn't find any network devices")
+
+        fmt_cmd = (
+            "/sbin/ifconfig {device} | "
+            "grep 'inet ' | "
+            "tail -n 1 | "
+            r"egrep -o '[0-9\.]+' | "
+            "head -n 1 2>&1"
+        )
+
+        ips = [
+            "".join(
+                self.ssh_capture(fmt_cmd.format(device=device))
+            ).strip()
+            for device in devices
+        ]
+        self.logger.debug("found ips: {}".format(ips))
+        self.logger.debug("returning the first ip found")
+        return next(iter(ips))

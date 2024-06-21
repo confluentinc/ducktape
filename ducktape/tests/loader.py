@@ -30,7 +30,6 @@ import yaml
 from ducktape.tests.test import Test, TestContext
 from ducktape.mark import parametrized
 from ducktape.mark.mark_expander import MarkedFunctionExpander
-from six import itervalues
 
 
 class LoaderException(Exception):
@@ -95,6 +94,12 @@ class TestLoader(object):
                 # list included test symbols
                 - path/to/test.py
             # optionally test suite can have included and excluded sections:
+            # you may also specify a list of other suite's you wish to import
+            # that will also be loaded when loading this file by using the
+            # import tag.
+            import:
+                # list of yaml files whose suites will also run:
+                - path/to/suite.yml
             another_test_suite:
                 included:
                     # list of included test symbols:
@@ -149,7 +154,7 @@ class TestLoader(object):
             # packing tests into bins based on the least full bin at the time.
             raw_results = _requests_session.get(self.historical_report).json()["results"]
             time_results = {r['test_id']: r['run_time_seconds'] for r in raw_results}
-            avg_result_time = sum(itervalues(time_results)) / len(time_results)
+            avg_result_time = sum(time_results.values()) / len(time_results)
             time_results = {tc.test_id: time_results.get(tc.test_id, avg_result_time) for tc in all_test_context_list}
             all_test_context_list = sorted(all_test_context_list, key=lambda x: time_results[x.test_id], reverse=True)
 
@@ -224,34 +229,19 @@ class TestLoader(object):
             "path/to/test_file.py" -> ("path/to/test_file.py", "", "")
             "path/to/test_file.py::ClassName.method" -> ("path/to/test_file.py", "ClassName", "method")
         """
+        def divide_by_symbol(ds, symbol):
+            if symbol not in ds:
+                return ds, ""
+            return ds.split(symbol, maxsplit=1)
+
         self.logger.debug('Trying to parse discovery symbol {}'.format(discovery_symbol))
         if base_dir:
             discovery_symbol = os.path.join(base_dir, discovery_symbol)
         if discovery_symbol.find("::") >= 0:
-            parts = discovery_symbol.split("::")
-            if len(parts) == 1:
-                path, cls_name = parts[0], ""
-            elif len(parts) == 2:
-                path, cls_name = parts
-            else:
-                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
-
+            path, cls_name = divide_by_symbol(discovery_symbol, "::")
             # If the part after :: contains a dot, use it to split into class + method
-            parts = cls_name.split('.')
-            if len(parts) == 1:
-                method_name = ""
-            elif len(parts) == 2:
-                cls_name, method_name = parts
-            else:
-                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
-
-            parts = method_name.split('@')
-            if len(parts) == 1:
-                injected_args_str = None
-            elif len(parts) == 2:
-                method_name, injected_args_str = parts
-            else:
-                raise LoaderException("Invalid discovery symbol: " + discovery_symbol)
+            cls_name, method_name = divide_by_symbol(cls_name, ".")
+            method_name, injected_args_str = divide_by_symbol(method_name, "@")
 
             if injected_args_str:
                 if self.injected_args:
@@ -398,18 +388,22 @@ class TestLoader(object):
         """
         test_files = []
         self.logger.debug('Looking for test files in {}'.format(path_or_glob))
+        # glob is safe to be called on non-glob path - it would just return that same path wrapped in a list
         expanded_glob = glob.glob(path_or_glob)
         self.logger.debug('Expanded {} into {}'.format(path_or_glob, expanded_glob))
-        # glob is safe to be called on non-glob path - it would just return that same path wrapped in a list
+
+        def maybe_add_test_file(f):
+            if self._is_test_file(f):
+                test_files.append(f)
+            else:
+                self.logger.debug("Skipping {} because it isn't a test file".format(f))
+
         for path in expanded_glob:
             if not os.path.exists(path):
                 raise LoaderException('Path {} does not exist'.format(path))
             self.logger.debug('Checking {}'.format(path))
             if os.path.isfile(path):
-                if self._is_test_file(path):
-                    test_files.append(os.path.abspath(path))
-                else:
-                    self.logger.debug("Skipping {} because it isn't a test file".format(path))
+                maybe_add_test_file(path)
             elif os.path.isdir(path):
                 for pwd, dirs, files in os.walk(path):
                     if "__init__.py" not in files:
@@ -417,10 +411,7 @@ class TestLoader(object):
                         continue
                     for f in files:
                         file_path = os.path.abspath(os.path.join(pwd, f))
-                        if self._is_test_file(file_path):
-                            test_files.append(file_path)
-                        else:
-                            self.logger.debug("Skipping {} because it isn't a test file".format(file_path))
+                        maybe_add_test_file(file_path)
             else:
                 raise LoaderException("Got a path that we don't understand: " + path)
 
@@ -446,51 +437,87 @@ class TestLoader(object):
 
     def _load_test_suite_files(self, test_suite_files):
         suites = list()
-        for test_suite_file_path in test_suite_files:
-            suites.extend(self._read_test_suite_from_file(test_suite_file_path))
+
+        suites.extend(self._read_test_suite_from_file(test_suite_files))
 
         all_contexts = set()
         for suite in suites:
             all_contexts.update(self._load_test_suite(**suite))
         return all_contexts
 
-    def _read_test_suite_from_file(self, test_suite_file_path):
-        suites = list()
-        test_suite_file_path = os.path.abspath(test_suite_file_path)
-        if not os.path.exists(test_suite_file_path) or not os.path.isfile(test_suite_file_path):
-            raise LoaderException("Test suite does not exist or is a directory: " + test_suite_file_path)
+    def _load_file(self, suite_file_path):
+        if not os.path.exists(suite_file_path):
+            raise LoaderException(f'Path {suite_file_path} does not exist')
+        if not os.path.isfile(suite_file_path):
+            raise LoaderException(f'{suite_file_path} is not a file, so it cannot be a test suite')
 
-        with open(test_suite_file_path) as fp:
+        with open(suite_file_path) as fp:
             try:
                 file_content = yaml.load(fp, Loader=yaml.FullLoader)
             except Exception as e:
-                raise LoaderException("Failed to load test suite from file: " + test_suite_file_path, e)
+                raise LoaderException("Failed to load test suite from file: " + suite_file_path, e)
 
-            if not file_content:
-                raise LoaderException("Test suite file is empty: " + test_suite_file_path)
-            if not isinstance(file_content, dict):
-                raise LoaderException("Malformed test suite file: " + test_suite_file_path)
+        if not file_content:
+            raise LoaderException("Test suite file is empty: " + suite_file_path)
+        if not isinstance(file_content, dict):
+            raise LoaderException("Malformed test suite file: " + suite_file_path)
 
-            for suite_name, suite_content in file_content.items():
-                if not suite_content:
-                    raise LoaderException("Empty test suite " + suite_name + " in " + test_suite_file_path)
+        for suite_name, suite_content in file_content.items():
+            if not suite_content:
+                raise LoaderException("Empty test suite " + suite_name + " in " + suite_file_path)
+        return file_content
 
-                # if test suite is just a list of paths, those are included paths
-                # otherwise, expect separate sections for included and excluded
-                if isinstance(suite_content, list):
-                    included_paths = suite_content
-                    excluded_paths = None
-                elif isinstance(suite_content, dict):
-                    included_paths = suite_content.get('included')
-                    excluded_paths = suite_content.get('excluded')
-                else:
-                    raise LoaderException("Malformed test suite " + suite_name + " in " + test_suite_file_path)
-                suites.append({
-                    'name': suite_name,
-                    'included': included_paths,
-                    'excluded': excluded_paths,
-                    'base_dir': os.path.dirname(test_suite_file_path)
-                })
+    def _load_suites(self, file_path, file_content):
+        suites = []
+        for suite_name, suite_content in file_content.items():
+            if not suite_content:
+                raise LoaderException(f"Empty test suite {suite_name} in {file_path}")
+
+            # if test suite is just a list of paths, those are included paths
+            # otherwise, expect separate sections for included and excluded
+            if isinstance(suite_content, list):
+                included_paths = suite_content
+                excluded_paths = None
+            elif isinstance(suite_content, dict):
+                included_paths = suite_content.get('included')
+                excluded_paths = suite_content.get('excluded')
+            else:
+                raise LoaderException(f"Malformed test suite {suite_name} in {file_path}")
+            suites.append({
+                'name': suite_name,
+                'included': included_paths,
+                'excluded': excluded_paths,
+                'base_dir': os.path.dirname(file_path)
+            })
+        return suites
+
+    def _read_test_suite_from_file(self, root_suite_file_paths):
+        root_suite_file_paths = [os.path.abspath(file_path) for file_path in root_suite_file_paths]
+        files = {file: self._load_file(file) for file in root_suite_file_paths}
+        stack = root_suite_file_paths
+
+        # load all files
+        while len(stack) != 0:
+            curr = stack.pop()
+            loaded = files[curr]
+            if 'import' in loaded:
+                if isinstance(loaded['import'], str):
+                    loaded['import'] = [loaded['import']]
+                directory = os.path.dirname(curr)
+                # apply path of current file to the files inside
+                abs_file_iter = (os.path.abspath(os.path.join(directory, file))
+                                 for file in loaded.get('import', []))
+                imported = [file for file in abs_file_iter if file not in files]
+                for file in imported:
+                    files[file] = self._load_file(file)
+                stack.extend(imported)
+                del files[curr]['import']
+
+        # load all suites from all loaded files
+        suites = []
+        for file_name, file_context in files.items():
+            suites.extend(self._load_suites(file_name, file_context))
+
         return suites
 
     def _load_test_suite(self, **kwargs):
@@ -532,7 +559,13 @@ class TestLoader(object):
             path_or_glob = os.path.abspath(path_or_glob)
 
             # TODO: consider adding a check to ensure glob or dir is not used together with cls_name and method
-            test_files = self._find_test_files(path_or_glob)
+            test_files = []
+            if os.path.isfile(path_or_glob):
+                # if it is a single file, just add it directly - https://github.com/confluentinc/ducktape/issues/284
+                test_files = [path_or_glob]
+            else:
+                # otherwise, when dealing with a dir or a glob, apply pattern matching rules
+                test_files = self._find_test_files(path_or_glob)
 
             self._add_top_level_dirs_to_sys_path(test_files)
 

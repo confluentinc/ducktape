@@ -1,3 +1,6 @@
+[![Documentation Status](https://readthedocs.org/projects/ducktape/badge/?version=latest)](https://ducktape.readthedocs.io/en/latest/?badge=latest)
+
+
 Distributed System Integration & Performance Testing Library
 ============================================================
 
@@ -17,7 +20,7 @@ Ducktape contains tools for running system integration and performance tests. It
 Documentation
 -------------
 
-For detailed documentation on how to install, run, create new tests please refer to: http://ducktape-docs.readthedocs.io/
+For detailed documentation on how to install, run, create new tests please refer to: http://ducktape.readthedocs.io/
 
 Contribute
 ----------

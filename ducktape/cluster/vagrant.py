@@ -14,7 +14,7 @@
 
 from __future__ import absolute_import
 
-from .json import JsonCluster
+from .json import JsonCluster, make_remote_account
 import json
 import os
 from .remoteaccount import RemoteAccountSSHConfig
@@ -33,10 +33,9 @@ class VagrantCluster(JsonCluster):
     - Otherwise, retrieve cluster info via "vagrant ssh-config" from vagrant
     """
 
-    def __init__(self, *args, **kwargs):
-        self._is_aws = None
+    def __init__(self, *args, make_remote_account_func=make_remote_account, **kwargs):
         is_read_from_file = False
-
+        self.ssh_exception_checks = kwargs.get("ssh_exception_checks")
         cluster_file = kwargs.get("cluster_file")
         if cluster_file is not None:
             try:
@@ -48,10 +47,11 @@ class VagrantCluster(JsonCluster):
 
         if not is_read_from_file:
             cluster_json = {
-                "nodes": self._get_nodes_from_vagrant()
+                "nodes": self._get_nodes_from_vagrant(make_remote_account_func)
             }
 
-        super(VagrantCluster, self).__init__(cluster_json)
+        super(VagrantCluster, self).__init__(
+            cluster_json, *args, make_remote_account_func=make_remote_account_func, **kwargs)
 
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
@@ -70,7 +70,7 @@ class VagrantCluster(JsonCluster):
         for node_account in self._available_accounts:
             node_account.close()
 
-    def _get_nodes_from_vagrant(self):
+    def _get_nodes_from_vagrant(self, make_remote_account_func):
         ssh_config_info, error = self._vagrant_ssh_config()
 
         nodes = []
@@ -82,8 +82,8 @@ class VagrantCluster(JsonCluster):
 
             account = None
             try:
-                account = JsonCluster.make_remote_account(ssh_config)
-                externally_routable_ip = account.fetch_externally_routable_ip(self.is_aws)
+                account = make_remote_account_func(ssh_config, ssh_exception_checks=self.ssh_exception_checks)
+                externally_routable_ip = account.fetch_externally_routable_ip()
             finally:
                 if account:
                     account.close()
@@ -102,18 +102,3 @@ class VagrantCluster(JsonCluster):
                                                   # Force to text mode in py2/3 compatible way
                                                   universal_newlines=True).communicate()
         return ssh_config_info, error
-
-    @property
-    def is_aws(self):
-        """Heuristic to detect whether the slave nodes are local or aws.
-
-        Return true if they are running on aws.
-        """
-        if self._is_aws is None:
-            proc = subprocess.Popen("vagrant status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    close_fds=True,
-                                    # Force to text mode in py2/3 compatible way
-                                    universal_newlines=True)
-            output, _ = proc.communicate()
-            self._is_aws = output.find("aws") >= 0
-        return self._is_aws

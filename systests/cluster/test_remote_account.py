@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS, LINUX, NodeSpec
 from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
@@ -420,6 +420,18 @@ class TestClusterSpec(Test):
         for node in self.service.nodes:
             node.account.ssh("echo hi")
 
+    @cluster(cluster_spec=ClusterSpec.from_nodes(
+        [
+            NodeSpec(operating_system=WINDOWS),
+            NodeSpec(operating_system=LINUX),
+            NodeSpec()  # this one is also linux
+        ]
+    ))
+    def three_nodes_test(self):
+        self.service = GenericService(self.test_context, 3)
+        for node in self.service.nodes:
+            node.account.ssh("echo hi")
+
 
 class RemoteAccountTest(Test):
     def __init__(self, test_context):
@@ -428,6 +440,20 @@ class RemoteAccountTest(Test):
 
     def setup(self):
         self.account_service.start()
+
+    @cluster(num_nodes=1)
+    def test_flaky(self):
+        choices = [
+            Exception("FLAKE 1"),
+            Exception("FLAKE 1"),
+            Exception("FLAKE 2"),
+            Exception("FLAKE 2"),
+            Exception("FLAKE 3"),
+            None,
+        ]
+        exp = random.choice(choices)
+        if exp:
+            raise exp
 
     @cluster(num_nodes=1)
     def test_ssh_capture_combine_stderr(self):
@@ -509,7 +535,7 @@ class RemoteAccountTest(Test):
             assert self.wrote_log_line
 
         logging_thread.join(5.0)
-        if logging_thread.isAlive():
+        if logging_thread.is_alive():
             raise Exception("Timed out waiting for background thread.")
 
     @cluster(num_nodes=1)
@@ -535,9 +561,10 @@ class RemoteAccountTest(Test):
     @cluster(num_nodes=1)
     def test_kill_process(self):
         """Tests that kill_process correctly works"""
+        grep_str = '"nc -l -p 5000"'
 
         def get_pids():
-            pid_cmd = "ps ax | grep -i nc | grep -v grep | awk '{print $1}'"
+            pid_cmd = f"ps ax | grep -i {grep_str} | grep -v grep | awk '{{print $1}}'"
 
             return list(node.account.ssh_capture(pid_cmd, callback=int))
 
@@ -550,7 +577,7 @@ class RemoteAccountTest(Test):
                    err_msg="Failed to start process within %d sec" % 10)
 
         # Kill service.
-        node.account.kill_process("nc")
+        node.account.kill_process(grep_str)
 
         wait_until(lambda: len(get_pids()) == 0, timeout_sec=10,
                    err_msg="Failed to kill process within %d sec" % 10)

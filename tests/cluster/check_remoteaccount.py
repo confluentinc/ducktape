@@ -17,13 +17,26 @@ from tests.ducktape_mock import MockAccount
 from tests.test_utils import find_available_port
 from ducktape.cluster.remoteaccount import RemoteAccount
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
+import pytest
 
 import logging
 from threading import Thread
-from six.moves import SimpleHTTPServer
-from six.moves import socketserver
+from http.server import SimpleHTTPRequestHandler
+import socketserver
 import threading
 import time
+
+
+class DummyException(Exception):
+    pass
+
+
+def raise_error_checker(error, remote_account):
+    raise DummyException("dummy raise: {}\nfrom: {}".format(error, remote_account))
+
+
+def raise_no_error_checker(error, remote_account):
+    pass
 
 
 class SimpleServer(object):
@@ -32,7 +45,7 @@ class SimpleServer(object):
 
     def __init__(self):
         self.port = find_available_port()
-        self.handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+        self.handler = SimpleHTTPRequestHandler
         self.httpd = socketserver.TCPServer(("", self.port), self.handler)
         self.close_signal = threading.Event()
         self.server_started = False
@@ -85,6 +98,23 @@ class CheckRemoteAccount(object):
             # timing
             actual_timeout = time.time() - start
             assert abs(actual_timeout - timeout) / timeout < 1
+
+    @pytest.mark.parametrize("checkers", [[raise_error_checker],
+                                          [raise_no_error_checker, raise_error_checker],
+                                          [raise_error_checker, raise_no_error_checker]])
+    def check_ssh_checker(self, checkers):
+        self.server.start()
+        ssh_config = RemoteAccountSSHConfig.from_string(
+            """
+        Host dummy_host.com
+            Hostname dummy_host.name.com
+            Port 22
+            User dummy
+            ConnectTimeout 1
+        """)
+        self.account = RemoteAccount(ssh_config, ssh_exception_checks=checkers)
+        with pytest.raises(DummyException):
+            self.account.ssh('echo test')
 
     def teardown(self):
         self.server.stop()

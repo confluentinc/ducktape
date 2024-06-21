@@ -11,12 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from ducktape.cluster.json import JsonCluster
 from ducktape.cluster.node_container import InsufficientResourcesError
 from ducktape.services.service import Service
 import pickle
 import pytest
+
+from tests.runner.fake_remote_account import create_fake_remote_account
+
+
+def create_json_cluster(*args, **kwargs):
+    return JsonCluster(*args, make_remote_account_func=create_fake_remote_account, **kwargs)
 
 
 class CheckJsonCluster(object):
@@ -31,29 +36,29 @@ class CheckJsonCluster(object):
     def check_invalid_json(self):
         # Missing list of nodes
         with pytest.raises(ValueError):
-            JsonCluster({})
+            create_json_cluster({})
 
         # Missing hostname, which is required
         with pytest.raises(ValueError):
-            JsonCluster({"nodes": [{}]})
+            create_json_cluster({"nodes": [{}]})
 
     @staticmethod
     def cluster_hostnames(nodes):
         return set([node.account.hostname for node in nodes])
 
     def check_cluster_size(self):
-        cluster = JsonCluster({"nodes": []})
+        cluster = create_json_cluster({"nodes": []})
         assert len(cluster) == 0
 
         n = 10
-        cluster = JsonCluster(
+        cluster = create_json_cluster(
             {"nodes": [
                 {"ssh_config": {"hostname": "localhost%d" % x}} for x in range(n)]})
 
         assert len(cluster) == n
 
     def check_pickleable(self):
-        cluster = JsonCluster(
+        cluster = create_json_cluster(
             {"nodes": [
                 {"ssh_config": {"host": "localhost1"}},
                 {"ssh_config": {"host": "localhost2"}},
@@ -62,37 +67,37 @@ class CheckJsonCluster(object):
         pickle.dumps(cluster)
 
     def check_allocate_free(self):
-        cluster = JsonCluster(
+        cluster = create_json_cluster(
             {"nodes": [
                 {"ssh_config": {"host": "localhost1"}},
                 {"ssh_config": {"host": "localhost2"}},
                 {"ssh_config": {"host": "localhost3"}}]})
 
         assert len(cluster) == 3
-        assert(cluster.num_available_nodes() == 3)
+        assert cluster.num_available_nodes() == 3
 
         nodes = cluster.alloc(Service.setup_cluster_spec(num_nodes=1))
         nodes_hostnames = self.cluster_hostnames(nodes)
         assert len(cluster) == 3
-        assert(cluster.num_available_nodes() == 2)
+        assert cluster.num_available_nodes() == 2
 
         nodes2 = cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
         nodes2_hostnames = self.cluster_hostnames(nodes2)
         assert len(cluster) == 3
-        assert(cluster.num_available_nodes() == 0)
+        assert cluster.num_available_nodes() == 0
 
-        assert(nodes_hostnames.isdisjoint(nodes2_hostnames))
+        assert nodes_hostnames.isdisjoint(nodes2_hostnames)
 
         cluster.free(nodes)
-        assert(cluster.num_available_nodes() == 1)
+        assert cluster.num_available_nodes() == 1
 
         cluster.free(nodes2)
-        assert(cluster.num_available_nodes() == 3)
+        assert cluster.num_available_nodes() == 3
 
     def check_parsing(self):
         """ Checks that RemoteAccounts are generated correctly from input JSON"""
 
-        node = JsonCluster(
+        node = create_json_cluster(
             {
                 "nodes": [
                     {"ssh_config": {"host": "hostname"}}]}).alloc(Service.setup_cluster_spec(num_nodes=1))[0]
@@ -106,9 +111,10 @@ class CheckJsonCluster(object):
             "hostname": "localhost",
             "port": 22
         }
-        node = JsonCluster({"nodes": [{"hostname": "hostname",
-                                       "user": "user",
-                                       "ssh_config": ssh_config}]}).alloc(Service.setup_cluster_spec(num_nodes=1))[0]
+        node = create_json_cluster({"nodes": [{"hostname": "hostname",
+                                               "user": "user",
+                                               "ssh_config": ssh_config}]}).alloc(
+            Service.setup_cluster_spec(num_nodes=1))[0]
 
         assert node.account.hostname == "hostname"
         assert node.account.user == "user"
@@ -120,12 +126,12 @@ class CheckJsonCluster(object):
         assert node.account.ssh_config.port == 22
 
     def check_exhausts_supply(self):
-        cluster = JsonCluster(self.single_node_cluster_json)
+        cluster = create_json_cluster(self.single_node_cluster_json)
         with pytest.raises(InsufficientResourcesError):
             cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
 
     def check_node_names(self):
-        cluster = JsonCluster(
+        cluster = create_json_cluster(
             {"nodes": [
                 {"ssh_config": {"host": "localhost1"}},
                 {"ssh_config": {"host": "localhost2"}},

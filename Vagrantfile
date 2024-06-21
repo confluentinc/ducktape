@@ -23,7 +23,7 @@ VAGRANTFILE_API_VERSION = "2"
 enable_dns = false
 num_workers = 3
 ram_megabytes = 300
-base_box = "ubuntu/trusty64"
+base_box = "ubuntu/focal64"
 
 local_config_file = File.join(File.dirname(__FILE__), "Vagrantfile.local")
 if File.exists?(local_config_file) then
@@ -51,7 +51,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     name = "ducktape" + i.to_s
     config.vm.define name do |worker|
       worker.vm.hostname = name
-      worker.vm.network :private_network, ip: "192.168.50." + (150 + i).to_s
+      worker.vm.network :private_network, ip: "192.168.56." + (150 + i).to_s
     end
   }
 

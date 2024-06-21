@@ -37,9 +37,8 @@ class WindowsRemoteAccount(RemoteAccount):
 
     WINRM_USERNAME = "Administrator"
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
-        super(WindowsRemoteAccount, self).__init__(ssh_config, externally_routable_ip=externally_routable_ip,
-                                                   logger=logger)
+    def __init__(self, *args, **kwargs):
+        super(WindowsRemoteAccount, self).__init__(*args, **kwargs)
         self.os = WINDOWS
         self._winrm_client = None
 
@@ -97,10 +96,7 @@ class WindowsRemoteAccount(RemoteAccount):
 
         return self._winrm_client
 
-    def fetch_externally_routable_ip(self, is_aws):
-        if not is_aws:
-            raise NotImplementedError("Windows is only supported in AWS.")
-
+    def fetch_externally_routable_ip(self, is_aws=None):
         # EC2 windows machines aren't given an externally routable IP. Use the hostname instead.
         return self.ssh_config.hostname
 

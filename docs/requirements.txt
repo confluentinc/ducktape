@@ -1,7 +1,9 @@
-Sphinx==1.5.3
+Sphinx<1.7
 sphinx-argparse==0.1.17
 sphinx-rtd-theme==0.2.4
 boto3==1.15.9
 pycryptodome==3.9.8
 pywinrm==0.2.2
 pyinstrument
+jinja2~=3.0.3
+MarkupSafe~=2.0.0

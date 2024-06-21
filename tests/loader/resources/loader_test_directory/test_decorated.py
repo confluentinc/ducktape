@@ -16,7 +16,7 @@ from ducktape.tests.test import Test
 from ducktape.mark import matrix
 from ducktape.mark import parametrize
 
-NUM_TESTS = 17
+NUM_TESTS = 18
 
 
 class TestMatrix(Test):
@@ -43,6 +43,13 @@ class TestParametrized(Test):
     @parametrize(x="abc", y=[])
     def test_thing(self, x, y):
         """2 tests"""
+        pass
+
+
+class TestParametrizdeSpecial(Test):
+    @parametrize(version="6.1.0", chars="!@#$%^&*()_+::.,/? \"{}\\")
+    def test_special_characters_params(self, version, chars):
+        """1 tests"""
         pass
 
 

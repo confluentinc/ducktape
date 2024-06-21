@@ -16,6 +16,7 @@ from contextlib import contextmanager
 import logging
 import os
 from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
+from paramiko.ssh_exception import SSHException, NoValidConnectionsError
 import shutil
 import signal
 import socket
@@ -28,8 +29,24 @@ from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
 
 
+def check_ssh(method):
+    def wrapper(self, *args, **kwargs):
+        try:
+            return method(self, *args, **kwargs)
+        except (SSHException, NoValidConnectionsError, socket.error) as e:
+            if self._custom_ssh_exception_checks:
+                self._log(logging.DEBUG, "caught ssh error", exc_info=True)
+                self._log(logging.DEBUG, "starting ssh checks:")
+                self._log(logging.DEBUG, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
+                for func in self._custom_ssh_exception_checks:
+                    func(e, self)
+            raise
+    return wrapper
+
+
 class RemoteAccountSSHConfig(object):
-    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None, **kwargs):
+    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None,
+                 connecttimeout=None, **kwargs):
         """Wrapper for ssh configs used by ducktape to connect to remote machines.
 
         The fields in this class are lowercase versions of a small selection of ssh config properties
@@ -42,6 +59,8 @@ class RemoteAccountSSHConfig(object):
         self.port = int(self.port)
         self.password = password
         self.identityfile = identityfile
+        # None is default, and it means default TCP timeout will be used.
+        self.connecttimeout = int(connecttimeout) if connecttimeout is not None else None
 
     @staticmethod
     def from_string(config_str):
@@ -120,7 +139,7 @@ class RemoteAccount(HttpMixin):
     Each operating system has its own RemoteAccount implementation.
     """
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None):
+    def __init__(self, ssh_config, externally_routable_ip=None, logger=None, ssh_exception_checks=[]):
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
         # be hashable
         self.ssh_config = ssh_config
@@ -139,6 +158,7 @@ class RemoteAccount(HttpMixin):
         self.os = None
         self._ssh_client = None
         self._sftp_client = None
+        self._custom_ssh_exception_checks = ssh_exception_checks
 
     @property
     def operating_system(self):
@@ -159,6 +179,7 @@ class RemoteAccount(HttpMixin):
         msg = "%s: %s" % (str(self), msg)
         self.logger.log(level, msg, *args, **kwargs)
 
+    @check_ssh
     def _set_ssh_client(self):
         client = SSHClient()
         client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
@@ -171,7 +192,8 @@ class RemoteAccount(HttpMixin):
             username=self.ssh_config.user,
             password=self.ssh_config.password,
             key_filename=self.ssh_config.identityfile,
-            look_for_keys=False)
+            look_for_keys=False,
+            timeout=self.ssh_config.connecttimeout)
 
         if self._ssh_client:
             self._ssh_client.close()
@@ -250,6 +272,19 @@ class RemoteAccount(HttpMixin):
         except Exception:
             return False
 
+    def available(self):
+        # TODO: https://github.com/confluentinc/ducktape/issues/339
+        # try:
+        #     self.ssh_client
+        # except Exception:
+        #     return False
+        # else:
+        #     return True
+        # finally:
+        #     self.close()
+        return True
+
+    @check_ssh
     def ssh(self, cmd, allow_fail=False):
         """Run the given command on the remote host, and block until the command has finished running.
 
@@ -283,6 +318,7 @@ class RemoteAccount(HttpMixin):
 
         return exit_status
 
+    @check_ssh
     def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
 
@@ -336,6 +372,7 @@ class RemoteAccount(HttpMixin):
 
         return SSHOutputIter(output_generator, stdout)
 
+    @check_ssh
     def ssh_output(self, cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
         """Runs the command via SSH and captures the output, returning it as a string.
 
@@ -375,7 +412,7 @@ class RemoteAccount(HttpMixin):
             stdin.close()
             stdout.close()
             stderr.close()
-
+        self._log(logging.DEBUG, "Returning ssh command output:\n%s" % stdoutdata)
         return stdoutdata
 
     def alive(self, pid):
@@ -487,6 +524,7 @@ class RemoteAccount(HttpMixin):
 
         return os.path.join(directory, path_basename)
 
+    @check_ssh
     def copy_from(self, src, dest):
         if os.path.isdir(dest):
             # dest is an existing directory, so assuming src looks like path/to/src_name,
@@ -513,6 +551,7 @@ class RemoteAccount(HttpMixin):
         warnings.warn("scp_to is now deprecated. Please use copy_to")
         self.copy_to(src, dest)
 
+    @check_ssh
     def copy_to(self, src, dest):
 
         if self.isdir(dest):
@@ -537,6 +576,7 @@ class RemoteAccount(HttpMixin):
                     # TODO what about uncopyable file types?
                     pass
 
+    @check_ssh
     def islink(self, path):
         try:
             # stat should follow symlinks
@@ -545,6 +585,7 @@ class RemoteAccount(HttpMixin):
         except Exception:
             return False
 
+    @check_ssh
     def isdir(self, path):
         try:
             # stat should follow symlinks
@@ -553,6 +594,7 @@ class RemoteAccount(HttpMixin):
         except Exception:
             return False
 
+    @check_ssh
     def exists(self, path):
         """Test that the path exists, but don't follow symlinks."""
         try:
@@ -562,6 +604,7 @@ class RemoteAccount(HttpMixin):
         except IOError:
             return False
 
+    @check_ssh
     def isfile(self, path):
         """Imitates semantics of os.path.isfile
 
@@ -578,6 +621,7 @@ class RemoteAccount(HttpMixin):
     def open(self, path, mode='r'):
         return self.sftp_client.open(path, mode)
 
+    @check_ssh
     def create_file(self, path, contents):
         """Create file at path, with the given contents.
 
@@ -585,13 +629,14 @@ class RemoteAccount(HttpMixin):
         """
         # TODO: what should semantics be if path exists? what actually happens if it already exists?
         # TODO: what happens if the base part of the path does not exist?
+
         with self.sftp_client.open(path, "w") as f:
             f.write(contents)
 
     _DEFAULT_PERMISSIONS = int('755', 8)
 
+    @check_ssh
     def mkdir(self, path, mode=_DEFAULT_PERMISSIONS):
-
         self.sftp_client.mkdir(path, mode)
 
     def mkdirs(self, path, mode=_DEFAULT_PERMISSIONS):

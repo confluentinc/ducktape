@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from ducktape.mark.resource import cluster
 from ducktape.tests.test import Test
 from ducktape.services.service import Service
 from ducktape.mark import matrix
@@ -51,6 +51,7 @@ class MemoryLeakTest(Test):
         super(MemoryLeakTest, self).__init__(test_context)
         self.memory_eater = MemoryEater(test_context)
 
+    @cluster(num_nodes=100)
     @matrix(x=[i for i in range(N_TEST_CASES)])
     def test_leak(self, x):
         self.memory_eater.start()

@@ -22,6 +22,8 @@ import time
 import traceback
 import zmq
 from datetime import datetime
+
+from ducktape.cluster.node_container import InsufficientResourcesError
 from ducktape.tests.serde import SerDe
 from ducktape.tests.test import TestContext
 from ducktape.command_line.defaults import ConsoleDefaults
@@ -37,6 +39,8 @@ from ducktape.utils import persistence
 import pyinstrument
 import json
 from collections import defaultdict
+from ducktape.errors import TimeoutError
+
 
 class Receiver(object):
     def __init__(self, min_port, max_port):
@@ -60,8 +64,15 @@ class Receiver(object):
         self.port = self.socket.bind_to_random_port(addr="tcp://*", min_port=self.min_port, max_port=self.max_port + 1,
                                                     max_tries=2 * (self.max_port + 1 - self.min_port))
 
-    def recv(self):
-        message = self.socket.recv()
+    def recv(self, timeout=1800000):
+        if timeout is None:
+            # use default value of 1800000 or 30 minutes
+            timeout = 1800000
+        self.socket.RCVTIMEO = timeout
+        try:
+            message = self.socket.recv()
+        except zmq.Again:
+            raise TimeoutError("runner client unresponsive")
         return self.serde.deserialize(message)
 
     def send(self, event):
@@ -80,7 +91,7 @@ class TestRunner(object):
     # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
     stop_testing = False
 
-    def __init__(self, cluster, session_context, session_logger, tests,
+    def __init__(self, cluster, session_context, session_logger, tests, deflake_num,
                  min_port=ConsoleDefaults.TEST_DRIVER_MIN_PORT,
                  max_port=ConsoleDefaults.TEST_DRIVER_MAX_PORT):
 
@@ -96,6 +107,8 @@ class TestRunner(object):
         self.event_response = EventResponseFactory()
         self.hostname = "localhost"
         self.receiver = Receiver(min_port, max_port)
+
+        self.deflake_num = deflake_num
 
         self.session_context = session_context
         self.max_parallel = session_context.max_parallel
@@ -117,6 +130,7 @@ class TestRunner(object):
         self._metrics = defaultdict(dict)
         self._metrics.update({'node_utilization' : {}, 'num_tests' : {}, 'free_nodes':{}})
         self.profile = pyinstrument.Profiler()
+        self.test_schedule_log = []
 
     def _propagate_sigterm(self, signum, frame):
         """Handler SIGTERM and SIGINT by propagating SIGTERM to all client processes.
@@ -168,6 +182,36 @@ class TestRunner(object):
             test = self._test_context[test_id]
             test_name = f'{test.module.split(".")[-1]}.{test.function_name}{".".join(f"{k}={v}" for k, v in test.injected_args.items()) if test.injected_args else ""}'
             self._metrics[f'{test_name}-nodes'][now] = test.expected_num_nodes
+    def _report_unschedulable(self, unschedulable, err_msg=None):
+        if not unschedulable:
+            return
+
+        self._log(logging.ERROR,
+                  f"There are {len(unschedulable)} tests which cannot be run due to insufficient cluster resources")
+        for tc in unschedulable:
+            if err_msg:
+                msg = err_msg
+            else:
+                msg = f"Test {tc.test_id} requires more resources than are available in the whole cluster. " \
+                      f"{self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)}"
+
+            self._log(logging.ERROR, msg)
+
+            result = TestResult(
+                tc,
+                self.test_counter,
+                self.session_context,
+                test_status=FAIL,
+                summary=msg,
+                start_time=time.time(),
+                stop_time=time.time())
+            self.results.append(result)
+            result.report()
+
+            self.test_counter += 1
+
+    def _check_unschedulable(self):
+        self._report_unschedulable(self.scheduler.filter_unschedulable_tests())
 
     def run_all_tests(self):
         self.profile.start()
@@ -175,29 +219,7 @@ class TestRunner(object):
         self.results.start_time = time.time()
 
         # Report tests which cannot be run
-        if len(self.scheduler.unschedulable) > 0:
-            self._log(logging.ERROR,
-                      "There are %d tests which cannot be run due to insufficient cluster resources" %
-                      len(self.scheduler.unschedulable))
-
-            for tc in self.scheduler.unschedulable:
-                msg = "Test %s requires more resources than are available in the whole cluster. " % tc.test_id
-                msg += self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)
-
-                self._log(logging.ERROR, msg)
-
-                result = TestResult(
-                    tc,
-                    self.test_counter,
-                    self.session_context,
-                    test_status=FAIL,
-                    summary=msg,
-                    start_time=time.time(),
-                    stop_time=time.time())
-                self.results.append(result)
-                result.report()
-
-                self.test_counter += 1
+        self._check_unschedulable()
 
         # Run the tests!
         self._log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
@@ -205,12 +227,30 @@ class TestRunner(object):
         while self._ready_to_trigger_more_tests or self._expect_client_requests:
             try:
                 while self._ready_to_trigger_more_tests:
-                    next_test_context = self.scheduler.next()
-                    self._preallocate_subcluster(next_test_context)
-                    self._run_single_test(next_test_context)
+                    next_test_context = self.scheduler.peek()
+                    try:
+                        self._preallocate_subcluster(next_test_context)
+                    except InsufficientResourcesError:
+                        # We were not able to allocate the subcluster for this test,
+                        # this means not enough nodes passed health check.
+                        # Don't mark this test as failed just yet, some other test might finish running and
+                        # free up healthy nodes.
+                        # However, if some nodes failed, cluster size changed too, so we need to check if
+                        # there are any tests that can no longer be scheduled.
+                        self._log(
+                            logging.INFO,
+                            f"Couldn't schedule test context {next_test_context} but we'll keep trying",
+                            exc_info=True
+                        )
+                        self._check_unschedulable()
+                    else:
+                        # only remove the test from the scheduler once we've successfully allocated a subcluster for it
+                        self.scheduler.remove(next_test_context)
+                        self._run_single_test(next_test_context)
+
                 if self._expect_client_requests:
                     try:
-                        event = self.receiver.recv()
+                        event = self.receiver.recv(timeout=self.session_context.test_runner_timeout)
                         self._handle(event)
                     except Exception as e:
                         err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
@@ -218,6 +258,9 @@ class TestRunner(object):
                         self._log(logging.ERROR, err_str)
 
                         # All processes are on the same machine, so treat communication failure as a fatal error
+                        for proc in self._client_procs.values():
+                            proc.terminate()
+                        self._client_procs = {}
                         raise
                 
             except KeyboardInterrupt:
@@ -250,6 +293,7 @@ class TestRunner(object):
         # Test is considered "active" as soon as we start it up in a subprocess
         test_key = TestKey(test_context.test_id, current_test_counter)
         self.active_tests[test_key] = True
+        self.test_schedule_log.append(test_key)
 
         proc = multiprocessing.Process(
             target=run_client,
@@ -260,7 +304,9 @@ class TestRunner(object):
                 current_test_counter,
                 TestContext.logger_name(test_context, current_test_counter),
                 TestContext.results_dir(test_context, current_test_counter),
-                self.session_context.debug
+                self.session_context.debug,
+                self.session_context.fail_bad_cluster_utilization,
+                self.deflake_num
             ])
 
         self._client_procs[test_key] = proc

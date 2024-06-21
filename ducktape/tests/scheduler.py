@@ -25,14 +25,8 @@ class TestScheduler(object):
 
         # Track tests which would never be offered up by the scheduling algorithm due to insufficient
         # cluster resources
-        self._test_context_list = []
-        self.unschedulable = []
-        available = cluster.available()
-        for test_context in test_contexts:
-            if available.nodes.can_remove_spec(test_context.expected_cluster_spec):
-                self._test_context_list.append(test_context)
-            else:
-                self.unschedulable.append(test_context)
+        self._test_context_list = test_contexts.copy()
+
         self._sort_test_context_list()
 
     def __len__(self):
@@ -42,15 +36,31 @@ class TestScheduler(object):
     def __iter__(self):
         return self
 
+    def filter_unschedulable_tests(self):
+        """
+        Filter out tests that cannot be scheduled with the current cluster, remove them from
+        this scheduler and return them.
+        """
+        all = self.cluster.all()
+        unschedulable = []
+        for test_context in self._test_context_list:
+            if not all.nodes.can_remove_spec(test_context.expected_cluster_spec):
+                unschedulable.append(test_context)
+        for u in unschedulable:
+            self._test_context_list.remove(u)
+        return unschedulable
+
     def _sort_test_context_list(self):
         """Replace self.test_context_list with a sorted shallow copy
 
         Sort from largest cluster users to smallest
         """
-        # sort from largest cluster users to smallest
-        self._test_context_list = sorted(self._test_context_list,
-                                         key=lambda tc: tc.expected_num_nodes,
-                                         reverse=True)
+        # sort from the largest cluster users to smallest
+        self._test_context_list = sorted(
+            self._test_context_list,
+            key=lambda tc: tc.expected_num_nodes,
+            reverse=True
+        )
 
     def peek(self):
         """Locate and return the next object to be scheduled, without removing it internally.
@@ -64,20 +74,10 @@ class TestScheduler(object):
 
         return None
 
-    def next(self):
-        """Get the next test.
-
-        This action removes the test_context object from the scheduler.
-
-        :return test_context object
+    def remove(self, tc):
+        """Remove test context object from this scheduler.
+        Intended usage is to peek() first, then perform whatever validity checks,
+        and if they pass, remove() it from the scheduler.
         """
-        if len(self) == 0:
-            raise StopIteration("Scheduler is empty.")
-
-        tc = self.peek()
-
-        if tc is None:
-            raise RuntimeError("No tests can currently be scheduled.")
-
-        self._test_context_list.remove(tc)
-        return tc
+        if tc:
+            self._test_context_list.remove(tc)

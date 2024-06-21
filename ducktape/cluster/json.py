@@ -14,8 +14,9 @@
 
 from __future__ import absolute_import
 
+
 from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
-from ducktape.cluster.node_container import NodeContainer
+from ducktape.cluster.node_container import NodeContainer, InsufficientHealthyNodesError
 from ducktape.command_line.defaults import ConsoleDefaults
 from .cluster import Cluster, ClusterNode
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
@@ -27,11 +28,20 @@ import os
 import traceback
 
 
+def make_remote_account(ssh_config, *args, **kwargs):
+    """Factory function for creating the correct RemoteAccount implementation."""
+
+    if ssh_config.host and WINDOWS in ssh_config.host:
+        return WindowsRemoteAccount(ssh_config, *args, **kwargs)
+    else:
+        return LinuxRemoteAccount(ssh_config, *args, **kwargs)
+
+
 class JsonCluster(Cluster):
     """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
-    def __init__(self, cluster_json=None, *args, **kwargs):
+    def __init__(self, cluster_json=None, *args, make_remote_account_func=make_remote_account, **kwargs):
         """Initialize JsonCluster
 
         JsonCluster can be initialized from:
@@ -75,8 +85,9 @@ class JsonCluster(Cluster):
 
         """
         super(JsonCluster, self).__init__()
-        self._available_accounts = NodeContainer()
-        self._in_use_nodes = NodeContainer()
+        self._available_accounts: NodeContainer = NodeContainer()
+        self._bad_accounts: NodeContainer = NodeContainer()
+        self._in_use_nodes: NodeContainer = NodeContainer()
         if cluster_json is None:
             # This is a directly instantiation of JsonCluster rather than from a subclass (e.g. VagrantCluster)
             cluster_file = kwargs.get("cluster_file")
@@ -90,7 +101,9 @@ class JsonCluster(Cluster):
                     "Cluster json has a node without a ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
 
                 ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
-                remote_account = JsonCluster.make_remote_account(ssh_config, ninfo.get("externally_routable_ip"))
+                remote_account = \
+                    make_remote_account_func(ssh_config, ninfo.get("externally_routable_ip"),
+                                             ssh_exception_checks=kwargs.get("ssh_exception_checks"))
                 if remote_account.externally_routable_ip is None:
                     remote_account.externally_routable_ip = self._externally_routable_ip(remote_account)
                 self._available_accounts.add_node(remote_account)
@@ -99,24 +112,24 @@ class JsonCluster(Cluster):
             raise ValueError(msg)
         self._id_supplier = 0
 
-    @staticmethod
-    def make_remote_account(ssh_config, externally_routable_ip=None):
-        """Factory function for creating the correct RemoteAccount implementation."""
-
-        if ssh_config.host and WINDOWS in ssh_config.host:
-            return WindowsRemoteAccount(ssh_config=ssh_config,
-                                        externally_routable_ip=externally_routable_ip)
-        else:
-            return LinuxRemoteAccount(ssh_config=ssh_config,
-                                      externally_routable_ip=externally_routable_ip)
-
     def do_alloc(self, cluster_spec):
-        allocated_accounts = self._available_accounts.remove_spec(cluster_spec)
+        try:
+            good_nodes, bad_nodes = self._available_accounts.remove_spec(cluster_spec)
+        except InsufficientHealthyNodesError as e:
+            self._bad_accounts.add_nodes(e.bad_nodes)
+            raise e
+
+        # even in case of no exceptions, we can still run into bad nodes, so let's track them
+        if bad_nodes:
+            self._bad_accounts.add_nodes(bad_nodes)
+
+        # now let's gather all the good ones and convert them into ClusterNode objects
         allocated_nodes = []
-        for account in allocated_accounts:
+        for account in good_nodes:
             allocated_nodes.append(ClusterNode(account, slot_id=self._id_supplier))
             self._id_supplier += 1
         self._in_use_nodes.add_nodes(allocated_nodes)
+
         return allocated_nodes
 
     def free_single(self, node):
