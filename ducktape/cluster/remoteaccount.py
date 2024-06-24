@@ -15,7 +15,7 @@
 from contextlib import contextmanager
 import logging
 import os
-from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
+from paramiko import RSAKey, SSHClient, SSHConfig, MissingHostKeyPolicy
 from paramiko.ssh_exception import SSHException, NoValidConnectionsError
 import shutil
 import signal
@@ -185,15 +185,17 @@ class RemoteAccount(HttpMixin):
         client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
 
         self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
+        key = RSAKey.from_private_key(self.ssh_config.identityfile)
 
         client.connect(
             hostname=self.ssh_config.hostname,
             port=self.ssh_config.port,
             username=self.ssh_config.user,
             password=self.ssh_config.password,
-            key_filename=self.ssh_config.identityfile,
+            pkey=key,
             look_for_keys=False,
-            timeout=self.ssh_config.connecttimeout)
+            timeout=self.ssh_config.connecttimeout,
+        )
 
         if self._ssh_client:
             self._ssh_client.close()
