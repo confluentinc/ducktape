@@ -16,6 +16,7 @@ from contextlib import contextmanager
 import logging
 import os
 from paramiko import RSAKey, SSHClient, SSHConfig, MissingHostKeyPolicy
+import paramiko
 from paramiko.ssh_exception import SSHException, NoValidConnectionsError
 import shutil
 import signal
@@ -27,6 +28,8 @@ import warnings
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
+
+logging.getLogger("paramiko").setLevel(logging.DEBUG)
 
 
 def check_ssh(method):
@@ -183,7 +186,7 @@ class RemoteAccount(HttpMixin):
     def _set_ssh_client(self):
         client = SSHClient()
         client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
-
+        # client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
         with open(self.ssh_config.identityfile) as f:
             key = RSAKey.from_private_key(f)
