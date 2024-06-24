@@ -185,7 +185,8 @@ class RemoteAccount(HttpMixin):
         client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
 
         self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
-        key = RSAKey.from_private_key(self.ssh_config.identityfile)
+        with open(self.ssh_config.identityfile) as f:
+            key = RSAKey.from_private_key(f)
 
         client.connect(
             hostname=self.ssh_config.hostname,
