@@ -30,7 +30,7 @@ from ducktape.utils.util import wait_until
 from ducktape.errors import DucktapeError
 
 logging.getLogger("paramiko").setLevel(logging.DEBUG)
-
+paramiko.common.logging.basicConfig(level=paramiko.common.DEBUG)
 
 def check_ssh(method):
     def wrapper(self, *args, **kwargs):
