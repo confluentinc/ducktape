@@ -16,6 +16,7 @@ from collections import defaultdict
 import logging
 import os
 import signal
+import threading
 import time
 import traceback
 from typing import List, Mapping
@@ -243,6 +244,10 @@ class RunnerClient(object):
                 if run_summary:
                     summaries.append(run_summary)
 
+                # dump threads after the test is complete;
+                # if any thread is not terminated correctly by the test we'll see it here
+                self.dump_threads(f"Threads after {self.test_id} finished")
+
                 # if run passed, and not on the first run, the test is flaky
                 if test_status == PASS and num_runs > 1:
                     test_status = FLAKY
@@ -456,3 +461,7 @@ class RunnerClient(object):
             self.logger.log(log_level, msg, *args, **kwargs)
 
         self.send(self.message.log(msg, level=log_level))
+
+    def dump_threads(self, msg):
+        dump = '\n'.join([t.name for t in threading.enumerate()])
+        self.log(logging.DEBUG, f"{msg}: {dump}")

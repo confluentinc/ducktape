@@ -18,7 +18,6 @@ import importlib
 import json
 import os
 import random
-from six import iteritems
 import sys
 import traceback
 
@@ -126,7 +125,7 @@ def main():
 
     session_context = SessionContext(session_id=session_id, results_dir=results_dir, **args_dict)
     session_logger = SessionLoggerMaker(session_context).logger
-    for k, v in iteritems(args_dict):
+    for k, v in args_dict.items():
         session_logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run

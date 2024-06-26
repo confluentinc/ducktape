@@ -35,7 +35,7 @@ class CheckLocalhostCluster(object):
 
         # Should be able to allocate arbitrarily many nodes
         nodes = self.cluster.alloc(Service.setup_cluster_spec(num_nodes=100))
-        assert(len(nodes) == 100)
+        assert len(nodes) == 100
         for i, node in enumerate(nodes):
             assert node.account.hostname == 'localhost%d' % i
             assert node.account.ssh_hostname == 'localhost'
@@ -43,9 +43,9 @@ class CheckLocalhostCluster(object):
             assert node.account.ssh_config.port == 22
             assert node.account.user is None
 
-        assert(self.cluster.num_available_nodes() == (available - 100))
+        assert self.cluster.num_available_nodes() == (available - 100)
         assert len(self.cluster) == initial_size  # This shouldn't change
 
         self.cluster.free(nodes)
 
-        assert(self.cluster.num_available_nodes() == available)
+        assert self.cluster.num_available_nodes() == available

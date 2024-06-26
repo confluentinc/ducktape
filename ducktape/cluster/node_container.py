@@ -13,8 +13,6 @@
 # limitations under the License.
 from typing import Dict, List, Tuple
 
-from six import iteritems
-
 from ducktape.cluster.remoteaccount import RemoteAccount
 
 
@@ -134,7 +132,7 @@ class NodeContainer(object):
         bad_nodes = []
         msg = ""
         # we have enough nodes for each OS, now try allocating while doing health checks if nodes support them
-        for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
+        for os, node_specs in cluster_spec.nodes.os_to_nodes.items():
             num_nodes = len(node_specs)
             good_per_os = []
             avail_nodes = self.os_to_nodes.get(os, [])
@@ -196,7 +194,7 @@ class NodeContainer(object):
             return ""
 
         msg = ""
-        for os, node_specs in iteritems(cluster_spec.nodes.os_to_nodes):
+        for os, node_specs in cluster_spec.nodes.os_to_nodes.items():
             num_nodes = len(node_specs)
             avail_nodes = len(self.os_to_nodes.get(os, []))
             if avail_nodes < num_nodes:
@@ -209,7 +207,7 @@ class NodeContainer(object):
         Returns a deep copy of this object.
         """
         container = NodeContainer()
-        for operating_system, nodes in iteritems(self.os_to_nodes):
+        for operating_system, nodes in self.os_to_nodes.items():
             for node in nodes:
                 container.os_to_nodes.setdefault(operating_system, []).append(node)
         return container

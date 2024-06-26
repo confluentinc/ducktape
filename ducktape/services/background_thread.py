@@ -17,8 +17,6 @@ from ducktape.services.service import Service
 import threading
 import traceback
 
-from six import itervalues
-
 
 class BackgroundThreadService(Service):
 
@@ -74,7 +72,7 @@ class BackgroundThreadService(Service):
         self._propagate_exceptions()
 
     def stop(self):
-        alive_workers = [worker for worker in itervalues(self.worker_threads) if worker.is_alive()]
+        alive_workers = [worker for worker in self.worker_threads.values() if worker.is_alive()]
         if len(alive_workers) > 0:
             self.logger.debug(
                 "Called stop with at least one worker thread is still running: " + str(alive_workers))
@@ -87,9 +85,14 @@ class BackgroundThreadService(Service):
 
     def wait_node(self, node, timeout_sec=600):
         idx = self.idx(node)
-        worker_thread = self.worker_threads[idx]
-        worker_thread.join(timeout_sec)
-        return not(worker_thread.is_alive())
+        worker_thread = self.worker_threads.get(idx)
+        # worker thread can be absent if this node has never been started
+        if worker_thread:
+            worker_thread.join(timeout_sec)
+            return not (worker_thread.is_alive())
+        else:
+            self.logger.debug(f"Worker thread not found for {self.who_am_i(node)}")
+            return True
 
     def _propagate_exceptions(self):
         """

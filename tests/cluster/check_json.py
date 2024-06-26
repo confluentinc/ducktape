@@ -74,25 +74,25 @@ class CheckJsonCluster(object):
                 {"ssh_config": {"host": "localhost3"}}]})
 
         assert len(cluster) == 3
-        assert(cluster.num_available_nodes() == 3)
+        assert cluster.num_available_nodes() == 3
 
         nodes = cluster.alloc(Service.setup_cluster_spec(num_nodes=1))
         nodes_hostnames = self.cluster_hostnames(nodes)
         assert len(cluster) == 3
-        assert(cluster.num_available_nodes() == 2)
+        assert cluster.num_available_nodes() == 2
 
         nodes2 = cluster.alloc(Service.setup_cluster_spec(num_nodes=2))
         nodes2_hostnames = self.cluster_hostnames(nodes2)
         assert len(cluster) == 3
-        assert(cluster.num_available_nodes() == 0)
+        assert cluster.num_available_nodes() == 0
 
-        assert(nodes_hostnames.isdisjoint(nodes2_hostnames))
+        assert nodes_hostnames.isdisjoint(nodes2_hostnames)
 
         cluster.free(nodes)
-        assert(cluster.num_available_nodes() == 1)
+        assert cluster.num_available_nodes() == 1
 
         cluster.free(nodes2)
-        assert(cluster.num_available_nodes() == 3)
+        assert cluster.num_available_nodes() == 3
 
     def check_parsing(self):
         """ Checks that RemoteAccounts are generated correctly from input JSON"""

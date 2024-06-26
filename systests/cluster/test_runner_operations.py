@@ -49,3 +49,25 @@ class SimpleRunnerTest(Test):
         while self.service.count < 100000000:
             self.service.echo()
             time.sleep(.2)
+
+    @cluster(num_nodes=1)
+    def quick1_test(self):
+        """
+        a simple quick test to test basic execution.
+        """
+        self.service.start()
+
+        while self.service.count < 20:
+            self.service.echo()
+            time.sleep(.2)
+
+    @cluster(num_nodes=1)
+    def quick2_test(self):
+        """
+        a simple quick test to test basic execution.
+        """
+        self.service.start()
+
+        while self.service.count < 20:
+            self.service.echo()
+            time.sleep(.2)
