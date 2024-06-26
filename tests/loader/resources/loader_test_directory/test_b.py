@@ -26,6 +26,7 @@ class TestB(Test):
 
 class TestBB(Test):
     """Loader should discover this with 2 tests."""
+
     test_not_callable = 3
 
     def test_bb_one(self):

@@ -24,17 +24,13 @@ from tests import ducktape_mock
 
 
 class CheckClusterUseAnnotation(object):
-
     def check_basic_usage_arbitrary_metadata(self):
-        cluster_use_metadata = {
-            'a': 2,
-            'b': 'hi',
-            'num_nodes': 300
-        }
+        cluster_use_metadata = {"a": 2, "b": "hi", "num_nodes": 300}
 
         @cluster(**cluster_use_metadata)
         def function():
             return "hi"
+
         assert hasattr(function, "marks")
 
         test_context_list = MarkedFunctionExpander(function=function).expand()
@@ -47,12 +43,13 @@ class CheckClusterUseAnnotation(object):
         @cluster(cluster_spec=ClusterSpec.simple_linux(num_nodes))
         def function():
             return "hi"
+
         assert hasattr(function, "marks")
 
         test_context_list = MarkedFunctionExpander(function=function).expand()
         assert len(test_context_list) == 1
         assert len(test_context_list[0].expected_cluster_spec.nodes.os_to_nodes) == 1
-        assert len(test_context_list[0].expected_cluster_spec.nodes.os_to_nodes.get('linux')) == num_nodes
+        assert len(test_context_list[0].expected_cluster_spec.nodes.os_to_nodes.get("linux")) == num_nodes
 
     def check_basic_usage_num_nodes(self):
         num_nodes = 200
@@ -60,16 +57,16 @@ class CheckClusterUseAnnotation(object):
         @cluster(num_nodes=num_nodes)
         def function():
             return "hi"
+
         assert hasattr(function, "marks")
 
         test_context_list = MarkedFunctionExpander(function=function).expand()
         assert len(test_context_list) == 1
         assert test_context_list[0].expected_num_nodes == num_nodes
 
-    @pytest.mark.parametrize('fail_greedy_tests', [True, False])
-    @pytest.mark.parametrize('has_annotation', [True, False])
+    @pytest.mark.parametrize("fail_greedy_tests", [True, False])
+    @pytest.mark.parametrize("has_annotation", [True, False])
     def check_empty_cluster_annotation(self, fail_greedy_tests, has_annotation):
-
         @cluster()
         def function_with_annotation():
             return "hi"
@@ -86,7 +83,8 @@ class CheckClusterUseAnnotation(object):
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
         tc_list = MarkedFunctionExpander(
-            function=function, cluster=mock_cluster, session_context=session_context).expand()
+            function=function, cluster=mock_cluster, session_context=session_context
+        ).expand()
 
         assert len(tc_list) == 1
         if fail_greedy_tests:
@@ -95,7 +93,7 @@ class CheckClusterUseAnnotation(object):
         else:
             assert tc_list[0].expected_num_nodes == 1000
 
-    @pytest.mark.parametrize('fail_greedy_tests', [True, False])
+    @pytest.mark.parametrize("fail_greedy_tests", [True, False])
     def check_zero_nodes_annotation(self, fail_greedy_tests):
         @cluster(num_nodes=0)
         def function():
@@ -104,8 +102,9 @@ class CheckClusterUseAnnotation(object):
         assert hasattr(function, "marks")
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
-        tc_list = MarkedFunctionExpander(function=function, cluster=mock_cluster,
-                                         session_context=session_context).expand()
+        tc_list = MarkedFunctionExpander(
+            function=function, cluster=mock_cluster, session_context=session_context
+        ).expand()
         assert len(tc_list) == 1
         assert tc_list[0].expected_num_nodes == 0
         assert tc_list[0].expected_cluster_spec is not None
@@ -124,7 +123,7 @@ class CheckClusterUseAnnotation(object):
         assert test_context_list[0].expected_num_nodes == num_nodes
 
     def check_beneath_parametrize(self):
-        """ Annotations such as cluster, which add metadata, but do not create new tests, add the metadata to
+        """Annotations such as cluster, which add metadata, but do not create new tests, add the metadata to
         all test cases physically below the annotation.
 
         In the case of a parametrized test, when @cluster has no parametrize annotations below it,
@@ -171,7 +170,7 @@ class CheckClusterUseAnnotation(object):
         assert test_context_list[4].expected_num_nodes == default_num_nodes
 
     def check_no_override(self):
-        """ cluster use metadata should apply to all test cases physically below it, except for those which already
+        """cluster use metadata should apply to all test cases physically below it, except for those which already
         have cluster use metadata.
         """
 
@@ -236,6 +235,7 @@ class CheckClusterUseAnnotation(object):
         @ignore
         def function():
             return "hi"
+
         assert hasattr(function, "marks")
 
         test_context_list = MarkedFunctionExpander(function=function).expand()
@@ -247,6 +247,7 @@ class CheckClusterUseAnnotation(object):
         @cluster(num_nodes=num_nodes)
         def function():
             return "hi"
+
         assert hasattr(function, "marks")
 
         test_context_list = MarkedFunctionExpander(function=function).expand()

@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.cluster.cluster_spec import LINUX
+from ducktape.cluster.consts import LINUX
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
-from ducktape.cluster.node_container import InsufficientResourcesError, NodeNotPresentError
+from ducktape.cluster.node_container import (
+    InsufficientResourcesError,
+    NodeNotPresentError,
+)
 from ducktape.services.service import Service
 import pickle
 import pytest
