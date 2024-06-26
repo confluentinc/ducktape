@@ -11,9 +11,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Dict, List, Tuple
+from __future__ import annotations
 
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
+
+from ducktape.cluster.cluster_node import ClusterNode
 from ducktape.cluster.remoteaccount import RemoteAccount
+
+if TYPE_CHECKING:
+    from ducktape.cluster.cluster_spec import ClusterSpec
+
+NodeType = Union[ClusterNode, RemoteAccount]
 
 
 class NodeNotPresentError(Exception):
@@ -25,16 +43,15 @@ class InsufficientResourcesError(Exception):
 
 
 class InsufficientHealthyNodesError(InsufficientResourcesError):
-
     def __init__(self, bad_nodes: List, *args):
         self.bad_nodes = bad_nodes
         super().__init__(*args)
 
 
 class NodeContainer(object):
-    os_to_nodes: Dict = None
+    os_to_nodes: Dict[Optional[str], List[NodeType]]
 
-    def __init__(self, nodes: List = None):
+    def __init__(self, nodes: Optional[Iterable[NodeType]] = None) -> None:
         """
         Create a NodeContainer with the given nodes.
 
@@ -47,7 +64,7 @@ class NodeContainer(object):
             for node in nodes:
                 self.os_to_nodes.setdefault(node.operating_system, []).append(node)
 
-    def size(self):
+    def size(self) -> int:
         """
         Returns the total number of nodes in the container.
         """
@@ -56,10 +73,10 @@ class NodeContainer(object):
     def __len__(self):
         return self.size()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         return self.elements()
 
-    def elements(self, operating_system=None):
+    def elements(self, operating_system: Optional[str] = None) -> Iterator[NodeType]:
         """
         Yield the elements in this container.
 
@@ -74,7 +91,7 @@ class NodeContainer(object):
             for node in self.os_to_nodes.get(operating_system, []):
                 yield node
 
-    def add_node(self, node):
+    def add_node(self, node: Union[ClusterNode, RemoteAccount]) -> None:
         """
         Add a node to this collection.
 
@@ -113,7 +130,7 @@ class NodeContainer(object):
         for node in nodes:
             self.remove_node(node)
 
-    def remove_spec(self, cluster_spec) -> Tuple[List, List]:
+    def remove_spec(self, cluster_spec) -> Tuple[List[NodeType], List[NodeType]]:
         """
         Remove nodes matching a ClusterSpec from this NodeContainer.
 
@@ -128,13 +145,13 @@ class NodeContainer(object):
             # there weren't enough nodes to even attempt allocations, raise the exception
             raise InsufficientResourcesError(err)
 
-        good_nodes = []
-        bad_nodes = []
+        good_nodes: List[NodeType] = []
+        bad_nodes: List[NodeType] = []
         msg = ""
         # we have enough nodes for each OS, now try allocating while doing health checks if nodes support them
         for os, node_specs in cluster_spec.nodes.os_to_nodes.items():
             num_nodes = len(node_specs)
-            good_per_os = []
+            good_per_os: List[NodeType] = []
             avail_nodes = self.os_to_nodes.get(os, [])
             # loop over all available nodes
             # for i in range(0, len(avail_nodes)):
@@ -165,7 +182,7 @@ class NodeContainer(object):
 
         return good_nodes, bad_nodes
 
-    def can_remove_spec(self, cluster_spec):
+    def can_remove_spec(self, cluster_spec: ClusterSpec):
         """
         Determine if we can remove nodes matching a ClusterSpec from this NodeContainer.
         This container will not be modified.
@@ -176,7 +193,7 @@ class NodeContainer(object):
         msg = self.attempt_remove_spec(cluster_spec)
         return len(msg) == 0
 
-    def attempt_remove_spec(self, cluster_spec):
+    def attempt_remove_spec(self, cluster_spec: ClusterSpec):
         """
         Attempt to remove a cluster_spec from this node container.
 
@@ -190,19 +207,24 @@ class NodeContainer(object):
         if cluster_spec is None:
             return "Invalid or missing cluster spec"
         # cluster spec may be empty and that's ok, shortcut to returning no error messages
-        elif len(cluster_spec) == 0:
+        elif len(cluster_spec) == 0 or cluster_spec.nodes is None:
             return ""
 
         msg = ""
+
         for os, node_specs in cluster_spec.nodes.os_to_nodes.items():
             num_nodes = len(node_specs)
             avail_nodes = len(self.os_to_nodes.get(os, []))
             if avail_nodes < num_nodes:
-                msg = msg + "%s nodes requested: %d. %s nodes available: %d" % \
-                            (os, num_nodes, os, avail_nodes)
+                msg = msg + "%s nodes requested: %d. %s nodes available: %d" % (
+                    os,
+                    num_nodes,
+                    os,
+                    avail_nodes,
+                )
         return msg
 
-    def clone(self):
+    def clone(self) -> "NodeContainer":
         """
         Returns a deep copy of this object.
         """

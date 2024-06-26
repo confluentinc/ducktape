@@ -12,19 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.services.service import Service
-
 import threading
 import traceback
 
+from ducktape.services.service import Service
+
 
 class BackgroundThreadService(Service):
-
     def __init__(self, context, num_nodes=None, cluster_spec=None, *args, **kwargs):
         super(BackgroundThreadService, self).__init__(context, num_nodes, cluster_spec, *args, **kwargs)
         self.worker_threads = {}
         self.worker_errors = {}
-        self.errors = ''
+        self.errors = ""
         self.lock = threading.RLock()
 
     def _protected_worker(self, idx, node):
@@ -56,7 +55,7 @@ class BackgroundThreadService(Service):
         worker = threading.Thread(
             name=self.service_id + "-worker-" + str(idx),
             target=self._protected_worker,
-            args=(idx, node)
+            args=(idx, node),
         )
         worker.daemon = True
         worker.start()
@@ -74,8 +73,7 @@ class BackgroundThreadService(Service):
     def stop(self):
         alive_workers = [worker for worker in self.worker_threads.values() if worker.is_alive()]
         if len(alive_workers) > 0:
-            self.logger.debug(
-                "Called stop with at least one worker thread is still running: " + str(alive_workers))
+            self.logger.debug("Called stop with at least one worker thread is still running: " + str(alive_workers))
 
             self.logger.debug("%s" % str(self.worker_threads))
 
