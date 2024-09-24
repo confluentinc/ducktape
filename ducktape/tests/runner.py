@@ -248,8 +248,10 @@ class TestRunner(object):
                           "Received KeyboardInterrupt. Now waiting for currently running tests to finish...")
                 self.stop_testing = True
 
+        print("SHIV DEBUG: BEFORE: PROC_JOIN")
         for proc in self._client_procs.values():
             proc.join()
+        print("SHIV DEBUG: AFTER: PROC_JOIN")
         self.receiver.close()
 
         return self.results
@@ -354,8 +356,10 @@ class TestRunner(object):
             HTMLSummaryReporter(test_results),
             JSONReporter(test_results)
         ]
+        print("SHIV DEBUG: BEFORE: R REPORT")
         for r in reporters:
             r.report()
+        print("SHIV DEBUG: AFTER: R REPORT")
 
         if self._should_print_separator:
             terminal_width, y = get_terminal_size()
