@@ -188,9 +188,7 @@ def main():
         session_logger.warning("specified number of deflake runs specified to be less than 1, running without deflake.")
     deflake_num = max(1, deflake_num)
     runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
-    print("SHIV DEBUG: BEFORE: RUN_ALL_TESTS")
     test_results = runner.run_all_tests()
-    print("SHIV DEBUG: AFTER: RUN_ALL_TESTS")
 
     # Report results
     reporters = [
