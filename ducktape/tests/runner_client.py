@@ -249,7 +249,7 @@ class RunnerClient(object):
 
         finally:
             stop_time = time.time()
-
+            print("SHIV DEBUG: BEFORE: PROCESS SUMMARY")
             summary = self.process_run_summaries(summaries, test_status)
             test_status, summary = self._check_cluster_utilization(test_status, summary)
             # convert summary from list to string
@@ -270,10 +270,13 @@ class RunnerClient(object):
 
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
+            print("SHIV DEBUG: BEFORE: RESULT REPORT")
             result.report()
+            print("SHIV DEBUG: AFTER: RESULT REPORT")
             # Tell the server we are finished
             self._do_safely(lambda: self.send(self.message.finished(result=result)),
                             "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+            print("SHIV DEBUG: AFTER: DO SAFELY")
             # Release test_context resources only after creating the result and finishing logging activity
             # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
             self.test_context.close()
