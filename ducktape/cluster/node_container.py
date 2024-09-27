@@ -25,7 +25,6 @@ class InsufficientResourcesError(Exception):
 
 
 class InsufficientHealthyNodesError(InsufficientResourcesError):
-
     def __init__(self, bad_nodes: List, *args):
         self.bad_nodes = bad_nodes
         super().__init__(*args)
@@ -198,8 +197,7 @@ class NodeContainer(object):
             num_nodes = len(node_specs)
             avail_nodes = len(self.os_to_nodes.get(os, []))
             if avail_nodes < num_nodes:
-                msg = msg + "%s nodes requested: %d. %s nodes available: %d" % \
-                            (os, num_nodes, os, avail_nodes)
+                msg = msg + "%s nodes requested: %d. %s nodes available: %d" % (os, num_nodes, os, avail_nodes)
         return msg
 
     def clone(self):

@@ -28,11 +28,7 @@ import tempfile
 
 
 def mock_cluster():
-    return MagicMock(
-        all=lambda: [MagicMock(spec=ClusterSpec)] * 3,
-        max_used=lambda: 3,
-        max_used_nodes=3
-    )
+    return MagicMock(all=lambda: [MagicMock(spec=ClusterSpec)] * 3, max_used=lambda: 3, max_used_nodes=3)
 
 
 class FakeClusterNode(object):
@@ -92,7 +88,7 @@ def test_context(session_context=session_context(), cluster=mock_cluster()):
         module=__name__,
         cls=TestMockTest,
         function=TestMockTest.mock_test,
-        cluster=cluster
+        cluster=cluster,
     )
 
 
@@ -107,11 +103,7 @@ class MockAccount(LinuxRemoteAccount):
     """Mock node.account object. It's Linux because tests are run in Linux."""
 
     def __init__(self, **kwargs):
-        ssh_config = RemoteAccountSSHConfig(
-            host="localhost",
-            user=None,
-            hostname="localhost",
-            port=22)
+        ssh_config = RemoteAccountSSHConfig(host="localhost", user=None, hostname="localhost", port=22)
 
         super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None, **kwargs)
 
@@ -124,6 +116,4 @@ class MockSender(MagicMock):
         self.send_results = []
 
     def send(self, *args, **kwargs):
-        self.send_results.append((
-            args, kwargs
-        ))
+        self.send_results.append((args, kwargs))

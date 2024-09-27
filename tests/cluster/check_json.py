@@ -25,13 +25,7 @@ def create_json_cluster(*args, **kwargs):
 
 
 class CheckJsonCluster(object):
-    single_node_cluster_json = {
-        "nodes": [
-            {
-                "ssh_config": {"host": "localhost"}
-            }
-        ]
-    }
+    single_node_cluster_json = {"nodes": [{"ssh_config": {"host": "localhost"}}]}
 
     def check_invalid_json(self):
         # Missing list of nodes
@@ -51,27 +45,33 @@ class CheckJsonCluster(object):
         assert len(cluster) == 0
 
         n = 10
-        cluster = create_json_cluster(
-            {"nodes": [
-                {"ssh_config": {"hostname": "localhost%d" % x}} for x in range(n)]})
+        cluster = create_json_cluster({"nodes": [{"ssh_config": {"hostname": "localhost%d" % x}} for x in range(n)]})
 
         assert len(cluster) == n
 
     def check_pickleable(self):
         cluster = create_json_cluster(
-            {"nodes": [
-                {"ssh_config": {"host": "localhost1"}},
-                {"ssh_config": {"host": "localhost2"}},
-                {"ssh_config": {"host": "localhost3"}}]})
+            {
+                "nodes": [
+                    {"ssh_config": {"host": "localhost1"}},
+                    {"ssh_config": {"host": "localhost2"}},
+                    {"ssh_config": {"host": "localhost3"}},
+                ]
+            }
+        )
 
         pickle.dumps(cluster)
 
     def check_allocate_free(self):
         cluster = create_json_cluster(
-            {"nodes": [
-                {"ssh_config": {"host": "localhost1"}},
-                {"ssh_config": {"host": "localhost2"}},
-                {"ssh_config": {"host": "localhost3"}}]})
+            {
+                "nodes": [
+                    {"ssh_config": {"host": "localhost1"}},
+                    {"ssh_config": {"host": "localhost2"}},
+                    {"ssh_config": {"host": "localhost3"}},
+                ]
+            }
+        )
 
         assert len(cluster) == 3
         assert cluster.num_available_nodes() == 3
@@ -95,26 +95,19 @@ class CheckJsonCluster(object):
         assert cluster.num_available_nodes() == 3
 
     def check_parsing(self):
-        """ Checks that RemoteAccounts are generated correctly from input JSON"""
+        """Checks that RemoteAccounts are generated correctly from input JSON"""
 
-        node = create_json_cluster(
-            {
-                "nodes": [
-                    {"ssh_config": {"host": "hostname"}}]}).alloc(Service.setup_cluster_spec(num_nodes=1))[0]
+        node = create_json_cluster({"nodes": [{"ssh_config": {"host": "hostname"}}]}).alloc(
+            Service.setup_cluster_spec(num_nodes=1)
+        )[0]
 
         assert node.account.hostname == "hostname"
         assert node.account.user is None
 
-        ssh_config = {
-            "host": "hostname",
-            "user": "user",
-            "hostname": "localhost",
-            "port": 22
-        }
-        node = create_json_cluster({"nodes": [{"hostname": "hostname",
-                                               "user": "user",
-                                               "ssh_config": ssh_config}]}).alloc(
-            Service.setup_cluster_spec(num_nodes=1))[0]
+        ssh_config = {"host": "hostname", "user": "user", "hostname": "localhost", "port": 22}
+        node = create_json_cluster(
+            {"nodes": [{"hostname": "hostname", "user": "user", "ssh_config": ssh_config}]}
+        ).alloc(Service.setup_cluster_spec(num_nodes=1))[0]
 
         assert node.account.hostname == "hostname"
         assert node.account.user == "user"
@@ -132,10 +125,14 @@ class CheckJsonCluster(object):
 
     def check_node_names(self):
         cluster = create_json_cluster(
-            {"nodes": [
-                {"ssh_config": {"host": "localhost1"}},
-                {"ssh_config": {"host": "localhost2"}},
-                {"ssh_config": {"host": "localhost3"}}]})
+            {
+                "nodes": [
+                    {"ssh_config": {"host": "localhost1"}},
+                    {"ssh_config": {"host": "localhost2"}},
+                    {"ssh_config": {"host": "localhost3"}},
+                ]
+            }
+        )
         hosts = set(["localhost1", "localhost2", "localhost3"])
         nodes = cluster.alloc(cluster.available())
         assert hosts == set(node.name for node in nodes)

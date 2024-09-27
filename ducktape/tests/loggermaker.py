@@ -24,7 +24,7 @@ class LoggerMaker(object):
     @property
     def logger(self):
         """Read-only logger attribute."""
-        if not hasattr(self, '_logger'):
+        if not hasattr(self, "_logger"):
             self._logger = logging.getLogger(self.logger_name)
 
         if not self.configured:

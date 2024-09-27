@@ -20,7 +20,6 @@ import inspect
 
 
 class TemplateRenderer(object):
-
     def _get_ctx(self):
         ctx = {k: getattr(self.__class__, k) for k in dir(self.__class__)}
         ctx.update(self.__dict__)
@@ -34,7 +33,7 @@ class TemplateRenderer(object):
         :param kwargs: optional override parameters
         :return: the rendered template
         """
-        if not hasattr(template, 'render'):
+        if not hasattr(template, "render"):
             template = Template(template)
         ctx = self._get_ctx()
         return template.render(ctx, **kwargs)
@@ -51,7 +50,7 @@ class TemplateRenderer(object):
 
         # Construct path relative to package under which "templates" would be found
         directory = ""
-        for d in module_parts[1: -1]:
+        for d in module_parts[1:-1]:
             directory = os.path.join(directory, d)
         return package, os.path.join(directory, "templates")
 
@@ -64,7 +63,7 @@ class TemplateRenderer(object):
         :param kwargs: optional override parameters
         :return: the rendered template
         """
-        if not hasattr(self, 'template_loader'):
+        if not hasattr(self, "template_loader"):
             class_dir = os.path.dirname(inspect.getfile(self.__class__))
 
             module_name = self.__class__.__module__
@@ -76,7 +75,7 @@ class TemplateRenderer(object):
                 # FileSystemLoader overrides PackageLoader if the path containing this directory
                 # is a valid directory. FileSystemLoader throws an error from which ChoiceLoader
                 # doesn't recover if the directory is invalid
-                loaders.append(FileSystemLoader(os.path.join(class_dir, 'templates')))
+                loaders.append(FileSystemLoader(os.path.join(class_dir, "templates")))
             else:
                 msg += "Will not search in %s for template files since it is not a valid directory. " % class_dir
 

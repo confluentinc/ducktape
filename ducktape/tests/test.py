@@ -33,8 +33,7 @@ from ducktape.tests.status import FAIL
 
 
 class Test(TemplateRenderer):
-    """Base class for tests.
-    """
+    """Base class for tests."""
 
     def __init__(self, test_context, *args, **kwargs):
         """
@@ -106,14 +105,12 @@ class Test(TemplateRenderer):
             try:
                 node.account.ssh(_compress_cmd(nlog))
                 if nlog.endswith(os.path.sep):
-                    nlog = nlog[:-len(os.path.sep)]
+                    nlog = nlog[: -len(os.path.sep)]
                 nlog += ".tgz"
                 compressed_logs.append(nlog)
 
             except Exception as e:
-                self.test_context.logger.warn(
-                    "Error compressing log %s: service %s: %s" % (nlog, service, str(e))
-                )
+                self.test_context.logger.warn("Error compressing log %s: service %s: %s" % (nlog, service, str(e)))
 
         return compressed_logs
 
@@ -124,9 +121,10 @@ class Test(TemplateRenderer):
         If the test passed, only the default set will be collected. If the the test failed, all logs will be collected.
         """
         for service in self.test_context.services:
-            if not hasattr(service, 'logs') or len(service.logs) == 0:
-                self.test_context.logger.debug("Won't collect service logs from %s - no logs to collect." %
-                                               service.service_id)
+            if not hasattr(service, "logs") or len(service.logs) == 0:
+                self.test_context.logger.debug(
+                    "Won't collect service logs from %s - no logs to collect." % service.service_id
+                )
                 continue
 
             log_dirs = service.logs
@@ -137,8 +135,9 @@ class Test(TemplateRenderer):
                     if test_status == FAIL or self.should_collect_log(log_name, service):
                         node_logs.append(log_dirs[log_name]["path"])
 
-                self.test_context.logger.debug("Preparing to copy logs from %s: %s" %
-                                               (node.account.hostname, node_logs))
+                self.test_context.logger.debug(
+                    "Preparing to copy logs from %s: %s" % (node.account.hostname, node_logs)
+                )
 
                 if self.test_context.session_context.compress:
                     self.test_context.logger.debug("Compressing logs...")
@@ -148,7 +147,9 @@ class Test(TemplateRenderer):
                     # Create directory into which service logs will be copied
                     dest = os.path.join(
                         TestContext.results_dir(self.test_context, self.test_context.test_index),
-                        service.service_id, node.account.hostname)
+                        service.service_id,
+                        node.account.hostname,
+                    )
                     if not os.path.isdir(dest):
                         mkdir_p(dest)
 
@@ -160,12 +161,15 @@ class Test(TemplateRenderer):
                     except Exception as e:
                         self.test_context.logger.warn(
                             "Error copying log %(log_name)s from %(source)s to %(dest)s. \
-                            service %(service)s: %(message)s" %
-                            {'log_name': log_name,
-                             'source': log_dirs[log_name],
-                             'dest': dest,
-                             'service': service,
-                             'message': e})
+                            service %(service)s: %(message)s"
+                            % {
+                                "log_name": log_name,
+                                "source": log_dirs[log_name],
+                                "dest": dest,
+                                "service": service,
+                                "message": e,
+                            }
+                        )
 
     def mark_for_collect(self, service, log_name=None):
         if log_name is None:
@@ -190,7 +194,7 @@ def _compress_cmd(log_path):
     compres_cmd = 'cd "$(dirname %s)" && ' % log_path
     compres_cmd += 'f="$(basename %s)" && ' % log_path
     compres_cmd += 'if [ -e "$f" ]; then tar czf "$f.tgz" "$f"; fi && '
-    compres_cmd += 'rm -rf %s' % log_path
+    compres_cmd += "rm -rf %s" % log_path
 
     return compres_cmd
 
@@ -301,10 +305,11 @@ class TestContext(object):
         self._local_scratch_dir = None
 
     def __repr__(self):
-        return \
-            f"<module={self.module}, cls={self.cls_name}, function={self.function_name}, " \
-            f"injected_args={self.injected_args}, file={self.file}, ignore={self.ignore}, " \
+        return (
+            f"<module={self.module}, cls={self.cls_name}, function={self.function_name}, "
+            f"injected_args={self.injected_args}, file={self.file}, ignore={self.ignore}, "
             f"cluster_spec={self.expected_cluster_spec}>"
+        )
 
     def copy(self, **kwargs):
         """Construct a new TestContext object from another TestContext object
@@ -329,7 +334,7 @@ class TestContext(object):
             "file_name": os.path.basename(self.file),
             "cls_name": self.cls_name,
             "method_name": self.function_name,
-            "injected_args": self.injected_args
+            "injected_args": self.injected_args,
         }
 
     @staticmethod
@@ -431,10 +436,7 @@ class TestContext(object):
         The fully-qualified name of the test. This is similar to test_id, but does not include the session ID. It
         includes the module, class, and method name.
         """
-        name_components = [self.module_name,
-                           self.cls_name,
-                           self.function_name,
-                           self.injected_args_name]
+        name_components = [self.module_name, self.cls_name, self.function_name, self.injected_args_name]
 
         return ".".join(filter(lambda x: x is not None and len(x) > 0, name_components))
 
@@ -444,7 +446,8 @@ class TestContext(object):
             self._logger = test_logger(
                 TestContext.logger_name(self, self.test_index),
                 TestContext.results_dir(self, self.test_index),
-                self.session_context.debug)
+                self.session_context.debug,
+            )
         return self._logger
 
     def close(self):
@@ -467,7 +470,7 @@ class TestContext(object):
 
 @contextmanager
 def in_dir(path):
-    """ Changes working directory to given path. On exit, restore to original working directory. """
+    """Changes working directory to given path. On exit, restore to original working directory."""
     cwd = os.getcwd()
 
     try:
@@ -480,7 +483,7 @@ def in_dir(path):
 
 @contextmanager
 def in_temp_dir():
-    """ Creates a temporary directory as the working directory. On exit, it is removed. """
+    """Creates a temporary directory as the working directory. On exit, it is removed."""
     with _new_temp_dir() as tmpdir:
         with in_dir(tmpdir):
             yield tmpdir
@@ -488,7 +491,7 @@ def in_temp_dir():
 
 @contextmanager
 def _new_temp_dir():
-    """ Create a temporary directory that is removed automatically """
+    """Create a temporary directory that is removed automatically"""
     tmpdir = tempfile.mkdtemp()
 
     try:

@@ -20,7 +20,7 @@ class HttpMixin(object):
         if url[0:7].lower() != "http://":
             url = "http://%s" % url
 
-        if hasattr(self, 'logger') and self.logger is not None:
+        if hasattr(self, "logger") and self.logger is not None:
             self.logger.debug("Sending http request. Url: %s, Data: %s, Headers: %s" % (url, str(data), str(headers)))
 
         req = Request(url, data, headers)

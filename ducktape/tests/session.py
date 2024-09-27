@@ -58,7 +58,7 @@ class SessionLoggerMaker(LoggerMaker):
         self.debug = session_context.debug
 
     def configure_logger(self):
-        """Set up the logger to log to stdout and files. This creates a few files as a side-effect. """
+        """Set up the logger to log to stdout and files. This creates a few files as a side-effect."""
         if self.configured:
             return
 

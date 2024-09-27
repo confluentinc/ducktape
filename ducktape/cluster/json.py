@@ -38,8 +38,7 @@ def make_remote_account(ssh_config, *args, **kwargs):
 
 
 class JsonCluster(Cluster):
-    """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
-    """
+    """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict"""
 
     def __init__(self, cluster_json=None, *args, make_remote_account_func=make_remote_account, **kwargs):
         """Initialize JsonCluster
@@ -97,13 +96,16 @@ class JsonCluster(Cluster):
         try:
             for ninfo in cluster_json["nodes"]:
                 ssh_config_dict = ninfo.get("ssh_config")
-                assert ssh_config_dict is not None, \
+                assert ssh_config_dict is not None, (
                     "Cluster json has a node without a ssh_config field: %s\n Cluster json: %s" % (ninfo, cluster_json)
+                )
 
                 ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
-                remote_account = \
-                    make_remote_account_func(ssh_config, ninfo.get("externally_routable_ip"),
-                                             ssh_exception_checks=kwargs.get("ssh_exception_checks"))
+                remote_account = make_remote_account_func(
+                    ssh_config,
+                    ninfo.get("externally_routable_ip"),
+                    ssh_exception_checks=kwargs.get("ssh_exception_checks"),
+                )
                 if remote_account.externally_routable_ip is None:
                     remote_account.externally_routable_ip = self._externally_routable_ip(remote_account)
                 self._available_accounts.add_node(remote_account)

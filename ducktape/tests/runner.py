@@ -40,8 +40,10 @@ from ducktape.errors import TimeoutError
 
 class Receiver(object):
     def __init__(self, min_port, max_port):
-        assert min_port <= max_port, "Expected min_port <= max_port, but instead: min_port: %s, max_port %s" % \
-                                     (min_port, max_port)
+        assert min_port <= max_port, "Expected min_port <= max_port, but instead: min_port: %s, max_port %s" % (
+            min_port,
+            max_port,
+        )
         self.port = None
         self.min_port = min_port
         self.max_port = max_port
@@ -52,11 +54,14 @@ class Receiver(object):
         self.socket = self.zmq_context.socket(zmq.REP)
 
     def start(self):
-        """Bind to a random port in the range [self.min_port, self.max_port], inclusive
-        """
+        """Bind to a random port in the range [self.min_port, self.max_port], inclusive"""
         # note: bind_to_random_port may retry the same port multiple times
-        self.port = self.socket.bind_to_random_port(addr="tcp://*", min_port=self.min_port, max_port=self.max_port + 1,
-                                                    max_tries=2 * (self.max_port + 1 - self.min_port))
+        self.port = self.socket.bind_to_random_port(
+            addr="tcp://*",
+            min_port=self.min_port,
+            max_port=self.max_port + 1,
+            max_tries=2 * (self.max_port + 1 - self.min_port),
+        )
 
     def recv(self, timeout=1800000):
         if timeout is None:
@@ -77,18 +82,23 @@ class Receiver(object):
         self.socket.close()
 
 
-TestKey = namedtuple('TestKey', ['test_id', 'test_index'])
+TestKey = namedtuple("TestKey", ["test_id", "test_index"])
 
 
 class TestRunner(object):
-
     # When set to True, the test runner will finish running/cleaning the current test, but it will not run any more
     stop_testing = False
 
-    def __init__(self, cluster, session_context, session_logger, tests, deflake_num,
-                 min_port=ConsoleDefaults.TEST_DRIVER_MIN_PORT,
-                 max_port=ConsoleDefaults.TEST_DRIVER_MAX_PORT):
-
+    def __init__(
+        self,
+        cluster,
+        session_context,
+        session_logger,
+        tests,
+        deflake_num,
+        min_port=ConsoleDefaults.TEST_DRIVER_MIN_PORT,
+        max_port=ConsoleDefaults.TEST_DRIVER_MAX_PORT,
+    ):
         # Set handler for SIGTERM (aka kill -15)
         # Note: it doesn't work to set a handler for SIGINT (Ctrl-C) in this parent process because the
         # handler is inherited by all forked child processes, and it prevents the default python behavior
@@ -141,7 +151,6 @@ class TestRunner(object):
 
         self.stop_testing = True
         for p in self._client_procs.values():
-
             # this handler should be a noop if we're in a client process, so it's an error if the current pid
             # is in self._client_procs
             assert p.pid != os.getpid(), "Signal handler should not reach this point in a client subprocess."
@@ -155,9 +164,9 @@ class TestRunner(object):
     @property
     def _ready_to_trigger_more_tests(self):
         """Should we pull another test from the scheduler?"""
-        return not self.stop_testing and \
-            len(self.active_tests) < self.max_parallel and \
-            self.scheduler.peek() is not None
+        return (
+            not self.stop_testing and len(self.active_tests) < self.max_parallel and self.scheduler.peek() is not None
+        )
 
     @property
     def _expect_client_requests(self):
@@ -167,14 +176,18 @@ class TestRunner(object):
         if not unschedulable:
             return
 
-        self._log(logging.ERROR,
-                  f"There are {len(unschedulable)} tests which cannot be run due to insufficient cluster resources")
+        self._log(
+            logging.ERROR,
+            f"There are {len(unschedulable)} tests which cannot be run due to insufficient cluster resources",
+        )
         for tc in unschedulable:
             if err_msg:
                 msg = err_msg
             else:
-                msg = f"Test {tc.test_id} requires more resources than are available in the whole cluster. " \
-                      f"{self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)}"
+                msg = (
+                    f"Test {tc.test_id} requires more resources than are available in the whole cluster. "
+                    f"{self.cluster.all().nodes.attempt_remove_spec(tc.expected_cluster_spec)}"
+                )
 
             self._log(logging.ERROR, msg)
 
@@ -185,7 +198,8 @@ class TestRunner(object):
                 test_status=FAIL,
                 summary=msg,
                 start_time=time.time(),
-                stop_time=time.time())
+                stop_time=time.time(),
+            )
             self.results.append(result)
             result.report()
 
@@ -220,7 +234,7 @@ class TestRunner(object):
                         self._log(
                             logging.INFO,
                             f"Couldn't schedule test context {next_test_context} but we'll keep trying",
-                            exc_info=True
+                            exc_info=True,
                         )
                         self._check_unschedulable()
                     else:
@@ -244,8 +258,9 @@ class TestRunner(object):
                         raise
             except KeyboardInterrupt:
                 # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
-                self._log(logging.INFO,
-                          "Received KeyboardInterrupt. Now waiting for currently running tests to finish...")
+                self._log(
+                    logging.INFO, "Received KeyboardInterrupt. Now waiting for currently running tests to finish..."
+                )
                 self.stop_testing = True
 
         for proc in self._client_procs.values():
@@ -276,8 +291,9 @@ class TestRunner(object):
                 TestContext.results_dir(test_context, current_test_counter),
                 self.session_context.debug,
                 self.session_context.fail_bad_cluster_utilization,
-                self.deflake_num
-            ])
+                self.deflake_num,
+            ],
+        )
 
         self._client_procs[test_key] = proc
         proc.start()
@@ -292,9 +308,11 @@ class TestRunner(object):
         """
         allocated = self.cluster.alloc(test_context.expected_cluster_spec)
         if len(self.cluster.available()) == 0 and self.max_parallel > 1 and not self._test_cluster:
-            self._log(logging.WARNING,
-                      "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
-                      % test_context.test_id)
+            self._log(
+                logging.WARNING,
+                "Test %s is using entire cluster. It's possible this test has no associated cluster metadata."
+                % test_context.test_id,
+            )
 
         self._test_cluster[TestKey(test_context.test_id, self.test_counter)] = FiniteSubcluster(allocated)
 
@@ -303,8 +321,11 @@ class TestRunner(object):
 
         if event["event_type"] == ClientEventFactory.READY:
             self._handle_ready(event)
-        elif event["event_type"] in [ClientEventFactory.RUNNING,
-                                     ClientEventFactory.SETTING_UP, ClientEventFactory.TEARING_DOWN]:
+        elif event["event_type"] in [
+            ClientEventFactory.RUNNING,
+            ClientEventFactory.SETTING_UP,
+            ClientEventFactory.TEARING_DOWN,
+        ]:
             self._handle_lifecycle(event)
         elif event["event_type"] == ClientEventFactory.FINISHED:
             self._handle_finished(event)
@@ -318,8 +339,7 @@ class TestRunner(object):
         test_context = self._test_context[event["test_id"]]
         subcluster = self._test_cluster[test_key]
 
-        self.receiver.send(
-            self.event_response.ready(event, self.session_context, test_context, subcluster))
+        self.receiver.send(self.event_response.ready(event, self.session_context, test_context, subcluster))
 
     def _handle_log(self, event):
         self.receiver.send(self.event_response.log(event))
@@ -329,7 +349,7 @@ class TestRunner(object):
         test_key = TestKey(event["test_id"], event["test_index"])
         self.receiver.send(self.event_response.finished(event))
 
-        result = event['result']
+        result = event["result"]
         if result.test_status == FAIL and self.exit_first:
             self.stop_testing = True
 
@@ -352,7 +372,7 @@ class TestRunner(object):
         reporters = [
             SimpleFileSummaryReporter(test_results),
             HTMLSummaryReporter(test_results),
-            JSONReporter(test_results)
+            JSONReporter(test_results),
         ]
         for r in reporters:
             r.report()
@@ -371,8 +391,9 @@ class TestRunner(object):
         Also, we don't want to print the separator after the last test output has been received, so
         we check that there's more test output expected.
         """
-        return self.session_context.max_parallel == 1 and \
-            (self._expect_client_requests or self._ready_to_trigger_more_tests)
+        return self.session_context.max_parallel == 1 and (
+            self._expect_client_requests or self._ready_to_trigger_more_tests
+        )
 
     def _handle_lifecycle(self, event):
         self.receiver.send(self.event_response._event_response(event))

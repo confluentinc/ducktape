@@ -54,11 +54,7 @@ class Sender(object):
     poller: zmq.Poller
 
     def __init__(
-        self,
-        server_host: str,
-        server_port: int,
-        message_supplier: ClientEventFactory,
-        logger: logging.Logger
+        self, server_host: str, server_port: int, message_supplier: ClientEventFactory, logger: logging.Logger
     ):
         self.serde = SerDe()
         self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
@@ -77,7 +73,6 @@ class Sender(object):
         self.poller.register(self.socket, zmq.POLLIN)
 
     def send(self, event, blocking=True):
-
         retries_left = Sender.NUM_RETRIES
 
         while retries_left > 0:
@@ -143,7 +138,7 @@ class RunnerClient(object):
         log_dir: str,
         debug: bool,
         fail_bad_cluster_utilization: bool,
-        deflake_num: int
+        deflake_num: int,
     ):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
@@ -205,12 +200,14 @@ class RunnerClient(object):
         self.send(self.message.running())
         if self.test_context.ignore:
             # Skip running this test, but keep track of the fact that we ignored it
-            result = TestResult(self.test_context,
-                                self.test_index,
-                                self.session_context,
-                                test_status=IGNORE,
-                                start_time=time.time(),
-                                stop_time=time.time())
+            result = TestResult(
+                self.test_context,
+                self.test_index,
+                self.session_context,
+                test_status=IGNORE,
+                start_time=time.time(),
+                stop_time=time.time(),
+            )
             result.report()
             # Tell the server we are finished
             self.send(self.message.finished(result=result))
@@ -266,14 +263,17 @@ class RunnerClient(object):
                 summary,
                 data,
                 start_time,
-                stop_time)
+                stop_time,
+            )
 
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
             result.report()
             # Tell the server we are finished
-            self._do_safely(lambda: self.send(self.message.finished(result=result)),
-                            "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+            self._do_safely(
+                lambda: self.send(self.message.finished(result=result)),
+                "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n",
+            )
             # Release test_context resources only after creating the result and finishing logging activity
             # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
             self.test_context.close()
@@ -293,7 +293,7 @@ class RunnerClient(object):
         if not self.deflake_enabled:
             return run_summaries[0]
 
-        failure_summaries: Mapping[str: List[int]] = defaultdict(list)
+        failure_summaries: Mapping[str : List[int]] = defaultdict(list)
         # populate run summaries grouping run numbers by stack trace
         for run_num, summary in enumerate(run_summaries):
             # convert to tuple to be serializable (+1 for human readability 1 based indexing)
@@ -346,7 +346,7 @@ class RunnerClient(object):
             # mark the test as failed before doing anything else
             test_status = FAIL
             err_trace = self._exc_msg(e)
-            summary.extend(err_trace.split('\n'))
+            summary.extend(err_trace.split("\n"))
 
         finally:
             for service in self.test_context.services:
@@ -452,5 +452,5 @@ class RunnerClient(object):
         self.send(self.message.log(msg, level=log_level))
 
     def dump_threads(self, msg):
-        dump = '\n'.join([t.name for t in threading.enumerate()])
+        dump = "\n".join([t.name for t in threading.enumerate()])
         self.log(logging.DEBUG, f"{msg}: {dump}")

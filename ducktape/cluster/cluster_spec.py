@@ -31,6 +31,7 @@ class NodeSpec(object):
 
     :param operating_system:    The operating system of the node.
     """
+
     def __init__(self, operating_system=LINUX):
         self.operating_system = operating_system
         if self.operating_system not in SUPPORTED_OS_TYPES:
@@ -47,6 +48,7 @@ class ClusterSpec(object):
     """
     The specification for a ducktape cluster.
     """
+
     nodes: NodeContainer = None
 
     @staticmethod
