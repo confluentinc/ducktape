@@ -60,7 +60,6 @@ class DifferentDummyService(Service):
 
 
 class CheckAllocateFree(object):
-
     def setup_method(self, _):
         self.cluster = LocalhostCluster()
         self.session_context = session_context()
@@ -96,7 +95,6 @@ class CheckAllocateFree(object):
 
 
 class CheckStartStop(object):
-
     def setup_method(self, _):
         self.cluster = LocalhostCluster()
         self.session_context = session_context()

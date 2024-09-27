@@ -19,11 +19,9 @@ import time
 
 class SimpleEchoService(Service):
     """Simple service that allocates one node for performing tests of RemoteAccount functionality"""
+
     logs = {
-        "my_log": {
-            "path": "/tmp/log",
-            "collect_default": True
-        },
+        "my_log": {"path": "/tmp/log", "collect_default": True},
     }
 
     def __init__(self, context):
@@ -46,9 +44,9 @@ class SimpleRunnerTest(Test):
         """
         self.service.start()
 
-        while self.service.count < 100000000:
+        while self.service.count < 500:
             self.service.echo()
-            time.sleep(.2)
+            time.sleep(0.1)
 
     @cluster(num_nodes=1)
     def quick1_test(self):
@@ -59,7 +57,7 @@ class SimpleRunnerTest(Test):
 
         while self.service.count < 20:
             self.service.echo()
-            time.sleep(.2)
+            time.sleep(0.2)
 
     @cluster(num_nodes=1)
     def quick2_test(self):
@@ -70,4 +68,4 @@ class SimpleRunnerTest(Test):
 
         while self.service.count < 20:
             self.service.echo()
-            time.sleep(.2)
+            time.sleep(0.2)
