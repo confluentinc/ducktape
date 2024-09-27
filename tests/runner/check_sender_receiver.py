@@ -29,8 +29,9 @@ import os
 class CheckSenderReceiver(object):
     def ready_response(self, client_id, port):
         sender_event_factory = ClientEventFactory("test_1", 0, client_id)
-        sender = Sender(server_host='localhost', server_port=port,
-                        message_supplier=sender_event_factory, logger=logging)
+        sender = Sender(
+            server_host="localhost", server_port=port, message_supplier=sender_event_factory, logger=logging
+        )
         sender.send(sender_event_factory.ready())
 
     def check_simple_messaging(self):
@@ -51,7 +52,7 @@ class CheckSenderReceiver(object):
 
             event = receiver.recv(timeout=10000)
             assert event["event_type"] == ClientEventFactory.READY
-            logging.info('replying to client')
+            logging.info("replying to client")
             receiver.send(receiver_response_factory.ready(event, s_context, t_context, cluster))
         finally:
             p.join()

@@ -90,7 +90,6 @@ class CheckParametrize(object):
 
 class CheckMatrix(object):
     def check_simple(self):
-
         @matrix(x=[1, 2], y=[-1, -2])
         def function(x=1, y=2, z=3):
             return x, y, z
@@ -105,10 +104,9 @@ class CheckMatrix(object):
         for ctx in context_list:
             f = ctx.function
             injected_args = ctx.injected_args
-            assert f() == (injected_args['x'], injected_args['y'], 3)
+            assert f() == (injected_args["x"], injected_args["y"], 3)
 
     def check_simple_method(self):
-
         class C(object):
             @matrix(x=[1, 2], y=[-1, -2])
             def function(self, x=1, y=2, z=3):
@@ -125,7 +123,7 @@ class CheckMatrix(object):
         for ctx in context_list:
             f = ctx.function
             injected_args = ctx.injected_args
-            assert f(c) == (injected_args['x'], injected_args['y'], 3)
+            assert f(c) == (injected_args["x"], injected_args["y"], 3)
 
     def check_stacked(self):
         @matrix(x=[1, 2], y=[0])
@@ -171,7 +169,6 @@ class CheckMatrix(object):
 
 class CheckDefaults(object):
     def check_defaults(self):
-
         @defaults(z=[1, 2])
         @matrix(x=[1], y=[1, 2])
         @parametrize(x=3, y=4)
@@ -185,11 +182,7 @@ class CheckDefaults(object):
         context_list = MarkedFunctionExpander(None, function=function).expand()
         assert len(context_list) == 6
 
-        expected_output = {
-            (1, 1, 1), (1, 1, 2),
-            (1, 2, 1), (1, 2, 2),
-            (3, 4, 1), (3, 4, 2)
-        }
+        expected_output = {(1, 1, 1), (1, 1, 2), (1, 2, 1), (1, 2, 2), (3, 4, 1), (3, 4, 2)}
         output = set()
         for ctx in context_list:
             output.add(ctx.function())
@@ -197,7 +190,6 @@ class CheckDefaults(object):
         assert output == expected_output
 
     def check_defaults_method(self):
-
         class C(object):
             @defaults(z=[1, 2])
             @matrix(x=[1], y=[1, 2])
@@ -212,24 +204,19 @@ class CheckDefaults(object):
         context_list = MarkedFunctionExpander(None, function=C.function).expand()
         assert len(context_list) == 6
 
-        expected_output = {
-            (1, 1, 1), (1, 1, 2),
-            (1, 2, 1), (1, 2, 2),
-            (3, 4, 1), (3, 4, 2)
-        }
+        expected_output = {(1, 1, 1), (1, 1, 2), (1, 2, 1), (1, 2, 2), (3, 4, 1), (3, 4, 2)}
         output = set()
 
         c = C()
         for ctx in context_list:
             f = ctx.function
             injected_args = ctx.injected_args
-            assert f(c) == (injected_args['x'], injected_args['y'], injected_args['z'])
+            assert f(c) == (injected_args["x"], injected_args["y"], injected_args["z"])
             output.add(ctx.function(C()))
 
         assert output == expected_output
 
     def check_overlap_param(self):
-
         @defaults(y=[3, 4], z=[1, 2])
         @parametrize(w=1, x=2, y=3)
         def function(w=10, x=20, y=30, z=40):
@@ -250,7 +237,6 @@ class CheckDefaults(object):
         assert output == expected_output
 
     def check_overlap_matrix(self):
-
         @defaults(y=[3, 4], z=[1, 2])
         @matrix(x=[1, 2], y=[5, 6])
         def function(x=20, y=30, z=40):
@@ -263,12 +249,7 @@ class CheckDefaults(object):
         context_list = MarkedFunctionExpander(None, function=function).expand()
         assert len(context_list) == 8
 
-        expected_output = {
-            (1, 5, 1), (1, 5, 2),
-            (2, 5, 1), (2, 5, 2),
-            (1, 6, 1), (1, 6, 2),
-            (2, 6, 1), (2, 6, 2)
-        }
+        expected_output = {(1, 5, 1), (1, 5, 2), (2, 5, 1), (2, 5, 2), (1, 6, 1), (1, 6, 2), (2, 6, 1), (2, 6, 2)}
         output = set()
         for ctx in context_list:
             output.add(ctx.function())
@@ -276,7 +257,6 @@ class CheckDefaults(object):
         assert output == expected_output
 
     def check_only_defaults(self):
-
         @defaults(x=[3], z=[1, 2])
         def function(x=1, y=2, z=-1):
             return x, y, z

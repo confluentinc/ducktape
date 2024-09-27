@@ -25,8 +25,14 @@ from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
 from ducktape.tests.loader import TestLoader, LoaderException
 from ducktape.tests.loggermaker import close_logger
-from ducktape.tests.reporter import SimpleStdoutSummaryReporter, SimpleFileSummaryReporter, \
-    HTMLSummaryReporter, JSONReporter, JUnitReporter, FailedTestSymbolReporter
+from ducktape.tests.reporter import (
+    SimpleStdoutSummaryReporter,
+    SimpleFileSummaryReporter,
+    HTMLSummaryReporter,
+    JSONReporter,
+    JUnitReporter,
+    FailedTestSymbolReporter,
+)
 from ducktape.tests.runner import TestRunner
 from ducktape.tests.session import SessionContext, SessionLoggerMaker
 from ducktape.tests.session import generate_session_id, generate_results_dir
@@ -80,8 +86,7 @@ def get_user_defined_globals(globals_str):
 def setup_results_directory(new_results_dir):
     """Make directory in which results will be stored"""
     if os.path.exists(new_results_dir):
-        raise Exception(
-            "A file or directory at %s already exists. Exiting without overwriting." % new_results_dir)
+        raise Exception("A file or directory at %s already exists. Exiting without overwriting." % new_results_dir)
     mkdir_p(new_results_dir)
 
 
@@ -96,10 +101,10 @@ def update_latest_symlink(results_root, new_results_dir):
 def main():
     """Ducktape entry point. This contains top level logic for ducktape command-line program which does the following:
 
-        Discover tests
-        Initialize cluster for distributed services
-        Run tests
-        Report a summary of all results
+    Discover tests
+    Initialize cluster for distributed services
+    Run tests
+    Report a summary of all results
     """
     args_dict = parse_args(sys.argv[1:])
 
@@ -139,7 +144,7 @@ def main():
         historical_report=args_dict["historical_report"],
     )
     try:
-        tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
+        tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict["exclude"])
     except LoaderException as e:
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
@@ -164,24 +169,26 @@ def main():
             tests = random.sample(tests, args_dict["sample"])
         except ValueError as e:
             if args_dict["sample"] > len(tests):
-                print("sample size %d greater than number of tests %d; running all tests" % (
-                    args_dict["sample"], len(tests)))
+                print(
+                    "sample size %d greater than number of tests %d; running all tests"
+                    % (args_dict["sample"], len(tests))
+                )
             else:
                 print("invalid sample size (%s), running all tests" % e)
 
     # Initializing the cluster is slow, so do so only if
     # tests are sure to be run
     try:
-        (cluster_mod_name, cluster_class_name) = args_dict["cluster"].rsplit('.', 1)
+        (cluster_mod_name, cluster_class_name) = args_dict["cluster"].rsplit(".", 1)
         cluster_mod = importlib.import_module(cluster_mod_name)
         cluster_class = getattr(cluster_mod, cluster_class_name)
 
         cluster_kwargs = {"cluster_file": args_dict["cluster_file"]}
-        checker_function_names = args_dict['ssh_checker_function']
+        checker_function_names = args_dict["ssh_checker_function"]
         if checker_function_names:
             checkers = [load_function(func_path) for func_path in checker_function_names]
             if checkers:
-                cluster_kwargs['ssh_exception_checks'] = checkers
+                cluster_kwargs["ssh_exception_checks"] = checkers
         cluster = cluster_class(**cluster_kwargs)
         for ctx in tests:
             # Note that we're attaching a reference to cluster
@@ -193,7 +200,7 @@ def main():
         sys.exit(1)
 
     # Run the tests
-    deflake_num = args_dict['deflake']
+    deflake_num = args_dict["deflake"]
     if deflake_num < 1:
         session_logger.warning("specified number of deflake runs specified to be less than 1, running without deflake.")
     deflake_num = max(1, deflake_num)
@@ -207,7 +214,7 @@ def main():
         HTMLSummaryReporter(test_results, expected_test_count),
         JSONReporter(test_results),
         JUnitReporter(test_results),
-        FailedTestSymbolReporter(test_results)
+        FailedTestSymbolReporter(test_results),
     ]
 
     for r in reporters:

@@ -42,9 +42,8 @@ class Capturing(object):
 
 
 class CheckParseArgs(object):
-
     def check_empty_args(self):
-        """Check that parsing an empty args list results in printing a usage message, followed by sys.exit(0) """
+        """Check that parsing an empty args list results in printing a usage message, followed by sys.exit(0)"""
         try:
             with Capturing() as captured:
                 parse_args([])
@@ -67,10 +66,10 @@ class CheckParseArgs(object):
         parsed = parse_args(args)
         parsed_paths = [os.path.abspath(p) for p in parsed["test_path"]]
 
-        assert parsed_paths == [os.path.abspath('.')]
+        assert parsed_paths == [os.path.abspath(".")]
 
     def check_multiple_test_paths(self):
-        """Check that parser properly handles multiple "test paths". It should capture a list of test paths. """
+        """Check that parser properly handles multiple "test paths". It should capture a list of test paths."""
         paths = ["path1"]
         args = ["--debug"] + paths + ["--collect-only"]
         parsed = parse_args(args)
@@ -98,18 +97,16 @@ class CheckParseArgs(object):
         project_cfg = [
             "--cluster-file CLUSTERFILE-project",
             "--results-root RESULTSROOT-project",
-            "--parameters PARAMETERS-project"
+            "--parameters PARAMETERS-project",
         ]
 
         # user_cfg options should override project_cfg
-        user_cfg = [
-            "--results-root RESULTSROOT-user",
-            "--parameters PARAMETERS-user"
-        ]
+        user_cfg = ["--results-root RESULTSROOT-user", "--parameters PARAMETERS-user"]
 
         try:
-            monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE",
-                                project_cfg_filename)
+            monkeypatch.setattr(
+                "ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE", project_cfg_filename
+            )
             monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.USER_CONFIG_FILE", user_cfg_filename)
 
             with open(project_cfg_filename, "w") as project_f:
@@ -133,10 +130,7 @@ class CheckParseArgs(object):
         tmpdir = tempfile.mkdtemp(dir="/tmp")
         user_cfg_filename = os.path.join(tmpdir, "ducktape-user.cfg")
 
-        user_cfg = [
-            "--results-root RESULTSROOT-user",
-            "--parameters PARAMETERS-user"
-        ]
+        user_cfg = ["--results-root RESULTSROOT-user", "--parameters PARAMETERS-user"]
 
         try:
             with open(user_cfg_filename, "w") as user_f:
@@ -156,17 +150,23 @@ class CheckParseArgs(object):
         user_cfg_filename = os.path.join(tmpdir, "ducktape-user.cfg")
 
         project_cfg = [
-            "--exclude", "test1", "test2", "test3",
+            "--exclude",
+            "test1",
+            "test2",
+            "test3",
         ]
 
         # user_cfg options should override project_cfg
         user_cfg = [
-            "test1", "test2", "test3",
+            "test1",
+            "test2",
+            "test3",
         ]
 
         try:
-            monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE",
-                                project_cfg_filename)
+            monkeypatch.setattr(
+                "ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE", project_cfg_filename
+            )
             monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.USER_CONFIG_FILE", user_cfg_filename)
 
             with open(project_cfg_filename, "w") as project_f:

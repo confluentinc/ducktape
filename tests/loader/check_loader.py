@@ -31,7 +31,7 @@ from requests_testadapter import Resp
 class LocalFileAdapter(requests.adapters.HTTPAdapter):
     def build_response_from_file(self, request):
         file_path = request.url[7:]
-        with open(file_path, 'rb') as file:
+        with open(file_path, "rb") as file:
             buff = bytearray(os.path.getsize(file_path))
             file.readinto(buff)
             resp = Resp(buff)
@@ -39,9 +39,7 @@ class LocalFileAdapter(requests.adapters.HTTPAdapter):
 
             return r
 
-    def send(self, request, stream=False, timeout=None,
-             verify=True, cert=None, proxies=None):
-
+    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):
         return self.build_response_from_file(request)
 
 
@@ -64,8 +62,8 @@ def num_tests_in_file(fpath):
 
     return N if pattern is present else 0
     """
-    with open(fpath, 'r') as fd:
-        match = re.search(r'^NUM_TESTS\s*=\s*(\d+)', fd.read(), re.MULTILINE)
+    with open(fpath, "r") as fd:
+        match = re.search(r"^NUM_TESTS\s*=\s*(\d+)", fd.read(), re.MULTILINE)
 
         if not match:
             return 0
@@ -80,7 +78,7 @@ def num_tests_in_dir(dpath):
     num_tests = 0
     for pwd, dirs, files in os.walk(dpath):
         for f in files:
-            if not f.endswith('.py'):
+            if not f.endswith(".py"):
                 continue
             file_path = os.path.abspath(os.path.join(pwd, f))
             num_tests += num_tests_in_file(file_path)
@@ -88,11 +86,11 @@ def num_tests_in_dir(dpath):
 
 
 def invalid_test_suites():
-    dpath = os.path.join(discover_dir(), 'invalid_test_suites')
+    dpath = os.path.join(discover_dir(), "invalid_test_suites")
     params = []
     for pwd, dirs, files in os.walk(dpath):
         for f in files:
-            if not f.endswith('.yml'):
+            if not f.endswith(".yml"):
                 continue
             file_path = os.path.abspath(os.path.join(pwd, f))
             params.append(pytest.param(file_path, id=os.path.basename(file_path)))
@@ -104,80 +102,138 @@ class CheckTestLoader(object):
         self.SESSION_CONTEXT = tests.ducktape_mock.session_context()
         # To simplify unit tests, add file:// support to the test loader's functionality for loading previous
         # report.json files
-        _requests_session.mount('file://', LocalFileAdapter())
+        _requests_session.mount("file://", LocalFileAdapter())
 
-    @pytest.mark.parametrize('suite_file_path', invalid_test_suites())
+    @pytest.mark.parametrize("suite_file_path", invalid_test_suites())
     def check_test_loader_raises_on_invalid_test_suite(self, suite_file_path):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         with pytest.raises(LoaderException):
             loader.load([suite_file_path])
 
-    @pytest.mark.parametrize(['expected_count', 'input_symbols', 'excluded_symbols'], [
-        pytest.param(6, [
-            # import a single test suite with an import statement
-            os.path.join(discover_dir(), 'test_suite_with_single_import.yml')
-        ], None, id='load dependency path'),
-        pytest.param(2, [
-            # test that a self import doesn't cause an infinite loop
-            os.path.join(discover_dir(), 'test_suite_with_self_import.yml')
-        ], None, id='self load in import'),
-        pytest.param(5, [
-            # test that a cyclic import doesn't cause an infinite loop
-            os.path.join(discover_dir(), 'test_suite_cyclic_b.yml')
-        ], None, id='self load in import'),
-        pytest.param(5, [
-            # test that a cyclic import starting with second import
-            os.path.join(discover_dir(), 'test_suite_cyclic_a.yml')
-        ], None, id='self load in import'),
-        pytest.param(5, [
-            # test single import statement with parent reference
-            os.path.join(discover_dir(), 'test_suites', 'sub_dir_test_import.yml')
-        ], None, id='self load in import'),
-        pytest.param(8, [
-            # see test suite files for number of tests in it.
-            # decorated test suite includes 2 tests;
-            # single includes 4 tests; multiple includes 3 tests;
-            # however both single and multiple test suites include one test method of test_by.py,
-            # so total -= 1
-            os.path.join(discover_dir(), 'test_suite_single.yml'),
-            os.path.join(discover_dir(), 'test_suite_multiple.yml'),
-            os.path.join(discover_dir(), 'test_suite_decorated.yml'),
-        ], None, id='load multiple test suite files'),
-        pytest.param(5, [
-            # see test suite file for number of tests in it
-            os.path.join(discover_dir(), 'test_suites', 'test_suite_glob.yml')
-        ], None, id='load test suite with globs'),
-        pytest.param(2, [
-            # test suite that includes sub_dir_a/test_c.py (1 test total):
-            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
-            # explicitly include test_a.yml (1 test total)
-            os.path.join(discover_dir(), 'test_a.py')
-        ], None, id='load both file and suite'),
-        pytest.param(1, [
-            # test suite that includes sub_dir_a/test_c.py (1 test total):
-            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
-            # explicitly include test_a.yml (1 test total)
-            os.path.join(discover_dir(), 'test_a.py')
-        ], [
-            # explicitly exclude the sub_dir_a/test_c.py (included with test suite):
-            os.path.join(sub_dir_a(), 'test_c.py'),
-        ], id='global exclude overrides test suite include'),
-        pytest.param(4, [
-            # sub_dir_a contains 4 total tests
-            # test suite that includes sub_dir_a/*.py but excludes sub_dir_a/test_d.py:
-            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_with_exclude.yml'),
-            # explicitly include sub_dir_a/test_d.py to override exclusion from test suite:
-            os.path.join(sub_dir_a(), 'test_d.py')
-        ], None, id='global include overrides test suite exclude'),
-        pytest.param(1, [
-            # load two test suites and two files that all point to the same actual test
-            # and verify that in the end only 1 test has been loaded
-            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c.yml'),
-            os.path.join(discover_dir(), 'test_suites', 'sub_dir_a_test_c_via_class.yml'),
-            os.path.join(sub_dir_a(), 'test_c.py'),
-            os.path.join(sub_dir_a(), 'test_c.py::TestC')
-        ], None, id='same test in test suites and test files')
-    ])
+    @pytest.mark.parametrize(
+        ["expected_count", "input_symbols", "excluded_symbols"],
+        [
+            pytest.param(
+                6,
+                [
+                    # import a single test suite with an import statement
+                    os.path.join(discover_dir(), "test_suite_with_single_import.yml")
+                ],
+                None,
+                id="load dependency path",
+            ),
+            pytest.param(
+                2,
+                [
+                    # test that a self import doesn't cause an infinite loop
+                    os.path.join(discover_dir(), "test_suite_with_self_import.yml")
+                ],
+                None,
+                id="self load in import",
+            ),
+            pytest.param(
+                5,
+                [
+                    # test that a cyclic import doesn't cause an infinite loop
+                    os.path.join(discover_dir(), "test_suite_cyclic_b.yml")
+                ],
+                None,
+                id="self load in import",
+            ),
+            pytest.param(
+                5,
+                [
+                    # test that a cyclic import starting with second import
+                    os.path.join(discover_dir(), "test_suite_cyclic_a.yml")
+                ],
+                None,
+                id="self load in import",
+            ),
+            pytest.param(
+                5,
+                [
+                    # test single import statement with parent reference
+                    os.path.join(discover_dir(), "test_suites", "sub_dir_test_import.yml")
+                ],
+                None,
+                id="self load in import",
+            ),
+            pytest.param(
+                8,
+                [
+                    # see test suite files for number of tests in it.
+                    # decorated test suite includes 2 tests;
+                    # single includes 4 tests; multiple includes 3 tests;
+                    # however both single and multiple test suites include one test method of test_by.py,
+                    # so total -= 1
+                    os.path.join(discover_dir(), "test_suite_single.yml"),
+                    os.path.join(discover_dir(), "test_suite_multiple.yml"),
+                    os.path.join(discover_dir(), "test_suite_decorated.yml"),
+                ],
+                None,
+                id="load multiple test suite files",
+            ),
+            pytest.param(
+                5,
+                [
+                    # see test suite file for number of tests in it
+                    os.path.join(discover_dir(), "test_suites", "test_suite_glob.yml")
+                ],
+                None,
+                id="load test suite with globs",
+            ),
+            pytest.param(
+                2,
+                [
+                    # test suite that includes sub_dir_a/test_c.py (1 test total):
+                    os.path.join(discover_dir(), "test_suites", "sub_dir_a_test_c.yml"),
+                    # explicitly include test_a.yml (1 test total)
+                    os.path.join(discover_dir(), "test_a.py"),
+                ],
+                None,
+                id="load both file and suite",
+            ),
+            pytest.param(
+                1,
+                [
+                    # test suite that includes sub_dir_a/test_c.py (1 test total):
+                    os.path.join(discover_dir(), "test_suites", "sub_dir_a_test_c.yml"),
+                    # explicitly include test_a.yml (1 test total)
+                    os.path.join(discover_dir(), "test_a.py"),
+                ],
+                [
+                    # explicitly exclude the sub_dir_a/test_c.py (included with test suite):
+                    os.path.join(sub_dir_a(), "test_c.py"),
+                ],
+                id="global exclude overrides test suite include",
+            ),
+            pytest.param(
+                4,
+                [
+                    # sub_dir_a contains 4 total tests
+                    # test suite that includes sub_dir_a/*.py but excludes sub_dir_a/test_d.py:
+                    os.path.join(discover_dir(), "test_suites", "sub_dir_a_with_exclude.yml"),
+                    # explicitly include sub_dir_a/test_d.py to override exclusion from test suite:
+                    os.path.join(sub_dir_a(), "test_d.py"),
+                ],
+                None,
+                id="global include overrides test suite exclude",
+            ),
+            pytest.param(
+                1,
+                [
+                    # load two test suites and two files that all point to the same actual test
+                    # and verify that in the end only 1 test has been loaded
+                    os.path.join(discover_dir(), "test_suites", "sub_dir_a_test_c.yml"),
+                    os.path.join(discover_dir(), "test_suites", "sub_dir_a_test_c_via_class.yml"),
+                    os.path.join(sub_dir_a(), "test_c.py"),
+                    os.path.join(sub_dir_a(), "test_c.py::TestC"),
+                ],
+                None,
+                id="same test in test suites and test files",
+            ),
+        ],
+    )
     def check_test_loader_with_test_suites_and_files(self, expected_count, input_symbols, excluded_symbols):
         """
         When both files and test suites are loaded, files (both included and excluded) are
@@ -195,12 +251,11 @@ class CheckTestLoader(object):
         tests = loader.load([discover_dir()])
         assert len(tests) == num_tests_in_dir(discover_dir())
 
-    @pytest.mark.parametrize(['dir_', 'file_name'], [
-        pytest.param(discover_dir(), 'test_a.py'),
-        pytest.param(resources_dir(), 'a.py')
-    ])
+    @pytest.mark.parametrize(
+        ["dir_", "file_name"], [pytest.param(discover_dir(), "test_a.py"), pytest.param(resources_dir(), "a.py")]
+    )
     def check_test_loader_with_file(self, dir_, file_name):
-        """Check discovery on a file. """
+        """Check discovery on a file."""
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         module_path = os.path.join(dir_, file_name)
 
@@ -326,46 +381,51 @@ class CheckTestLoader(object):
         # TestMatrix contains a single parametrized method. Since we only provide a single set of params, we should
         # end up with a single context
         assert len(tests) == 1
-        assert tests[0].injected_args == {'x': 1, 'y': 'test '}
+        assert tests[0].injected_args == {"x": 1, "y": "test "}
 
     def check_test_loader_with_params_special_chars(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        included = [os.path.join(discover_dir(
-        ), r'test_decorated.py::TestParametrizdeSpecial.test_special_characters_params'
-           r'@{"version": "6.1.0", "chars": "!@#$%^&*()_+::.,/? \"{}\\"}')]
+        included = [
+            os.path.join(
+                discover_dir(),
+                r"test_decorated.py::TestParametrizdeSpecial.test_special_characters_params"
+                r'@{"version": "6.1.0", "chars": "!@#$%^&*()_+::.,/? \"{}\\"}',
+            )
+        ]
         tests = loader.load(included)
         # TestMatrix contains a single parametrized method. Since we only provide a single set of params, we should
         # end up with a single context
         assert len(tests) == 1
-        assert tests[0].injected_args == {'version': '6.1.0', 'chars': '!@#$%^&*()_+::.,/? \"{}\\'}
+        assert tests[0].injected_args == {"version": "6.1.0", "chars": '!@#$%^&*()_+::.,/? "{}\\'}
 
     def check_test_loader_with_multiple_matrix_params(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         params = '[{"x": 1,"y": "test "}, {"x": 2,"y": "I\'m"}]'
-        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{}'.format(params))]
+        included = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix.test_thing@{}".format(params))]
         tests = loader.load(included)
         # TestMatrix contains a single parametrized method.
         # We provide two sets of params, so we should end up with two contexts
         assert len(tests) == 2
         injected_args = map(lambda t: t.injected_args, tests)
-        assert {'x': 1, 'y': 'test '} in injected_args
-        assert {'x': 2, 'y': "I'm"} in injected_args
+        assert {"x": 1, "y": "test "} in injected_args
+        assert {"x": 2, "y": "I'm"} in injected_args
 
     def check_test_loader_with_parametrize(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         included = [os.path.join(discover_dir(), 'test_decorated.py::TestParametrized.test_thing@{"x":1,"y":2}')]
         tests = loader.load(included)
         assert len(tests) == 1
-        assert tests[0].injected_args == {'x': 1, 'y': 2}
+        assert tests[0].injected_args == {"x": 1, "y": 2}
 
     def check_test_loader_with_parametrize_with_objects(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         parameters = '{"d": {"a": "A"}, "lst": ["whatever"]}'
-        included = [os.path.join(
-            discover_dir(), 'test_decorated.py::TestObjectParameters.test_thing@{}'.format(parameters))]
+        included = [
+            os.path.join(discover_dir(), "test_decorated.py::TestObjectParameters.test_thing@{}".format(parameters))
+        ]
         tests = loader.load(included)
         assert len(tests) == 1
-        assert tests[0].injected_args == {'d': {'a': 'A'}, 'lst': ['whatever']}
+        assert tests[0].injected_args == {"d": {"a": "A"}, "lst": ["whatever"]}
 
     def check_test_loader_with_injected_args(self):
         """When the --parameters command-line option is used, the loader behaves a little bit differently:
@@ -393,28 +453,31 @@ class CheckTestLoader(object):
         injected_args = {"x": 1, "y": "test "}
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=injected_args)
         included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}')]
-        with pytest.raises(LoaderException, match='Cannot use both'):
+        with pytest.raises(LoaderException, match="Cannot use both"):
             loader.load(included)
 
     def check_test_loader_raises_on_params_not_found(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         # parameter syntax is valid, but there is no such parameter defined in the test annotation in the code
         included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "missing"}')]
-        with pytest.raises(LoaderException, match='No tests to run'):
+        with pytest.raises(LoaderException, match="No tests to run"):
             loader.load(included)
 
-    @pytest.mark.parametrize("symbol", [
-        # no class
-        'test_decorated.py::.test_thing'
-        # no method
-        'test_decorated.py::TestMatrix@{"x": 1, "y": "test "}'
-        # invalid json in params
-        'test_decorated.py::TestMatrix.test_thing@{x: 1,"y": "test "}'
-    ])
+    @pytest.mark.parametrize(
+        "symbol",
+        [
+            # no class
+            "test_decorated.py::.test_thing"
+            # no method
+            'test_decorated.py::TestMatrix@{"x": 1, "y": "test "}'
+            # invalid json in params
+            'test_decorated.py::TestMatrix.test_thing@{x: 1,"y": "test "}'
+        ],
+    )
     def check_test_loader_raises_on_malformed_test_discovery_symbol(self, symbol):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         included = [os.path.join(discover_dir(), symbol)]
-        with pytest.raises(LoaderException, match='Invalid discovery symbol'):
+        with pytest.raises(LoaderException, match="Invalid discovery symbol"):
             loader.load(included)
 
     def check_test_loader_exclude_with_injected_args(self):
@@ -455,7 +518,7 @@ class CheckTestLoader(object):
         included = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix")]
         # exclude 2 tests
         params = '[{"x": 1,"y": "test "}, {"x": 2,"y": "I\'m"}]'
-        excluded = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{}'.format(params))]
+        excluded = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix.test_thing@{}".format(params))]
         tests = loader.load(included, excluded)
         assert len(tests) == 6
 
@@ -514,21 +577,21 @@ class CheckTestLoader(object):
         """
         test loading a test file as an import
         """
-        file = os.path.join(discover_dir(), 'test_suite_import_py.yml')
+        file = os.path.join(discover_dir(), "test_suite_import_py.yml")
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        with pytest.raises(LoaderException, match=r'Failed to load test suite from file: \S+test_a\.py'):
+        with pytest.raises(LoaderException, match=r"Failed to load test suite from file: \S+test_a\.py"):
             loader.load([file])
 
     def check_loader_with_non_suite_yml_file(self):
         """
         test importing a suite that is malformed
         """
-        file1 = os.path.join(discover_dir(), 'test_suite_malformed.yml')
-        file2 = os.path.join(discover_dir(), 'test_suite_import_malformed.yml')
+        file1 = os.path.join(discover_dir(), "test_suite_malformed.yml")
+        file2 = os.path.join(discover_dir(), "test_suite_import_malformed.yml")
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        with pytest.raises(LoaderException, match='No tests found in  simple_malformed_suite'):
+        with pytest.raises(LoaderException, match="No tests found in  simple_malformed_suite"):
             loader.load([file1])
-        with pytest.raises(LoaderException, match='No tests found in  simple_malformed_suite'):
+        with pytest.raises(LoaderException, match="No tests found in  simple_malformed_suite"):
             loader.load([file2])
 
     def check_test_loader_with_absolute_path(self):
@@ -537,15 +600,19 @@ class CheckTestLoader(object):
         to tests in the suite
         """
         with tempfile.TemporaryDirectory() as td:
-            temp_suite1 = os.path.join(td, 'temp_suite1.yml')
-            temp_suite2 = os.path.join(td, 'temp_suite2.yml')
-            with open(temp_suite1, 'w') as f:
-                test_yaml1 = yaml.dump({'import': str(os.path.join(td, 'temp_suite2.yml')),
-                                        'suite': [os.path.abspath(os.path.join(discover_dir(), "test_a.py"))]})
+            temp_suite1 = os.path.join(td, "temp_suite1.yml")
+            temp_suite2 = os.path.join(td, "temp_suite2.yml")
+            with open(temp_suite1, "w") as f:
+                test_yaml1 = yaml.dump(
+                    {
+                        "import": str(os.path.join(td, "temp_suite2.yml")),
+                        "suite": [os.path.abspath(os.path.join(discover_dir(), "test_a.py"))],
+                    }
+                )
                 f.write(test_yaml1)
 
-            with open(temp_suite2, 'w') as f:
-                test_yaml2 = yaml.dump({'suite': [os.path.abspath(os.path.join(discover_dir(), "test_b.py"))]})
+            with open(temp_suite2, "w") as f:
+                test_yaml2 = yaml.dump({"suite": [os.path.abspath(os.path.join(discover_dir(), "test_b.py"))]})
                 f.write(test_yaml2)
 
             loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
@@ -566,21 +633,21 @@ def join_parsed_symbol_components(parsed):
         ->
         'path/to/dir/test_file.py::ClassName.method'
     """
-    symbol = os.path.join(parsed['path'])
+    symbol = os.path.join(parsed["path"])
 
-    if parsed['cls'] or parsed['method']:
+    if parsed["cls"] or parsed["method"]:
         symbol += "::"
-        symbol += parsed['cls']
-        if parsed['method']:
+        symbol += parsed["cls"]
+        if parsed["method"]:
             symbol += "."
-            symbol += parsed['method']
+            symbol += parsed["method"]
 
     return symbol
 
 
 def normalize_ending_slash(dirname):
     if dirname.endswith(os.path.sep):
-        dirname = dirname[:-len(os.path.sep)]
+        dirname = dirname[: -len(os.path.sep)]
     return dirname
 
 
@@ -588,63 +655,23 @@ class CheckParseSymbol(object):
     def check_parse_discovery_symbol(self):
         """Check that "test discovery symbol" parsing logic works correctly"""
         parsed_symbols = [
-            {
-                'path': 'path/to/dir',
-                'cls': '',
-                'method': ''
-            },
-            {
-                'path': 'path/to/dir/test_file.py',
-                'cls': '',
-                'method': ''
-            },
-            {
-                'path': 'path/to/dir/test_file.py',
-                'cls': 'ClassName',
-                'method': ''
-            },
-            {
-                'path': 'path/to/dir/test_file.py',
-                'cls': 'ClassName',
-                'method': 'method'
-            },
-            {
-                'path': 'path/to/dir',
-                'cls': 'ClassName',
-                'method': ''
-            },
-            {
-                'path': 'test_file.py',
-                'cls': '',
-                'method': ''
-            },
-            {
-                'path': 'test_file.py',
-                'cls': 'ClassName',
-                'method': ''
-            },
-            {
-                'path': 'test_file.py',
-                'cls': 'ClassName',
-                'method': 'method'
-            }
+            {"path": "path/to/dir", "cls": "", "method": ""},
+            {"path": "path/to/dir/test_file.py", "cls": "", "method": ""},
+            {"path": "path/to/dir/test_file.py", "cls": "ClassName", "method": ""},
+            {"path": "path/to/dir/test_file.py", "cls": "ClassName", "method": "method"},
+            {"path": "path/to/dir", "cls": "ClassName", "method": ""},
+            {"path": "test_file.py", "cls": "", "method": ""},
+            {"path": "test_file.py", "cls": "ClassName", "method": ""},
+            {"path": "test_file.py", "cls": "ClassName", "method": "method"},
         ]
 
         loader = TestLoader(tests.ducktape_mock.session_context(), logger=Mock())
         for parsed in parsed_symbols:
             symbol = join_parsed_symbol_components(parsed)
 
-            expected_parsed = (
-                normalize_ending_slash(parsed['path']),
-                parsed['cls'],
-                parsed['method']
-            )
+            expected_parsed = (normalize_ending_slash(parsed["path"]), parsed["cls"], parsed["method"])
 
             actually_parsed = loader._parse_discovery_symbol(symbol)
-            actually_parsed = (
-                normalize_ending_slash(actually_parsed[0]),
-                actually_parsed[1],
-                actually_parsed[2]
-            )
+            actually_parsed = (normalize_ending_slash(actually_parsed[0]), actually_parsed[1], actually_parsed[2])
 
             assert actually_parsed == expected_parsed, "%s did not parse as expected" % symbol

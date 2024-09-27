@@ -33,12 +33,7 @@ from mock import Mock
 N_TEST_CASES = 5
 
 
-MEMORY_LEAK_TEST_FILE = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "resources/test_memory_leak.py"
-    )
-)
+MEMORY_LEAK_TEST_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "resources/test_memory_leak.py"))
 
 
 class InstrumentedTestRunner(TestRunner):
@@ -82,8 +77,15 @@ class CheckMemoryUsage(object):
         ctx_list = []
         test_methods = [MemoryLeakTest.test_leak]
         for f in test_methods:
-            ctx_list.extend(MarkedFunctionExpander(session_context=self.session_context, cls=MemoryLeakTest, function=f,
-                                                   file=MEMORY_LEAK_TEST_FILE, cluster=self.cluster).expand())
+            ctx_list.extend(
+                MarkedFunctionExpander(
+                    session_context=self.session_context,
+                    cls=MemoryLeakTest,
+                    function=f,
+                    file=MEMORY_LEAK_TEST_FILE,
+                    cluster=self.cluster,
+                ).expand()
+            )
         assert len(ctx_list) == N_TEST_CASES  # Sanity check
 
         q = Queue()
@@ -116,12 +118,12 @@ class CheckMemoryUsage(object):
 
         if slope > 0:
             # check max memory usage iff the memory measurements seem to be increasing overall
-            assert relative_diff <= .05, "max usage exceeded median usage by too much; there may " \
-                                         "be a memory leak: %s" % usage_stats
+            assert relative_diff <= 0.05, (
+                "max usage exceeded median usage by too much; there may " "be a memory leak: %s" % usage_stats
+            )
 
     def _linear_regression_slope(self, arr):
-        """Return the sign of the slope of the least squares fit line.
-        """
+        """Return the sign of the slope of the least squares fit line."""
         assert len(arr) > 0
 
         x_vals = [i for i in range(len(arr))]

@@ -46,25 +46,21 @@ class VagrantCluster(JsonCluster):
                 pass
 
         if not is_read_from_file:
-            cluster_json = {
-                "nodes": self._get_nodes_from_vagrant(make_remote_account_func)
-            }
+            cluster_json = {"nodes": self._get_nodes_from_vagrant(make_remote_account_func)}
 
         super(VagrantCluster, self).__init__(
-            cluster_json, *args, make_remote_account_func=make_remote_account_func, **kwargs)
+            cluster_json, *args, make_remote_account_func=make_remote_account_func, **kwargs
+        )
 
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
             nodes = [
-                {
-                    "ssh_config": node_account.ssh_config,
-                    "externally_routable_ip": node_account.externally_routable_ip
-                }
+                {"ssh_config": node_account.ssh_config, "externally_routable_ip": node_account.externally_routable_ip}
                 for node_account in self._available_accounts
             ]
             cluster_json["nodes"] = nodes
-            with open(cluster_file, 'w+') as fd:
-                json.dump(cluster_json, fd, cls=DucktapeJSONEncoder, indent=2, separators=(',', ': '), sort_keys=True)
+            with open(cluster_file, "w+") as fd:
+                json.dump(cluster_json, fd, cls=DucktapeJSONEncoder, indent=2, separators=(",", ": "), sort_keys=True)
 
         # Release any ssh clients used in querying the nodes for metadata
         for node_account in self._available_accounts:
@@ -89,16 +85,18 @@ class VagrantCluster(JsonCluster):
                     account.close()
                     del account
 
-            nodes.append({
-                "ssh_config": ssh_config.to_json(),
-                "externally_routable_ip": externally_routable_ip
-            })
+            nodes.append({"ssh_config": ssh_config.to_json(), "externally_routable_ip": externally_routable_ip})
 
         return nodes
 
     def _vagrant_ssh_config(self):
-        ssh_config_info, error = subprocess.Popen("vagrant ssh-config", shell=True, stdout=subprocess.PIPE,
-                                                  stderr=subprocess.PIPE, close_fds=True,
-                                                  # Force to text mode in py2/3 compatible way
-                                                  universal_newlines=True).communicate()
+        ssh_config_info, error = subprocess.Popen(
+            "vagrant ssh-config",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True,
+            # Force to text mode in py2/3 compatible way
+            universal_newlines=True,
+        ).communicate()
         return ssh_config_info, error

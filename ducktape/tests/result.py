@@ -27,15 +27,17 @@ from ducktape.tests.status import FLAKY, PASS, FAIL, IGNORE
 class TestResult(object):
     """Wrapper class for a single result returned by a single test."""
 
-    def __init__(self,
-                 test_context,
-                 test_index,
-                 session_context,
-                 test_status=PASS,
-                 summary="",
-                 data=None,
-                 start_time=-1,
-                 stop_time=-1):
+    def __init__(
+        self,
+        test_context,
+        test_index,
+        session_context,
+        test_status=PASS,
+        summary="",
+        data=None,
+        start_time=-1,
+        stop_time=-1,
+    ):
         """
         @param test_context  standard test context object
         @param test_status   did the test pass or fail, etc?
@@ -71,7 +73,7 @@ class TestResult(object):
         if not self.base_results_dir.endswith(os.path.sep):
             self.base_results_dir += os.path.sep
         assert self.results_dir.startswith(self.base_results_dir)
-        self.relative_results_dir = self.results_dir[len(self.base_results_dir):]
+        self.relative_results_dir = self.results_dir[len(self.base_results_dir) :]
 
         # For tracking run time
         self.start_time = start_time
@@ -121,7 +123,7 @@ class TestResult(object):
             "run_time_seconds": self.run_time_seconds,
             "nodes_allocated": self.nodes_allocated,
             "nodes_used": self.nodes_used,
-            "services": self.services
+            "services": self.services,
         }
 
 
@@ -186,17 +188,9 @@ class TestResults(object):
 
     def _stats(self, num_list):
         if len(num_list) == 0:
-            return {
-                "mean": None,
-                "min": None,
-                "max": None
-            }
+            return {"mean": None, "min": None, "max": None}
 
-        return {
-            "mean": sum(num_list) / float(len(num_list)),
-            "min": min(num_list),
-            "max": max(num_list)
-        }
+        return {"mean": sum(num_list) / float(len(num_list)), "min": min(num_list), "max": max(num_list)}
 
     def to_json(self):
         if self.run_time_seconds == 0 or len(self.cluster) == 0:
@@ -205,8 +199,11 @@ class TestResults(object):
             cluster_utilization = 0
             parallelism = 0
         else:
-            cluster_utilization = (1.0 / len(self.cluster)) * (1.0 / self.run_time_seconds) * \
-                sum([r.nodes_used * r.run_time_seconds for r in self])
+            cluster_utilization = (
+                (1.0 / len(self.cluster))
+                * (1.0 / self.run_time_seconds)
+                * sum([r.nodes_used * r.run_time_seconds for r in self])
+            )
             parallelism = sum([r.run_time_seconds for r in self._results]) / self.run_time_seconds
         result = {
             "ducktape_version": ducktape_version(),
@@ -224,8 +221,8 @@ class TestResults(object):
             "num_ignored": self.num_ignored,
             "parallelism": parallelism,
             "client_status": {str(key): value for key, value in self.client_status.items()},
-            "results": [r for r in self._results]
+            "results": [r for r in self._results],
         }
         if self.num_flaky:
-            result['num_flaky'] = self.num_flaky
+            result["num_flaky"] = self.num_flaky
         return result

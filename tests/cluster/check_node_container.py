@@ -14,8 +14,12 @@
 
 from ducktape.cluster.cluster import ClusterNode
 from ducktape.cluster.cluster_spec import ClusterSpec, NodeSpec, LINUX, WINDOWS
-from ducktape.cluster.node_container import NodeContainer, NodeNotPresentError, InsufficientResourcesError, \
-    InsufficientHealthyNodesError
+from ducktape.cluster.node_container import (
+    NodeContainer,
+    NodeNotPresentError,
+    InsufficientResourcesError,
+    InsufficientHealthyNodesError,
+)
 import pytest
 
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
@@ -42,11 +46,13 @@ class CheckNodeContainer(object):
         assert 1 == len(container)
 
     def check_add_and_remove(self):
-        nodes = [ClusterNode(MockAccount()),
-                 ClusterNode(MockAccount()),
-                 ClusterNode(MockAccount()),
-                 ClusterNode(MockAccount()),
-                 ClusterNode(MockAccount())]
+        nodes = [
+            ClusterNode(MockAccount()),
+            ClusterNode(MockAccount()),
+            ClusterNode(MockAccount()),
+            ClusterNode(MockAccount()),
+            ClusterNode(MockAccount()),
+        ]
         container = NodeContainer([])
         assert 0 == len(container)
         container.add_node(nodes[0])
@@ -66,8 +72,7 @@ class CheckNodeContainer(object):
 
     def check_remove_single_node_spec(self):
         """Check remove_spec() method - verify a simple happy path of removing a single node"""
-        accounts = [fake_account('host1'), fake_account('host2'),
-                    fake_win_account('w1'), fake_win_account('w2')]
+        accounts = [fake_account("host1"), fake_account("host2"), fake_win_account("w1"), fake_win_account("w2")]
         container = NodeContainer(accounts)
         one_linux_node_spec = ClusterSpec(nodes=[NodeSpec(LINUX)])
         one_windows_node_spec = ClusterSpec(nodes=[NodeSpec(WINDOWS)])
@@ -101,21 +106,29 @@ class CheckNodeContainer(object):
         with pytest.raises(InsufficientResourcesError):
             container.remove_spec(one_linux_node_spec)
 
-    @pytest.mark.parametrize("cluster_spec", [
-        pytest.param(ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)]),
-                     id='not enough windows nodes'),
-        pytest.param(ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS)]),
-                     id='not enough linux nodes'),
-        pytest.param(ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)]),
-                     id='not enough nodes'),
-    ])
+    @pytest.mark.parametrize(
+        "cluster_spec",
+        [
+            pytest.param(
+                ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)]),
+                id="not enough windows nodes",
+            ),
+            pytest.param(
+                ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS)]), id="not enough linux nodes"
+            ),
+            pytest.param(
+                ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)]),
+                id="not enough nodes",
+            ),
+        ],
+    )
     def check_not_enough_nodes_to_remove(self, cluster_spec):
         """
         Check what happens if there aren't enough resources in this container to match a given spec.
         Various parametrizations check the behavior for when there are enough nodes for one OS but not another,
         or for both.
         """
-        accounts = [fake_account('host1'), fake_win_account('w1')]
+        accounts = [fake_account("host1"), fake_win_account("w1")]
         container = NodeContainer(accounts)
         original_container = container.clone()
 
@@ -128,20 +141,38 @@ class CheckNodeContainer(object):
         # check that container was not modified
         assert container.os_to_nodes == original_container.os_to_nodes
 
-    @pytest.mark.parametrize("accounts", [
-        pytest.param([
-            fake_account('host1'), fake_account('host2'),
-            fake_win_account('w1'), fake_win_account('w2', is_available=False)
-        ], id="windows not available"),
-        pytest.param([
-            fake_account('host1'), fake_account('host2', is_available=False),
-            fake_win_account('w1'), fake_win_account('w2')
-        ], id="linux not available"),
-        pytest.param([
-            fake_account('host1'), fake_account('host2', is_available=False),
-            fake_win_account('w1'), fake_win_account('w2', is_available=False)
-        ], id="neither is available")
-    ])
+    @pytest.mark.parametrize(
+        "accounts",
+        [
+            pytest.param(
+                [
+                    fake_account("host1"),
+                    fake_account("host2"),
+                    fake_win_account("w1"),
+                    fake_win_account("w2", is_available=False),
+                ],
+                id="windows not available",
+            ),
+            pytest.param(
+                [
+                    fake_account("host1"),
+                    fake_account("host2", is_available=False),
+                    fake_win_account("w1"),
+                    fake_win_account("w2"),
+                ],
+                id="linux not available",
+            ),
+            pytest.param(
+                [
+                    fake_account("host1"),
+                    fake_account("host2", is_available=False),
+                    fake_win_account("w1"),
+                    fake_win_account("w2", is_available=False),
+                ],
+                id="neither is available",
+            ),
+        ],
+    )
     def check_not_enough_healthy_nodes(self, accounts):
         """
         When there's not enough healthy nodes in any of the OS-s, we obviously don't want to remove anything.
@@ -161,24 +192,55 @@ class CheckNodeContainer(object):
         original_container.remove_nodes(expected_bad_nodes)
         assert container.os_to_nodes == original_container.os_to_nodes
 
-    @pytest.mark.parametrize("accounts", [
-        pytest.param([
-            fake_account('host1'), fake_account('host2'), fake_account('host3'),
-            fake_win_account('w1', is_available=False), fake_win_account('w2'), fake_win_account('w2')
-        ], id="windows not available"),
-        pytest.param([
-            fake_account('host1', is_available=False), fake_account('host2'), fake_account('host3'),
-            fake_win_account('w1'), fake_win_account('w2'), fake_win_account('w2')
-        ], id="linux not available"),
-        pytest.param([
-            fake_account('host1', is_available=False), fake_account('host2'), fake_account('host3'),
-            fake_win_account('w1', is_available=False), fake_win_account('w2'), fake_win_account('w2')
-        ], id="neither is available"),
-        pytest.param([
-            fake_account('host1'), fake_account('host2'), fake_account('host3'),
-            fake_win_account('w1'), fake_win_account('w2'), fake_win_account('w2')
-        ], id="all are available")
-    ])
+    @pytest.mark.parametrize(
+        "accounts",
+        [
+            pytest.param(
+                [
+                    fake_account("host1"),
+                    fake_account("host2"),
+                    fake_account("host3"),
+                    fake_win_account("w1", is_available=False),
+                    fake_win_account("w2"),
+                    fake_win_account("w2"),
+                ],
+                id="windows not available",
+            ),
+            pytest.param(
+                [
+                    fake_account("host1", is_available=False),
+                    fake_account("host2"),
+                    fake_account("host3"),
+                    fake_win_account("w1"),
+                    fake_win_account("w2"),
+                    fake_win_account("w2"),
+                ],
+                id="linux not available",
+            ),
+            pytest.param(
+                [
+                    fake_account("host1", is_available=False),
+                    fake_account("host2"),
+                    fake_account("host3"),
+                    fake_win_account("w1", is_available=False),
+                    fake_win_account("w2"),
+                    fake_win_account("w2"),
+                ],
+                id="neither is available",
+            ),
+            pytest.param(
+                [
+                    fake_account("host1"),
+                    fake_account("host2"),
+                    fake_account("host3"),
+                    fake_win_account("w1"),
+                    fake_win_account("w2"),
+                    fake_win_account("w2"),
+                ],
+                id="all are available",
+            ),
+        ],
+    )
     def check_enough_healthy_but_some_bad_nodes_too(self, accounts):
         """
         Check that we can successfully allocate all necessary nodes - even if some nodes don't pass health checks,
@@ -212,7 +274,7 @@ class CheckNodeContainer(object):
         assert len(actual_win) == 2
 
     def check_empty_cluster_spec(self):
-        accounts = [fake_account('host1'), fake_account('host2'), fake_account('host3')]
+        accounts = [fake_account("host1"), fake_account("host2"), fake_account("host3")]
         container = NodeContainer(accounts)
         spec = ClusterSpec.empty()
         assert not container.attempt_remove_spec(spec)
@@ -222,7 +284,7 @@ class CheckNodeContainer(object):
         assert not bad
 
     def check_none_cluster_spec(self):
-        accounts = [fake_account('host1'), fake_account('host2'), fake_account('host3')]
+        accounts = [fake_account("host1"), fake_account("host2"), fake_account("host3")]
         container = NodeContainer(accounts)
         spec = None
         assert container.attempt_remove_spec(spec)

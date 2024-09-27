@@ -18,8 +18,7 @@ from ducktape.cluster.node_container import NodeContainer
 
 
 class FiniteSubcluster(Cluster):
-    """This cluster class gives us a mechanism for allocating finite blocks of nodes from another cluster.
-    """
+    """This cluster class gives us a mechanism for allocating finite blocks of nodes from another cluster."""
 
     def __init__(self, nodes):
         super(FiniteSubcluster, self).__init__()

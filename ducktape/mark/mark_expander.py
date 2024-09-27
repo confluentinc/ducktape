@@ -18,11 +18,12 @@ from ducktape.tests.test import TestContext
 
 
 class MarkedFunctionExpander(object):
-    """This class helps expand decorated/marked functions into a list of test context objects. """
+    """This class helps expand decorated/marked functions into a list of test context objects."""
 
     def __init__(self, session_context=None, module=None, cls=None, function=None, file=None, cluster=None):
         self.seed_context = TestContext(
-            session_context=session_context, module=module, cls=cls, function=function, file=file, cluster=cluster)
+            session_context=session_context, module=module, cls=cls, function=function, file=file, cluster=cluster
+        )
 
         if parametrized(function):
             self.context_list = []
@@ -30,8 +31,7 @@ class MarkedFunctionExpander(object):
             self.context_list = [self.seed_context]
 
     def expand(self, test_parameters=None):
-        """Inspect self.function for marks, and expand into a list of test context objects useable by the test runner.
-        """
+        """Inspect self.function for marks, and expand into a list of test context objects useable by the test runner."""
         f = self.seed_context.function
 
         # If the user has specified that they want to run tests with specific parameters, apply the parameters first,

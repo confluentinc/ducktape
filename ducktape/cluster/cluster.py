@@ -31,7 +31,7 @@ class ClusterNode(object):
 
 
 class Cluster(object):
-    """ Interface for a cluster -- a collection of nodes with login credentials.
+    """Interface for a cluster -- a collection of nodes with login credentials.
     This interface doesn't define any mapping of roles/services to nodes. It only interacts with some underlying
     system that can describe available resources and mediates reservations of those resources.
     """

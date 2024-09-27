@@ -17,7 +17,6 @@ from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountError
 
 
 class LinuxRemoteAccount(RemoteAccount):
-
     def __init__(self, *args, **kwargs):
         super(LinuxRemoteAccount, self).__init__(*args, **kwargs)
         self._ssh_client = None
@@ -34,10 +33,7 @@ class LinuxRemoteAccount(RemoteAccount):
         """
         Utility to get all network devices on a linux account
         """
-        return [
-            device
-            for device in self.sftp_client.listdir('/sys/class/net')
-        ]
+        return [device for device in self.sftp_client.listdir("/sys/class/net")]
 
     def get_external_accessible_network_devices(self):
         """
@@ -46,8 +42,8 @@ class LinuxRemoteAccount(RemoteAccount):
         return [
             device
             for device in self.get_network_devices()
-            if device != 'lo'  # do not include local device
-            and (device.startswith("en") or device.startswith('eth'))  # filter out other devices; "en" means ethernet
+            if device != "lo"  # do not include local device
+            and (device.startswith("en") or device.startswith("eth"))  # filter out other devices; "en" means ethernet
             # eth0 can also sometimes happen, see https://unix.stackexchange.com/q/134483
         ]
 
@@ -65,19 +61,10 @@ class LinuxRemoteAccount(RemoteAccount):
             raise RemoteAccountError(self, "Couldn't find any network devices")
 
         fmt_cmd = (
-            "/sbin/ifconfig {device} | "
-            "grep 'inet ' | "
-            "tail -n 1 | "
-            r"egrep -o '[0-9\.]+' | "
-            "head -n 1 2>&1"
+            "/sbin/ifconfig {device} | " "grep 'inet ' | " "tail -n 1 | " r"egrep -o '[0-9\.]+' | " "head -n 1 2>&1"
         )
 
-        ips = [
-            "".join(
-                self.ssh_capture(fmt_cmd.format(device=device))
-            ).strip()
-            for device in devices
-        ]
+        ips = ["".join(self.ssh_capture(fmt_cmd.format(device=device))).strip() for device in devices]
         self.logger.debug("found ips: {}".format(ips))
         self.logger.debug("returning the first ip found")
         return next(iter(ips))

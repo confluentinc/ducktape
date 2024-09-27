@@ -19,7 +19,7 @@ import importlib
 import time
 
 
-def wait_until(condition, timeout_sec, backoff_sec=.1, err_msg="", retry_on_exc=False):
+def wait_until(condition, timeout_sec, backoff_sec=0.1, err_msg="", retry_on_exc=False):
     """Block until condition evaluates as true or timeout expires, whichever comes first.
 
     :param condition: callable that returns True if the condition is met, False otherwise
@@ -78,5 +78,8 @@ def load_function(func_module_path):
     try:
         return getattr(importlib.import_module(module), function)
     except AttributeError:
-        raise Exception("Function could not be loaded from the module path {}, "
-                        "verify that it is '.' seperated".format(func_module_path))
+        raise Exception(
+            "Function could not be loaded from the module path {}, " "verify that it is '.' seperated".format(
+                func_module_path
+            )
+        )
