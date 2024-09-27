@@ -19,7 +19,7 @@ import pytest
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.status import PASS, FAIL
-from ducktape.tests.test import TestContext
+from ducktape.tests.test_context import TestContext
 from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
@@ -81,7 +81,11 @@ class CheckRunner(object):
         for f in test_methods:
             ctx_list.extend(
                 MarkedFunctionExpander(
-                    session_context=session_context, cls=test_class, function=f, file=test_file, cluster=cluster
+                    session_context=session_context,
+                    cls=test_class,
+                    function=f,
+                    file=test_file,
+                    cluster=cluster,
                 ).expand()
             )
         return ctx_list
@@ -91,7 +95,12 @@ class CheckRunner(object):
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
 
-        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
+        test_methods = [
+            TestThingy.test_pi,
+            TestThingy.test_ignore1,
+            TestThingy.test_ignore2,
+            TestThingy.test_failure,
+        ]
         ctx_list = self._do_expand(
             test_file=TEST_THINGY_FILE,
             test_class=TestThingy,
@@ -138,7 +147,12 @@ class CheckRunner(object):
         adheres to the Junit spec using xpath queries"""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
-        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
+        test_methods = [
+            TestThingy.test_pi,
+            TestThingy.test_ignore1,
+            TestThingy.test_ignore2,
+            TestThingy.test_failure,
+        ]
         ctx_list = self._do_expand(
             test_file=TEST_THINGY_FILE,
             test_class=TestThingy,
@@ -489,7 +503,17 @@ class CheckRunner(object):
         mock_cluster = tests.ducktape_mock.mock_cluster()
         session_context = tests.ducktape_mock.session_context()
         test_context = tests.ducktape_mock.test_context(session_context=session_context)
-        rc = RunnerClient("localhost", 22, test_context.test_id, 0, "dummy", "/tmp/dummy", True, False, 5)
+        rc = RunnerClient(
+            "localhost",
+            22,
+            test_context.test_id,
+            0,
+            "dummy",
+            "/tmp/dummy",
+            True,
+            False,
+            5,
+        )
         rc.sender = MockSender()
         rc.cluster = mock_cluster
         rc.session_context = session_context

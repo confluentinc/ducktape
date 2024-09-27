@@ -104,7 +104,12 @@ class CheckJsonCluster(object):
         assert node.account.hostname == "hostname"
         assert node.account.user is None
 
-        ssh_config = {"host": "hostname", "user": "user", "hostname": "localhost", "port": 22}
+        ssh_config = {
+            "host": "hostname",
+            "user": "user",
+            "hostname": "localhost",
+            "port": 22,
+        }
         node = create_json_cluster(
             {"nodes": [{"hostname": "hostname", "user": "user", "ssh_config": ssh_config}]}
         ).alloc(Service.setup_cluster_spec(num_nodes=1))[0]

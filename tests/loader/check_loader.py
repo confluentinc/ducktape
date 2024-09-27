@@ -252,7 +252,11 @@ class CheckTestLoader(object):
         assert len(tests) == num_tests_in_dir(discover_dir())
 
     @pytest.mark.parametrize(
-        ["dir_", "file_name"], [pytest.param(discover_dir(), "test_a.py"), pytest.param(resources_dir(), "a.py")]
+        ["dir_", "file_name"],
+        [
+            pytest.param(discover_dir(), "test_a.py"),
+            pytest.param(resources_dir(), "a.py"),
+        ],
     )
     def check_test_loader_with_file(self, dir_, file_name):
         """Check discovery on a file."""
@@ -334,12 +338,18 @@ class CheckTestLoader(object):
 
     def check_test_loader_allow_exclude_file_without_tests(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "sub_dir_no_tests", "just_some_file.py")])
+        tests = loader.load(
+            [discover_dir()],
+            [os.path.join(discover_dir(), "sub_dir_no_tests", "just_some_file.py")],
+        )
         assert len(tests) == num_tests_in_dir(discover_dir())
 
     def check_test_loader_allow_exclude_nonexistent_file(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        tests = loader.load([discover_dir()], [os.path.join(discover_dir(), "file_that_does_not_exist.py")])
+        tests = loader.load(
+            [discover_dir()],
+            [os.path.join(discover_dir(), "file_that_does_not_exist.py")],
+        )
         assert len(tests) == num_tests_in_dir(discover_dir())
 
     def check_test_loader_with_class(self):
@@ -376,7 +386,12 @@ class CheckTestLoader(object):
 
     def check_test_loader_with_matrix_params(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}')]
+        included = [
+            os.path.join(
+                discover_dir(),
+                'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}',
+            )
+        ]
         tests = loader.load(included)
         # TestMatrix contains a single parametrized method. Since we only provide a single set of params, we should
         # end up with a single context
@@ -396,12 +411,20 @@ class CheckTestLoader(object):
         # TestMatrix contains a single parametrized method. Since we only provide a single set of params, we should
         # end up with a single context
         assert len(tests) == 1
-        assert tests[0].injected_args == {"version": "6.1.0", "chars": '!@#$%^&*()_+::.,/? "{}\\'}
+        assert tests[0].injected_args == {
+            "version": "6.1.0",
+            "chars": '!@#$%^&*()_+::.,/? "{}\\',
+        }
 
     def check_test_loader_with_multiple_matrix_params(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         params = '[{"x": 1,"y": "test "}, {"x": 2,"y": "I\'m"}]'
-        included = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix.test_thing@{}".format(params))]
+        included = [
+            os.path.join(
+                discover_dir(),
+                "test_decorated.py::TestMatrix.test_thing@{}".format(params),
+            )
+        ]
         tests = loader.load(included)
         # TestMatrix contains a single parametrized method.
         # We provide two sets of params, so we should end up with two contexts
@@ -412,7 +435,12 @@ class CheckTestLoader(object):
 
     def check_test_loader_with_parametrize(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
-        included = [os.path.join(discover_dir(), 'test_decorated.py::TestParametrized.test_thing@{"x":1,"y":2}')]
+        included = [
+            os.path.join(
+                discover_dir(),
+                'test_decorated.py::TestParametrized.test_thing@{"x":1,"y":2}',
+            )
+        ]
         tests = loader.load(included)
         assert len(tests) == 1
         assert tests[0].injected_args == {"x": 1, "y": 2}
@@ -421,7 +449,10 @@ class CheckTestLoader(object):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         parameters = '{"d": {"a": "A"}, "lst": ["whatever"]}'
         included = [
-            os.path.join(discover_dir(), "test_decorated.py::TestObjectParameters.test_thing@{}".format(parameters))
+            os.path.join(
+                discover_dir(),
+                "test_decorated.py::TestObjectParameters.test_thing@{}".format(parameters),
+            )
         ]
         tests = loader.load(included)
         assert len(tests) == 1
@@ -452,14 +483,24 @@ class CheckTestLoader(object):
         """
         injected_args = {"x": 1, "y": "test "}
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), injected_args=injected_args)
-        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}')]
+        included = [
+            os.path.join(
+                discover_dir(),
+                'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}',
+            )
+        ]
         with pytest.raises(LoaderException, match="Cannot use both"):
             loader.load(included)
 
     def check_test_loader_raises_on_params_not_found(self):
         loader = TestLoader(self.SESSION_CONTEXT, logger=Mock())
         # parameter syntax is valid, but there is no such parameter defined in the test annotation in the code
-        included = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "missing"}')]
+        included = [
+            os.path.join(
+                discover_dir(),
+                'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "missing"}',
+            )
+        ]
         with pytest.raises(LoaderException, match="No tests to run"):
             loader.load(included)
 
@@ -504,7 +545,12 @@ class CheckTestLoader(object):
         # included 8 tests
         included = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix")]
         # exclude 1 test
-        excluded = [os.path.join(discover_dir(), 'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}')]
+        excluded = [
+            os.path.join(
+                discover_dir(),
+                'test_decorated.py::TestMatrix.test_thing@{"x": 1,"y": "test "}',
+            )
+        ]
         tests = loader.load(included, excluded)
         assert len(tests) == 7
 
@@ -518,7 +564,12 @@ class CheckTestLoader(object):
         included = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix")]
         # exclude 2 tests
         params = '[{"x": 1,"y": "test "}, {"x": 2,"y": "I\'m"}]'
-        excluded = [os.path.join(discover_dir(), "test_decorated.py::TestMatrix.test_thing@{}".format(params))]
+        excluded = [
+            os.path.join(
+                discover_dir(),
+                "test_decorated.py::TestMatrix.test_thing@{}".format(params),
+            )
+        ]
         tests = loader.load(included, excluded)
         assert len(tests) == 6
 
@@ -565,11 +616,23 @@ class CheckTestLoader(object):
         # using the least full subset each time. The test data with times of (10, 5, 1) should result in the first
         # subset containing 1 test and the second containing 2 (the opposite of the simple count-based strategy)
 
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=0, subsets=2, historical_report=report_url)
+        loader = TestLoader(
+            self.SESSION_CONTEXT,
+            logger=Mock(),
+            subset=0,
+            subsets=2,
+            historical_report=report_url,
+        )
         tests = loader.load([file])
         assert len(tests) == 1
 
-        loader = TestLoader(self.SESSION_CONTEXT, logger=Mock(), subset=1, subsets=2, historical_report=report_url)
+        loader = TestLoader(
+            self.SESSION_CONTEXT,
+            logger=Mock(),
+            subset=1,
+            subsets=2,
+            historical_report=report_url,
+        )
         tests = loader.load([file])
         assert len(tests) == 2
 
@@ -658,7 +721,11 @@ class CheckParseSymbol(object):
             {"path": "path/to/dir", "cls": "", "method": ""},
             {"path": "path/to/dir/test_file.py", "cls": "", "method": ""},
             {"path": "path/to/dir/test_file.py", "cls": "ClassName", "method": ""},
-            {"path": "path/to/dir/test_file.py", "cls": "ClassName", "method": "method"},
+            {
+                "path": "path/to/dir/test_file.py",
+                "cls": "ClassName",
+                "method": "method",
+            },
             {"path": "path/to/dir", "cls": "ClassName", "method": ""},
             {"path": "test_file.py", "cls": "", "method": ""},
             {"path": "test_file.py", "cls": "ClassName", "method": ""},
@@ -669,9 +736,17 @@ class CheckParseSymbol(object):
         for parsed in parsed_symbols:
             symbol = join_parsed_symbol_components(parsed)
 
-            expected_parsed = (normalize_ending_slash(parsed["path"]), parsed["cls"], parsed["method"])
+            expected_parsed = (
+                normalize_ending_slash(parsed["path"]),
+                parsed["cls"],
+                parsed["method"],
+            )
 
             actually_parsed = loader._parse_discovery_symbol(symbol)
-            actually_parsed = (normalize_ending_slash(actually_parsed[0]), actually_parsed[1], actually_parsed[2])
+            actually_parsed = (
+                normalize_ending_slash(actually_parsed[0]),
+                actually_parsed[1],
+                actually_parsed[2],
+            )
 
             assert actually_parsed == expected_parsed, "%s did not parse as expected" % symbol

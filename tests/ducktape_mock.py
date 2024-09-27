@@ -14,10 +14,12 @@
 
 from typing import List, Tuple
 from ducktape.cluster.cluster import Cluster
-from ducktape.cluster.cluster_spec import ClusterSpec, LINUX
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.consts import LINUX
 from ducktape.cluster.node_container import NodeContainer
 from ducktape.tests.session import SessionContext
-from ducktape.tests.test import Test, TestContext
+from ducktape.tests.test import Test
+from ducktape.tests.test_context import TestContext
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
 from unittest.mock import MagicMock
@@ -28,7 +30,11 @@ import tempfile
 
 
 def mock_cluster():
-    return MagicMock(all=lambda: [MagicMock(spec=ClusterSpec)] * 3, max_used=lambda: 3, max_used_nodes=3)
+    return MagicMock(
+        all=lambda: [MagicMock(spec=ClusterSpec)] * 3,
+        max_used=lambda: 3,
+        max_used_nodes=3,
+    )
 
 
 class FakeClusterNode(object):

@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test, TestContext
+from ducktape.tests import Test
+from ducktape.tests import TestContext
 from ducktape.template import TemplateRenderer
 
 from tests.ducktape_mock import session_context

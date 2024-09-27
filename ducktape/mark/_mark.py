@@ -13,11 +13,11 @@
 # limitations under the License.
 
 
-from ducktape.errors import DucktapeError
-
 import functools
 import itertools
 import os
+
+from ducktape.errors import DucktapeError
 
 
 class Mark(object):
@@ -169,7 +169,10 @@ class Defaults(Mark):
         else:
             for injected_args in cartesian_product_dict(self.injected_args):
                 injected_fun = _inject(**injected_args)(seed_context.function)
-                new_context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=injected_args))
+                new_context_list.insert(
+                    0,
+                    seed_context.copy(function=injected_fun, injected_args=injected_args),
+                )
 
         return new_context_list
 
@@ -189,7 +192,10 @@ class Parametrize(Mark):
 
     def apply(self, seed_context, context_list):
         injected_fun = _inject(**self.injected_args)(seed_context.function)
-        context_list.insert(0, seed_context.copy(function=injected_fun, injected_args=self.injected_args))
+        context_list.insert(
+            0,
+            seed_context.copy(function=injected_fun, injected_args=self.injected_args),
+        )
         return context_list
 
     def __eq__(self, other):

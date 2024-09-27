@@ -12,24 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from contextlib import contextmanager
 import logging
 import os
-from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
-from paramiko.ssh_exception import SSHException, NoValidConnectionsError
 import shutil
 import signal
 import socket
 import stat
 import tempfile
 import warnings
+from contextlib import contextmanager
+from typing import Callable, List, Optional, Union
 
+from paramiko import MissingHostKeyPolicy, SFTPClient, SSHClient, SSHConfig
+from paramiko.ssh_exception import NoValidConnectionsError, SSHException
+
+from ducktape.errors import DucktapeError
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
-from ducktape.errors import DucktapeError
 
 
-def check_ssh(method):
+def check_ssh(method: Callable) -> Callable:
     def wrapper(self, *args, **kwargs):
         try:
             return method(self, *args, **kwargs)
@@ -37,7 +39,10 @@ def check_ssh(method):
             if self._custom_ssh_exception_checks:
                 self._log(logging.DEBUG, "caught ssh error", exc_info=True)
                 self._log(logging.DEBUG, "starting ssh checks:")
-                self._log(logging.DEBUG, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
+                self._log(
+                    logging.DEBUG,
+                    "\n".join(repr(f) for f in self._custom_ssh_exception_checks),
+                )
                 for func in self._custom_ssh_exception_checks:
                     func(e, self)
             raise
@@ -48,22 +53,22 @@ def check_ssh(method):
 class RemoteAccountSSHConfig(object):
     def __init__(
         self,
-        host=None,
-        hostname=None,
-        user=None,
-        port=None,
-        password=None,
-        identityfile=None,
-        connecttimeout=None,
+        host: Optional[str] = None,
+        hostname: Optional[str] = None,
+        user: Optional[str] = None,
+        port: Optional[int] = None,
+        password: Optional[str] = None,
+        identityfile: Optional[str] = None,
+        connecttimeout: Optional[Union[int, float]] = None,
         **kwargs,
-    ):
+    ) -> None:
         """Wrapper for ssh configs used by ducktape to connect to remote machines.
 
         The fields in this class are lowercase versions of a small selection of ssh config properties
         (see man page: "man ssh_config")
         """
         self.host = host
-        self.hostname = hostname or "localhost"
+        self.hostname: str = hostname or "localhost"
         self.user = user
         self.port = port or 22
         self.port = int(self.port)
@@ -132,7 +137,11 @@ class RemoteCommandError(RemoteAccountError):
         self.msg = msg
 
     def __str__(self):
-        msg = "%s: Command '%s' returned non-zero exit status %d." % (self.account_str, self.cmd, self.exit_status)
+        msg = "%s: Command '%s' returned non-zero exit status %d." % (
+            self.account_str,
+            self.cmd,
+            self.exit_status,
+        )
         if self.msg:
             msg += " Remote error message: %s" % self.msg
         return msg
@@ -147,7 +156,13 @@ class RemoteAccount(HttpMixin):
     Each operating system has its own RemoteAccount implementation.
     """
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None, ssh_exception_checks=[]):
+    def __init__(
+        self,
+        ssh_config: RemoteAccountSSHConfig,
+        externally_routable_ip: Optional[str] = None,
+        logger: Optional[logging.Logger] = None,
+        ssh_exception_checks: List[Callable] = [],
+    ) -> None:
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
         # be hashable
         self.ssh_config = ssh_config
@@ -163,13 +178,13 @@ class RemoteAccount(HttpMixin):
         self.user = ssh_config.user
         self.externally_routable_ip = externally_routable_ip
         self._logger = logger
-        self.os = None
-        self._ssh_client = None
-        self._sftp_client = None
+        self.os: Optional[str] = None
+        self._ssh_client: Optional[SSHClient] = None
+        self._sftp_client: Optional[SFTPClient] = None
         self._custom_ssh_exception_checks = ssh_exception_checks
 
     @property
-    def operating_system(self):
+    def operating_system(self) -> Optional[str]:
         return self.os
 
     @property
@@ -216,7 +231,10 @@ class RemoteAccount(HttpMixin):
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
             except Exception as e:
-                self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
+                self._log(
+                    logging.DEBUG,
+                    "exception getting ssh_client (creating new client): %s" % str(e),
+                )
                 self._set_ssh_client()
         else:
             self._set_ssh_client()
@@ -237,7 +255,7 @@ class RemoteAccount(HttpMixin):
 
         return self._sftp_client
 
-    def close(self):
+    def close(self) -> None:
         """Close/release any outstanding network connections to remote account."""
 
         if self._ssh_client:
@@ -271,7 +289,12 @@ class RemoteAccount(HttpMixin):
             "Timed out trying to contact service on %s. " % url
             + "Either the service failed to start, or there is a problem with the url."
         )
-        wait_until(lambda: self._can_ping_url(url, headers), timeout_sec=timeout, backoff_sec=0.25, err_msg=err_msg)
+        wait_until(
+            lambda: self._can_ping_url(url, headers),
+            timeout_sec=timeout,
+            backoff_sec=0.25,
+            err_msg=err_msg,
+        )
 
     def _can_ping_url(self, url, headers):
         """See if we can successfully issue a GET request to the given url."""
@@ -331,7 +354,14 @@ class RemoteAccount(HttpMixin):
         return exit_status
 
     @check_ssh
-    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
+    def ssh_capture(
+        self,
+        cmd,
+        allow_fail=False,
+        callback=None,
+        combine_stderr=True,
+        timeout_sec=None,
+    ):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
 
         Does *not* block
@@ -765,7 +795,10 @@ class LogMonitor(object):
         are passed directly to ``ducktape.utils.util.wait_until``
         """
         return wait_until(
-            lambda: self.acct.ssh("tail -c +%d %s | grep '%s'" % (self.offset + 1, self.log, pattern), allow_fail=True)
+            lambda: self.acct.ssh(
+                "tail -c +%d %s | grep '%s'" % (self.offset + 1, self.log, pattern),
+                allow_fail=True,
+            )
             == 0,
             **kwargs,
         )

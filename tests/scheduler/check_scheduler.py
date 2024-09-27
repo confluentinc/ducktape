@@ -28,7 +28,11 @@ class CheckScheduler(object):
         self.cluster = FakeCluster(100)
         self.tc0 = FakeContext(0, expected_num_nodes=10, expected_cluster_spec=ClusterSpec.simple_linux(10))
         self.tc1 = FakeContext(1, expected_num_nodes=50, expected_cluster_spec=ClusterSpec.simple_linux(50))
-        self.tc2 = FakeContext(2, expected_num_nodes=100, expected_cluster_spec=ClusterSpec.simple_linux(100))
+        self.tc2 = FakeContext(
+            2,
+            expected_num_nodes=100,
+            expected_cluster_spec=ClusterSpec.simple_linux(100),
+        )
         self.tc_list = [
             self.tc0,
             self.tc1,

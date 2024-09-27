@@ -20,7 +20,8 @@ import sys
 import tempfile
 
 from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.tests.test import Test, TestContext, _escape_pathname, _compress_cmd, in_dir, in_temp_dir
+from ducktape.tests.test import Test, _compress_cmd, in_dir, in_temp_dir
+from ducktape.tests.test_context import _escape_pathname, TestContext
 from tests import ducktape_mock
 
 
@@ -43,7 +44,9 @@ class DummyTestNoDescription(Test):
 class CheckLifecycle(object):
     def check_test_context_double_close(self):
         context = TestContext(
-            session_context=ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_function_description
+            session_context=ducktape_mock.session_context(),
+            cls=DummyTest,
+            function=DummyTest.test_function_description,
         )
         context.close()
         context.close()
@@ -82,14 +85,18 @@ class CheckDescription(object):
     def check_from_function(self):
         """If the function has a docstring, the description should come from the function"""
         context = TestContext(
-            session_context=ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_function_description
+            session_context=ducktape_mock.session_context(),
+            cls=DummyTest,
+            function=DummyTest.test_function_description,
         )
         assert context.description == "function description"
 
     def check_from_class(self):
         """If the test method has no docstring, description should come from the class docstring"""
         context = TestContext(
-            session_context=ducktape_mock.session_context(), cls=DummyTest, function=DummyTest.test_class_description
+            session_context=ducktape_mock.session_context(),
+            cls=DummyTest,
+            function=DummyTest.test_class_description,
         )
         assert context.description == "class description"
 

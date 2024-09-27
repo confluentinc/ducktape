@@ -182,7 +182,14 @@ class CheckDefaults(object):
         context_list = MarkedFunctionExpander(None, function=function).expand()
         assert len(context_list) == 6
 
-        expected_output = {(1, 1, 1), (1, 1, 2), (1, 2, 1), (1, 2, 2), (3, 4, 1), (3, 4, 2)}
+        expected_output = {
+            (1, 1, 1),
+            (1, 1, 2),
+            (1, 2, 1),
+            (1, 2, 2),
+            (3, 4, 1),
+            (3, 4, 2),
+        }
         output = set()
         for ctx in context_list:
             output.add(ctx.function())
@@ -204,7 +211,14 @@ class CheckDefaults(object):
         context_list = MarkedFunctionExpander(None, function=C.function).expand()
         assert len(context_list) == 6
 
-        expected_output = {(1, 1, 1), (1, 1, 2), (1, 2, 1), (1, 2, 2), (3, 4, 1), (3, 4, 2)}
+        expected_output = {
+            (1, 1, 1),
+            (1, 1, 2),
+            (1, 2, 1),
+            (1, 2, 2),
+            (3, 4, 1),
+            (3, 4, 2),
+        }
         output = set()
 
         c = C()
@@ -249,7 +263,16 @@ class CheckDefaults(object):
         context_list = MarkedFunctionExpander(None, function=function).expand()
         assert len(context_list) == 8
 
-        expected_output = {(1, 5, 1), (1, 5, 2), (2, 5, 1), (2, 5, 2), (1, 6, 1), (1, 6, 2), (2, 6, 1), (2, 6, 2)}
+        expected_output = {
+            (1, 5, 1),
+            (1, 5, 2),
+            (2, 5, 1),
+            (2, 5, 2),
+            (1, 6, 1),
+            (1, 6, 2),
+            (2, 6, 1),
+            (2, 6, 2),
+        }
         output = set()
         for ctx in context_list:
             output.add(ctx.function())

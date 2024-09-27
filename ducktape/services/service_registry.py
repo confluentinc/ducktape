@@ -17,9 +17,9 @@ from collections import OrderedDict
 
 
 class ServiceRegistry(object):
-    def __init__(self):
-        self._services = OrderedDict()
-        self._nodes = {}
+    def __init__(self) -> None:
+        self._services: OrderedDict = OrderedDict()
+        self._nodes: dict = {}
 
     def __contains__(self, item):
         return id(item) in self._services

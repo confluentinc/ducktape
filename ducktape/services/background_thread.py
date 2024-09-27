@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.services.service import Service
-
 import threading
 import traceback
+
+from ducktape.services.service import Service
 
 
 class BackgroundThreadService(Service):
@@ -53,7 +53,9 @@ class BackgroundThreadService(Service):
 
         self.logger.info("Running %s node %d on %s", self.service_id, idx, node.account.hostname)
         worker = threading.Thread(
-            name=self.service_id + "-worker-" + str(idx), target=self._protected_worker, args=(idx, node)
+            name=self.service_id + "-worker-" + str(idx),
+            target=self._protected_worker,
+            args=(idx, node),
         )
         worker.daemon = True
         worker.start()

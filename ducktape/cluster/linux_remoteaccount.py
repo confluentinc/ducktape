@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.cluster.cluster_spec import LINUX
+from typing import Optional
+
+from paramiko import SFTPClient, SSHClient
+
+from ducktape.cluster.consts import LINUX
 from ducktape.cluster.remoteaccount import RemoteAccount, RemoteAccountError
 
 
 class LinuxRemoteAccount(RemoteAccount):
     def __init__(self, *args, **kwargs):
         super(LinuxRemoteAccount, self).__init__(*args, **kwargs)
-        self._ssh_client = None
-        self._sftp_client = None
+        self._ssh_client: Optional[SSHClient] = None
+        self._sftp_client: Optional[SFTPClient] = None
         self.os = LINUX
 
     @property

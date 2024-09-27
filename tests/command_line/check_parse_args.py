@@ -105,9 +105,13 @@ class CheckParseArgs(object):
 
         try:
             monkeypatch.setattr(
-                "ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE", project_cfg_filename
+                "ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE",
+                project_cfg_filename,
             )
-            monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.USER_CONFIG_FILE", user_cfg_filename)
+            monkeypatch.setattr(
+                "ducktape.command_line.defaults.ConsoleDefaults.USER_CONFIG_FILE",
+                user_cfg_filename,
+            )
 
             with open(project_cfg_filename, "w") as project_f:
                 project_f.write("\n".join(project_cfg))
@@ -165,9 +169,13 @@ class CheckParseArgs(object):
 
         try:
             monkeypatch.setattr(
-                "ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE", project_cfg_filename
+                "ducktape.command_line.defaults.ConsoleDefaults.PROJECT_CONFIG_FILE",
+                project_cfg_filename,
             )
-            monkeypatch.setattr("ducktape.command_line.defaults.ConsoleDefaults.USER_CONFIG_FILE", user_cfg_filename)
+            monkeypatch.setattr(
+                "ducktape.command_line.defaults.ConsoleDefaults.USER_CONFIG_FILE",
+                user_cfg_filename,
+            )
 
             with open(project_cfg_filename, "w") as project_f:
                 project_f.write("\n".join(project_cfg))

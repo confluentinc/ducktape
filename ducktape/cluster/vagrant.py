@@ -14,12 +14,14 @@
 
 from __future__ import absolute_import
 
-from .json import JsonCluster, make_remote_account
 import json
 import os
-from .remoteaccount import RemoteAccountSSHConfig
 import subprocess
+
 from ducktape.json_serializable import DucktapeJSONEncoder
+
+from .json import JsonCluster, make_remote_account
+from .remoteaccount import RemoteAccountSSHConfig
 
 
 class VagrantCluster(JsonCluster):
@@ -33,7 +35,7 @@ class VagrantCluster(JsonCluster):
     - Otherwise, retrieve cluster info via "vagrant ssh-config" from vagrant
     """
 
-    def __init__(self, *args, make_remote_account_func=make_remote_account, **kwargs):
+    def __init__(self, *args, make_remote_account_func=make_remote_account, **kwargs) -> None:
         is_read_from_file = False
         self.ssh_exception_checks = kwargs.get("ssh_exception_checks")
         cluster_file = kwargs.get("cluster_file")
@@ -49,18 +51,31 @@ class VagrantCluster(JsonCluster):
             cluster_json = {"nodes": self._get_nodes_from_vagrant(make_remote_account_func)}
 
         super(VagrantCluster, self).__init__(
-            cluster_json, *args, make_remote_account_func=make_remote_account_func, **kwargs
+            cluster_json,
+            *args,
+            make_remote_account_func=make_remote_account_func,
+            **kwargs,
         )
 
         # If cluster file is specified but the cluster info is not read from it, write the cluster info into the file
         if not is_read_from_file and cluster_file is not None:
             nodes = [
-                {"ssh_config": node_account.ssh_config, "externally_routable_ip": node_account.externally_routable_ip}
+                {
+                    "ssh_config": node_account.ssh_config,
+                    "externally_routable_ip": node_account.externally_routable_ip,
+                }
                 for node_account in self._available_accounts
             ]
             cluster_json["nodes"] = nodes
             with open(cluster_file, "w+") as fd:
-                json.dump(cluster_json, fd, cls=DucktapeJSONEncoder, indent=2, separators=(",", ": "), sort_keys=True)
+                json.dump(
+                    cluster_json,
+                    fd,
+                    cls=DucktapeJSONEncoder,
+                    indent=2,
+                    separators=(",", ": "),
+                    sort_keys=True,
+                )
 
         # Release any ssh clients used in querying the nodes for metadata
         for node_account in self._available_accounts:
@@ -85,7 +100,12 @@ class VagrantCluster(JsonCluster):
                     account.close()
                     del account
 
-            nodes.append({"ssh_config": ssh_config.to_json(), "externally_routable_ip": externally_routable_ip})
+            nodes.append(
+                {
+                    "ssh_config": ssh_config.to_json(),
+                    "externally_routable_ip": externally_routable_ip,
+                }
+            )
 
         return nodes
 

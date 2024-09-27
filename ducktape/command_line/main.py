@@ -23,21 +23,25 @@ import traceback
 
 from ducktape.command_line.defaults import ConsoleDefaults
 from ducktape.command_line.parse_args import parse_args
-from ducktape.tests.loader import TestLoader, LoaderException
+from ducktape.tests.loader import LoaderException, TestLoader
 from ducktape.tests.loggermaker import close_logger
 from ducktape.tests.reporter import (
-    SimpleStdoutSummaryReporter,
-    SimpleFileSummaryReporter,
+    FailedTestSymbolReporter,
     HTMLSummaryReporter,
     JSONReporter,
     JUnitReporter,
-    FailedTestSymbolReporter,
+    SimpleFileSummaryReporter,
+    SimpleStdoutSummaryReporter,
 )
 from ducktape.tests.runner import TestRunner
-from ducktape.tests.session import SessionContext, SessionLoggerMaker
-from ducktape.tests.session import generate_session_id, generate_results_dir
-from ducktape.utils.local_filesystem_utils import mkdir_p
+from ducktape.tests.session import (
+    SessionContext,
+    SessionLoggerMaker,
+    generate_results_dir,
+    generate_session_id,
+)
 from ducktape.utils import persistence
+from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import load_function
 
 
@@ -75,7 +79,10 @@ def get_user_defined_globals(globals_str):
         else:
             message = "JSON string referred to by globals parameter must parse to a dict. "
         message += "I.e. the contents of the JSON must be an object, not an array or primitive. "
-        message += "Instead found %s, which parsed to %s" % (str(user_globals), type(user_globals))
+        message += "Instead found %s, which parsed to %s" % (
+            str(user_globals),
+            type(user_globals),
+        )
 
         raise ValueError(message)
 

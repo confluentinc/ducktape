@@ -1,4 +1,4 @@
-from ducktape.cluster.cluster_spec import LINUX, WINDOWS
+from ducktape.cluster.consts import LINUX, WINDOWS
 from ducktape.cluster.remoteaccount import RemoteAccount
 
 

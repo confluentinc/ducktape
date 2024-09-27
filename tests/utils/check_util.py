@@ -30,14 +30,24 @@ class CheckUtils(object):
         start = time.time()
 
         with pytest.raises(TimeoutError, match="Hello world"):
-            wait_until(lambda: time.time() > start + 5, timeout_sec=0.5, backoff_sec=0.1, err_msg="Hello world")
+            wait_until(
+                lambda: time.time() > start + 5,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg="Hello world",
+            )
 
     def check_wait_until_timeout_callable_msg(self):
         """Check that timeout throws exception and the error message is generated via a callable"""
         start = time.time()
 
         with pytest.raises(TimeoutError, match="Hello world"):
-            wait_until(lambda: time.time() > start + 5, timeout_sec=0.5, backoff_sec=0.1, err_msg=lambda: "Hello world")
+            wait_until(
+                lambda: time.time() > start + 5,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg=lambda: "Hello world",
+            )
 
     def check_wait_until_with_exception(self):
         def condition_that_raises():
@@ -45,7 +55,11 @@ class CheckUtils(object):
 
         with pytest.raises(TimeoutError) as exc_info:
             wait_until(
-                condition_that_raises, timeout_sec=0.5, backoff_sec=0.1, err_msg="Hello world", retry_on_exc=True
+                condition_that_raises,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg="Hello world",
+                retry_on_exc=True,
             )
         exc_chain = exc_info.getrepr(chain=True).chain
         # 2 exceptions in the chain - OG and Hello world
@@ -104,5 +118,10 @@ class CheckUtils(object):
             raise Exception("OG")
 
         with pytest.raises(Exception, match="OG") as exc_info:
-            wait_until(condition_that_raises, timeout_sec=0.5, backoff_sec=0.1, err_msg="Hello world")
+            wait_until(
+                condition_that_raises,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg="Hello world",
+            )
         assert "Hello world" not in str(exc_info)

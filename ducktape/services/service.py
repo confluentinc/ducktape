@@ -12,21 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.command_line.defaults import ConsoleDefaults
-from ducktape.template import TemplateRenderer
-from ducktape.errors import TimeoutError
-
 import os
 import shutil
 import tempfile
 import time
+from typing import Any, Dict
+
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.errors import TimeoutError
+from ducktape.template import TemplateRenderer
 
 
 class ServiceIdFactory:
     def generate_service_id(self, service):
         return "{service_name}-{service_number}-{service_id}".format(
-            service_name=service.__class__.__name__, service_number=service._order, service_id=id(service)
+            service_name=service.__class__.__name__,
+            service_number=service._order,
+            service_id=id(service),
         )
 
 
@@ -72,7 +75,7 @@ class Service(TemplateRenderer):
     #    "zk_log": {"path": "/mnt/zk.log",
     #               "collect_default": True}
     # }
-    logs = {}
+    logs: Dict[str, Dict[str, Any]] = {}
 
     def __init__(self, context, num_nodes=None, cluster_spec=None, *args, **kwargs):
         """
@@ -204,7 +207,11 @@ class Service(TemplateRenderer):
         if node is None:
             return self.service_id
         else:
-            return "%s node %d on %s" % (self.service_id, self.idx(node), node.account.hostname)
+            return "%s node %d on %s" % (
+                self.service_id,
+                self.idx(node),
+                node.account.hostname,
+            )
 
     def allocate_nodes(self):
         """Request resources from the cluster."""

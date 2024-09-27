@@ -15,18 +15,18 @@
 from __future__ import print_function
 
 import json
+import os
+import shutil
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import yaml
-import os
-import shutil
-import xml.etree.ElementTree as ET
 
+from ducktape.json_serializable import DucktapeJSONEncoder
+from ducktape.tests.status import FAIL, FLAKY, IGNORE, PASS
 from ducktape.utils.terminal_size import get_terminal_size
 from ducktape.utils.util import ducktape_version
-from ducktape.tests.status import PASS, FAIL, IGNORE, FLAKY
-from ducktape.json_serializable import DucktapeJSONEncoder
 
 DEFAULT_SEPARATOR_WIDTH = 100
 
@@ -148,7 +148,15 @@ class JSONReporter(object):
     def report(self):
         report_file = os.path.abspath(os.path.join(self.results.session_context.results_dir, "report.json"))
         with open(report_file, "w") as f:
-            f.write(json.dumps(self.results, cls=DucktapeJSONEncoder, sort_keys=True, indent=2, separators=(",", ": ")))
+            f.write(
+                json.dumps(
+                    self.results,
+                    cls=DucktapeJSONEncoder,
+                    sort_keys=True,
+                    indent=2,
+                    separators=(",", ": "),
+                )
+            )
 
 
 class JUnitReporter(object):
@@ -224,7 +232,9 @@ class JUnitReporter(object):
                 )
                 if test.test_status == FAIL:
                     xml_failure = ET.SubElement(
-                        xml_testcase, "failure", attrib=dict(message=test.summary.splitlines()[0])
+                        xml_testcase,
+                        "failure",
+                        attrib=dict(message=test.summary.splitlines()[0]),
                     )
                     xml_failure.text = test.summary
                 elif test.test_status == IGNORE:
@@ -252,7 +262,14 @@ class HTMLSummaryReporter(SummaryReporter):
 
         if result.injected_args is not None:
             lines.append("Arguments:")
-            lines.append(json.dumps(result.injected_args, sort_keys=True, indent=2, separators=(",", ": ")))
+            lines.append(
+                json.dumps(
+                    result.injected_args,
+                    sort_keys=True,
+                    indent=2,
+                    separators=(",", ": "),
+                )
+            )
 
         return "\n".join(lines)
 

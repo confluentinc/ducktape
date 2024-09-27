@@ -65,7 +65,10 @@ class CheckVagrantCluster(object):
             os.remove(self.cluster_file)
 
     def _set_monkeypatch_attr(self, monkeypatch):
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
+        monkeypatch.setattr(
+            "ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config",
+            lambda vc: (TWO_HOSTS, None),
+        )
         monkeypatch.setattr(
             "ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.fetch_externally_routable_ip",
             lambda vc: "127.0.0.1",
@@ -166,7 +169,11 @@ class CheckVagrantCluster(object):
         cluster_json_expected = {}
         cluster_json_expected["nodes"] = nodes_expected
         json.dump(
-            cluster_json_expected, open(self.cluster_file, "w+"), indent=2, separators=(",", ": "), sort_keys=True
+            cluster_json_expected,
+            open(self.cluster_file, "w+"),
+            indent=2,
+            separators=(",", ": "),
+            sort_keys=True,
         )
 
         # Load the cluster from the json file we just created
@@ -190,9 +197,13 @@ class CheckVagrantCluster(object):
         """
         test to make sure that a remote account error is raised when no network devices are found
         """
-        monkeypatch.setattr("ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config", lambda vc: (TWO_HOSTS, None))
         monkeypatch.setattr(
-            "ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.get_network_devices", lambda account: []
+            "ducktape.cluster.vagrant.VagrantCluster._vagrant_ssh_config",
+            lambda vc: (TWO_HOSTS, None),
+        )
+        monkeypatch.setattr(
+            "ducktape.cluster.linux_remoteaccount.LinuxRemoteAccount.get_network_devices",
+            lambda account: [],
         )
 
         with pytest.raises(RemoteAccountError):

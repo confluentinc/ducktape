@@ -37,7 +37,12 @@ class CheckGenerateResultsDir(object):
         multiprocessing module.
         """
 
-        kwargs = {"session_id": "hello-123", "results_dir": self.tempdir, "cluster": LocalhostCluster(), "globals": {}}
+        kwargs = {
+            "session_id": "hello-123",
+            "results_dir": self.tempdir,
+            "cluster": LocalhostCluster(),
+            "globals": {},
+        }
         session_context = SessionContext(**kwargs)
         pickle.dumps(session_context)
 

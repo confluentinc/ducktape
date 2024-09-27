@@ -21,7 +21,10 @@ class FailingTest(Test):
         self.service = GenericService(self.test_context, 1)
 
     @cluster(num_nodes=1)
-    @matrix(string_param=["success-first", "fail-second", "fail-third"], int_param=[10, 20, -30])
+    @matrix(
+        string_param=["success-first", "fail-second", "fail-third"],
+        int_param=[10, 20, -30],
+    )
     def matrix_test(self, string_param, int_param):
         assert not string_param.startswith("fail") and int_param > 0
 

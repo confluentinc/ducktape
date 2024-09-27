@@ -15,33 +15,12 @@
 from __future__ import absolute_import
 
 import json
+import typing
 
 from ducktape.cluster.node_container import NodeContainer
 
-LINUX = "linux"
-
-WINDOWS = "windows"
-
-SUPPORTED_OS_TYPES = [LINUX, WINDOWS]
-
-
-class NodeSpec(object):
-    """
-    The specification for a ducktape cluster node.
-
-    :param operating_system:    The operating system of the node.
-    """
-
-    def __init__(self, operating_system=LINUX):
-        self.operating_system = operating_system
-        if self.operating_system not in SUPPORTED_OS_TYPES:
-            raise RuntimeError("Unsupported os type %s" % self.operating_system)
-
-    def __str__(self):
-        dict = {
-            "os": self.operating_system,
-        }
-        return json.dumps(dict, sort_keys=True)
+from .consts import LINUX
+from .node_spec import NodeSpec
 
 
 class ClusterSpec(object):
@@ -49,7 +28,7 @@ class ClusterSpec(object):
     The specification for a ducktape cluster.
     """
 
-    nodes: NodeContainer = None
+    nodes: typing.Optional[NodeContainer] = None
 
     @staticmethod
     def empty():
