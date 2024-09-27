@@ -14,18 +14,20 @@
 
 from __future__ import absolute_import
 
-
-from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS
-from ducktape.cluster.node_container import NodeContainer, InsufficientHealthyNodesError
-from ducktape.command_line.defaults import ConsoleDefaults
-from .cluster import Cluster, ClusterNode
-from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
-from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
-from .remoteaccount import RemoteAccountSSHConfig
-
 import json
 import os
 import traceback
+
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.consts import WINDOWS
+from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
+from ducktape.cluster.node_container import InsufficientHealthyNodesError, NodeContainer
+from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
+from ducktape.command_line.defaults import ConsoleDefaults
+
+from .cluster import Cluster
+from .cluster_node import ClusterNode
+from .remoteaccount import RemoteAccountSSHConfig
 
 
 def make_remote_account(ssh_config, *args, **kwargs):
@@ -40,7 +42,13 @@ def make_remote_account(ssh_config, *args, **kwargs):
 class JsonCluster(Cluster):
     """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict"""
 
-    def __init__(self, cluster_json=None, *args, make_remote_account_func=make_remote_account, **kwargs):
+    def __init__(
+        self,
+        cluster_json=None,
+        *args,
+        make_remote_account_func=make_remote_account,
+        **kwargs,
+    ):
         """Initialize JsonCluster
 
         JsonCluster can be initialized from:
@@ -110,7 +118,10 @@ class JsonCluster(Cluster):
                     remote_account.externally_routable_ip = self._externally_routable_ip(remote_account)
                 self._available_accounts.add_node(remote_account)
         except BaseException as e:
-            msg = "JSON cluster definition invalid: %s: %s" % (e, traceback.format_exc(limit=16))
+            msg = "JSON cluster definition invalid: %s: %s" % (
+                e,
+                traceback.format_exc(limit=16),
+            )
             raise ValueError(msg)
         self._id_supplier = 0
 

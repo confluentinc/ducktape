@@ -13,6 +13,12 @@
 # limitations under the License.
 
 
+from typing import List
+
+from ducktape.cluster.vagrant import VagrantCluster
+from ducktape.tests.test_context import TestContext
+
+
 class TestScheduler(object):
     """This class tracks tests which are scheduled to run, and provides an ordering based on the current cluster state.
 
@@ -20,7 +26,7 @@ class TestScheduler(object):
     available cluster nodes.
     """
 
-    def __init__(self, test_contexts, cluster):
+    def __init__(self, test_contexts: List[TestContext], cluster: VagrantCluster) -> None:
         self.cluster = cluster
 
         # Track tests which would never be offered up by the scheduling algorithm due to insufficient
@@ -29,7 +35,7 @@ class TestScheduler(object):
 
         self._sort_test_context_list()
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Number of tests currently in the scheduler"""
         return len(self._test_context_list)
 
@@ -50,7 +56,7 @@ class TestScheduler(object):
             self._test_context_list.remove(u)
         return unschedulable
 
-    def _sort_test_context_list(self):
+    def _sort_test_context_list(self) -> None:
         """Replace self.test_context_list with a sorted shallow copy
 
         Sort from largest cluster users to smallest

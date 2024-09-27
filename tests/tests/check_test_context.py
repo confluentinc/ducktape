@@ -32,7 +32,10 @@ class CheckTestContext(object):
         This problem cropped up in particular with parametrized tests.
         """
         expander = MarkedFunctionExpander(
-            session_context=session_context(), cls=DummyTest, function=DummyTest.test_me, cluster=MagicMock()
+            session_context=session_context(),
+            cls=DummyTest,
+            function=DummyTest.test_me,
+            cluster=MagicMock(),
         )
         ctx_list = expander.expand()
 

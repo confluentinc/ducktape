@@ -16,7 +16,7 @@ import errno
 import os
 
 
-def mkdir_p(path):
+def mkdir_p(path: str) -> None:
     """mkdir -p functionality.
     :type path: str
     """

@@ -110,7 +110,11 @@ class CheckMemoryUsage(object):
         median_usage = statistics.median(measurements)
         max_usage = max(measurements)
 
-        usage_stats = "\nmax: %s,\nmedian: %s,\nall: %s\n" % (max_usage, median_usage, measurements)
+        usage_stats = "\nmax: %s,\nmedian: %s,\nall: %s\n" % (
+            max_usage,
+            median_usage,
+            measurements,
+        )
 
         # we want to make sure that max usage doesn't exceed median usage by very much
         relative_diff = (max_usage - median_usage) / median_usage

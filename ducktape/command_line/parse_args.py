@@ -14,16 +14,17 @@
 
 from __future__ import print_function
 
-from ducktape.command_line.defaults import ConsoleDefaults
-from ducktape.utils.util import ducktape_version
-
 import argparse
 import itertools
 import os
 import sys
+from typing import Dict, List, Optional, Union
+
+from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.utils.util import ducktape_version
 
 
-def create_ducktape_parser():
+def create_ducktape_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Discover and run your tests")
     parser.add_argument(
         "test_path",
@@ -40,7 +41,11 @@ def create_ducktape_parser():
         default=None,
         help="one or more space-delimited strings indicating which tests to exclude",
     )
-    parser.add_argument("--collect-only", action="store_true", help="display collected tests, but do not run.")
+    parser.add_argument(
+        "--collect-only",
+        action="store_true",
+        help="display collected tests, but do not run.",
+    )
     parser.add_argument(
         "--collect-num-nodes",
         action="store_true",
@@ -53,7 +58,11 @@ def create_ducktape_parser():
         default=ConsoleDefaults.USER_CONFIG_FILE,
         help="path to project-specific configuration file.",
     )
-    parser.add_argument("--compress", action="store_true", help="compress remote logs before collection.")
+    parser.add_argument(
+        "--compress",
+        action="store_true",
+        help="compress remote logs before collection.",
+    )
     parser.add_argument(
         "--cluster",
         action="store",
@@ -105,7 +114,11 @@ def create_ducktape_parser():
         "This can be a file containing a JSON object, or a string representing a JSON object.",
     )
     parser.add_argument(
-        "--max-parallel", action="store", type=int, default=1, help="Upper bound on number of tests run simultaneously."
+        "--max-parallel",
+        action="store",
+        type=int,
+        default=1,
+        help="Upper bound on number of tests run simultaneously.",
     )
     parser.add_argument(
         "--repeat",
@@ -143,7 +156,12 @@ def create_ducktape_parser():
         help="Use this flag to skip allocating "
         "nodes for services. Can be used when running specific tests on a running platform",
     )
-    parser.add_argument("--sample", action="store", type=int, help="The size of a random test sample to run")
+    parser.add_argument(
+        "--sample",
+        action="store",
+        type=int,
+        help="The size of a random test sample to run",
+    )
     parser.add_argument(
         "--fail-bad-cluster-utilization",
         action="store_true",
@@ -192,7 +210,7 @@ def create_ducktape_parser():
     return parser
 
 
-def get_user_config_file(args):
+def get_user_config_file(args: List[str]) -> str:
     """Helper function to get specified (or default) user config file.
     :return Filename which is the path to the config file.
     """
@@ -232,7 +250,9 @@ def parse_non_default_args(parser: argparse.ArgumentParser, defaults: dict, args
     return parsed_args
 
 
-def parse_args(args):
+def parse_args(
+    args: List[str],
+) -> Dict[str, Optional[Union[List[str], bool, str, int]]]:
     """Parse in command-line and config file options.
 
     Command line arguments have the highest priority, then user configs specified in ~/.ducktape/config, and finally

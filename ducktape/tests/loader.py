@@ -11,25 +11,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import glob
-import json
-import sys
-from operator import attrgetter
-
 import collections
+import glob
 import importlib
 import inspect
 import itertools
+import json
 import os
 import re
-from typing import List
+import sys
+from logging import Logger
+from operator import attrgetter
+from typing import Any, Iterable, List, Optional, Set, Tuple, Union
 
 import requests
 import yaml
 
-from ducktape.tests.test import Test, TestContext
 from ducktape.mark import parametrized
 from ducktape.mark.mark_expander import MarkedFunctionExpander
+from ducktape.tests.session import SessionContext
+from ducktape.tests.test import Test
+from ducktape.tests.test_context import TestContext
 
 
 class LoaderException(Exception):
@@ -52,15 +54,15 @@ class TestLoader(object):
 
     def __init__(
         self,
-        session_context,
-        logger,
-        repeat=1,
-        injected_args=None,
-        cluster=None,
-        subset=0,
-        subsets=1,
-        historical_report=None,
-    ):
+        session_context: SessionContext,
+        logger: Logger,
+        repeat: int = 1,
+        injected_args: None = None,
+        cluster: None = None,
+        subset: int = 0,
+        subsets: int = 1,
+        historical_report: None = None,
+    ) -> None:
         self.session_context = session_context
         self.cluster = cluster
         assert logger is not None
@@ -83,7 +85,7 @@ class TestLoader(object):
         # in any discovered test, whether or not it is parametrized
         self.injected_args = injected_args
 
-    def load(self, symbols, excluded_test_symbols=None):
+    def load(self, symbols: List[str], excluded_test_symbols: None = None) -> List[TestContext]:
         """
         Discover tests specified by the symbols parameter (iterable of test symbols and/or test suite file paths).
         Skip any tests specified by excluded_test_symbols (iterable of test symbols).
@@ -146,7 +148,9 @@ class TestLoader(object):
 
         # excluded_test_symbols apply to both tests from suites and tests from symbols
         global_excluded = self._load_test_contexts(excluded_test_symbols)
-        all_test_context_list = self._filter_excluded_test_contexts(all_included, global_excluded)
+        all_test_context_list: Union[List[TestContext], Set[TestContext]] = self._filter_excluded_test_contexts(
+            all_included, global_excluded
+        )
 
         # make sure no test is loaded twice
         all_test_context_list = self._filter_by_unique_test_id(all_test_context_list)
@@ -165,13 +169,20 @@ class TestLoader(object):
             time_results = {r["test_id"]: r["run_time_seconds"] for r in raw_results}
             avg_result_time = sum(time_results.values()) / len(time_results)
             time_results = {tc.test_id: time_results.get(tc.test_id, avg_result_time) for tc in all_test_context_list}
-            all_test_context_list = sorted(all_test_context_list, key=lambda x: time_results[x.test_id], reverse=True)
+            all_test_context_list = sorted(
+                all_test_context_list,
+                key=lambda x: time_results[x.test_id],
+                reverse=True,
+            )
 
             subsets = [[] for _ in range(self.subsets)]
             subsets_accumulated_time = [0] * self.subsets
 
             for tc in all_test_context_list:
-                min_subset_idx = min(range(len(subsets_accumulated_time)), key=lambda i: subsets_accumulated_time[i])
+                min_subset_idx = min(
+                    range(len(subsets_accumulated_time)),
+                    key=lambda i: subsets_accumulated_time[i],
+                )
                 subsets[min_subset_idx].append(tc.test_id)
                 subsets_accumulated_time[min_subset_idx] += time_results[tc.test_id]
 
@@ -186,7 +197,14 @@ class TestLoader(object):
         self.logger.debug("Selected this subset of tests: " + str(subset_test_context_list))
         return subset_test_context_list * self.repeat
 
-    def discover(self, directory, module_name, cls_name, method_name, injected_args=None):
+    def discover(
+        self,
+        directory: str,
+        module_name: str,
+        cls_name: str,
+        method_name: str,
+        injected_args: None = None,
+    ) -> List[TestContext]:
         """Discover and unpack parametrized tests tied to the given module/class/method
 
         :return list of test_context objects
@@ -207,14 +225,15 @@ class TestLoader(object):
             # Find all tests in discovered modules and filter out any that don't match the discovery symbol
             test_context_list = self._expand_module(module_and_file)
             if len(cls_name) > 0:
-                test_context_list = filter(lambda t: t.cls_name == cls_name, test_context_list)
+                test_context_list = [t for t in test_context_list if t.cls_name == cls_name]
             if len(method_name) > 0:
-                test_context_list = filter(lambda t: t.function_name == method_name, test_context_list)
+                test_context_list = [t for t in test_context_list if t.function_name == method_name]
             if injected_args is not None:
                 if isinstance(injected_args, List):
 
                     def condition(t):
                         return t.injected_args in injected_args
+
                 else:
 
                     def condition(t):
@@ -233,7 +252,7 @@ class TestLoader(object):
         else:
             return []
 
-    def _parse_discovery_symbol(self, discovery_symbol, base_dir=None):
+    def _parse_discovery_symbol(self, discovery_symbol: str, base_dir: None = None) -> Tuple[str, str, str, None]:
         """Parse a single 'discovery symbol'
 
         :param discovery_symbol: a symbol used to target test(s).
@@ -277,7 +296,7 @@ class TestLoader(object):
 
         return path, cls_name, method_name, injected_args
 
-    def _import_module(self, file_path):
+    def _import_module(self, file_path: str) -> Optional[ModuleAndFile]:
         """Attempt to import a python module from the file path.
         Assume file_path is an absolute path ending in '.py'
 
@@ -357,7 +376,7 @@ class TestLoader(object):
         self.logger.debug("Unable to import %s" % file_path)
         return None
 
-    def _expand_module(self, module_and_file):
+    def _expand_module(self, module_and_file: ModuleAndFile) -> List[TestContext]:
         """Return a list of TestContext objects, one object for every 'testable unit' in module"""
 
         test_context_list = []
@@ -381,7 +400,7 @@ class TestLoader(object):
 
         return test_context_list
 
-    def _expand_class(self, t_ctx):
+    def _expand_class(self, t_ctx: TestContext) -> List[TestContext]:
         """Return a list of TestContext objects, one object for each method in t_ctx.cls"""
         test_methods = []
         for f_name in dir(t_ctx.cls):
@@ -395,9 +414,14 @@ class TestLoader(object):
             test_context_list.extend(self._expand_function(t))
         return test_context_list
 
-    def _expand_function(self, t_ctx):
+    def _expand_function(self, t_ctx: TestContext) -> List[TestContext]:
         expander = MarkedFunctionExpander(
-            t_ctx.session_context, t_ctx.module, t_ctx.cls, t_ctx.function, t_ctx.file, t_ctx.cluster
+            t_ctx.session_context,
+            t_ctx.module,
+            t_ctx.cls,
+            t_ctx.function,
+            t_ctx.file,
+            t_ctx.cluster,
         )
         return expander.expand(self.injected_args)
 
@@ -447,11 +471,11 @@ class TestLoader(object):
         """By default, a test file looks like test_*.py or *_test.py"""
         return re.match(self.test_file_pattern, os.path.basename(file_name)) is not None
 
-    def _is_test_class(self, obj):
+    def _is_test_class(self, obj: Any) -> bool:
         """An object is a test class if it's a leafy subclass of Test."""
         return inspect.isclass(obj) and issubclass(obj, Test) and len(obj.__subclasses__()) == 0
 
-    def _is_test_function(self, function):
+    def _is_test_function(self, function: Any) -> bool:
         """A test function looks like a test and is callable (or expandable)."""
         if function is None:
             return False
@@ -461,7 +485,7 @@ class TestLoader(object):
 
         return re.match(self.test_function_pattern, function.__name__) is not None
 
-    def _load_test_suite_files(self, test_suite_files):
+    def _load_test_suite_files(self, test_suite_files: List[Any]) -> Set[Any]:
         suites = list()
 
         suites.extend(self._read_test_suite_from_file(test_suite_files))
@@ -519,7 +543,7 @@ class TestLoader(object):
             )
         return suites
 
-    def _read_test_suite_from_file(self, root_suite_file_paths):
+    def _read_test_suite_from_file(self, root_suite_file_paths: List[Any]) -> List[Any]:
         root_suite_file_paths = [os.path.abspath(file_path) for file_path in root_suite_file_paths]
         files = {file: self._load_file(file) for file in root_suite_file_paths}
         stack = root_suite_file_paths
@@ -565,7 +589,9 @@ class TestLoader(object):
 
         return all_test_context_list
 
-    def _load_test_contexts(self, test_discovery_symbols, base_dir=None):
+    def _load_test_contexts(
+        self, test_discovery_symbols: Optional[List[str]], base_dir: None = None
+    ) -> Set[TestContext]:
         """
         Load all test_context objects found in test_discovery_symbols.
         Each test discovery symbol is a dir or file path, optionally with with a ::Class or ::Class.method specified.
@@ -580,7 +606,12 @@ class TestLoader(object):
             raise LoaderException("Expected test_discovery_symbols to be a list.")
         all_test_context_list = set()
         for symbol in test_discovery_symbols:
-            path_or_glob, cls_name, method, injected_args = self._parse_discovery_symbol(symbol, base_dir)
+            (
+                path_or_glob,
+                cls_name,
+                method,
+                injected_args,
+            ) = self._parse_discovery_symbol(symbol, base_dir)
             self.logger.debug(
                 "Parsed symbol into {} - {} - {} - {}".format(path_or_glob, cls_name, method, injected_args)
             )
@@ -601,7 +632,11 @@ class TestLoader(object):
                 directory = os.path.dirname(test_file)
                 module_name = os.path.basename(test_file)
                 test_context_list_for_file = self.discover(
-                    directory, module_name, cls_name, method, injected_args=injected_args
+                    directory,
+                    module_name,
+                    cls_name,
+                    method,
+                    injected_args=injected_args,
                 )
                 all_test_context_list.update(test_context_list_for_file)
                 if len(test_context_list_for_file) == 0:
@@ -609,18 +644,20 @@ class TestLoader(object):
 
         return all_test_context_list
 
-    def _filter_by_unique_test_id(self, contexts):
+    def _filter_by_unique_test_id(self, contexts: Iterable[TestContext]) -> List[TestContext]:
         contexts_dict = dict()
         for context in contexts:
             if context.test_id not in contexts_dict:
                 contexts_dict[context.test_id] = context
-        return contexts_dict.values()
+        return list(contexts_dict.values())
 
-    def _filter_excluded_test_contexts(self, included_contexts, excluded_contexts):
-        excluded_test_ids = set(map(lambda ctx: ctx.test_id, excluded_contexts))
-        return set(filter(lambda ctx: ctx.test_id not in excluded_test_ids, included_contexts))
+    def _filter_excluded_test_contexts(
+        self, included_contexts: Iterable[TestContext], excluded_contexts: Set[Any]
+    ) -> Set[TestContext]:
+        excluded_test_ids = {ctx.test_id for ctx in excluded_contexts}
+        return {ctx for ctx in included_contexts if ctx.test_id not in excluded_test_ids}
 
-    def _add_top_level_dirs_to_sys_path(self, test_files):
+    def _add_top_level_dirs_to_sys_path(self, test_files: List[str]) -> None:
         seen_dirs = set()
         for path in test_files:
             dir = os.path.dirname(path)

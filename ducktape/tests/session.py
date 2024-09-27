@@ -17,8 +17,8 @@ import os
 import sys
 import time
 
-from ducktape.tests.loggermaker import LoggerMaker
 from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.tests.loggermaker import LoggerMaker
 
 
 class SessionContext(object):
@@ -26,7 +26,7 @@ class SessionContext(object):
     which helps route logging and reporting, etc.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         # session_id, results_dir, cluster, globals):
         self.session_id = kwargs["session_id"]
         self.results_dir = os.path.abspath(kwargs["results_dir"])
@@ -52,12 +52,12 @@ class SessionContext(object):
 
 
 class SessionLoggerMaker(LoggerMaker):
-    def __init__(self, session_context):
+    def __init__(self, session_context: SessionContext) -> None:
         super(SessionLoggerMaker, self).__init__(session_context.session_id + ".session_logger")
         self.log_dir = session_context.results_dir
         self.debug = session_context.debug
 
-    def configure_logger(self):
+    def configure_logger(self) -> None:
         """Set up the logger to log to stdout and files. This creates a few files as a side-effect."""
         if self.configured:
             return
@@ -85,7 +85,7 @@ class SessionLoggerMaker(LoggerMaker):
         self._logger.addHandler(ch)
 
 
-def generate_session_id(session_id_file):
+def generate_session_id(session_id_file: str) -> str:
     """Generate a new session id based on the previous session id found in session_id_file
     :type session_id_file: str  Last-used session_id is in this file
     :rtype str                  New session_id
@@ -130,7 +130,7 @@ def generate_session_id(session_id_file):
     return session_id
 
 
-def generate_results_dir(results_root, session_id):
+def generate_results_dir(results_root: str, session_id: str) -> str:
     """Results from a single run of ducktape are assigned a session_id and put together in this directory.
 
     :type session_id: str

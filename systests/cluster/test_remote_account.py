@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS, LINUX, NodeSpec
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.consts import WINDOWS, LINUX
+from ducktape.cluster.node_spec import NodeSpec
 from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
@@ -45,7 +47,10 @@ class RemoteAccountTestService(Service):
         self.temp_dir = generate_tempdir_name()
         self.logs = {
             "my_log": {"path": self.log_file, "collect_default": True},
-            "non_existent_log": {"path": os.path.join(self.temp_dir, "absent.log"), "collect_default": True},
+            "non_existent_log": {
+                "path": os.path.join(self.temp_dir, "absent.log"),
+                "collect_default": True,
+            },
         }
 
     @property
@@ -397,7 +402,11 @@ class CopyDirectTest(Test):
 
         make_dir_structure(self.remote_scratch_dir, DIR_STRUCTURE, node=self.src_node)
         self.src_node.account.copy_between(self.remote_scratch_dir, self.remote_scratch_dir, self.dest_node)
-        verify_dir_structure(os.path.join(self.remote_scratch_dir, "scratch"), DIR_STRUCTURE, node=self.dest_node)
+        verify_dir_structure(
+            os.path.join(self.remote_scratch_dir, "scratch"),
+            DIR_STRUCTURE,
+            node=self.dest_node,
+        )
 
 
 class TestClusterSpec(Test):
@@ -558,12 +567,20 @@ class RemoteAccountTest(Test):
         # Run TCP service using netcat
         node.account.ssh_capture("nohup nc -l -p 5000 > /dev/null 2>&1 &")
 
-        wait_until(lambda: len(get_pids()) > 0, timeout_sec=10, err_msg="Failed to start process within %d sec" % 10)
+        wait_until(
+            lambda: len(get_pids()) > 0,
+            timeout_sec=10,
+            err_msg="Failed to start process within %d sec" % 10,
+        )
 
         # Kill service.
         node.account.kill_process(grep_str)
 
-        wait_until(lambda: len(get_pids()) == 0, timeout_sec=10, err_msg="Failed to kill process within %d sec" % 10)
+        wait_until(
+            lambda: len(get_pids()) == 0,
+            timeout_sec=10,
+            err_msg="Failed to kill process within %d sec" % 10,
+        )
 
 
 class TestIterWrapper(Test):

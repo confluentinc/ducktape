@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape import __version__ as __ducktape_version__
-from ducktape.errors import TimeoutError
-
 import importlib
 import time
+from typing import Callable
+
+from ducktape import __version__ as __ducktape_version__
+from ducktape.errors import TimeoutError
 
 
 def wait_until(condition, timeout_sec, backoff_sec=0.1, err_msg="", retry_on_exc=False):
@@ -72,11 +73,14 @@ def ducktape_version():
     return __ducktape_version__
 
 
-def load_function(func_module_path):
+def load_function(func_module_path) -> Callable:
     """Loads and returns a function from a module path seperated by '.'s"""
-    module, function = func_module_path.rsplit(".", 1)
+    module, function_name = func_module_path.rsplit(".", 1)
     try:
-        return getattr(importlib.import_module(module), function)
+        func = getattr(importlib.import_module(module), function_name)
+        if not callable(func):
+            raise Exception("Function {} from module {} is not callable".format(function_name, module))
+        return func
     except AttributeError:
         raise Exception(
             "Function could not be loaded from the module path {}, " "verify that it is '.' seperated".format(

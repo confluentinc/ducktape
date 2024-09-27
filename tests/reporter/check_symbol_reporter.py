@@ -6,7 +6,10 @@ from ducktape.tests.reporter import FailedTestSymbolReporter
 
 def check_to_symbol_no_args(tmp_path):
     result = Mock(
-        file_name="/test_folder/test_file", cls_name="TestClass", function_name="test_func", injected_args=None
+        file_name="/test_folder/test_file",
+        cls_name="TestClass",
+        function_name="test_func",
+        injected_args=None,
     )
     reporter = FailedTestSymbolReporter(Mock())
     reporter.working_dir = Path("/")
@@ -15,7 +18,10 @@ def check_to_symbol_no_args(tmp_path):
 
 def check_to_symbol_relative_path(tmp_path):
     result = Mock(
-        file_name="/test_folder/test_file", cls_name="TestClass", function_name="test_func", injected_args=None
+        file_name="/test_folder/test_file",
+        cls_name="TestClass",
+        function_name="test_func",
+        injected_args=None,
     )
     reporter = FailedTestSymbolReporter(Mock())
     reporter.working_dir = Path("/test_folder")

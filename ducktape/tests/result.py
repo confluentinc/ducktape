@@ -15,13 +15,17 @@
 import json
 import os
 import time
+from typing import List
 
-from ducktape.tests.test import TestContext
+from ducktape.cluster.cluster import Cluster
+from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.json_serializable import DucktapeJSONEncoder
 from ducktape.tests.reporter import SingleResultFileReporter
+from ducktape.tests.session import SessionContext
+from ducktape.tests.status import FAIL, FLAKY, IGNORE, PASS
+from ducktape.tests.test_context import TestContext
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
-from ducktape.tests.status import FLAKY, PASS, FAIL, IGNORE
 
 
 class TestResult(object):
@@ -80,7 +84,11 @@ class TestResult(object):
         self.stop_time = stop_time
 
     def __repr__(self):
-        return "<%s - test_status:%s, data:%s>" % (self.__class__.__name__, self.test_status, str(self.data))
+        return "<%s - test_status:%s, data:%s>" % (
+            self.__class__.__name__,
+            self.test_status,
+            str(self.data),
+        )
 
     @property
     def run_time_seconds(self):
@@ -130,19 +138,19 @@ class TestResult(object):
 class TestResults(object):
     """Class used to aggregate individual TestResult objects from many tests."""
 
-    def __init__(self, session_context, cluster):
+    def __init__(self, session_context: SessionContext, cluster: VagrantCluster) -> None:
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
-        self._results = []
-        self.session_context = session_context
-        self.cluster = cluster
+        self._results: List[TestResult] = []
+        self.session_context: SessionContext = session_context
+        self.cluster: Cluster = cluster
 
         # For tracking total run time
-        self.start_time = -1
-        self.stop_time = -1
+        self.start_time: int = -1
+        self.stop_time: int = -1
 
-    def append(self, obj):
+    def append(self, obj: TestResult):
         return self._results.append(obj)
 
     def __len__(self):
@@ -189,7 +197,11 @@ class TestResults(object):
         if len(num_list) == 0:
             return {"mean": None, "min": None, "max": None}
 
-        return {"mean": sum(num_list) / float(len(num_list)), "min": min(num_list), "max": max(num_list)}
+        return {
+            "mean": sum(num_list) / float(len(num_list)),
+            "min": min(num_list),
+            "max": max(num_list),
+        }
 
     def to_json(self):
         if self.run_time_seconds == 0 or len(self.cluster) == 0:

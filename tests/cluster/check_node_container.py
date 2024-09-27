@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.cluster.cluster import ClusterNode
-from ducktape.cluster.cluster_spec import ClusterSpec, NodeSpec, LINUX, WINDOWS
+from ducktape.cluster.cluster_node import ClusterNode
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.consts import WINDOWS, LINUX
+from ducktape.cluster.node_spec import NodeSpec
 from ducktape.cluster.node_container import (
     NodeContainer,
     NodeNotPresentError,
@@ -72,7 +74,12 @@ class CheckNodeContainer(object):
 
     def check_remove_single_node_spec(self):
         """Check remove_spec() method - verify a simple happy path of removing a single node"""
-        accounts = [fake_account("host1"), fake_account("host2"), fake_win_account("w1"), fake_win_account("w2")]
+        accounts = [
+            fake_account("host1"),
+            fake_account("host2"),
+            fake_win_account("w1"),
+            fake_win_account("w2"),
+        ]
         container = NodeContainer(accounts)
         one_linux_node_spec = ClusterSpec(nodes=[NodeSpec(LINUX)])
         one_windows_node_spec = ClusterSpec(nodes=[NodeSpec(WINDOWS)])
@@ -114,10 +121,18 @@ class CheckNodeContainer(object):
                 id="not enough windows nodes",
             ),
             pytest.param(
-                ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS)]), id="not enough linux nodes"
+                ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS)]),
+                id="not enough linux nodes",
             ),
             pytest.param(
-                ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)]),
+                ClusterSpec(
+                    nodes=[
+                        NodeSpec(LINUX),
+                        NodeSpec(LINUX),
+                        NodeSpec(WINDOWS),
+                        NodeSpec(WINDOWS),
+                    ]
+                ),
                 id="not enough nodes",
             ),
         ],
@@ -183,7 +198,14 @@ class CheckNodeContainer(object):
         container = NodeContainer(accounts)
         original_container = container.clone()
         expected_bad_nodes = [acc for acc in accounts if not acc.is_available]
-        spec = ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)])
+        spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX),
+                NodeSpec(LINUX),
+                NodeSpec(WINDOWS),
+                NodeSpec(WINDOWS),
+            ]
+        )
         assert container.can_remove_spec(spec)
         with pytest.raises(InsufficientHealthyNodesError) as exc_info:
             container.remove_spec(spec)
@@ -253,7 +275,14 @@ class CheckNodeContainer(object):
         container = NodeContainer(accounts)
         original_container = container.clone()
         expected_bad_nodes = [acc for acc in accounts if not acc.is_available]
-        spec = ClusterSpec(nodes=[NodeSpec(LINUX), NodeSpec(LINUX), NodeSpec(WINDOWS), NodeSpec(WINDOWS)])
+        spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX),
+                NodeSpec(LINUX),
+                NodeSpec(WINDOWS),
+                NodeSpec(WINDOWS),
+            ]
+        )
 
         assert container.can_remove_spec(spec)
         good_nodes, bad_nodes = container.remove_spec(spec)

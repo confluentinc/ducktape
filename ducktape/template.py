@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.utils.util import package_is_installed
-
-from jinja2 import Template, FileSystemLoader, PackageLoader, ChoiceLoader, Environment
-import os.path
 import inspect
+import os.path
+
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, Template
+
+from ducktape.utils.util import package_is_installed
 
 
 class TemplateRenderer(object):

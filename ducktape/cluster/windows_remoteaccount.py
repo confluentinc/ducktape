@@ -12,18 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import boto3
-import os
 import base64
+import logging
+import os
+
+import boto3
 import winrm
-
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_v1_5
-
 from botocore.exceptions import ClientError
+from Crypto.Cipher import PKCS1_v1_5
+from Crypto.PublicKey import RSA
 
-from ducktape.cluster.cluster_spec import WINDOWS
+from ducktape.cluster.consts import WINDOWS
 from ducktape.cluster.remoteaccount import RemoteAccount, RemoteCommandError
 
 
@@ -92,7 +91,8 @@ class WindowsRemoteAccount(RemoteAccount):
             cipher = PKCS1_v1_5.new(rsa_key)
             winrm_password = cipher.decrypt(base64.b64decode(response["PasswordData"]), None)
             self._winrm_client = winrm.Session(
-                self.ssh_config.hostname, auth=(WindowsRemoteAccount.WINRM_USERNAME, winrm_password)
+                self.ssh_config.hostname,
+                auth=(WindowsRemoteAccount.WINRM_USERNAME, winrm_password),
             )
         finally:
             if key_file:
