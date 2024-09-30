@@ -138,7 +138,7 @@ class TestResult(object):
 class TestResults(object):
     """Class used to aggregate individual TestResult objects from many tests."""
 
-    def __init__(self, session_context: SessionContext, cluster: VagrantCluster) -> None:
+    def __init__(self, session_context: SessionContext, cluster: VagrantCluster, client_status: dict) -> None:
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
@@ -149,6 +149,7 @@ class TestResults(object):
         # For tracking total run time
         self.start_time: int = -1
         self.stop_time: int = -1
+        self.client_status: dict = client_status
 
     def append(self, obj: TestResult):
         return self._results.append(obj)
@@ -231,7 +232,8 @@ class TestResults(object):
             "num_failed": self.num_failed,
             "num_ignored": self.num_ignored,
             "parallelism": parallelism,
-            "results": [r for r in self._results],
+            "client_status": {str(key): value for key, value in self.client_status.items()},
+            "results": [r for r in self._results]
         }
         if self.num_flaky:
             result["num_flaky"] = self.num_flaky
