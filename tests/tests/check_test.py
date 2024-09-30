@@ -20,7 +20,8 @@ import sys
 import tempfile
 
 from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.tests.test import Test, TestContext, _escape_pathname, _compress_cmd, in_dir, in_temp_dir
+from ducktape.tests.test import Test, _compress_cmd, in_dir, in_temp_dir
+from ducktape.tests.test_context import _escape_pathname, TestContext
 from tests import ducktape_mock
 
 
@@ -42,22 +43,28 @@ class DummyTestNoDescription(Test):
 
 class CheckLifecycle(object):
     def check_test_context_double_close(self):
-        context = TestContext(session_context=ducktape_mock.session_context(),
-                              cls=DummyTest, function=DummyTest.test_function_description)
+        context = TestContext(
+            session_context=ducktape_mock.session_context(),
+            cls=DummyTest,
+            function=DummyTest.test_function_description,
+        )
         context.close()
         context.close()
         assert not hasattr(context, "services")
 
     def check_cluster_property(self):
         exp_cluster = ClusterSpec.simple_linux(5)
-        tc = TestContext(session_context=ducktape_mock.session_context(), cluster=exp_cluster,
-                         cls=DummyTest, function=DummyTest.test_function_description)
+        tc = TestContext(
+            session_context=ducktape_mock.session_context(),
+            cluster=exp_cluster,
+            cls=DummyTest,
+            function=DummyTest.test_function_description,
+        )
         test_obj = tc.cls(tc)
         assert test_obj.cluster == exp_cluster
 
 
 class CheckEscapePathname(object):
-
     def check_illegal_path(self):
         path = "\\/.a=2,   b=x/y/z"
         assert _escape_pathname(path) == "a=2.b=x.y.z"
@@ -77,20 +84,29 @@ class CheckDescription(object):
 
     def check_from_function(self):
         """If the function has a docstring, the description should come from the function"""
-        context = TestContext(session_context=ducktape_mock.session_context(),
-                              cls=DummyTest, function=DummyTest.test_function_description)
+        context = TestContext(
+            session_context=ducktape_mock.session_context(),
+            cls=DummyTest,
+            function=DummyTest.test_function_description,
+        )
         assert context.description == "function description"
 
     def check_from_class(self):
         """If the test method has no docstring, description should come from the class docstring"""
-        context = TestContext(session_context=ducktape_mock.session_context(),
-                              cls=DummyTest, function=DummyTest.test_class_description)
+        context = TestContext(
+            session_context=ducktape_mock.session_context(),
+            cls=DummyTest,
+            function=DummyTest.test_class_description,
+        )
         assert context.description == "class description"
 
     def check_no_description(self):
         """If nobody has a docstring, there shouldn't be an error, and description should be empty string"""
-        context = TestContext(session_context=ducktape_mock.session_context(),
-                              cls=DummyTestNoDescription, function=DummyTestNoDescription.test_this)
+        context = TestContext(
+            session_context=ducktape_mock.session_context(),
+            cls=DummyTestNoDescription,
+            function=DummyTestNoDescription.test_this,
+        )
         assert context.description == ""
 
 
@@ -115,7 +131,7 @@ class CheckCompressCmd(object):
 
     def _validate_compressed(self, uncompressed_path):
         if uncompressed_path.endswith(os.path.sep):
-            uncompressed_path = uncompressed_path[:-len(os.path.sep)]
+            uncompressed_path = uncompressed_path[: -len(os.path.sep)]
 
         compressed_path = uncompressed_path + ".tgz"
 
@@ -129,14 +145,14 @@ class CheckCompressCmd(object):
             assert os.path.exists(uncompressed_path)
 
     def check_compress_service_logs_swallow_error(self):
-        """Try compressing a non-existent service log, and check that it logs a message without throwing an error.
-        """
+        """Try compressing a non-existent service log, and check that it logs a message without throwing an error."""
         from tests.ducktape_mock import session_context
+
         tc = TestContext(
             session_context=session_context(),
             module=sys.modules[DummyTestNoDescription.__module__],
             cls=DummyTestNoDescription,
-            function=DummyTestNoDescription.test_this
+            function=DummyTestNoDescription.test_this,
         )
 
         tc._logger = logging.getLogger(__name__)

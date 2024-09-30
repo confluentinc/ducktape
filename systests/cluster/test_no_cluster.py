@@ -7,5 +7,5 @@ class NoClusterTest(Test):
 
     @cluster(num_nodes=0)
     def test_zero_nodes(self):
-        self.logger.warn('Testing')
+        self.logger.warn("Testing")
         assert True
