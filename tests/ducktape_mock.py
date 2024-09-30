@@ -29,16 +29,7 @@ import tempfile
 
 def mock_cluster():
     return MagicMock(
-        spec=Cluster,
-        all=lambda: [
-            MagicMock(
-                spec=ClusterSpec,
-                nodes=NodeContainer([
-                    MagicMock(
-                        operating_system=LINUX
-                    )
-                    ] * 3)
-                )] * 3,
+        all=lambda: [MagicMock(spec=ClusterSpec)] * 3,
         max_used=lambda: 3,
         max_used_nodes=3
     )
