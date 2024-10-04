@@ -4,6 +4,17 @@
 Changelog
 ====
 
+0.12.0
+======
+Friday, October 04th, 2024
+--------------------------
+- Store summary of previous runs when deflaking
+- Runner Client Minor Refactor and Test
+- Adding nodes used in test summary for HTML report
+- Parse args from config files independently
+- add support to python 3.10, 3.11 and 3.12
+
+
 0.11.4
 ======
 Friday, August 18th, 2023
