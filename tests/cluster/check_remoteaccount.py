@@ -40,8 +40,7 @@ def raise_no_error_checker(error, remote_account):
 
 
 class SimpleServer(object):
-    """Helper class which starts a simple server listening on localhost at the specified port
-    """
+    """Helper class which starts a simple server listening on localhost at the specified port"""
 
     def __init__(self):
         self.port = find_available_port()
@@ -52,6 +51,7 @@ class SimpleServer(object):
 
     def start(self, delay_sec=0.0):
         """Run the server after specified delay"""
+
         def run():
             self.close_signal.wait(delay_sec)
 
@@ -67,7 +67,7 @@ class SimpleServer(object):
 
         if self.server_started:
             self.httpd.shutdown()
-        self.background_thread.join(timeout=.5)
+        self.background_thread.join(timeout=0.5)
         if self.background_thread.is_alive():
             raise Exception("SimpleServer failed to stop quickly")
 
@@ -90,7 +90,7 @@ class CheckRemoteAccount(object):
         self.server.start(delay_sec=5)
 
         try:
-            self.account.wait_for_http_service(port=self.server.port, headers={}, timeout=timeout, path='/')
+            self.account.wait_for_http_service(port=self.server.port, headers={}, timeout=timeout, path="/")
             raise Exception("Should have timed out waiting for server to start")
         except TimeoutError:
             # expected behavior. Now check that we're reasonably close to the expected timeout
@@ -99,9 +99,14 @@ class CheckRemoteAccount(object):
             actual_timeout = time.time() - start
             assert abs(actual_timeout - timeout) / timeout < 1
 
-    @pytest.mark.parametrize("checkers", [[raise_error_checker],
-                                          [raise_no_error_checker, raise_error_checker],
-                                          [raise_error_checker, raise_no_error_checker]])
+    @pytest.mark.parametrize(
+        "checkers",
+        [
+            [raise_error_checker],
+            [raise_no_error_checker, raise_error_checker],
+            [raise_error_checker, raise_no_error_checker],
+        ],
+    )
     def check_ssh_checker(self, checkers):
         self.server.start()
         ssh_config = RemoteAccountSSHConfig.from_string(
@@ -111,17 +116,17 @@ class CheckRemoteAccount(object):
             Port 22
             User dummy
             ConnectTimeout 1
-        """)
+        """
+        )
         self.account = RemoteAccount(ssh_config, ssh_exception_checks=checkers)
         with pytest.raises(DummyException):
-            self.account.ssh('echo test')
+            self.account.ssh("echo test")
 
     def teardown(self):
         self.server.stop()
 
 
 class CheckRemoteAccountEquality(object):
-
     def check_remote_account_equality(self):
         """Different instances of remote account initialized with the same parameters should be equal."""
 
@@ -130,7 +135,7 @@ class CheckRemoteAccountEquality(object):
         kwargs = {
             "ssh_config": ssh_config,
             "externally_routable_ip": "345",
-            "logger": logging.getLogger(__name__)
+            "logger": logging.getLogger(__name__),
         }
         r1 = RemoteAccount(**kwargs)
         r2 = RemoteAccount(**kwargs)

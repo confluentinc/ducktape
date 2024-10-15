@@ -26,7 +26,7 @@ class ConsoleDefaults(object):
     PROJECT_CONFIG_FILE = os.path.join(DUCKTAPE_DIR, "config")
 
     # Default path to the user-specific config file
-    USER_CONFIG_FILE = os.path.join('~', DUCKTAPE_DIR, 'config')
+    USER_CONFIG_FILE = os.path.join("~", DUCKTAPE_DIR, "config")
 
     # Default cluster implementation
     CLUSTER_TYPE = "ducktape.cluster.vagrant.VagrantCluster"
@@ -40,8 +40,8 @@ class ConsoleDefaults(object):
     # Folders with test reports, logs, etc all are created in this directory
     RESULTS_ROOT_DIRECTORY = "./results"
 
-    SESSION_LOG_FORMATTER = '[%(levelname)s:%(asctime)s]: %(message)s'
-    TEST_LOG_FORMATTER = '[%(levelname)-5s - %(asctime)s - %(module)s - %(funcName)s - lineno:%(lineno)s]: %(message)s'
+    SESSION_LOG_FORMATTER = "[%(levelname)s:%(asctime)s]: %(message)s"
+    TEST_LOG_FORMATTER = "[%(levelname)-5s - %(asctime)s - %(module)s - %(funcName)s - lineno:%(lineno)s]: %(message)s"
 
     # Log this to indicate a test is misbehaving to help end user find which test is at fault
     BAD_TEST_MESSAGE = "BAD_TEST"

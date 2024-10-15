@@ -11,23 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import typing
 
-from ducktape.cluster.cluster import Cluster
+from ducktape.cluster.cluster import Cluster, ClusterNode
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.cluster.node_container import NodeContainer
 
 
 class FiniteSubcluster(Cluster):
-    """This cluster class gives us a mechanism for allocating finite blocks of nodes from another cluster.
-    """
+    """This cluster class gives us a mechanism for allocating finite blocks of nodes from another cluster."""
 
-    def __init__(self, nodes):
+    def __init__(self, nodes: typing.Iterable[ClusterNode]):
         super(FiniteSubcluster, self).__init__()
         self.nodes = nodes
         self._available_nodes = NodeContainer(nodes)
         self._in_use_nodes = NodeContainer()
 
-    def do_alloc(self, cluster_spec):
+    def do_alloc(self, cluster_spec) -> typing.List[ClusterNode]:
         # there cannot be any bad nodes here,
         # since FiniteSubcluster operates on ClusterNode objects,
         # which are not checked for health by NodeContainer.remove_spec
