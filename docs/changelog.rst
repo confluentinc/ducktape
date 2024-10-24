@@ -4,6 +4,13 @@
 Changelog
 ====
 
+0.12.1a0
+========
+Thursday, October 24th, 2024
+----------------------------
+- Update dependencys to include psutil
+
+
 0.12.0
 ======
 Friday, October 04th, 2024
