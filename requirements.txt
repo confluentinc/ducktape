@@ -6,7 +6,7 @@ pyparsing<3.0.0
 zipp<2.0.0
 pywinrm==0.4.3
 requests==2.31.0
-paramiko~=2.10.0
+paramiko~=3.4.0
 pyzmq==25.1.2
 pycryptodome==3.9.8
 more-itertools==5.0.0
