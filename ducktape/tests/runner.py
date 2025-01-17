@@ -67,8 +67,20 @@ class Receiver(object):
         self.socket.RCVTIMEO = timeout
         try:
             message = self.socket.recv()
-        except zmq.Again:
-            raise TimeoutError("runner client unresponsive")
+        except zmq.Again as e:
+            # Get more details about the ZMQ state
+            errno = e.errno
+            details = zmq.strerror(errno)
+            socket_state = {
+                'type': self.socket.type_str,
+                'last_endpoint': self.socket.last_endpoint,
+                'events': self.socket.events,
+                'errno': errno
+            }
+            raise TimeoutError(f"Runner client unresponsive. ZMQ Error: {details}. Socket state: {socket_state}")
+        except zmq.ZMQError as e:
+            # Handle other ZMQ errors
+            raise TimeoutError(f"ZMQ error occurred: {str(e)} (errno: {e.errno})")
         return self.serde.deserialize(message)
 
     def send(self, event):
