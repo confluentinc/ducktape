@@ -199,9 +199,12 @@ def main():
         JUnitReporter(test_results),
         FailedTestSymbolReporter(test_results)
     ]
-
     for r in reporters:
-        r.report()
+        try:
+            r.report()
+        except RuntimeError as e:
+            session_logger.error(f"Failed to generate report for {r.__class__.__name__}: {str(e)}")
+            raise e
 
     update_latest_symlink(args_dict["results_root"], results_dir)
     close_logger(session_logger)
