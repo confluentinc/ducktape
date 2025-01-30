@@ -72,10 +72,7 @@ class Receiver(object):
             errno = e.errno
             details = zmq.strerror(errno)
             socket_state = {
-                'type': self.socket.type_str,
-                'last_endpoint': self.socket.last_endpoint,
-                'events': self.socket.events,
-                'errno': errno
+                'socket_class': self.socket.socket_class,
             }
             raise TimeoutError(f"Runner client unresponsive. ZMQ Error: {details}. Socket state: {socket_state}")
         except zmq.ZMQError as e:
