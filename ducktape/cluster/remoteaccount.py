@@ -23,6 +23,8 @@ import socket
 import stat
 import tempfile
 import warnings
+import time
+import random
 
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
@@ -41,6 +43,7 @@ def check_ssh(method):
                 for func in self._custom_ssh_exception_checks:
                     func(e, self)
             raise
+
     return wrapper
 
 
@@ -179,42 +182,86 @@ class RemoteAccount(HttpMixin):
         msg = "%s: %s" % (str(self), msg)
         self.logger.log(level, msg, *args, **kwargs)
 
-    @check_ssh
-    def _set_ssh_client(self):
-        client = SSHClient()
-        client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
-
-        self._log(logging.DEBUG, "ssh_config: %s" % str(self.ssh_config))
-
-        client.connect(
-            hostname=self.ssh_config.hostname,
-            port=self.ssh_config.port,
-            username=self.ssh_config.user,
-            password=self.ssh_config.password,
-            key_filename=self.ssh_config.identityfile,
-            look_for_keys=False,
-            timeout=self.ssh_config.connecttimeout)
-
-        if self._ssh_client:
-            self._ssh_client.close()
-        self._ssh_client = client
-        self._set_sftp_client()
-
     @property
     def ssh_client(self):
-        if (self._ssh_client
-                and self._ssh_client.get_transport()
-                and self._ssh_client.get_transport().is_active()):
+        """Get an SSH client connection, creating a new one if necessary or if the existing one is broken.
+
+        Implements retry logic with exponential backoff to handle transient network issues.
+        """
+        max_retries = 3
+        base_delay = 1.0
+
+        def is_transport_active():
+            return (self._ssh_client
+                    and self._ssh_client.get_transport()
+                    and self._ssh_client.get_transport().is_active())
+
+        # First check if we have a working connection
+        if is_transport_active():
             try:
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
+                return self._ssh_client
             except Exception as e:
-                self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
-                self._set_ssh_client()
-        else:
-            self._set_ssh_client()
+                self._log(logging.DEBUG, f"Exception checking ssh_client: {str(e)}")
+                # The current connection is broken, close it properly before creating a new one
+                self.close()
 
-        return self._ssh_client
+        # Connection is either non-existent or broken, attempt to create a new one with retries
+        last_exc = None
+        for retry in range(max_retries):
+            try:
+                self._log(logging.DEBUG, f"Creating new SSH connection (attempt {retry + 1}/{max_retries})")
+                self._set_ssh_client()
+                return self._ssh_client
+            except (SSHException, NoValidConnectionsError, socket.error, TimeoutError, OSError) as e:
+                last_exc = e
+                if retry < max_retries - 1:
+                    # Calculate exponential backoff with jitter
+                    delay = base_delay * (2 ** retry) + random.uniform(0, 0.5)
+                    self._log(logging.WARNING,
+                              f"SSH connection failed: {str(e)}. Retrying in {delay:.1f} seconds...")
+                    time.sleep(delay)
+
+        # If we got here, all retries failed
+        self._log(logging.ERROR, f"Failed to establish SSH connection after {max_retries} attempts: {str(last_exc)}")
+        raise last_exc
+
+    @check_ssh
+    def _set_ssh_client(self):
+        """Create a new SSH client connection with proper error handling."""
+        client = SSHClient()
+        client.set_missing_host_key_policy(IgnoreMissingHostKeyPolicy())
+
+        self._log(logging.DEBUG, f"SSH connecting with config: {str(self.ssh_config)}")
+
+        # Close any existing connections first to avoid resource leaks
+        if self._ssh_client:
+            try:
+                self._ssh_client.close()
+            except Exception as e:
+                self._log(logging.DEBUG, f"Error closing existing SSH connection: {str(e)}")
+
+        # Set a reasonable connection timeout if not specified
+        connect_timeout = self.ssh_config.connecttimeout if self.ssh_config.connecttimeout is not None else 30
+
+        try:
+            client.connect(
+                hostname=self.ssh_config.hostname,
+                port=self.ssh_config.port,
+                username=self.ssh_config.user,
+                password=self.ssh_config.password,
+                key_filename=self.ssh_config.identityfile,
+                look_for_keys=False,
+                timeout=connect_timeout)
+
+            self._ssh_client = client
+            self._set_sftp_client()
+        except Exception as e:
+            # Ensure we don't leave partially initialized connections
+            client.close()
+            self._log(logging.DEBUG, f"SSH connection failed: {str(e)}")
+            raise
 
     def _set_sftp_client(self):
         if self._sftp_client:
@@ -232,12 +279,18 @@ class RemoteAccount(HttpMixin):
 
     def close(self):
         """Close/release any outstanding network connections to remote account."""
-
         if self._ssh_client:
-            self._ssh_client.close()
+            try:
+                self._ssh_client.close()
+            except Exception as e:
+                self._log(logging.DEBUG, f"Error closing SSH client: {str(e)}")
             self._ssh_client = None
+
         if self._sftp_client:
-            self._sftp_client.close()
+            try:
+                self._sftp_client.close()
+            except Exception as e:
+                self._log(logging.DEBUG, f"Error closing SFTP client: {str(e)}")
             self._sftp_client = None
 
     def __str__(self):
@@ -261,7 +314,7 @@ class RemoteAccount(HttpMixin):
         url = "http://%s:%s%s" % (self.externally_routable_ip, str(port), path)
 
         err_msg = "Timed out trying to contact service on %s. " % url + \
-            "Either the service failed to start, or there is a problem with the url."
+                  "Either the service failed to start, or there is a problem with the url."
         wait_until(lambda: self._can_ping_url(url, headers), timeout_sec=timeout, backoff_sec=.25, err_msg=err_msg)
 
     def _can_ping_url(self, url, headers):
