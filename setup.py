@@ -50,7 +50,6 @@ setup(
     package_data={"ducktape": ["templates/report/*"]},
     python_requires=">= 3.6",
     install_requires=open("requirements.txt").read(),
-    tests_require=test_req,
     extras_require={"test": test_req},
     setup_requires=["flake8==3.8.3"],
     cmdclass={"test": PyTest},
