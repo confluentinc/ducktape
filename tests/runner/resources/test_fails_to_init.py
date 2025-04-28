@@ -19,13 +19,13 @@ from ducktape.mark import matrix
 
 
 class FailsToInitTest(Test):
-    """All tests in this class fail to initialize due to an exception in constructor
-    """
+    """All tests in this class fail to initialize due to an exception in constructor"""
+
     def __init__(self, test_context):
         super(FailsToInitTest, self).__init__(test_context)
         x = None
-        x.split(':')
+        x.split(":")
 
     @matrix(x=[_ for _ in range(2)])
     def test_nothing(self):
-        self.logger.info('NOTHING')
+        self.logger.info("NOTHING")

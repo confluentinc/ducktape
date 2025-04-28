@@ -18,13 +18,13 @@ import logging
 class LoggerMaker(object):
     """This class helps ensure programmatically configured loggers are configured only once."""
 
-    def __init__(self, logger_name):
+    def __init__(self, logger_name: str) -> None:
         self.logger_name = logger_name
 
     @property
-    def logger(self):
+    def logger(self) -> logging.Logger:
         """Read-only logger attribute."""
-        if not hasattr(self, '_logger'):
+        if not hasattr(self, "_logger"):
             self._logger = logging.getLogger(self.logger_name)
 
         if not self.configured:
@@ -33,7 +33,7 @@ class LoggerMaker(object):
         return self._logger
 
     @property
-    def configured(self):
+    def configured(self) -> bool:
         """Return True iff the logger has been configured.
 
         Since logging objects are global in the sense that logging.getLogger(self.logger_name) yields the same

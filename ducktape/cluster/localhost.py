@@ -14,7 +14,9 @@
 
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.cluster.node_container import NodeContainer
-from .cluster import Cluster, ClusterNode
+
+from .cluster import Cluster
+from .cluster_node import ClusterNode
 from .linux_remoteaccount import LinuxRemoteAccount
 from .remoteaccount import RemoteAccountSSHConfig
 
@@ -32,9 +34,14 @@ class LocalhostCluster(Cluster):
         self._available_nodes = NodeContainer()
         for i in range(num_nodes):
             ssh_config = RemoteAccountSSHConfig("localhost%d" % i, hostname="localhost", port=22)
-            self._available_nodes.add_node(ClusterNode(
-                LinuxRemoteAccount(ssh_config,
-                                   ssh_exception_checks=kwargs.get("ssh_exception_checks"))))
+            self._available_nodes.add_node(
+                ClusterNode(
+                    LinuxRemoteAccount(
+                        ssh_config,
+                        ssh_exception_checks=kwargs.get("ssh_exception_checks"),
+                    )
+                )
+            )
         self._in_use_nodes = NodeContainer()
 
     def do_alloc(self, cluster_spec):
