@@ -337,6 +337,25 @@ class RemoteAccount(HttpMixin):
         #     self.close()
         return True
 
+    def _get_ssh_channel(self, timeout_sec=None):
+        """
+        Try getting the SSH channel for the existing connection. If the connection is broken, create a new SSHClient.
+        """
+        timeout_sec = timeout_sec if timeout_sec is not None else 60
+
+        try:
+            client = self.ssh_client
+            chan = client.get_transport().open_session(timeout=timeout_sec)
+        except Exception as e:
+            # If the connection is broken, close it and create a new SSH client
+            logging.exception("SSHException: %s" % str(e))
+            logging.info("Creating a new SSH Client.")
+            self._set_ssh_client()
+            client = self.ssh_client
+            chan = client.get_transport().open_session(timeout=timeout_sec)
+
+        return chan
+
     @check_ssh
     def ssh(self, cmd, allow_fail=False):
         """Run the given command on the remote host, and block until the command has finished running.
@@ -391,8 +410,7 @@ class RemoteAccount(HttpMixin):
         """
         self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
-        client = self.ssh_client
-        chan = client.get_transport().open_session(timeout=timeout_sec)
+        chan = self._get_ssh_channel(timeout_sec)
 
         chan.settimeout(timeout_sec)
         chan.exec_command(cmd)
@@ -441,8 +459,7 @@ class RemoteAccount(HttpMixin):
         """
         self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
-        client = self.ssh_client
-        chan = client.get_transport().open_session(timeout=timeout_sec)
+        chan = self._get_ssh_channel(timeout_sec)
 
         chan.settimeout(timeout_sec)
         chan.exec_command(cmd)
