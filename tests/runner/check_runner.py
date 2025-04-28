@@ -19,7 +19,7 @@ import pytest
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.status import PASS, FAIL
-from ducktape.tests.test import TestContext
+from ducktape.tests.test_context import TestContext
 from ducktape.tests.runner import TestRunner
 from ducktape.mark.mark_expander import MarkedFunctionExpander
 from ducktape.cluster.localhost import LocalhostCluster
@@ -40,18 +40,16 @@ import xml.etree.ElementTree as ET
 
 from .resources.test_various_num_nodes import VariousNumNodesTest
 
-TEST_THINGY_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
-FAILING_TEST_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "resources/test_failing_tests.py"))
-FAILS_TO_INIT_TEST_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init.py"))
+TEST_THINGY_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "resources/test_thingy.py"))
+FAILING_TEST_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "resources/test_failing_tests.py"))
+FAILS_TO_INIT_TEST_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init.py"))
 FAILS_TO_INIT_IN_SETUP_TEST_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init_in_setup.py"))
+    os.path.join(os.path.dirname(__file__), "resources/test_fails_to_init_in_setup.py")
+)
 VARIOUS_NUM_NODES_TEST_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "resources/test_various_num_nodes.py"))
-BAD_ACTOR_TEST_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "resources/test_bad_actor.py"))
+    os.path.join(os.path.dirname(__file__), "resources/test_various_num_nodes.py")
+)
+BAD_ACTOR_TEST_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "resources/test_bad_actor.py"))
 
 
 class CheckRunner(object):
@@ -60,9 +58,15 @@ class CheckRunner(object):
         mock_cluster = FakeCluster(1)
         session_context = tests.ducktape_mock.session_context()
 
-        test_context = TestContext(session_context=session_context, module=None, cls=TestThingy,
-                                   function=TestThingy.test_pi, file=TEST_THINGY_FILE, cluster=mock_cluster,
-                                   cluster_use_metadata={'num_nodes': 1000})
+        test_context = TestContext(
+            session_context=session_context,
+            module=None,
+            cls=TestThingy,
+            function=TestThingy.test_pi,
+            file=TEST_THINGY_FILE,
+            cluster=mock_cluster,
+            cluster_use_metadata={"num_nodes": 1000},
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), [test_context], 1)
 
         # Even though the cluster is too small, the test runner should this handle gracefully without raising an error
@@ -78,7 +82,12 @@ class CheckRunner(object):
             ctx_list.extend(
                 MarkedFunctionExpander(
                     session_context=session_context,
-                    cls=test_class, function=f, file=test_file, cluster=cluster).expand())
+                    cls=test_class,
+                    function=f,
+                    file=test_file,
+                    cluster=cluster,
+                ).expand()
+            )
         return ctx_list
 
     def check_simple_run(self):
@@ -86,9 +95,19 @@ class CheckRunner(object):
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
 
-        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
-                                   cluster=mock_cluster, session_context=session_context)
+        test_methods = [
+            TestThingy.test_pi,
+            TestThingy.test_ignore1,
+            TestThingy.test_ignore2,
+            TestThingy.test_failure,
+        ]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
@@ -107,8 +126,13 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context()
 
         test_methods = [TestThingy.test_flaky, TestThingy.test_failure]
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
-                                   cluster=mock_cluster, session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 2)
 
         results = runner.run_all_tests()
@@ -123,9 +147,19 @@ class CheckRunner(object):
         adheres to the Junit spec using xpath queries"""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
-        test_methods = [TestThingy.test_pi, TestThingy.test_ignore1, TestThingy.test_ignore2, TestThingy.test_failure]
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
-                                   cluster=mock_cluster, session_context=session_context)
+        test_methods = [
+            TestThingy.test_pi,
+            TestThingy.test_ignore1,
+            TestThingy.test_ignore2,
+            TestThingy.test_failure,
+        ]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
@@ -133,9 +167,9 @@ class CheckRunner(object):
         xml_report = os.path.join(session_context.results_dir, "report.xml")
         assert os.path.exists(xml_report)
         tree = ET.parse(xml_report)
-        assert len(tree.findall('./testsuite/testcase/failure')) == 1
-        assert len(tree.findall('./testsuite/testcase/skipped')) == 2
-        assert len(tree.findall('./testsuite/testcase')) == 4
+        assert len(tree.findall("./testsuite/testcase/failure")) == 1
+        assert len(tree.findall("./testsuite/testcase/skipped")) == 2
+        assert len(tree.findall("./testsuite/testcase")) == 4
 
         passed = tree.findall("./testsuite/testcase/[@status='pass']")
         assert len(passed) == 1
@@ -163,25 +197,39 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context(**{"exit_first": True})
 
         test_methods = [FailingTest.test_fail]
-        ctx_list = self._do_expand(test_file=FAILING_TEST_FILE, test_class=FailingTest, test_methods=test_methods,
-                                   cluster=mock_cluster, session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=FAILING_TEST_FILE,
+            test_class=FailingTest,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
         assert len(ctx_list) > 1
         assert len(results) == 1
 
     def check_exits_if_failed_to_initialize(self):
-        """Validate that runner exits correctly when tests failed to initialize.
-        """
+        """Validate that runner exits correctly when tests failed to initialize."""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
 
-        ctx_list = self._do_expand(test_file=FAILS_TO_INIT_TEST_FILE, test_class=FailsToInitTest,
-                                   test_methods=[FailsToInitTest.test_nothing],
-                                   cluster=mock_cluster, session_context=session_context)
-        ctx_list.extend(self._do_expand(test_file=FAILS_TO_INIT_IN_SETUP_TEST_FILE, test_class=FailsToInitInSetupTest,
-                                        test_methods=[FailsToInitInSetupTest.test_nothing],
-                                        cluster=mock_cluster, session_context=session_context))
+        ctx_list = self._do_expand(
+            test_file=FAILS_TO_INIT_TEST_FILE,
+            test_class=FailsToInitTest,
+            test_methods=[FailsToInitTest.test_nothing],
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        ctx_list.extend(
+            self._do_expand(
+                test_file=FAILS_TO_INIT_IN_SETUP_TEST_FILE,
+                test_class=FailsToInitInSetupTest,
+                test_methods=[FailsToInitInSetupTest.test_nothing],
+                cluster=mock_cluster,
+                session_context=session_context,
+            )
+        )
 
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
@@ -194,15 +242,20 @@ class CheckRunner(object):
 
     # mock an error reporting test failure - this should not prevent subsequent tests from execution and mark
     # failed test as failed correctly
-    @patch.object(RunnerClient, '_exc_msg', side_effect=Exception)
+    @patch.object(RunnerClient, "_exc_msg", side_effect=Exception)
     def check_sends_result_when_error_reporting_exception(self, exc_msg_mock):
         """Validates that an error when reporting an exception in the test doesn't prevent subsequent tests
         from executing"""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context()
         test_methods = [TestThingy.test_failure, TestThingy.test_pi]
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
-                                   cluster=mock_cluster, session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
@@ -216,11 +269,16 @@ class CheckRunner(object):
         """Check test should be marked failed if it under-utilizes the cluster resources."""
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context(
-            fail_bad_cluster_utilization="fail_bad_cluster_utilization")
+            fail_bad_cluster_utilization="fail_bad_cluster_utilization"
+        )
 
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=ClusterTestThingy,
-                                   test_methods=[ClusterTestThingy.test_bad_num_nodes], cluster=mock_cluster,
-                                   session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=ClusterTestThingy,
+            test_methods=[ClusterTestThingy.test_bad_num_nodes],
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         results = runner.run_all_tests()
@@ -235,12 +293,22 @@ class CheckRunner(object):
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context(debug=True)
 
-        ctx_list = self._do_expand(test_file=BAD_ACTOR_TEST_FILE, test_class=BadActorTest,
-                                   test_methods=[BadActorTest.test_too_many_nodes],
-                                   cluster=mock_cluster, session_context=session_context)
-        ctx_list.extend(self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
-                                        test_methods=[VariousNumNodesTest.test_one_node_a],
-                                        cluster=mock_cluster, session_context=session_context))
+        ctx_list = self._do_expand(
+            test_file=BAD_ACTOR_TEST_FILE,
+            test_class=BadActorTest,
+            test_methods=[BadActorTest.test_too_many_nodes],
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        ctx_list.extend(
+            self._do_expand(
+                test_file=VARIOUS_NUM_NODES_TEST_FILE,
+                test_class=VariousNumNodesTest,
+                test_methods=[VariousNumNodesTest.test_one_node_a],
+                cluster=mock_cluster,
+                session_context=session_context,
+            )
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
         assert results.num_flaky == 0
@@ -249,8 +317,8 @@ class CheckRunner(object):
         assert results.num_ignored == 0
         passed = [r for r in results if r.test_status == PASS]
         failed = [r for r in results if r.test_status == FAIL]
-        assert passed[0].test_id == 'tests.runner.resources.test_various_num_nodes.VariousNumNodesTest.test_one_node_a'
-        assert failed[0].test_id == 'tests.runner.resources.test_bad_actor.BadActorTest.test_too_many_nodes'
+        assert passed[0].test_id == "tests.runner.resources.test_various_num_nodes.VariousNumNodesTest.test_one_node_a"
+        assert failed[0].test_id == "tests.runner.resources.test_bad_actor.BadActorTest.test_too_many_nodes"
 
     def check_runner_timeout(self):
         """Check process cleanup and error handling in a parallel runner client run."""
@@ -258,8 +326,13 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context(max_parallel=1000, test_runner_timeout=1)
 
         test_methods = [TestThingy.test_delayed, TestThingy.test_failure]
-        ctx_list = self._do_expand(test_file=TEST_THINGY_FILE, test_class=TestThingy, test_methods=test_methods,
-                                   cluster=mock_cluster, session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
         with pytest.raises(TimeoutError):
@@ -267,7 +340,7 @@ class CheckRunner(object):
 
         assert not runner._client_procs
 
-    @pytest.mark.parametrize('fail_greedy_tests', [True, False])
+    @pytest.mark.parametrize("fail_greedy_tests", [True, False])
     def check_fail_greedy_tests(self, fail_greedy_tests):
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context(fail_greedy_tests=fail_greedy_tests)
@@ -275,11 +348,15 @@ class CheckRunner(object):
         test_methods = [
             VariousNumNodesTest.test_empty_cluster_annotation,
             VariousNumNodesTest.test_no_cluster_annotation,
-            VariousNumNodesTest.test_zero_nodes
+            VariousNumNodesTest.test_zero_nodes,
         ]
-        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
-                                   test_methods=test_methods,
-                                   cluster=mock_cluster, session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=VARIOUS_NUM_NODES_TEST_FILE,
+            test_class=VariousNumNodesTest,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
         assert results.num_flaky == 0
@@ -306,12 +383,16 @@ class CheckRunner(object):
             VariousNumNodesTest.test_five_nodes_b,
             VariousNumNodesTest.test_four_nodes,
             VariousNumNodesTest.test_three_nodes_a,
-            VariousNumNodesTest.test_two_nodes_a
+            VariousNumNodesTest.test_two_nodes_a,
         ]
 
-        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
-                                   test_methods=test_methods, cluster=mock_cluster,
-                                   session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=VARIOUS_NUM_NODES_TEST_FILE,
+            test_class=VariousNumNodesTest,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
 
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
@@ -349,12 +430,16 @@ class CheckRunner(object):
             VariousNumNodesTest.test_three_nodes_asleep,
             VariousNumNodesTest.test_three_nodes_b,
             VariousNumNodesTest.test_two_nodes_a,
-            VariousNumNodesTest.test_two_nodes_b
+            VariousNumNodesTest.test_two_nodes_b,
         ]
 
-        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
-                                   test_methods=test_methods, cluster=mock_cluster,
-                                   session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=VARIOUS_NUM_NODES_TEST_FILE,
+            test_class=VariousNumNodesTest,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
 
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
@@ -374,7 +459,7 @@ class CheckRunner(object):
             "VariousNumNodesTest.test_three_nodes_asleep",
             "VariousNumNodesTest.test_two_nodes_a",
             "VariousNumNodesTest.test_two_nodes_b",
-            "VariousNumNodesTest.test_three_nodes_b"
+            "VariousNumNodesTest.test_three_nodes_b",
         ]
         # We check the actual order the tests were scheduled in, since completion order might be different,
         # with so many fast tests running in parallel.
@@ -395,9 +480,13 @@ class CheckRunner(object):
             VariousNumNodesTest.test_one_node_b,
         ]
 
-        ctx_list = self._do_expand(test_file=VARIOUS_NUM_NODES_TEST_FILE, test_class=VariousNumNodesTest,
-                                   test_methods=test_methods, cluster=mock_cluster,
-                                   session_context=session_context)
+        ctx_list = self._do_expand(
+            test_file=VARIOUS_NUM_NODES_TEST_FILE,
+            test_class=VariousNumNodesTest,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
 
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
         results = runner.run_all_tests()
@@ -415,13 +504,21 @@ class CheckRunner(object):
         session_context = tests.ducktape_mock.session_context()
         test_context = tests.ducktape_mock.test_context(session_context=session_context)
         rc = RunnerClient(
-            "localhost", 22, test_context.test_id, 0, "dummy", "/tmp/dummy", True, False, 5
+            "localhost",
+            22,
+            test_context.test_id,
+            0,
+            "dummy",
+            "/tmp/dummy",
+            True,
+            False,
+            5,
         )
         rc.sender = MockSender()
         rc.cluster = mock_cluster
         rc.session_context = session_context
         rc.test_metadata = MagicMock()
-        with patch('ducktape.tests.runner_client.RunnerClient._collect_test_context') as test_collect_patch:
+        with patch("ducktape.tests.runner_client.RunnerClient._collect_test_context") as test_collect_patch:
             test_collect_patch.return_value = test_context
             rc.run()
         # get the last message, get the args send to that message, and get the first arg
@@ -431,7 +528,6 @@ class CheckRunner(object):
 
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
-
     def __init__(self, *args, shrink_on=1, **kwargs):
         super().__init__(*args, **kwargs)
         self.bad_nodes = NodeContainer()

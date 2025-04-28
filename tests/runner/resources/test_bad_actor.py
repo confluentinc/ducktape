@@ -8,7 +8,6 @@ class FakeService(Service):
 
 
 class BadActorTest(Test):
-
     @cluster(num_nodes=2)
     def test_too_many_nodes(self):
         """

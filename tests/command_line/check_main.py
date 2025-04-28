@@ -115,8 +115,7 @@ class CheckUserDefinedGlobals(object):
         assert globals_dict == json.loads(globals_json)
 
     def check_unparseable(self):
-        """If globals string is not a path to a file, and not parseable as JSON we want to raise a ValueError
-        """
+        """If globals string is not a path to a file, and not parseable as JSON we want to raise a ValueError"""
         with pytest.raises(ValueError):
             get_user_defined_globals(invalid_globals_json)
 

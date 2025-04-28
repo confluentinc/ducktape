@@ -13,25 +13,24 @@
 # limitations under the License.
 
 import copy
+from typing import Callable, List
 
 from ducktape.mark._mark import Mark
-
-CLUSTER_SPEC_KEYWORD = "cluster_spec"
-CLUSTER_SIZE_KEYWORD = "num_nodes"
+from ducktape.tests.test_context import TestContext
 
 
 class ClusterUseMetadata(Mark):
     """Provide a hint about how a given test will use the cluster."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         # shallow copy
         self.metadata = copy.copy(kwargs)
 
     @property
-    def name(self):
+    def name(self) -> str:
         return "RESOURCE_HINT_CLUSTER_USE"
 
-    def apply(self, seed_context, context_list):
+    def apply(self, seed_context: TestContext, context_list: List[TestContext]) -> List[TestContext]:
         assert len(context_list) > 0, "cluster use annotation is not being applied to any test cases"
 
         for ctx in context_list:
@@ -41,7 +40,7 @@ class ClusterUseMetadata(Mark):
         return context_list
 
 
-def cluster(**kwargs):
+def cluster(**kwargs) -> Callable:
     """Test method decorator used to provide hints about how the test will use the given cluster.
 
     If this decorator is not provided, the test will either claim all cluster resources or fail immediately,
