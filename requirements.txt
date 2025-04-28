@@ -5,10 +5,10 @@ MarkupSafe~=2.0.0
 pyparsing<3.0.0
 zipp<2.0.0
 pywinrm==0.4.3
-requests==2.31.0
+requests==2.32.2
 paramiko~=3.4.0
 pyzmq==25.1.2
-pycryptodome==3.9.8
+pycryptodome==3.19.1
 more-itertools==5.0.0
-PyYAML==5.3.1
+PyYAML==5.4
 psutil==5.7.2
