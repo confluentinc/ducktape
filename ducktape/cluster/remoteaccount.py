@@ -295,8 +295,8 @@ class RemoteAccount(HttpMixin):
             chan = client.get_transport().open_session(timeout=timeout_sec)
         except Exception as e:
             # If the connection is broken, close it and create a new SSH client
-            logging.exception("SSHException: %s" % str(e))
-            logging.info("Creating a new SSH Client.")
+            self._log(logging.ERROR, "%s" % str(e))
+            self._log(logging.INFO, "SSH connection broken, creating new SSH client.")
             self._set_ssh_client()
             client = self.ssh_client
             chan = client.get_transport().open_session(timeout=timeout_sec)
