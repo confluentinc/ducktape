@@ -288,7 +288,7 @@ class RemoteAccount(HttpMixin):
         """
         Try getting the SSH channel for the existing connection. If the connection is broken, create a new SSHClient.
         """
-        timeout_sec = timeout_sec if timeout_sec is not None else 60
+        timeout_sec = timeout_sec if timeout_sec is not None else 30
 
         try:
             client = self.ssh_client
