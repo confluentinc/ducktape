@@ -316,8 +316,13 @@ class RemoteAccount(HttpMixin):
         """
         self._log(logging.DEBUG, "Running ssh command: %s" % cmd)
 
+        # exec_command() internally uses open_session() to create a channel.
+        # running the following to prevent SSH timeout errors while exec_command internally tries to open this channel.
+        chan = self._get_ssh_channel()
+        chan.close()
+
         client = self.ssh_client
-        stdin, stdout, stderr = client.exec_command(cmd)
+        stdin, stdout, stderr = client.exec_command(cmd, timeout=120)
 
         # Unfortunately we need to read over the channel to ensure that recv_exit_status won't hang. See:
         # http://docs.paramiko.org/en/2.0/api/channel.html#paramiko.channel.Channel.recv_exit_status
