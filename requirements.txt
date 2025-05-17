@@ -11,4 +11,4 @@ pyzmq==25.1.2
 pycryptodome==3.19.1
 more-itertools==5.0.0
 PyYAML==5.4
-psutil==5.7.2
+psutil==7.0.0
