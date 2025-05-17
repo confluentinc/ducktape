@@ -5,4 +5,4 @@ boto3==1.15.9
 pycryptodome==3.19.1
 pywinrm==0.2.2
 jinja2~=3.0.3
-MarkupSafe~=2.0.0
+MarkupSafe>=2.0.0,<3.1
