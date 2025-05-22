@@ -129,8 +129,15 @@ def main():
         session_logger.debug("Configuration: %s=%s", k, v)
 
     # Discover and load tests to be run
-    loader = TestLoader(session_context, session_logger, repeat=args_dict["repeat"], injected_args=injected_args,
-                        subset=args_dict["subset"], subsets=args_dict["subsets"])
+    loader = TestLoader(
+        session_context,
+        session_logger,
+        repeat=args_dict["repeat"],
+        injected_args=injected_args,
+        subset=args_dict["subset"],
+        subsets=args_dict["subsets"],
+        historical_report=args_dict["historical_report"],
+    )
     try:
         tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
     except LoaderException as e:
