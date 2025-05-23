@@ -10,7 +10,7 @@ execution_time_limit:
 global_job_config:
   prologue:
     commands:
-      - sem-version python 3.9
+      - sem-version python 3.13
       - pip install tox
       - checkout
 blocks:
