@@ -7,7 +7,7 @@ zipp==3.20.2
 pywinrm==0.4.3
 requests==2.32.2
 paramiko~=2.12.0
-pyzmq==25.1.2
+pyzmq==26.4.0
 pycryptodome==3.23.0
 more-itertools==5.0.0
 PyYAML==6.0.2
