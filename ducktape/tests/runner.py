@@ -318,7 +318,6 @@ class TestRunner(object):
         self.client_report[test_key]["name"] = proc.name
         self.client_report[test_key]["runner_start_time"] = time.time()
 
-
     def _preallocate_subcluster(self, test_context):
         """Preallocate the subcluster which will be used to run the test.
 
