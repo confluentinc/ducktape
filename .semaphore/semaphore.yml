@@ -53,4 +53,4 @@ blocks:
             - sem-version python 3.13
             - pip install tox
             - export PYTESTARGS='--junitxml=test/results-py313.xml'
-            - tox -e py313
+            - tox
