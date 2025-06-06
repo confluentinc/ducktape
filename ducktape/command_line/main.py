@@ -140,12 +140,13 @@ def main():
     )
     try:
         tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
+        expected_test_count = len(tests)
     except LoaderException as e:
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
 
     if args_dict["collect_only"]:
-        print("Collected %d tests:" % len(tests))
+        print("Collected %d tests:" % expected_test_count)
         for test in tests:
             print("    " + str(test))
         sys.exit(0)
@@ -201,7 +202,7 @@ def main():
     reporters = [
         SimpleStdoutSummaryReporter(test_results),
         SimpleFileSummaryReporter(test_results),
-        HTMLSummaryReporter(test_results),
+        HTMLSummaryReporter(test_results, expected_test_count),
         JSONReporter(test_results),
         JUnitReporter(test_results),
         FailedTestSymbolReporter(test_results)
