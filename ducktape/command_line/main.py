@@ -16,6 +16,7 @@ from __future__ import print_function
 
 import importlib
 import json
+import logging
 import os
 import random
 import sys
@@ -198,6 +199,7 @@ def main():
     runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
     test_results = runner.run_all_tests()
 
+    logging.info(f"expected test count: {expected_test_count}")
     # Report results
     reporters = [
         SimpleStdoutSummaryReporter(test_results),
