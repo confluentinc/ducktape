@@ -138,9 +138,12 @@ def main():
         subsets=args_dict["subsets"],
         historical_report=args_dict["historical_report"],
     )
+
+    expected_test_count = 0
     try:
         tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
         expected_test_count = len(tests)
+        print(f"Discovered {expected_test_count} tests to run")
     except LoaderException as e:
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
