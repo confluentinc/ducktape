@@ -10,15 +10,47 @@ execution_time_limit:
 global_job_config:
   prologue:
     commands:
-      - sem-version python 3.9
-      - pip install tox
       - checkout
+
+
 blocks:
   - name: Test
     dependencies: []
     task:
       jobs:
-        - name: Test
+        - name: Test Python 3.8
           commands:
-            - export PYTESTARGS='--junitxml=test/results.xml'
+            - sem-version python 3.8
+            - pip install tox
+            - export PYTESTARGS='--junitxml=test/results-py38.xml'
+            - tox -e py38
+        - name: Test Python 3.9
+          commands:
+            - sem-version python 3.9
+            - pip install tox
+            - export PYTESTARGS='--junitxml=test/results-py39.xml'
+            - tox -e py39
+        - name: Test Python 3.10
+          commands:
+            - sem-version python 3.10
+            - pip install tox
+            - export PYTESTARGS='--junitxml=test/results-py310.xml'
+            - tox -e py310
+        - name: Test Python 3.11
+          commands:
+            - sem-version python 3.11
+            - pip install tox
+            - export PYTESTARGS='--junitxml=test/results-py311.xml'
+            - tox -e py311
+        - name: Test Python 3.12
+          commands:
+            - sem-version python 3.12
+            - pip install tox
+            - export PYTESTARGS='--junitxml=test/results-py312.xml'
+            - tox -e py312
+        - name: Test Python 3.13
+          commands:
+            - sem-version python 3.13
+            - pip install tox
+            - export PYTESTARGS='--junitxml=test/results-py313.xml'
             - tox
