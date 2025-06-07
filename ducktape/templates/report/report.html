@@ -37,7 +37,8 @@
         render: function() {
           return (
             <tr>
-              <td colSpan='5' align='center'>{this.props.summary_prop.tests}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.expected_test_count}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.tests_run}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.passes}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.flaky}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.failures}</td>
@@ -179,8 +180,8 @@
       });
 
       SUMMARY=[{
-        "expected test count": %(expected_test_count)d,
-        "tests run": %(num_tests_run)d,
+        "expected_test_count": %(expected_test_count)d,
+        "tests_run": %(num_tests_run)d,
         "passes": %(num_passes)d,
         "flaky": %(num_flaky)d,
         "failures": %(num_failures)d,
