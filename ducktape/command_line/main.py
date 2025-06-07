@@ -138,9 +138,6 @@ def main():
         subsets=args_dict["subsets"],
         historical_report=args_dict["historical_report"],
     )
-
-    expected_test_count = 0
-    tests = []
     try:
         tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
     except LoaderException as e:
@@ -149,6 +146,7 @@ def main():
 
     expected_test_count = len(tests)
     print(f"Discovered {expected_test_count} tests to run")
+
     if args_dict["collect_only"]:
         print("Collected %d tests:" % expected_test_count)
         for test in tests:
@@ -202,9 +200,6 @@ def main():
     runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
     test_results = runner.run_all_tests()
 
-    expected_test_count = len(loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude']))
-    print("expected test count: ")
-    print(expected_test_count)
     # Report results
     reporters = [
         SimpleStdoutSummaryReporter(test_results),

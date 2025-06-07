@@ -387,7 +387,7 @@ class TestRunner(object):
         test_results = copy.copy(self.results)  # shallow copy
         reporters = [
             SimpleFileSummaryReporter(test_results),
-            HTMLSummaryReporter(test_results),
+            HTMLSummaryReporter(test_results, self.total_tests),
             JSONReporter(test_results)
         ]
         for r in reporters:
