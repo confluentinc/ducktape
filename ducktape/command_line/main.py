@@ -202,13 +202,14 @@ def main():
     runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
     test_results = runner.run_all_tests()
 
+    expected_test_count = len(loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude']))
     print("expected test count: ")
     print(expected_test_count)
     # Report results
     reporters = [
         SimpleStdoutSummaryReporter(test_results),
         SimpleFileSummaryReporter(test_results),
-        HTMLSummaryReporter(results=test_results, expected_test_count=expected_test_count),
+        HTMLSummaryReporter(test_results, expected_test_count),
         JSONReporter(test_results),
         JUnitReporter(test_results),
         FailedTestSymbolReporter(test_results)
