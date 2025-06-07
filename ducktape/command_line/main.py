@@ -140,14 +140,15 @@ def main():
     )
 
     expected_test_count = 0
+    tests = []
     try:
         tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict['exclude'])
-        expected_test_count = len(tests)
-        print(f"Discovered {expected_test_count} tests to run")
     except LoaderException as e:
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
 
+    expected_test_count = len(tests)
+    print(f"Discovered {expected_test_count} tests to run")
     if args_dict["collect_only"]:
         print("Collected %d tests:" % expected_test_count)
         for test in tests:
@@ -201,12 +202,13 @@ def main():
     runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
     test_results = runner.run_all_tests()
 
-    print(f"expected test count: {expected_test_count}")
+    print("expected test count: ")
+    print(expected_test_count)
     # Report results
     reporters = [
         SimpleStdoutSummaryReporter(test_results),
         SimpleFileSummaryReporter(test_results),
-        HTMLSummaryReporter(test_results, expected_test_count),
+        HTMLSummaryReporter(results=test_results, expected_test_count=expected_test_count),
         JSONReporter(test_results),
         JUnitReporter(test_results),
         FailedTestSymbolReporter(test_results)
@@ -220,3 +222,4 @@ def main():
     if not test_results.get_aggregate_success():
         # Non-zero exit if at least one test failed
         sys.exit(1)
+
