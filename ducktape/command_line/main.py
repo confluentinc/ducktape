@@ -216,7 +216,8 @@ def main():
     update_latest_symlink(args_dict["results_root"], results_dir)
 
     if len(test_results) < expected_test_count:
-        session_logger.warning(f"All tests were NOT run. Expected {expected_test_count} tests, only {len(test_results)} were run.")
+        session_logger.warning(
+            f"All tests were NOT run. Expected {expected_test_count} tests, only {len(test_results)} were run.")
         close_logger(session_logger)
         sys.exit(1)
 
@@ -224,4 +225,3 @@ def main():
     if not test_results.get_aggregate_success():
         # Non-zero exit if at least one test failed
         sys.exit(1)
-

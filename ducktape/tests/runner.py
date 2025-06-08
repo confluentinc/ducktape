@@ -116,7 +116,6 @@ class TestRunner(object):
 
         self.main_process_pid = os.getpid()
         self.scheduler = TestScheduler(tests, self.cluster)
-        self.expected_test_count = len(tests)
 
         self.test_counter = 1
         self.total_tests = len(self.scheduler)
@@ -388,7 +387,7 @@ class TestRunner(object):
         test_results = copy.copy(self.results)  # shallow copy
         reporters = [
             SimpleFileSummaryReporter(test_results),
-            HTMLSummaryReporter(test_results, self.expected_test_count),
+            HTMLSummaryReporter(test_results, self.total_tests),
             JSONReporter(test_results)
         ]
         for r in reporters:
