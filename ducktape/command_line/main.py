@@ -145,7 +145,7 @@ def main():
         sys.exit(1)
 
     expected_test_count = len(tests)
-    print(f"Discovered {expected_test_count} tests to run")
+    session_logger.info(f"Discovered {expected_test_count} tests to run")
 
     if args_dict["collect_only"]:
         print("Collected %d tests:" % expected_test_count)
@@ -214,6 +214,12 @@ def main():
         r.report()
 
     update_latest_symlink(args_dict["results_root"], results_dir)
+
+    if len(test_results) < expected_test_count:
+        session_logger.warning(f"All tests were NOT run. Expected {expected_test_count} tests, only {len(test_results)} were run.")
+        close_logger(session_logger)
+        sys.exit(1)
+
     close_logger(session_logger)
     if not test_results.get_aggregate_success():
         # Non-zero exit if at least one test failed
