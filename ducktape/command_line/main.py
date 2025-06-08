@@ -200,6 +200,8 @@ def main():
     runner = TestRunner(cluster, session_context, session_logger, tests, deflake_num)
     test_results = runner.run_all_tests()
 
+    expected_test_count += 1  # TODO: this is for testing purposes, remove later
+
     # Report results
     reporters = [
         SimpleStdoutSummaryReporter(test_results),
