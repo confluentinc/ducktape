@@ -4,6 +4,20 @@
 Changelog
 ====
 
+0.13.0
+======
+Monday, June 9th, 2025
+--------------------------
+- Report expected test count in the summary
+- ADD python 3.13 support and run pr-test-job with all supported python versions
+- Upgrade PyYAML and fix style error
+- Add support for historical report in loader
+- Replace all occurrences of 's1-prod-ubuntu20-04' with 's1-prod-ubuntu24-04'
+- update dependency pyyaml to v5.4
+- update dependency requests to v2.32.2
+- update dependency pycryptodome to v3.19.1
+- removing generated internal project.yml, public project.yml
+
 0.12.0
 ======
 Friday, October 04th, 2024
