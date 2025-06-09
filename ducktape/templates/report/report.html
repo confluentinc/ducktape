@@ -37,7 +37,8 @@
         render: function() {
           return (
             <tr>
-              <td colSpan='5' align='center'>{this.props.summary_prop.tests}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.expected_test_count}</td>
+              <td colSpan='5' align='center'>{this.props.summary_prop.tests_run}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.passes}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.flaky}</td>
               <td colSpan='5' align='center'>{this.props.summary_prop.failures}</td>
@@ -54,7 +55,8 @@
             <table id="summary_report_table">
               <thead>
                 <tr id="summary_header_row">
-                  <th colSpan='5' align='center'>Tests</th>
+                  <th colSpan='5' align='center'>Tests Expected</th>
+                  <th colSpan='5' align='center'>Tests Run</th>
                   <th colSpan='5' align='center'>Passes</th>
                   <th colSpan='5' align='center'>Flaky</th>
                   <th colSpan='5' align='center'>Failures</th>
@@ -178,7 +180,8 @@
       });
 
       SUMMARY=[{
-        "tests": %(num_tests)d,
+        "expected_test_count": %(expected_test_count)d,
+        "tests_run": %(num_tests_run)d,
         "passes": %(num_passes)d,
         "flaky": %(num_flaky)d,
         "failures": %(num_failures)d,
