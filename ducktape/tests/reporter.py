@@ -240,6 +240,9 @@ class JUnitReporter(object):
 
 
 class HTMLSummaryReporter(SummaryReporter):
+    def __init__(self, results, expected_test_count):
+        super().__init__(results)
+        self.expected_test_count = expected_test_count
 
     def format_test_name(self, result):
         lines = ["Module:      " + result.module_name,
@@ -289,7 +292,7 @@ class HTMLSummaryReporter(SummaryReporter):
             import pkg_resources
             template = pkg_resources.resource_string(__name__, '../templates/report/report.html').decode('utf-8')
 
-        num_tests = len(self.results)
+        num_tests_run = len(self.results)
         num_passes = 0
         failed_result_string = []
         passed_result_string = []
@@ -316,7 +319,8 @@ class HTMLSummaryReporter(SummaryReporter):
 
         args = {
             'ducktape_version': ducktape_version(),
-            'num_tests': num_tests,
+            'expected_test_count': self.expected_test_count,
+            'num_tests_run': num_tests_run,
             'num_passes': self.results.num_passed,
             'num_flaky': self.results.num_flaky,
             'num_failures': self.results.num_failed,
