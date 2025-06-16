@@ -9,12 +9,9 @@ Changelog
 Monday, June 09th, 2025
 -----------------------
 - Report expected test count in the summary
-- Add python 3.13 support and run pr
-- test
-- job with all supported python versions
+- Add python 3.13 support and run pr test job with all supported python versions
 - Upgrade PyYAML and fix style error
 - Add support for historical report in loader
-- Update dependency PyYAML to v5.4
 - Update dependency requests to v2.32.2
 - Update dependency pycryptodome to v3.19.1
 - Removing generated internal project.yml, public project.yml
