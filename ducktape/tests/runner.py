@@ -33,7 +33,7 @@ from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
-from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
+from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter, JUnitReporter
 from ducktape.utils import persistence
 from ducktape.errors import TimeoutError
 
@@ -67,8 +67,17 @@ class Receiver(object):
         self.socket.RCVTIMEO = timeout
         try:
             message = self.socket.recv()
-        except zmq.Again:
-            raise TimeoutError("runner client unresponsive")
+        except zmq.Again as e:
+            # Get more details about the ZMQ state
+            errno = e.errno
+            details = zmq.strerror(errno)
+            socket_state = {
+                'socket_class': self.socket.socket_class,
+            }
+            raise TimeoutError(f"Runner client unresponsive. ZMQ Error: {details}. Socket state: {socket_state}")
+        except zmq.ZMQError as e:
+            # Handle other ZMQ errors
+            raise TimeoutError(f"ZMQ error occurred: {str(e)} (errno: {e.errno})")
         return self.serde.deserialize(message)
 
     def send(self, event):
@@ -318,6 +327,7 @@ class TestRunner(object):
         self.client_report[test_key]["name"] = proc.name
         self.client_report[test_key]["runner_start_time"] = time.time()
 
+
     def _preallocate_subcluster(self, test_context):
         """Preallocate the subcluster which will be used to run the test.
 
@@ -388,7 +398,8 @@ class TestRunner(object):
         reporters = [
             SimpleFileSummaryReporter(test_results),
             HTMLSummaryReporter(test_results, self.total_tests),
-            JSONReporter(test_results)
+            JSONReporter(test_results),
+            JUnitReporter(test_results)
         ]
         for r in reporters:
             r.report()
