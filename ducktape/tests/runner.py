@@ -33,7 +33,7 @@ from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
-from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter
+from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter, JUnitReporter
 from ducktape.utils import persistence
 from ducktape.errors import TimeoutError
 
@@ -388,7 +388,8 @@ class TestRunner(object):
         reporters = [
             SimpleFileSummaryReporter(test_results),
             HTMLSummaryReporter(test_results, self.total_tests),
-            JSONReporter(test_results)
+            JSONReporter(test_results),
+            JUnitReporter(test_results)
         ]
         for r in reporters:
             r.report()
