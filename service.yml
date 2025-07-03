@@ -8,6 +8,10 @@ sonarqube:
 github:
   enable: true
   repo_name: confluentinc/ducktape
+renovatebot:
+  enable: true
+  automerge:
+    enable: false
 semaphore:
   enable: true
   pipeline_enable: false
