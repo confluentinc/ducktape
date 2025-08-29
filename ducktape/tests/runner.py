@@ -153,7 +153,7 @@ class TestRunner(object):
         assert process.pid != os.getpid(), "Signal handler should not reach this point in a client subprocess."
         assert process.pid is not None, "Process has no pid, cannot terminate."
         if process.is_alive():
-            os.kill(process.pid, signal.SIGKILL)
+            os.kill(process.pid, signal.SIGTERM)
 
     def _join_test_process(self, process_key, timeout: int = DEFAULT_MP_JOIN_TIMEOUT):
         # waits for process to complete, if it doesn't terminate it
