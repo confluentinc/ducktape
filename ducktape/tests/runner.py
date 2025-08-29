@@ -266,8 +266,8 @@ class TestRunner(object):
                         self._log(logging.ERROR, err_str)
 
                         # All processes are on the same machine, so treat communication failure as a fatal error
-                        for proc in self._client_procs.values():
-                            self._terminate_process(proc)
+                        for proc in self._client_procs:
+                            self._join_test_process(proc, self.finish_join_timeout)
                         self._client_procs = {}
                         raise
             except KeyboardInterrupt:
