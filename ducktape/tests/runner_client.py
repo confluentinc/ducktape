@@ -458,7 +458,10 @@ class RunnerClient(object):
             msg = "%s: %s: %s" % (self.__class__.__name__, self.test_context.test_name, str(msg))
             self.logger.log(log_level, msg, *args, **kwargs)
 
-        self.send(self.message.log(msg, level=log_level))
+        try:
+            self.send(self.message.log(msg, level=log_level))
+        except Exception as e:
+            self.log(logging.WARN, f"Error sending log message: {e}")
 
     def dump_threads(self, msg):
         dump = '\n'.join([t.name for t in threading.enumerate()])
