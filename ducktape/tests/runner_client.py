@@ -193,6 +193,7 @@ class RunnerClient(object):
         python will treat SIGINT as a Keyboard exception. Exception handling does the rest.
         """
         self._kill_all_child_processes(signal.SIGINT)
+        os.kill(os.getpid(), signal.SIGINT)  # This will send SIGINT to the current process
 
     def _collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
         loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)
