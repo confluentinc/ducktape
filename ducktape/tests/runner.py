@@ -279,7 +279,7 @@ class TestRunner(object):
         # All clients should be cleaned up in their finish block
         if self._client_procs:
             self._log(logging.WARNING, f"Some clients failed to clean up, waiting 10min to join: {self._client_procs}")
-        for proc in self._client_procs:
+        for proc in list(self._client_procs):
             self._join_test_process(proc, self.finish_join_timeout)
 
         self.receiver.close()
