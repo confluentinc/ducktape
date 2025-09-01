@@ -347,7 +347,7 @@ class TestRunner(object):
                 self.session_context.debug,
                 self.session_context.fail_bad_cluster_utilization,
                 self.deflake_num,
-                self.session_context.test_runner_timeout
+                self.session_context.test_timeout
             ])
 
         self._client_procs[test_key] = proc
