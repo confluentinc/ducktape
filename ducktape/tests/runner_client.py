@@ -144,7 +144,8 @@ class RunnerClient(object):
         log_dir: str,
         debug: bool,
         fail_bad_cluster_utilization: bool,
-        deflake_num: int
+        deflake_num: int,
+        timeout: int
     ):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
@@ -165,6 +166,7 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
         self.all_services = None
+        self.single_test_timeout = timeout / 1000.0
 
     @property
     def deflake_enabled(self) -> bool:
@@ -241,7 +243,7 @@ class RunnerClient(object):
                 num_runs += 1
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
-                test_status, run_summary, data = self._do_run(num_runs)
+                test_status, run_summary, data = self._run_with_heartbeat(num_runs, self.single_test_timeout)
                 if run_summary:
                     summaries.append(run_summary)
 
@@ -337,6 +339,28 @@ class RunnerClient(object):
 
         return final_summary
 
+    def _run_with_heartbeat(self, num_runs, timeout, interval=5):
+        self._test_completed = False
+
+        def heartbeat():
+            elapsed = 0
+            while elapsed < timeout:
+                time.sleep(interval)
+                elapsed += interval
+                if self._test_completed:
+                    return
+            if not self._test_completed:
+                self.logger.warning(f"Test run exceeded timeout of {timeout} seconds, sending SIGINT to self.")
+                os.kill(os.getpid(), signal.SIGINT)
+
+        hb_thread = threading.Thread(target=heartbeat)
+        hb_thread.daemon = True
+        hb_thread.start()
+
+        self._test_completed = False
+        result = self._do_run(num_runs)
+        return result
+
     def _do_run(self, num_runs):
         test_status = FAIL
         summary = []
@@ -352,6 +376,7 @@ class RunnerClient(object):
             self.setup_test()
             data = self.run_test()
             test_status = PASS
+            self._test_completed = True
 
         except BaseException as e:
             # mark the test as failed before doing anything else
