@@ -166,6 +166,7 @@ class RunnerClient(object):
         self.test_context = None
         self.all_services = None
         self.single_test_timeout = timeout / 1000.0
+        self.shutting_down = False
 
     @property
     def deflake_enabled(self) -> bool:
@@ -193,6 +194,7 @@ class RunnerClient(object):
 
         python will treat SIGINT as a Keyboard exception. Exception handling does the rest.
         """
+        self.shutting_down = True
         self.logger.warning("Received SIGTERM, sending SIGINT to self and all child processes")
         self._kill_all_child_processes(signal.SIGINT)
         os.kill(os.getpid(), signal.SIGINT)  # This will send SIGINT to the current process
@@ -346,7 +348,7 @@ class RunnerClient(object):
 
         return final_summary
 
-    def _run_with_heartbeat(self, num_runs, timeout, interval=5):
+    def _run_with_heartbeat(self, num_runs, timeout, interval=1):
         self._test_completed = False
 
         def heartbeat():
@@ -357,7 +359,7 @@ class RunnerClient(object):
                 if self._test_completed:
                     return
             if not self._test_completed:
-                self.logger.warning(f"Test run exceeded timeout of {timeout} seconds, sending SIGINT to self.")
+                self.log(logging.WARN, f"Test run exceeded timeout of {timeout} seconds, sending SIGINT to client.")
                 os.kill(os.getpid(), signal.SIGINT)
 
         hb_thread = threading.Thread(target=heartbeat)
@@ -502,7 +504,9 @@ class RunnerClient(object):
             )
             self.logger.log(log_level, msg, *args, **kwargs)
 
-        self.send(self.message.log(msg, level=log_level))
+        # Do not send logs if shutting down as receiver is not listening
+        if not self.shutting_down:
+            self.send(self.message.log(msg, level=log_level))
 
     def dump_threads(self, msg):
         dump = "\n".join([t.name for t in threading.enumerate()])
