@@ -23,8 +23,6 @@ from typing import List, Mapping, Optional, Tuple
 
 import zmq
 import psutil
-import multiprocessing
-import queue
 
 from ducktape.services.service import MultiRunServiceIdFactory, service_id_factory
 from ducktape.services.service_registry import ServiceRegistry
@@ -145,8 +143,7 @@ class RunnerClient(object):
         log_dir: str,
         debug: bool,
         fail_bad_cluster_utilization: bool,
-        deflake_num: int,
-        timeout: int
+        deflake_num: int
     ):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
@@ -167,7 +164,6 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
         self.all_services = None
-        self.single_run_timeout = timeout
 
     @property
     def deflake_enabled(self) -> bool:
@@ -251,7 +247,7 @@ class RunnerClient(object):
                 num_runs += 1
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
-                test_status, run_summary, data = self._run_with_timeout(num_runs, self.single_run_timeout)
+                test_status, run_summary, data = self._do_run(num_runs)
                 if run_summary:
                     summaries.append(run_summary)
 
@@ -347,27 +343,6 @@ class RunnerClient(object):
             final_summary.extend(sub_summaries[-1])
 
         return final_summary
-
-
-    def _run_with_timeout(self, num_runs, timeout):
-        result_queue = multiprocessing.Queue()
-
-        def target(q):
-            result = self._do_run(num_runs)
-            q.put(result)
-
-        proc = multiprocessing.Process(target=target, args=(result_queue,))
-        proc.start()
-        proc.join(timeout)
-        if proc.is_alive():
-            self.logger.warning(f"Single Test run exceeded timeout of {timeout} seconds, sending SIGINT to process.")
-            os.kill(proc.pid, signal.SIGINT)
-            proc.join()
-            return (FAIL, None, None)
-        try:
-            return result_queue.get_nowait()
-        except queue.Empty:
-            return (FAIL, None, None)
 
     def _do_run(self, num_runs):
         test_status = FAIL
