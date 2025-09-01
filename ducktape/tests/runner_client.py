@@ -146,6 +146,8 @@ class RunnerClient(object):
         deflake_num: int,
         timeout: int
     ):
+        # Set the signal handler
+        signal.signal(signal.SIGALRM, self._timeout_handler)
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
         self.serde = SerDe()
@@ -251,7 +253,7 @@ class RunnerClient(object):
                 num_runs += 1
                 self.log(logging.INFO, "on run {}/{}".format(num_runs, self.deflake_num))
                 start_time = time.time()
-                test_status, run_summary, data = self._run_with_heartbeat(num_runs, self.single_test_timeout)
+                test_status, run_summary, data = self._run_with_signal_timeout(num_runs, self.single_test_timeout)
                 if run_summary:
                     summaries.append(run_summary)
 
@@ -347,6 +349,23 @@ class RunnerClient(object):
             final_summary.extend(sub_summaries[-1])
 
         return final_summary
+
+    class TimeoutError(Exception):
+        pass
+
+    def _timeout_handler(self, signum, frame):
+        raise RunnerClient.TimeoutError("Test execution timed out")
+
+    def _run_with_signal_timeout(self, num_runs, timeout):
+        signal.alarm(timeout)
+        try:
+            result = self._do_run(num_runs)
+        except RunnerClient.TimeoutError as e:
+            self.logger.warning(str(e))
+            result = (False, None, None)
+        finally:
+            signal.alarm(0)  # Disable the alarm
+        return result
 
     def _run_with_heartbeat(self, num_runs, timeout, interval=1):
         self._test_completed = False
