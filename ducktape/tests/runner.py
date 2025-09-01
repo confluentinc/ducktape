@@ -258,7 +258,7 @@ class TestRunner(object):
 
                 if self._expect_client_requests:
                     try:
-                        event = self.receiver.recv(timeout=self.session_context.test_runner_timeout+1000)
+                        event = self.receiver.recv(timeout=self.session_context.test_runner_timeout+5000)
                         self._handle(event)
                     except Exception as e:
                         err_str = "Exception receiving message: %s: %s" % (str(type(e)), str(e))
