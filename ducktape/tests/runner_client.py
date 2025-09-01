@@ -164,7 +164,6 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
         self.all_services = None
-        self.shutting_down = False
 
     @property
     def deflake_enabled(self) -> bool:
@@ -192,7 +191,6 @@ class RunnerClient(object):
 
         python will treat SIGINT as a Keyboard exception. Exception handling does the rest.
         """
-        self.shutting_down = True
         self.logger.warning("Received SIGTERM, sending SIGINT to self and all child processes")
         self._kill_all_child_processes(signal.SIGINT)
         os.kill(os.getpid(), signal.SIGINT)  # This will send SIGINT to the current process
@@ -478,8 +476,8 @@ class RunnerClient(object):
                 str(msg),
             )
             self.logger.log(log_level, msg, *args, **kwargs)
-        if not self.shutting_down:
-            self.send(self.message.log(msg, level=log_level))
+
+        self.send(self.message.log(msg, level=log_level))
 
     def dump_threads(self, msg):
         dump = "\n".join([t.name for t in threading.enumerate()])
