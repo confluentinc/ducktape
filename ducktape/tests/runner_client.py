@@ -290,10 +290,9 @@ class RunnerClient(object):
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
             result.report()
-            # Tell the server we are finished if not shutting down
-            if not self.shutting_down:
-                self._do_safely(lambda: self.send(self.message.finished(result=result)),
-                                "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+            # Tell the server we are finished
+            self._do_safely(lambda: self.send(self.message.finished(result=result)),
+                            "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
             self._kill_all_child_processes()
             # Release test_context resources only after creating the result and finishing logging activity
             # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
