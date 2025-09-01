@@ -167,7 +167,7 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
         self.all_services = None
-        self.single_run_timeout = timeout / 1000.0
+        self.single_run_timeout = timeout
 
     @property
     def deflake_enabled(self) -> bool:
