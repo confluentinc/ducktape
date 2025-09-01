@@ -168,7 +168,7 @@ class RunnerClient(object):
         self.test = None
         self.test_context = None
         self.all_services = None
-        self.single_test_timeout = timeout / 1000.0
+        self.single_test_timeout = timeout / 1000
         self.shutting_down = False
 
     @property
