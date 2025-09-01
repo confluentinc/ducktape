@@ -192,6 +192,7 @@ class RunnerClient(object):
 
         python will treat SIGINT as a Keyboard exception. Exception handling does the rest.
         """
+        self.logger.warning("Received SIGTERM, sending SIGINT to self and all child processes")
         self._kill_all_child_processes(signal.SIGINT)
         os.kill(os.getpid(), signal.SIGINT)  # This will send SIGINT to the current process
 
