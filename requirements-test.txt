@@ -5,5 +5,5 @@ memory_profiler==0.57
 statistics==1.0.3.5
 requests-testadapter==0.3.0
 flake8~=6.1.0
-pytest-cov~=3.0
+pytest-cov>=3.0,<8
 pytest-xdist~=2.5
