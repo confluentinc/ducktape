@@ -233,7 +233,7 @@ class TestResults(object):
             "num_ignored": self.num_ignored,
             "parallelism": parallelism,
             "client_status": {str(key): value for key, value in self.client_status.items()},
-            "results": [r for r in self._results]
+            "results": [r for r in self._results],
         }
         if self.num_flaky:
             result["num_flaky"] = self.num_flaky
