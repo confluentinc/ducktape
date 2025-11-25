@@ -39,10 +39,11 @@ from ducktape.tests.reporter import (
 )
 from ducktape.tests.result import FAIL, TestResult, TestResults
 from ducktape.tests.runner_client import run_client
-from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.serde import SerDe
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test_context import TestContext
+from ducktape.tests.result import FAIL, TestResult
+from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter, JUnitReporter
 from ducktape.utils import persistence
 from ducktape.utils.terminal_size import get_terminal_size
 
@@ -354,7 +355,6 @@ class TestRunner(object):
         self.client_report[test_key]["name"] = proc.name
         self.client_report[test_key]["runner_start_time"] = time.time()
 
-
     def _preallocate_subcluster(self, test_context):
         """Preallocate the subcluster which will be used to run the test.
 
@@ -428,8 +428,9 @@ class TestRunner(object):
         test_results = copy.copy(self.results)  # shallow copy
         reporters = [
             SimpleFileSummaryReporter(test_results),
-            HTMLSummaryReporter(test_results),
+            HTMLSummaryReporter(test_results, self.total_tests),
             JSONReporter(test_results),
+            JUnitReporter(test_results)
         ]
         for r in reporters:
             r.report()

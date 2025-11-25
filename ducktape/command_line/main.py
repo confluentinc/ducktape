@@ -148,6 +148,7 @@ def main():
         injected_args=injected_args,
         subset=args_dict["subset"],
         subsets=args_dict["subsets"],
+        historical_report=args_dict["historical_report"],
     )
     try:
         tests = loader.load(args_dict["test_path"], excluded_test_symbols=args_dict["exclude"])
@@ -155,8 +156,11 @@ def main():
         print("Failed while trying to discover tests: {}".format(e))
         sys.exit(1)
 
+    expected_test_count = len(tests)
+    session_logger.info(f"Discovered {expected_test_count} tests to run")
+
     if args_dict["collect_only"]:
-        print("Collected %d tests:" % len(tests))
+        print("Collected %d tests:" % expected_test_count)
         for test in tests:
             print("    " + str(test))
         sys.exit(0)
@@ -214,7 +218,7 @@ def main():
     reporters = [
         SimpleStdoutSummaryReporter(test_results),
         SimpleFileSummaryReporter(test_results),
-        HTMLSummaryReporter(test_results),
+        HTMLSummaryReporter(test_results, expected_test_count),
         JSONReporter(test_results),
         JUnitReporter(test_results),
         FailedTestSymbolReporter(test_results),
@@ -224,6 +228,13 @@ def main():
         r.report()
 
     update_latest_symlink(args_dict["results_root"], results_dir)
+
+    if len(test_results) < expected_test_count:
+        session_logger.warning(
+            f"All tests were NOT run. Expected {expected_test_count} tests, only {len(test_results)} were run.")
+        close_logger(session_logger)
+        sys.exit(1)
+
     close_logger(session_logger)
     if not test_results.get_aggregate_success():
         # Non-zero exit if at least one test failed
