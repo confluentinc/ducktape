@@ -21,7 +21,6 @@ import os
 import signal
 import time
 import traceback
-from collections import namedtuple
 from typing import Dict, List
 
 import zmq
@@ -47,6 +46,7 @@ from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.serde import SerDe
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test_context import TestContext
+from ducktape.tests.reporter import JUnitReporter
 from ducktape.utils import persistence
 from ducktape.utils.terminal_size import get_terminal_size
 
@@ -113,8 +113,8 @@ class TestRunner(object):
         deflake_num: int,
         min_port: int = ConsoleDefaults.TEST_DRIVER_MIN_PORT,
         max_port: int = ConsoleDefaults.TEST_DRIVER_MAX_PORT,
-        finish_join_timeout: int = DEFAULT_MP_JOIN_TIMEOUT
-    ):
+        finish_join_timeout: int = DEFAULT_MP_JOIN_TIMEOUT,
+    ) -> None:
         # Set handler for SIGTERM (aka kill -15)
         # Note: it doesn't work to set a handler for SIGINT (Ctrl-C) in this parent process because the
         # handler is inherited by all forked child processes, and it prevents the default python behavior
@@ -154,6 +154,7 @@ class TestRunner(object):
     def _terminate_process(self, process: multiprocessing.Process):
         # use os.kill rather than multiprocessing.terminate for more control
         assert process.pid != os.getpid(), "Signal handler should not reach this point in a client subprocess."
+        assert process.pid is not None, "Process has no pid, cannot terminate."
         if process.is_alive():
             os.kill(process.pid, signal.SIGKILL)
 
@@ -165,12 +166,13 @@ class TestRunner(object):
             if not process.is_alive():
                 self.client_report[process_key]["status"] = "FINISHED"
                 break
-            time.sleep(.1)
+            time.sleep(0.1)
         else:
             # Note: This can lead to some tmp files being uncleaned, otherwise nothing else should be executed by the
             #       client after this point.
-            self._log(logging.ERROR,
-                      f"after waiting {timeout}s, process {process.name} failed to complete.  Terminating...")
+            self._log(
+                logging.ERROR, f"after waiting {timeout}s, process {process.name} failed to complete.  Terminating..."
+            )
             self._terminate_process(process)
             self.client_report[process_key]["status"] = "TERMINATED"
         process.join()

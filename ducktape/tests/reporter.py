@@ -337,20 +337,20 @@ class HTMLSummaryReporter(SummaryReporter):
                 raise Exception("Unknown test status in report: {}".format(result.test_status.to_json()))
 
         args = {
-            'ducktape_version': ducktape_version(),
-            'expected_test_count': self.expected_test_count,
-            'num_tests_run': num_tests_run,
-            'num_passes': self.results.num_passed,
-            'num_flaky': self.results.num_flaky,
-            'num_failures': self.results.num_failed,
-            'num_ignored': self.results.num_ignored,
-            'run_time': format_time(self.results.run_time_seconds),
-            'session': self.results.session_context.session_id,
-            'passed_tests': "".join(passed_result_string),
-            'flaky_tests': "".join(flaky_result_string),
-            'failed_tests': "".join(failed_result_string),
-            'ignored_tests': "".join(ignored_result_string),
-            'test_status_names': ",".join([f"'{status}'" for status in [PASS, FAIL, IGNORE, FLAKY]])
+            "ducktape_version": ducktape_version(),
+            "expected_test_count": self.expected_test_count,
+            "num_tests_run": num_tests_run,
+            "num_passes": self.results.num_passed,
+            "num_flaky": self.results.num_flaky,
+            "num_failures": self.results.num_failed,
+            "num_ignored": self.results.num_ignored,
+            "run_time": format_time(self.results.run_time_seconds),
+            "session": self.results.session_context.session_id,
+            "passed_tests": "".join(passed_result_string),
+            "flaky_tests": "".join(flaky_result_string),
+            "failed_tests": "".join(failed_result_string),
+            "ignored_tests": "".join(ignored_result_string),
+            "test_status_names": ",".join(f"'{status}'" for status in (PASS, FAIL, IGNORE, FLAKY)),
         }
 
         html = template % args

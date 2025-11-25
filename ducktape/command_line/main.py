@@ -231,7 +231,8 @@ def main():
 
     if len(test_results) < expected_test_count:
         session_logger.warning(
-            f"All tests were NOT run. Expected {expected_test_count} tests, only {len(test_results)} were run.")
+            f"All tests were NOT run. Expected {expected_test_count} tests, only {len(test_results)} were run."
+        )
         close_logger(session_logger)
         sys.exit(1)
 
