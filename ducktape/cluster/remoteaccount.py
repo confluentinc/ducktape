@@ -12,24 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from contextlib import contextmanager
 import logging
 import os
-from paramiko import SSHClient, SSHConfig, MissingHostKeyPolicy
-from paramiko.ssh_exception import SSHException, NoValidConnectionsError
 import shutil
 import signal
 import socket
 import stat
 import tempfile
 import warnings
+from contextlib import contextmanager
+from typing import Callable, List, Optional, Union
 
+from paramiko import MissingHostKeyPolicy, SFTPClient, SSHClient, SSHConfig
+from paramiko.ssh_exception import NoValidConnectionsError, SSHException
+
+from ducktape.errors import DucktapeError
 from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
-from ducktape.errors import DucktapeError
 
 
-def check_ssh(method):
+def check_ssh(method: Callable) -> Callable:
     def wrapper(self, *args, **kwargs):
         try:
             return method(self, *args, **kwargs)
@@ -37,23 +39,36 @@ def check_ssh(method):
             if self._custom_ssh_exception_checks:
                 self._log(logging.DEBUG, "caught ssh error", exc_info=True)
                 self._log(logging.DEBUG, "starting ssh checks:")
-                self._log(logging.DEBUG, "\n".join(repr(f) for f in self._custom_ssh_exception_checks))
+                self._log(
+                    logging.DEBUG,
+                    "\n".join(repr(f) for f in self._custom_ssh_exception_checks),
+                )
                 for func in self._custom_ssh_exception_checks:
                     func(e, self)
             raise
+
     return wrapper
 
 
 class RemoteAccountSSHConfig(object):
-    def __init__(self, host=None, hostname=None, user=None, port=None, password=None, identityfile=None,
-                 connecttimeout=None, **kwargs):
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        hostname: Optional[str] = None,
+        user: Optional[str] = None,
+        port: Optional[int] = None,
+        password: Optional[str] = None,
+        identityfile: Optional[str] = None,
+        connecttimeout: Optional[Union[int, float]] = None,
+        **kwargs,
+    ) -> None:
         """Wrapper for ssh configs used by ducktape to connect to remote machines.
 
         The fields in this class are lowercase versions of a small selection of ssh config properties
         (see man page: "man ssh_config")
         """
         self.host = host
-        self.hostname = hostname or 'localhost'
+        self.hostname: str = hostname or "localhost"
         self.user = user
         self.port = port or 22
         self.port = int(self.port)
@@ -76,8 +91,8 @@ class RemoteAccountSSHConfig(object):
         config.parse(config_str.split("\n"))
 
         hostnames = config.get_hostnames()
-        if '*' in hostnames:
-            hostnames.remove('*')
+        if "*" in hostnames:
+            hostnames.remove("*")
         assert len(hostnames) == 1, "Expected hostnames to have single entry: %s" % hostnames
         host = hostnames.pop()
 
@@ -102,8 +117,7 @@ class RemoteAccountSSHConfig(object):
 
 
 class RemoteAccountError(DucktapeError):
-    """This exception is raised when an attempted action on a remote node fails.
-    """
+    """This exception is raised when an attempted action on a remote node fails."""
 
     def __init__(self, account, msg):
         self.account_str = str(account)
@@ -114,8 +128,7 @@ class RemoteAccountError(DucktapeError):
 
 
 class RemoteCommandError(RemoteAccountError):
-    """This exception is raised when a process run by ssh*() returns a non-zero exit status.
-    """
+    """This exception is raised when a process run by ssh*() returns a non-zero exit status."""
 
     def __init__(self, account, cmd, exit_status, msg):
         self.account_str = str(account)
@@ -124,7 +137,11 @@ class RemoteCommandError(RemoteAccountError):
         self.msg = msg
 
     def __str__(self):
-        msg = "%s: Command '%s' returned non-zero exit status %d." % (self.account_str, self.cmd, self.exit_status)
+        msg = "%s: Command '%s' returned non-zero exit status %d." % (
+            self.account_str,
+            self.cmd,
+            self.exit_status,
+        )
         if self.msg:
             msg += " Remote error message: %s" % self.msg
         return msg
@@ -139,7 +156,13 @@ class RemoteAccount(HttpMixin):
     Each operating system has its own RemoteAccount implementation.
     """
 
-    def __init__(self, ssh_config, externally_routable_ip=None, logger=None, ssh_exception_checks=[]):
+    def __init__(
+        self,
+        ssh_config: RemoteAccountSSHConfig,
+        externally_routable_ip: Optional[str] = None,
+        logger: Optional[logging.Logger] = None,
+        ssh_exception_checks: List[Callable] = [],
+    ) -> None:
         # Instance of RemoteAccountSSHConfig - use this instead of a dict, because we need the entire object to
         # be hashable
         self.ssh_config = ssh_config
@@ -155,13 +178,13 @@ class RemoteAccount(HttpMixin):
         self.user = ssh_config.user
         self.externally_routable_ip = externally_routable_ip
         self._logger = logger
-        self.os = None
-        self._ssh_client = None
-        self._sftp_client = None
+        self.os: Optional[str] = None
+        self._ssh_client: Optional[SSHClient] = None
+        self._sftp_client: Optional[SFTPClient] = None
         self._custom_ssh_exception_checks = ssh_exception_checks
 
     @property
-    def operating_system(self):
+    def operating_system(self) -> Optional[str]:
         return self.os
 
     @property
@@ -193,7 +216,8 @@ class RemoteAccount(HttpMixin):
             password=self.ssh_config.password,
             key_filename=self.ssh_config.identityfile,
             look_for_keys=False,
-            timeout=self.ssh_config.connecttimeout)
+            timeout=self.ssh_config.connecttimeout,
+        )
 
         if self._ssh_client:
             self._ssh_client.close()
@@ -202,14 +226,15 @@ class RemoteAccount(HttpMixin):
 
     @property
     def ssh_client(self):
-        if (self._ssh_client
-                and self._ssh_client.get_transport()
-                and self._ssh_client.get_transport().is_active()):
+        if self._ssh_client and self._ssh_client.get_transport() and self._ssh_client.get_transport().is_active():
             try:
                 transport = self._ssh_client.get_transport()
                 transport.send_ignore()
             except Exception as e:
-                self._log(logging.DEBUG, "exception getting ssh_client (creating new client): %s" % str(e))
+                self._log(
+                    logging.DEBUG,
+                    "exception getting ssh_client (creating new client): %s" % str(e),
+                )
                 self._set_ssh_client()
         else:
             self._set_ssh_client()
@@ -230,7 +255,7 @@ class RemoteAccount(HttpMixin):
 
         return self._sftp_client
 
-    def close(self):
+    def close(self) -> None:
         """Close/release any outstanding network connections to remote account."""
 
         if self._ssh_client:
@@ -256,18 +281,25 @@ class RemoteAccount(HttpMixin):
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
 
-    def wait_for_http_service(self, port, headers, timeout=20, path='/'):
+    def wait_for_http_service(self, port, headers, timeout=20, path="/"):
         """Wait until this service node is available/awake."""
         url = "http://%s:%s%s" % (self.externally_routable_ip, str(port), path)
 
-        err_msg = "Timed out trying to contact service on %s. " % url + \
-            "Either the service failed to start, or there is a problem with the url."
-        wait_until(lambda: self._can_ping_url(url, headers), timeout_sec=timeout, backoff_sec=.25, err_msg=err_msg)
+        err_msg = (
+            "Timed out trying to contact service on %s. " % url
+            + "Either the service failed to start, or there is a problem with the url."
+        )
+        wait_until(
+            lambda: self._can_ping_url(url, headers),
+            timeout_sec=timeout,
+            backoff_sec=0.25,
+            err_msg=err_msg,
+        )
 
     def _can_ping_url(self, url, headers):
         """See if we can successfully issue a GET request to the given url."""
         try:
-            self.http_request(url, "GET", None, headers, timeout=.75)
+            self.http_request(url, "GET", None, headers, timeout=0.75)
             return True
         except Exception:
             return False
@@ -309,8 +341,11 @@ class RemoteAccount(HttpMixin):
                 if not allow_fail:
                     raise RemoteCommandError(self, cmd, exit_status, stderr.read())
                 else:
-                    self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
-                              (cmd, exit_status, stderr.read()))
+                    self._log(
+                        logging.DEBUG,
+                        "Running ssh command '%s' exited with status %d and message: %s"
+                        % (cmd, exit_status, stderr.read()),
+                    )
         finally:
             stdin.close()
             stdout.close()
@@ -319,7 +354,14 @@ class RemoteAccount(HttpMixin):
         return exit_status
 
     @check_ssh
-    def ssh_capture(self, cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
+    def ssh_capture(
+        self,
+        cmd,
+        allow_fail=False,
+        callback=None,
+        combine_stderr=True,
+        timeout_sec=None,
+    ):
         """Run the given command asynchronously via ssh, and return an SSHOutputIter object.
 
         Does *not* block
@@ -345,14 +387,12 @@ class RemoteAccount(HttpMixin):
         chan.exec_command(cmd)
         chan.set_combine_stderr(combine_stderr)
 
-        stdin = chan.makefile('wb', -1)  # set bufsize to -1
-        stdout = chan.makefile('r', -1)
-        stderr = chan.makefile_stderr('r', -1)
+        stdin = chan.makefile("wb", -1)  # set bufsize to -1
+        stdout = chan.makefile("r", -1)
+        stderr = chan.makefile_stderr("r", -1)
 
         def output_generator():
-
-            for line in iter(stdout.readline, ''):
-
+            for line in iter(stdout.readline, ""):
                 if callback is None:
                     yield line
                 else:
@@ -363,8 +403,11 @@ class RemoteAccount(HttpMixin):
                     if not allow_fail:
                         raise RemoteCommandError(self, cmd, exit_status, stderr.read())
                     else:
-                        self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
-                                  (cmd, exit_status, stderr.read()))
+                        self._log(
+                            logging.DEBUG,
+                            "Running ssh command '%s' exited with status %d and message: %s"
+                            % (cmd, exit_status, stderr.read()),
+                        )
             finally:
                 stdin.close()
                 stdout.close()
@@ -395,9 +438,9 @@ class RemoteAccount(HttpMixin):
         chan.exec_command(cmd)
         chan.set_combine_stderr(combine_stderr)
 
-        stdin = chan.makefile('wb', -1)  # set bufsize to -1
-        stdout = chan.makefile('r', -1)
-        stderr = chan.makefile_stderr('r', -1)
+        stdin = chan.makefile("wb", -1)  # set bufsize to -1
+        stdout = chan.makefile("r", -1)
+        stderr = chan.makefile_stderr("r", -1)
 
         try:
             stdoutdata = stdout.read()
@@ -406,8 +449,11 @@ class RemoteAccount(HttpMixin):
                 if not allow_fail:
                     raise RemoteCommandError(self, cmd, exit_status, stderr.read())
                 else:
-                    self._log(logging.DEBUG, "Running ssh command '%s' exited with status %d and message: %s" %
-                              (cmd, exit_status, stderr.read()))
+                    self._log(
+                        logging.DEBUG,
+                        "Running ssh command '%s' exited with status %d and message: %s"
+                        % (cmd, exit_status, stderr.read()),
+                    )
         finally:
             stdin.close()
             stdout.close()
@@ -519,7 +565,7 @@ class RemoteAccount(HttpMixin):
         #   os.path.basename("the/path/") == ""
         #   os.path.basename("the/path") == "path"
         if path_basename.endswith(os.path.sep):
-            path_basename = path_basename[:-len(os.path.sep)]
+            path_basename = path_basename[: -len(os.path.sep)]
         path_basename = os.path.basename(path_basename)
 
         return os.path.join(directory, path_basename)
@@ -553,7 +599,6 @@ class RemoteAccount(HttpMixin):
 
     @check_ssh
     def copy_to(self, src, dest):
-
         if self.isdir(dest):
             # dest is an existing directory, so assuming src looks like path/to/src_name,
             # in this case we'll copy as:
@@ -618,7 +663,7 @@ class RemoteAccount(HttpMixin):
         except Exception:
             return False
 
-    def open(self, path, mode='r'):
+    def open(self, path, mode="r"):
         return self.sftp_client.open(path, mode)
 
     @check_ssh
@@ -633,7 +678,7 @@ class RemoteAccount(HttpMixin):
         with self.sftp_client.open(path, "w") as f:
             f.write(contents)
 
-    _DEFAULT_PERMISSIONS = int('755', 8)
+    _DEFAULT_PERMISSIONS = int("755", 8)
 
     @check_ssh
     def mkdir(self, path, mode=_DEFAULT_PERMISSIONS):
@@ -672,8 +717,7 @@ class RemoteAccount(HttpMixin):
 
 
 class SSHOutputIter(object):
-    """Helper class that wraps around an iterable object to provide has_next() in addition to next()
-    """
+    """Helper class that wraps around an iterable object to provide has_next() in addition to next()"""
 
     def __init__(self, iter_obj_func, channel_file=None):
         """
@@ -750,8 +794,14 @@ class LogMonitor(object):
         offset recorded when the LogMonitor was created. Additional keyword args
         are passed directly to ``ducktape.utils.util.wait_until``
         """
-        return wait_until(lambda: self.acct.ssh("tail -c +%d %s | grep '%s'" % (self.offset + 1, self.log, pattern),
-                                                allow_fail=True) == 0, **kwargs)
+        return wait_until(
+            lambda: self.acct.ssh(
+                "tail -c +%d %s | grep '%s'" % (self.offset + 1, self.log, pattern),
+                allow_fail=True,
+            )
+            == 0,
+            **kwargs,
+        )
 
 
 class IgnoreMissingHostKeyPolicy(MissingHostKeyPolicy):

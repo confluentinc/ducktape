@@ -20,7 +20,7 @@ from tests.ducktape_mock import FakeCluster
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.services.service import Service
 
-FakeContext = collections.namedtuple('FakeContext', ['test_id', 'expected_num_nodes', 'expected_cluster_spec'])
+FakeContext = collections.namedtuple("FakeContext", ["test_id", "expected_num_nodes", "expected_cluster_spec"])
 
 
 class CheckScheduler(object):
@@ -28,7 +28,11 @@ class CheckScheduler(object):
         self.cluster = FakeCluster(100)
         self.tc0 = FakeContext(0, expected_num_nodes=10, expected_cluster_spec=ClusterSpec.simple_linux(10))
         self.tc1 = FakeContext(1, expected_num_nodes=50, expected_cluster_spec=ClusterSpec.simple_linux(50))
-        self.tc2 = FakeContext(2, expected_num_nodes=100, expected_cluster_spec=ClusterSpec.simple_linux(100))
+        self.tc2 = FakeContext(
+            2,
+            expected_num_nodes=100,
+            expected_cluster_spec=ClusterSpec.simple_linux(100),
+        )
         self.tc_list = [
             self.tc0,
             self.tc1,
@@ -43,7 +47,7 @@ class CheckScheduler(object):
         assert scheduler.peek() is None
 
     def check_non_empty_cluster_too_small(self):
-        """Ensure that scheduler does not return tests if the cluster does not have enough available nodes. """
+        """Ensure that scheduler does not return tests if the cluster does not have enough available nodes."""
 
         scheduler = TestScheduler(self.tc_list, self.cluster)
         assert len(scheduler) == len(self.tc_list)
@@ -73,7 +77,7 @@ class CheckScheduler(object):
             c -= 1
 
     def check_with_changing_cluster_availability(self):
-        """Modify cluster usage in between calls to next() """
+        """Modify cluster usage in between calls to next()"""
 
         scheduler = TestScheduler(self.tc_list, self.cluster)
 
@@ -88,7 +92,7 @@ class CheckScheduler(object):
 
         # return 10 nodes, so 50 are available in the cluster
         # next test from the scheduler should be test id 1 (which needs 50 nodes)
-        return_nodes = nodes[: 10]
+        return_nodes = nodes[:10]
         keep_nodes = nodes[10:]
         self.cluster.free(return_nodes)
         assert self.cluster.num_available_nodes() == 50
