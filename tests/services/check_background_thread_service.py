@@ -46,7 +46,7 @@ class DummyService(BackgroundThreadService):
 
         end = time.time() + self.run_time_sec
         while self.running:
-            time.sleep(.1)
+            time.sleep(0.1)
             if time.time() > end:
                 self.running = False
                 break
@@ -56,7 +56,6 @@ class DummyService(BackgroundThreadService):
 
 
 class CheckBackgroundThreadService(object):
-
     def setup_method(self, method):
         self.context = test_context()
 
@@ -74,10 +73,10 @@ class CheckBackgroundThreadService(object):
 
     def check_service_timeout(self):
         """Test that wait(timeout_sec) raise a TimeoutError in approximately the expected time."""
-        self.service = DummyService(self.context, float('inf'))
+        self.service = DummyService(self.context, float("inf"))
         self.service.start()
         start = time.time()
-        timeout_sec = .1
+        timeout_sec = 0.1
         try:
             self.service.wait(timeout_sec=timeout_sec)
             raise Exception("Expected service to timeout.")
@@ -87,36 +86,37 @@ class CheckBackgroundThreadService(object):
             # within 10% should be reasonable
             actual_timeout = end - start
             relative_difference = abs(timeout_sec - actual_timeout) / timeout_sec
-            assert relative_difference < .1, \
-                "Correctly threw timeout error, but timeout doesn't match closely with expected timeout. " + \
-                "(expected timeout, actual timeout): (%s, %s)" % (str(timeout_sec), str(actual_timeout))
+            assert relative_difference < 0.1, (
+                "Correctly threw timeout error, but timeout doesn't match closely with expected timeout. "
+                + "(expected timeout, actual timeout): (%s, %s)" % (str(timeout_sec), str(actual_timeout))
+            )
 
     def check_no_timeout(self):
         """Run an instance of DummyService with a short run_time_sec. It should stop without
         timing out."""
 
-        self.service = DummyService(self.context, run_time_sec=.1)
+        self.service = DummyService(self.context, run_time_sec=0.1)
         self.service.start()
-        self.service.wait(timeout_sec=.5)
+        self.service.wait(timeout_sec=0.5)
 
     def check_wait_node(self):
-        self.service = DummyService(self.context, run_time_sec=float('inf'))
+        self.service = DummyService(self.context, run_time_sec=float("inf"))
         self.service.start()
         node = self.service.nodes[0]
-        assert not self.service.wait_node(node, timeout_sec=.1)
+        assert not self.service.wait_node(node, timeout_sec=0.1)
         self.service.stop_node(node)
         assert self.service.wait_node(node)
 
     def check_wait_node_no_start(self):
-        self.service = DummyService(self.context, run_time_sec=float('inf'))
+        self.service = DummyService(self.context, run_time_sec=float("inf"))
         node = self.service.nodes[0]
         assert self.service.wait_node(node)
 
     def check_background_exception(self):
-        self.service = DummyService(self.context, float('inf'), Exception('failure'))
+        self.service = DummyService(self.context, float("inf"), Exception("failure"))
         self.service.start()
         with pytest.raises(Exception):
             self.service.wait(timeout_sec=1)
         with pytest.raises(Exception):
             self.service.stop(timeout_sec=1)
-        assert hasattr(self.service, 'errors')
+        assert hasattr(self.service, "errors")

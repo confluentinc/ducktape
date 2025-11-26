@@ -14,7 +14,7 @@
 
 
 class TestStatus(object):
-    def __init__(self, status):
+    def __init__(self, status: str) -> None:
         self._status = str(status).lower()
 
     def __eq__(self, other):

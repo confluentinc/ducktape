@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.cluster.cluster_spec import ClusterSpec
-from ducktape.command_line.defaults import ConsoleDefaults
-from ducktape.template import TemplateRenderer
-from ducktape.errors import TimeoutError
-
 import os
 import shutil
 import tempfile
 import time
+from typing import Any, Dict
+
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.command_line.defaults import ConsoleDefaults
+from ducktape.errors import TimeoutError
+from ducktape.template import TemplateRenderer
 
 
 class ServiceIdFactory:
@@ -28,7 +29,7 @@ class ServiceIdFactory:
         return "{service_name}-{service_number}-{service_id}".format(
             service_name=service.__class__.__name__,
             service_number=service._order,
-            service_id=id(service)
+            service_id=id(service),
         )
 
 
@@ -41,7 +42,7 @@ class MultiRunServiceIdFactory:
             run_number=self.run_number,
             service_name=service.__class__.__name__,
             service_number=service._order,
-            service_id=id(service)
+            service_id=id(service),
         )
 
 
@@ -74,7 +75,7 @@ class Service(TemplateRenderer):
     #    "zk_log": {"path": "/mnt/zk.log",
     #               "collect_default": True}
     # }
-    logs = {}
+    logs: Dict[str, Dict[str, Any]] = {}
 
     def __init__(self, context, num_nodes=None, cluster_spec=None, *args, **kwargs):
         """
@@ -134,8 +135,10 @@ class Service(TemplateRenderer):
             return ClusterSpec.simple_linux(num_nodes)
 
     def __repr__(self):
-        return "<%s: %s>" % (self.who_am_i(), "num_nodes: %d, nodes: %s" %
-                             (len(self.nodes), [n.account.hostname for n in self.nodes]))
+        return "<%s: %s>" % (
+            self.who_am_i(),
+            "num_nodes: %d, nodes: %s" % (len(self.nodes), [n.account.hostname for n in self.nodes]),
+        )
 
     @property
     def num_nodes(self):
@@ -204,7 +207,11 @@ class Service(TemplateRenderer):
         if node is None:
             return self.service_id
         else:
-            return "%s node %d on %s" % (self.service_id, self.idx(node), node.account.hostname)
+            return "%s node %d on %s" % (
+                self.service_id,
+                self.idx(node),
+                node.account.hostname,
+            )
 
     def allocate_nodes(self):
         """Request resources from the cluster."""
@@ -229,7 +236,8 @@ class Service(TemplateRenderer):
                 raise RuntimeError(
                     "logger was not None on service start. There may be a concurrency issue, "
                     "or some service which isn't properly cleaning up after itself. "
-                    "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account)))
+                    "Service: %s, node.account: %s" % (self.__class__.__name__, str(node.account))
+                )
             node.account.logger = self.logger
 
         self.logger.debug("Successfully allocated %d nodes to %s" % (len(self.nodes), self.who_am_i()))
@@ -253,7 +261,7 @@ class Service(TemplateRenderer):
                 pass
 
             try:
-                if kwargs.get('clean', True):
+                if kwargs.get("clean", True):
                     self.clean_node(node)
                 else:
                     self.logger.debug("%s: skip cleaning node" % self.who_am_i(node))
@@ -290,8 +298,11 @@ class Service(TemplateRenderer):
                 unfinished_nodes.append(node_name)
 
         if unfinished_nodes:
-            raise TimeoutError("Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec)
-                               + "These nodes are still alive: " + str(unfinished_nodes))
+            raise TimeoutError(
+                "Timed out waiting %s seconds for service nodes to finish. " % str(timeout_sec)
+                + "These nodes are still alive: "
+                + str(unfinished_nodes)
+            )
 
     def wait_node(self, node, timeout_sec=None):
         """Wait for the service on the given node to finish.
@@ -327,9 +338,10 @@ class Service(TemplateRenderer):
 
     def clean_node(self, node, **kwargs):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
-        self.logger.warn("%s: clean_node has not been overriden. "
-                         "This may be fine if the service leaves no persistent state."
-                         % self.who_am_i())
+        self.logger.warn(
+            "%s: clean_node has not been overriden. "
+            "This may be fine if the service leaves no persistent state." % self.who_am_i()
+        )
 
     def free(self):
         """Free each node. This 'deallocates' the nodes so the cluster can assign them to other services."""
@@ -368,8 +380,8 @@ class Service(TemplateRenderer):
     @staticmethod
     def run_parallel(*args):
         """Helper to run a set of services in parallel. This is useful if you want
-           multiple services of different types to run concurrently, e.g. a
-           producer + consumer pair.
+        multiple services of different types to run concurrently, e.g. a
+        producer + consumer pair.
         """
         for svc in args:
             svc.start()
@@ -382,15 +394,14 @@ class Service(TemplateRenderer):
         return {
             "cls_name": self.__class__.__name__,
             "module_name": self.__module__,
-
             "lifecycle": {
                 "init_time": self._init_time,
                 "start_time": self._start_time,
                 "start_duration_seconds": self._start_duration_seconds,
                 "stop_time": self._stop_time,
                 "stop_duration_seconds": self._stop_duration_seconds,
-                "clean_time": self._clean_time
+                "clean_time": self._clean_time,
             },
             "service_id": self.service_id,
-            "nodes": self._nodes_formerly_allocated
+            "nodes": self._nodes_formerly_allocated,
         }

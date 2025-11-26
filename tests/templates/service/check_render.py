@@ -62,7 +62,7 @@ class TemplateRenderingService(Service):
 
     def render_overload(self):
         self.normal = "normal"
-        assert self.render_template(self.OVERLOAD_VARIABLES, overload='overloaded') == "normal overloaded"
+        assert self.render_template(self.OVERLOAD_VARIABLES, overload="overloaded") == "normal overloaded"
 
     def render_class_template(self):
         assert self.render_template(self.CLASS_CONSTANT_TEMPLATE) == self.CLASS_CONSTANT
