@@ -19,15 +19,15 @@ from ducktape.mark import matrix
 
 
 class FailsToInitInSetupTest(Test):
-    """All tests in this class fail to initialize due to an exception in setUp() method
-    """
+    """All tests in this class fail to initialize due to an exception in setUp() method"""
+
     def __init__(self, test_context):
         super(FailsToInitInSetupTest, self).__init__(test_context)
 
     def setUp(self):
         x = None
-        x.split(':')
+        x.split(":")
 
     @matrix(x=[_ for _ in range(2)])
     def test_nothing(self):
-        self.logger.info('NOTHING')
+        self.logger.info("NOTHING")

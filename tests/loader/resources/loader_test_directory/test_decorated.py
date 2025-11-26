@@ -21,6 +21,7 @@ NUM_TESTS = 18
 
 class TestMatrix(Test):
     """8 tests here"""
+
     @matrix(x=[1, 2], y=["I'm", " a ", "test ", "matrix!"])
     def test_thing(self, x, y):
         pass
@@ -28,6 +29,7 @@ class TestMatrix(Test):
 
 class TestStackedMatrix(Test):
     """4 tests"""
+
     @matrix(x=[1, 2], y=[-1, 0])
     def test_thing(self, x, y):
         pass
@@ -47,15 +49,15 @@ class TestParametrized(Test):
 
 
 class TestParametrizdeSpecial(Test):
-    @parametrize(version="6.1.0", chars="!@#$%^&*()_+::.,/? \"{}\\")
+    @parametrize(version="6.1.0", chars='!@#$%^&*()_+::.,/? "{}\\')
     def test_special_characters_params(self, version, chars):
         """1 tests"""
         pass
 
 
 class TestObjectParameters(Test):
-    @parametrize(d={'a': 'A'}, lst=['whatever'])
-    @parametrize(d={'z': 'Z'}, lst=['something'])
+    @parametrize(d={"a": "A"}, lst=["whatever"])
+    @parametrize(d={"z": "Z"}, lst=["something"])
     def test_thing(self, d, lst):
         """2 tests"""
         pass
