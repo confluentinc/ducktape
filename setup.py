@@ -51,6 +51,6 @@ setup(
     python_requires=">= 3.6",
     install_requires=open("requirements.txt").read(),
     extras_require={"test": test_req},
-    setup_requires=["flake8==3.8.3"],
+    setup_requires=["ruff==0.4.10"],
     cmdclass={"test": PyTest},
 )
