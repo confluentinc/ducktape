@@ -54,13 +54,14 @@ class ClientEventFactory(object):
             "test_index": self.test_index,
             "event_id": self.event_id,
             "event_type": event_type,
-            "event_time": time.time()
+            "event_time": time.time(),
         }
 
-        assert len(set(event.keys()).intersection(set(payload.keys()))) == 0, \
+        assert len(set(event.keys()).intersection(set(payload.keys()))) == 0, (
             "Payload and base event should not share keys. base event: %s, payload: %s" % (str(event), str(payload))
+        )
 
-        event. update(payload)
+        event.update(payload)
         self.event_id += 1
         return event
 
@@ -75,41 +76,25 @@ class ClientEventFactory(object):
     def running(self):
         return self._event(
             event_type=ClientEventFactory.RUNNING,
-            payload={
-                "pid": os.getpid(),
-                "pgroup_id": os.getpgrp()
-            }
+            payload={"pid": os.getpid(), "pgroup_id": os.getpgrp()},
         )
 
     def ready(self):
         return self._event(
             event_type=ClientEventFactory.READY,
-            payload={
-                "pid": os.getpid(),
-                "pgroup_id": os.getpgrp()
-            }
+            payload={"pid": os.getpid(), "pgroup_id": os.getpgrp()},
         )
 
     def setting_up(self):
-        return self._event(
-            event_type=ClientEventFactory.SETTING_UP
-        )
+        return self._event(event_type=ClientEventFactory.SETTING_UP)
 
     def finished(self, result):
-        return self._event(
-            event_type=ClientEventFactory.FINISHED,
-            payload={
-                "result": result
-            }
-        )
+        return self._event(event_type=ClientEventFactory.FINISHED, payload={"result": result})
 
     def log(self, message, level):
         return self._event(
             event_type=ClientEventFactory.LOG,
-            payload={
-                "message": message,
-                "log_level": level
-            }
+            payload={"message": message, "log_level": level},
         )
 
 
@@ -123,12 +108,13 @@ class EventResponseFactory(object):
         event_response = {
             "ack": True,
             "source_id": client_event["source_id"],
-            "event_id": client_event["event_id"]
+            "event_id": client_event["event_id"],
         }
 
-        assert len(set(event_response.keys()).intersection(set(payload.keys()))) == 0, \
-            "Payload and base event should not share keys. base event: %s, payload: %s" % (
-                str(event_response), str(payload))
+        assert len(set(event_response.keys()).intersection(set(payload.keys()))) == 0, (
+            "Payload and base event should not share keys. base event: %s, payload: %s"
+            % (str(event_response), str(payload))
+        )
 
         event_response.update(payload)
         return event_response
@@ -140,7 +126,7 @@ class EventResponseFactory(object):
         payload = {
             "session_context": session_context,
             "test_metadata": test_context.test_metadata,
-            "cluster": cluster
+            "cluster": cluster,
         }
 
         return self._event_response(client_event, payload)

@@ -13,25 +13,14 @@
 # limitations under the License.
 
 import collections
+from typing import Iterable, List, Union
 
-
-class ClusterNode(object):
-    def __init__(self, account, **kwargs):
-        self.account = account
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    @property
-    def name(self):
-        return self.account.hostname
-
-    @property
-    def operating_system(self):
-        return self.account.operating_system
+from ducktape.cluster.cluster_node import ClusterNode
+from ducktape.cluster.cluster_spec import ClusterSpec
 
 
 class Cluster(object):
-    """ Interface for a cluster -- a collection of nodes with login credentials.
+    """Interface for a cluster -- a collection of nodes with login credentials.
     This interface doesn't define any mapping of roles/services to nodes. It only interacts with some underlying
     system that can describe available resources and mediates reservations of those resources.
     """
@@ -39,11 +28,11 @@ class Cluster(object):
     def __init__(self):
         self.max_used_nodes = 0
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Size of this cluster object. I.e. number of 'nodes' in the cluster."""
         return self.available().size() + self.used().size()
 
-    def alloc(self, cluster_spec):
+    def alloc(self, cluster_spec) -> Union[ClusterNode, List[ClusterNode], "Cluster"]:
         """
         Allocate some nodes.
 
@@ -55,7 +44,7 @@ class Cluster(object):
         self.max_used_nodes = max(self.max_used_nodes, len(self.used()))
         return allocated
 
-    def do_alloc(self, cluster_spec):
+    def do_alloc(self, cluster_spec) -> Union[ClusterNode, List[ClusterNode], "Cluster"]:
         """
         Subclasses should implement actual allocation here.
 
@@ -65,7 +54,7 @@ class Cluster(object):
         """
         raise NotImplementedError
 
-    def free(self, nodes):
+    def free(self, nodes: Union[Iterable[ClusterNode], ClusterNode]) -> None:
         """Free the given node or list of nodes"""
         if isinstance(nodes, collections.abc.Iterable):
             for s in nodes:
@@ -73,7 +62,7 @@ class Cluster(object):
         else:
             self.free_single(nodes)
 
-    def free_single(self, node):
+    def free_single(self, node: ClusterNode) -> None:
         raise NotImplementedError()
 
     def __eq__(self, other):
@@ -82,22 +71,22 @@ class Cluster(object):
     def __hash__(self):
         return hash(tuple(sorted(self.__dict__.items())))
 
-    def num_available_nodes(self):
+    def num_available_nodes(self) -> int:
         return self.available().size()
 
-    def available(self):
+    def available(self) -> ClusterSpec:
         """
         Return a ClusterSpec object describing the currently available nodes.
         """
         raise NotImplementedError
 
-    def used(self):
+    def used(self) -> ClusterSpec:
         """
         Return a ClusterSpec object describing the currently in use nodes.
         """
         raise NotImplementedError
 
-    def max_used(self):
+    def max_used(self) -> int:
         return self.max_used_nodes
 
     def all(self):
