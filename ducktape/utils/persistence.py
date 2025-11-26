@@ -25,13 +25,14 @@ python 3.x.
 
 
 def not_implemented_method(*args, **kwargs):
-    raise NotImplementedError('Cannot set values in a PDict')
+    raise NotImplementedError("Cannot set values in a PDict")
 
 
 class PDict(dict):
     """
     Persistent dict.
     """
+
     __setitem__ = not_implemented_method
     __delitem__ = not_implemented_method
     update = not_implemented_method

@@ -41,7 +41,7 @@ class CheckGenerateResultsDir(object):
             "session_id": "hello-123",
             "results_dir": self.tempdir,
             "cluster": LocalhostCluster(),
-            "globals": {}
+            "globals": {},
         }
         session_context = SessionContext(**kwargs)
         pickle.dumps(session_context)

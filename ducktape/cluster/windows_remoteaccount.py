@@ -12,18 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import boto3
-import os
 import base64
+import logging
+import os
+
+import boto3
 import winrm
-
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_v1_5
-
 from botocore.exceptions import ClientError
+from Crypto.Cipher import PKCS1_v1_5
+from Crypto.PublicKey import RSA
 
-from ducktape.cluster.cluster_spec import WINDOWS
+from ducktape.cluster.consts import WINDOWS
 from ducktape.cluster.remoteaccount import RemoteAccount, RemoteCommandError
 
 
@@ -54,7 +53,7 @@ class WindowsRemoteAccount(RemoteAccount):
         ec2_instance_id_path = os.path.join(os.getcwd(), ".vagrant", "machines", self.ssh_config.host, "aws", "id")
         instance_id_file = None
         try:
-            instance_id_file = open(ec2_instance_id_path, 'r')
+            instance_id_file = open(ec2_instance_id_path, "r")
             ec2_instance_id = instance_id_file.read().strip()
             if not ec2_instance_id or ec2_instance_id == "":
                 raise Exception
@@ -67,29 +66,34 @@ class WindowsRemoteAccount(RemoteAccount):
         self._log(logging.INFO, "Found EC2 instance id: %s" % ec2_instance_id)
 
         # then get the encrypted password.
-        client = boto3.client('ec2')
+        client = boto3.client("ec2")
         try:
             response = client.get_password_data(InstanceId=ec2_instance_id)
         except ClientError as ce:
             if "InvalidInstanceID.NotFound" in str(ce):
-                raise Exception("The instance id '%s' couldn't be found. Is the correct AWS region configured?"
-                                % ec2_instance_id)
+                raise Exception(
+                    "The instance id '%s' couldn't be found. Is the correct AWS region configured?" % ec2_instance_id
+                )
             else:
                 raise ce
 
-        self._log(logging.INFO, "Fetched encrypted winrm password and will decrypt with private key: %s"
-                  % self.ssh_config.identityfile)
+        self._log(
+            logging.INFO,
+            "Fetched encrypted winrm password and will decrypt with private key: %s" % self.ssh_config.identityfile,
+        )
 
         # then decrypt the password using the private key.
         key_file = None
         try:
-            key_file = open(self.ssh_config.identityfile, 'r')
+            key_file = open(self.ssh_config.identityfile, "r")
             key = key_file.read()
             rsa_key = RSA.importKey(key)
             cipher = PKCS1_v1_5.new(rsa_key)
             winrm_password = cipher.decrypt(base64.b64decode(response["PasswordData"]), None)
-            self._winrm_client = winrm.Session(self.ssh_config.hostname, auth=(WindowsRemoteAccount.WINRM_USERNAME,
-                                                                               winrm_password))
+            self._winrm_client = winrm.Session(
+                self.ssh_config.hostname,
+                auth=(WindowsRemoteAccount.WINRM_USERNAME, winrm_password),
+            )
         finally:
             if key_file:
                 key_file.close()
