@@ -7,3 +7,4 @@ requests-testadapter==0.3.0
 pytest-cov~=3.0
 pytest-xdist~=2.5
 ruff==0.4.10
+flake8==3.8.3
