@@ -17,10 +17,9 @@ from collections import OrderedDict
 
 
 class ServiceRegistry(object):
-
-    def __init__(self):
-        self._services = OrderedDict()
-        self._nodes = {}
+    def __init__(self) -> None:
+        self._services: OrderedDict = OrderedDict()
+        self._nodes: dict = {}
 
     def __contains__(self, item):
         return id(item) in self._services
@@ -89,8 +88,8 @@ class ServiceRegistry(object):
         """
         Gets a printable string containing any errors produced by the services.
         """
-        return '\n\n'.join(
+        return "\n\n".join(
             "{}: {}".format(service.who_am_i(), service.error)
             for service in self._services.values()
-            if hasattr(service, 'error') and service.error
+            if hasattr(service, "error") and service.error
         )

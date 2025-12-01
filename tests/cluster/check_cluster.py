@@ -14,15 +14,16 @@
 
 import collections
 
-from ducktape.cluster.cluster import ClusterNode
-from ducktape.cluster.cluster_spec import NodeSpec, ClusterSpec, LINUX, WINDOWS
+from ducktape.cluster.cluster_node import ClusterNode
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.node_spec import NodeSpec
+from ducktape.cluster.consts import LINUX, WINDOWS
 from tests.ducktape_mock import FakeCluster
 
-FakeRemoteAccount = collections.namedtuple('FakeRemoteAccount', ['operating_system'])
+FakeRemoteAccount = collections.namedtuple("FakeRemoteAccount", ["operating_system"])
 
 
 class CheckCluster(object):
-
     def setup_method(self, _):
         self.cluster = FakeCluster(0)
         self.cluster._available_nodes.add_node(ClusterNode(FakeRemoteAccount(operating_system=LINUX)))

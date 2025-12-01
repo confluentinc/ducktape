@@ -23,7 +23,7 @@ class CheckLocalhostCluster(object):
         self.cluster = LocalhostCluster()
 
     def check_size(self):
-        len(self.cluster) >= 2 ** 31 - 1
+        len(self.cluster) >= 2**31 - 1
 
     def check_pickleable(self):
         cluster = LocalhostCluster()
@@ -37,9 +37,9 @@ class CheckLocalhostCluster(object):
         nodes = self.cluster.alloc(Service.setup_cluster_spec(num_nodes=100))
         assert len(nodes) == 100
         for i, node in enumerate(nodes):
-            assert node.account.hostname == 'localhost%d' % i
-            assert node.account.ssh_hostname == 'localhost'
-            assert node.account.ssh_config.hostname == 'localhost'
+            assert node.account.hostname == "localhost%d" % i
+            assert node.account.ssh_hostname == "localhost"
+            assert node.account.ssh_config.hostname == "localhost"
             assert node.account.ssh_config.port == 22
             assert node.account.user is None
 

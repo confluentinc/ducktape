@@ -17,13 +17,13 @@ import pickle
 
 class SerDe(object):
     def serialize(self, obj):
-        if hasattr(obj, 'serialize'):
+        if hasattr(obj, "serialize"):
             obj.serialize()
         else:
             return pickle.dumps(obj)
 
     def deserialize(self, bytes_obj, obj_cls=None):
-        if obj_cls and hasattr(obj_cls, 'deserialize'):
+        if obj_cls and hasattr(obj_cls, "deserialize"):
             return obj_cls.deserialize(bytes_obj)
         else:
             return pickle.loads(bytes_obj)

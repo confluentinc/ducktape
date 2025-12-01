@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ducktape.tests.test import Test, TestContext
+from ducktape.tests import Test
+from ducktape.tests import TestContext
 from ducktape.template import TemplateRenderer
 
 from tests.ducktape_mock import session_context
@@ -62,23 +63,23 @@ class CheckPackageSearchPath(object):
 
     def check_get_ctx(self):
         class A(TemplateRenderer):
-            x = 'xxx'
+            x = "xxx"
 
         class B(A):
-            y = 'yyy'
+            y = "yyy"
 
         b = B()
-        b.instance = 'b instance'
+        b.instance = "b instance"
 
         ctx_a = A()._get_ctx()
-        assert ctx_a['x'] == 'xxx'
-        assert 'yyy' not in ctx_a
-        assert 'instance' not in ctx_a
+        assert ctx_a["x"] == "xxx"
+        assert "yyy" not in ctx_a
+        assert "instance" not in ctx_a
 
         ctx_b = b._get_ctx()
-        assert ctx_b['x'] == 'xxx'
-        assert ctx_b['y'] == 'yyy'
-        assert ctx_b['instance'] == 'b instance'
+        assert ctx_b["x"] == "xxx"
+        assert ctx_b["y"] == "yyy"
+        assert ctx_b["instance"] == "b instance"
 
 
 class TemplateRenderingTest(Test):
