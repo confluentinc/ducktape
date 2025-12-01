@@ -19,10 +19,9 @@ import os
 
 
 class CheckEnv(object):
-
     def check_does_not_raise_exception_when_key_not_exists(self):
         class C(object):
-            @env(BLAH='8')
+            @env(BLAH="8")
             def function(self):
                 return 1
 
@@ -44,10 +43,10 @@ class CheckEnv(object):
         assert context_list[0].ignore
 
     def check_is_not_ignore_if_correct_env(self):
-        os.environ['test_key'] = 'test'
+        os.environ["test_key"] = "test"
 
         class C(object):
-            @env(test_key='test')
+            @env(test_key="test")
             def function(self):
                 return 1
 

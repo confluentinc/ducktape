@@ -1,4 +1,4 @@
-# Copyright 2015 Confluent Inc.
+# Copyright 2017 Confluent Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import errno
-import os
+LINUX = "linux"
 
+WINDOWS = "windows"
 
-def mkdir_p(path: str) -> None:
-    """mkdir -p functionality.
-    :type path: str
-    """
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
+SUPPORTED_OS_TYPES = [LINUX, WINDOWS]

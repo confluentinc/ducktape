@@ -1,9 +1,8 @@
-from ducktape.cluster.cluster_spec import LINUX, WINDOWS
+from ducktape.cluster.consts import LINUX, WINDOWS
 from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class FakeRemoteAccount(RemoteAccount):
-
     def __init__(self, *args, is_available=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.os = LINUX
@@ -13,7 +12,7 @@ class FakeRemoteAccount(RemoteAccount):
         return self.is_available
 
     def fetch_externally_routable_ip(self, *args, **kwargs):
-        return 'fake ip'
+        return "fake ip"
 
 
 class FakeWindowsRemoteAccount(FakeRemoteAccount):

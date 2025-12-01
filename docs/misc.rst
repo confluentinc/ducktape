@@ -25,11 +25,12 @@ You can run the tests with code coverage and style check using `tox <https://tox
 
     tox
 
-Alternatively, you can activate the virtualenv and run pytest and flake8 directly::
+Alternatively, you can activate the virtualenv and run pytest and ruff directly::
 
     source ~/.virtualenvs/ducktape/bin/activate
     pytest tests
-    flake8
+    ruff check
+    ruff format --check
 
 
 System Tests
