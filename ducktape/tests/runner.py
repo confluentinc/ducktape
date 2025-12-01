@@ -31,7 +31,12 @@ from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.cluster.node_container import InsufficientResourcesError
 from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.result import FAIL, TestResult
-from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReporter, JSONReporter, JUnitReporter
+from ducktape.tests.reporter import (
+    SimpleFileSummaryReporter,
+    HTMLSummaryReporter,
+    JSONReporter,
+    JUnitReporter,
+)
 from ducktape.utils import persistence
 from ducktape.errors import TimeoutError
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
@@ -141,7 +146,7 @@ class TestRunner(object):
         self.active_tests: Dict[TestKey, bool] = {}
         self.finished_tests: Dict[TestKey, dict] = {}
         self.test_schedule_log: List[TestKey] = []
-        self.finish_join_timeout = finish_join_timeout
+        self.finish_join_timeout: int = finish_join_timeout
 
     def _terminate_process(self, process: multiprocessing.Process):
         # use os.kill rather than multiprocessing.terminate for more control
