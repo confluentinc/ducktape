@@ -35,19 +35,11 @@ from ducktape.tests.reporter import SimpleFileSummaryReporter, HTMLSummaryReport
 from ducktape.utils import persistence
 from ducktape.errors import TimeoutError
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
-from ducktape.tests.reporter import (
-    HTMLSummaryReporter,
-    JSONReporter,
-    SimpleFileSummaryReporter,
-)
-from ducktape.tests.result import FAIL, TestResult, TestResults
+from ducktape.tests.result import TestResults
 from ducktape.tests.runner_client import run_client
-from ducktape.tests.scheduler import TestScheduler
 from ducktape.tests.serde import SerDe
 from ducktape.tests.session import SessionContext
 from ducktape.tests.test_context import TestContext
-from ducktape.tests.reporter import JUnitReporter
-from ducktape.utils import persistence
 from ducktape.utils.terminal_size import get_terminal_size
 
 DEFAULT_MP_JOIN_TIMEOUT = 30

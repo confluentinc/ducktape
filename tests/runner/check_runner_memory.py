@@ -123,7 +123,7 @@ class CheckMemoryUsage(object):
         if slope > 0:
             # check max memory usage iff the memory measurements seem to be increasing overall
             assert relative_diff <= 0.05, (
-                "max usage exceeded median usage by too much; there may " "be a memory leak: %s" % usage_stats
+                "max usage exceeded median usage by too much; there may be a memory leak: %s" % usage_stats
             )
 
     def _linear_regression_slope(self, arr):

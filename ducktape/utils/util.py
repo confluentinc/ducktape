@@ -83,7 +83,7 @@ def load_function(func_module_path) -> Callable:
         return func
     except AttributeError:
         raise Exception(
-            "Function could not be loaded from the module path {}, " "verify that it is '.' seperated".format(
+            "Function could not be loaded from the module path {}, verify that it is '.' seperated".format(
                 func_module_path
             )
         )

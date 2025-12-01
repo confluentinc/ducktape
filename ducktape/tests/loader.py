@@ -365,7 +365,7 @@ class TestLoader(object):
                     )
                 else:
                     self.logger.error(
-                        "Failed to import %s, which may indicate a " "broken test that cannot be loaded: %s: %s",
+                        "Failed to import %s, which may indicate a broken test that cannot be loaded: %s: %s",
                         module_name,
                         e.__class__.__name__,
                         e,

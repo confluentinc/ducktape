@@ -140,7 +140,7 @@ def create_ducktape_parser() -> argparse.ArgumentParser:
         action="store",
         type=int,
         default=0,
-        help="Which subset of the tests to run, based on the breakdown using the parameter for " "--subsets",
+        help="Which subset of the tests to run, based on the breakdown using the parameter for --subsets",
     )
     parser.add_argument(
         "--historical-report",
