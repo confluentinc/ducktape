@@ -12,27 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import defaultdict
 import logging
 import os
 import signal
 import threading
 import time
 import traceback
-from typing import List, Mapping
+from collections import defaultdict
+from typing import List, Mapping, Optional, Tuple
+
 import zmq
 import psutil
 
 from ducktape.services.service import MultiRunServiceIdFactory, service_id_factory
 from ducktape.services.service_registry import ServiceRegistry
-
 from ducktape.tests.event import ClientEventFactory
 from ducktape.tests.loader import TestLoader
+from ducktape.tests.result import FAIL, IGNORE, PASS, TestResult
 from ducktape.tests.serde import SerDe
 from ducktape.tests.status import FLAKY, TestStatus
-from ducktape.tests.test import Test, test_logger, TestContext
-
-from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
+from ducktape.tests.test import Test
+from ducktape.tests.test_context import TestContext, test_logger
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
@@ -51,15 +51,15 @@ class Sender(object):
     server_endpoint: str
 
     zmq_context: zmq.Context
-    socket: zmq.Socket
+    socket: Optional[zmq.Socket]
     poller: zmq.Poller
 
     def __init__(
         self,
         server_host: str,
-        server_port: int,
+        server_port: str,
         message_supplier: ClientEventFactory,
-        logger: logging.Logger
+        logger: logging.Logger,
     ):
         self.serde = SerDe()
         self.server_endpoint = "tcp://%s:%s" % (str(server_host), str(server_port))
@@ -78,7 +78,6 @@ class Sender(object):
         self.poller.register(self.socket, zmq.POLLIN)
 
     def send(self, event, blocking=True):
-
         retries_left = Sender.NUM_RETRIES
 
         while retries_left > 0:
@@ -126,9 +125,9 @@ class RunnerClient(object):
     test_index: int
     id: str
 
-    test: Test
-    test_context: TestContext
-    all_services: ServiceRegistry
+    test: Optional[Test]
+    test_context: Optional[TestContext]
+    all_services: Optional[ServiceRegistry]
 
     # configs
     fail_bad_cluster_utilization: bool
@@ -144,7 +143,7 @@ class RunnerClient(object):
         log_dir: str,
         debug: bool,
         fail_bad_cluster_utilization: bool,
-        deflake_num: int
+        deflake_num: int,
     ):
         signal.signal(signal.SIGTERM, self._sigterm_handler)  # register a SIGTERM handler
 
@@ -195,7 +194,12 @@ class RunnerClient(object):
         self._kill_all_child_processes(signal.SIGINT)
 
     def _collect_test_context(self, directory, file_name, cls_name, method_name, injected_args):
-        loader = TestLoader(self.session_context, self.logger, injected_args=injected_args, cluster=self.cluster)
+        loader = TestLoader(
+            self.session_context,
+            self.logger,
+            injected_args=injected_args,
+            cluster=self.cluster,
+        )
         # TODO: deal with this in a more graceful fashion.
         #       In an unlikely even that discover either raises the exception or fails to find exactly one test
         #       we should probably continue trying other tests rather than killing this process
@@ -214,12 +218,14 @@ class RunnerClient(object):
         self.send(self.message.running())
         if self.test_context.ignore:
             # Skip running this test, but keep track of the fact that we ignored it
-            result = TestResult(self.test_context,
-                                self.test_index,
-                                self.session_context,
-                                test_status=IGNORE,
-                                start_time=time.time(),
-                                stop_time=time.time())
+            result = TestResult(
+                self.test_context,
+                self.test_index,
+                self.session_context,
+                test_status=IGNORE,
+                start_time=time.time(),
+                stop_time=time.time(),
+            )
             result.report()
             # Tell the server we are finished
             self.send(self.message.finished(result=result))
@@ -274,14 +280,17 @@ class RunnerClient(object):
                 summary,
                 data,
                 start_time,
-                stop_time)
+                stop_time,
+            )
 
             self.log(logging.INFO, "Data: %s" % str(result.data))
 
             result.report()
             # Tell the server we are finished
-            self._do_safely(lambda: self.send(self.message.finished(result=result)),
-                            "Problem sending FINISHED message for " + str(self.test_metadata) + ":\n")
+            self._do_safely(
+                lambda: self.send(self.message.finished(result=result)),
+                f"Problem sending FINISHED message for {self.test_metadata}:\n",
+            )
             self._kill_all_child_processes()
             # Release test_context resources only after creating the result and finishing logging activity
             # The Sender object uses the same logger, so we postpone closing until after the finished message is sent
@@ -302,7 +311,7 @@ class RunnerClient(object):
         if not self.deflake_enabled:
             return run_summaries[0]
 
-        failure_summaries: Mapping[str: List[int]] = defaultdict(list)
+        failure_summaries: Mapping[Tuple[str, ...], List[int]] = defaultdict(list)
         # populate run summaries grouping run numbers by stack trace
         for run_num, summary in enumerate(run_summaries):
             # convert to tuple to be serializable (+1 for human readability 1 based indexing)
@@ -314,8 +323,8 @@ class RunnerClient(object):
         sub_summaries = []
         for individual_summary, runs in failure_summaries.items():
             sub_summary = []
-            runs = ", ".join(str(r) for r in runs)
-            run_msg = f"run{'s' if len(runs) > 1 else ''} {runs} summary:"
+            runs_str = ", ".join(str(r) for r in runs)
+            run_msg = f"run{'s' if len(runs) > 1 else ''} {runs_str} summary:"
             sub_summary.append(run_msg)
             sub_summary.extend(individual_summary)
             sub_summaries.append(sub_summary)
@@ -355,14 +364,17 @@ class RunnerClient(object):
             # mark the test as failed before doing anything else
             test_status = FAIL
             err_trace = self._exc_msg(e)
-            summary.extend(err_trace.split('\n'))
+            summary.extend(err_trace.split("\n"))
 
         finally:
             for service in self.test_context.services:
                 service.service_id_factory = sid_factory
                 self.all_services.append(service)
 
-            self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
+            self.teardown_test(
+                teardown_services=not self.session_context.no_teardown,
+                test_status=test_status,
+            )
 
             if hasattr(self.test_context, "services"):
                 service_errors = self.test_context.services.errors()
@@ -441,7 +453,10 @@ class RunnerClient(object):
         # always collect service logs whether or not we tear down
         # logs are typically removed during "clean" phase, so collect logs before cleaning
         self.log(logging.DEBUG, "Copying logs from services...")
-        self._do_safely(lambda: self.test.copy_service_logs(test_status), "Error copying service logs:")
+        self._do_safely(
+            lambda: self.test.copy_service_logs(test_status),
+            "Error copying service logs:",
+        )
 
         # clean up stray processes and persistent state
         if teardown_services:
@@ -455,11 +470,15 @@ class RunnerClient(object):
             msg = "%s: %s" % (self.__class__.__name__, str(msg))
             self.logger.log(log_level, msg, *args, **kwargs)
         else:
-            msg = "%s: %s: %s" % (self.__class__.__name__, self.test_context.test_name, str(msg))
+            msg = "%s: %s: %s" % (
+                self.__class__.__name__,
+                self.test_context.test_name,
+                str(msg),
+            )
             self.logger.log(log_level, msg, *args, **kwargs)
 
         self.send(self.message.log(msg, level=log_level))
 
     def dump_threads(self, msg):
-        dump = '\n'.join([t.name for t in threading.enumerate()])
+        dump = "\n".join([t.name for t in threading.enumerate()])
         self.log(logging.DEBUG, f"{msg}: {dump}")
