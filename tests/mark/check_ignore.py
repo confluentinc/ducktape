@@ -57,6 +57,7 @@ class CheckIgnore(object):
 
     def check_ignore_all_method(self):
         """Check @ignore() with no arguments used with various parametrizations on a method."""
+
         class C(object):
             @ignore
             @parametrize(x=100, y=200, z=300)
@@ -74,7 +75,6 @@ class CheckIgnore(object):
             assert ctx.ignore
 
     def check_ignore_specific(self):
-
         @ignore(x=100, y=200, z=300)
         @parametrize(x=100, y=200, z=300)
         @parametrize(x=100, z=300)
@@ -115,6 +115,7 @@ class CheckIgnore(object):
         """If there are no test cases to which ignore applies, it should raise an error
         Keeping in mind annotations "point down": they only apply to test cases physically below.
         """
+
         class C(object):
             @parametrize(x=100, y=200, z=300)
             @parametrize(x=100, z=300)
@@ -130,6 +131,7 @@ class CheckIgnore(object):
 
     def check_invalid_ignore_all(self):
         """If there are no test cases to which ignore applies, it should raise an error"""
+
         class C(object):
             @parametrize(x=100, y=200, z=300)
             @parametrize(x=100, z=300)
