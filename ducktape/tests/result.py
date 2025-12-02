@@ -138,9 +138,7 @@ class TestResult(object):
 class TestResults(object):
     """Class used to aggregate individual TestResult objects from many tests."""
 
-    def __init__(
-        self, session_context: SessionContext, cluster: VagrantCluster, client_status: dict
-    ) -> None:
+    def __init__(self, session_context: SessionContext, cluster: VagrantCluster, client_status: dict) -> None:
         """
         :type session_context: ducktape.tests.session.SessionContext
         """
