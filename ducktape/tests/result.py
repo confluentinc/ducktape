@@ -15,20 +15,18 @@
 import json
 import os
 import time
-from typing import List, Dict, TYPE_CHECKING
+from typing import List, Dict
 
 from ducktape.cluster.cluster import Cluster
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.json_serializable import DucktapeJSONEncoder
 from ducktape.tests.reporter import SingleResultFileReporter
+from ducktape.tests.runner import TestKey
 from ducktape.tests.session import SessionContext
 from ducktape.tests.status import FAIL, FLAKY, IGNORE, PASS
 from ducktape.tests.test_context import TestContext
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils.util import ducktape_version
-
-if TYPE_CHECKING:
-    from ducktape.tests.runner import TestKey
 
 
 class TestResult(object):
