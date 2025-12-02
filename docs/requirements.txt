@@ -1,4 +1,4 @@
-Sphinx~=8.2.3
+Sphinx>=8.2.3,<9.1
 sphinx-argparse~=0.5.2
 sphinx-rtd-theme~=3.0.2
 boto3==1.33.13
