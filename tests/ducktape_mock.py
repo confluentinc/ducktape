@@ -14,10 +14,12 @@
 
 from typing import List, Tuple
 from ducktape.cluster.cluster import Cluster
-from ducktape.cluster.cluster_spec import ClusterSpec, LINUX
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.consts import LINUX
 from ducktape.cluster.node_container import NodeContainer
 from ducktape.tests.session import SessionContext
-from ducktape.tests.test import Test, TestContext
+from ducktape.tests.test import Test
+from ducktape.tests.test_context import TestContext
 from ducktape.cluster.linux_remoteaccount import LinuxRemoteAccount
 from ducktape.cluster.remoteaccount import RemoteAccountSSHConfig
 from unittest.mock import MagicMock
@@ -31,7 +33,7 @@ def mock_cluster():
     return MagicMock(
         all=lambda: [MagicMock(spec=ClusterSpec)] * 3,
         max_used=lambda: 3,
-        max_used_nodes=3
+        max_used_nodes=3,
     )
 
 
@@ -92,7 +94,7 @@ def test_context(session_context=session_context(), cluster=mock_cluster()):
         module=__name__,
         cls=TestMockTest,
         function=TestMockTest.mock_test,
-        cluster=cluster
+        cluster=cluster,
     )
 
 
@@ -107,11 +109,7 @@ class MockAccount(LinuxRemoteAccount):
     """Mock node.account object. It's Linux because tests are run in Linux."""
 
     def __init__(self, **kwargs):
-        ssh_config = RemoteAccountSSHConfig(
-            host="localhost",
-            user=None,
-            hostname="localhost",
-            port=22)
+        ssh_config = RemoteAccountSSHConfig(host="localhost", user=None, hostname="localhost", port=22)
 
         super(MockAccount, self).__init__(ssh_config, externally_routable_ip="localhost", logger=None, **kwargs)
 
@@ -124,6 +122,4 @@ class MockSender(MagicMock):
         self.send_results = []
 
     def send(self, *args, **kwargs):
-        self.send_results.append((
-            args, kwargs
-        ))
+        self.send_results.append((args, kwargs))

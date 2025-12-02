@@ -19,33 +19,48 @@ import time
 
 
 class CheckUtils(object):
-
     def check_wait_until(self):
         """Check normal wait until behavior"""
         start = time.time()
 
-        wait_until(lambda: time.time() > start + .5, timeout_sec=2, backoff_sec=.1)
+        wait_until(lambda: time.time() > start + 0.5, timeout_sec=2, backoff_sec=0.1)
 
     def check_wait_until_timeout(self):
         """Check that timeout throws exception"""
         start = time.time()
 
         with pytest.raises(TimeoutError, match="Hello world"):
-            wait_until(lambda: time.time() > start + 5, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
+            wait_until(
+                lambda: time.time() > start + 5,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg="Hello world",
+            )
 
     def check_wait_until_timeout_callable_msg(self):
         """Check that timeout throws exception and the error message is generated via a callable"""
         start = time.time()
 
         with pytest.raises(TimeoutError, match="Hello world"):
-            wait_until(lambda: time.time() > start + 5, timeout_sec=.5, backoff_sec=.1, err_msg=lambda: "Hello world")
+            wait_until(
+                lambda: time.time() > start + 5,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg=lambda: "Hello world",
+            )
 
     def check_wait_until_with_exception(self):
         def condition_that_raises():
             raise Exception("OG")
+
         with pytest.raises(TimeoutError) as exc_info:
-            wait_until(condition_that_raises, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world",
-                       retry_on_exc=True)
+            wait_until(
+                condition_that_raises,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg="Hello world",
+                retry_on_exc=True,
+            )
         exc_chain = exc_info.getrepr(chain=True).chain
         # 2 exceptions in the chain - OG and Hello world
         assert len(exc_chain) == 2
@@ -63,13 +78,19 @@ class CheckUtils(object):
         start = time.time()
 
         def condition_that_raises_before_3():
-            if time.time() < start + .3:
+            if time.time() < start + 0.3:
                 raise Exception("OG")
             else:
                 return False
+
         with pytest.raises(TimeoutError) as exc_info:
-            wait_until(condition_that_raises_before_3, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world",
-                       retry_on_exc=True)
+            wait_until(
+                condition_that_raises_before_3,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg="Hello world",
+                retry_on_exc=True,
+            )
         exc_chain = exc_info.getrepr(chain=True).chain
         assert len(exc_chain) == 1
         hello_message = str(exc_chain[0][1])
@@ -79,16 +100,28 @@ class CheckUtils(object):
         start = time.time()
 
         def condition_that_raises_before_3_but_then_succeeds():
-            if time.time() < start + .3:
+            if time.time() < start + 0.3:
                 raise Exception("OG")
             else:
                 return True
-        wait_until(condition_that_raises_before_3_but_then_succeeds,
-                   timeout_sec=.5, backoff_sec=.1, err_msg="Hello world", retry_on_exc=True)
+
+        wait_until(
+            condition_that_raises_before_3_but_then_succeeds,
+            timeout_sec=0.5,
+            backoff_sec=0.1,
+            err_msg="Hello world",
+            retry_on_exc=True,
+        )
 
     def check_wait_until_breaks_early_on_exception(self):
         def condition_that_raises():
             raise Exception("OG")
+
         with pytest.raises(Exception, match="OG") as exc_info:
-            wait_until(condition_that_raises, timeout_sec=.5, backoff_sec=.1, err_msg="Hello world")
+            wait_until(
+                condition_that_raises,
+                timeout_sec=0.5,
+                backoff_sec=0.1,
+                err_msg="Hello world",
+            )
         assert "Hello world" not in str(exc_info)

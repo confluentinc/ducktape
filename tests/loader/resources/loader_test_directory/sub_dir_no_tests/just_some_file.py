@@ -1,3 +1,2 @@
-
 class JustSomeClass(object):
     pass

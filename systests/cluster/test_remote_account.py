@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from ducktape.cluster.cluster_spec import ClusterSpec, WINDOWS, LINUX, NodeSpec
+from ducktape.cluster.cluster_spec import ClusterSpec
+from ducktape.cluster.consts import WINDOWS, LINUX
+from ducktape.cluster.node_spec import NodeSpec
 from ducktape.services.service import Service
 from ducktape.tests.test import Test
 from ducktape.errors import TimeoutError
@@ -44,14 +46,11 @@ class RemoteAccountTestService(Service):
         super(RemoteAccountTestService, self).__init__(context, num_nodes=1)
         self.temp_dir = generate_tempdir_name()
         self.logs = {
-            "my_log": {
-                "path": self.log_file,
-                "collect_default": True
-            },
+            "my_log": {"path": self.log_file, "collect_default": True},
             "non_existent_log": {
                 "path": os.path.join(self.temp_dir, "absent.log"),
-                "collect_default": True
-            }
+                "collect_default": True,
+            },
         }
 
     @property
@@ -90,7 +89,6 @@ class GenericService(Service):
 
 
 class UnderUtilizedTest(Test):
-
     def setup(self):
         self.service = GenericService(self.test_context, 1)
 
@@ -245,14 +243,10 @@ class FileSystemTest(Test):
 DIR_STRUCTURE = {
     "d00": {
         "another_file": b"1\n2\n3\n4\ncats and dogs",
-        "d10": {
-            "fasdf": b"lasdf;asfd\nahoppoqnbasnb"
-        },
-        "d11": {
-            "f65": b"afasdfsafdsadf"
-        }
+        "d10": {"fasdf": b"lasdf;asfd\nahoppoqnbasnb"},
+        "d11": {"f65": b"afasdfsafdsadf"},
     },
-    "a_file": b"hello world!"
+    "a_file": b"hello world!",
 }
 
 
@@ -348,7 +342,7 @@ class CopyToAndFroTest(Test):
         self.node.account.copy_to(self.local_temp_dir, self.remote_scratch_dir)
         local_temp_dir_name = self.local_temp_dir
         if local_temp_dir_name.endswith(os.path.sep):
-            local_temp_dir_name = local_temp_dir_name[:-len(os.path.sep)]
+            local_temp_dir_name = local_temp_dir_name[: -len(os.path.sep)]
 
         verify_dir_structure(os.path.join(self.remote_scratch_dir, local_temp_dir_name), DIR_STRUCTURE)
 
@@ -377,7 +371,6 @@ class CopyToAndFroTest(Test):
 
 
 class CopyDirectTest(Test):
-
     def setup(self):
         self.service = GenericService(self.test_context, 2)
         self.src_node, self.dest_node = self.service.nodes
@@ -405,12 +398,15 @@ class CopyDirectTest(Test):
 
     @cluster(num_nodes=2)
     def test_copy_directory(self):
-        """Verify that a directory can be correctly copied directly between nodes.
-        """
+        """Verify that a directory can be correctly copied directly between nodes."""
 
         make_dir_structure(self.remote_scratch_dir, DIR_STRUCTURE, node=self.src_node)
         self.src_node.account.copy_between(self.remote_scratch_dir, self.remote_scratch_dir, self.dest_node)
-        verify_dir_structure(os.path.join(self.remote_scratch_dir, "scratch"), DIR_STRUCTURE, node=self.dest_node)
+        verify_dir_structure(
+            os.path.join(self.remote_scratch_dir, "scratch"),
+            DIR_STRUCTURE,
+            node=self.dest_node,
+        )
 
 
 class TestClusterSpec(Test):
@@ -420,13 +416,15 @@ class TestClusterSpec(Test):
         for node in self.service.nodes:
             node.account.ssh("echo hi")
 
-    @cluster(cluster_spec=ClusterSpec.from_nodes(
-        [
-            NodeSpec(operating_system=WINDOWS),
-            NodeSpec(operating_system=LINUX),
-            NodeSpec()  # this one is also linux
-        ]
-    ))
+    @cluster(
+        cluster_spec=ClusterSpec.from_nodes(
+            [
+                NodeSpec(operating_system=WINDOWS),
+                NodeSpec(operating_system=LINUX),
+                NodeSpec(),  # this one is also linux
+            ]
+        )
+    )
     def three_nodes_test(self):
         self.service = GenericService(self.test_context, 3)
         for node in self.service.nodes:
@@ -457,8 +455,7 @@ class RemoteAccountTest(Test):
 
     @cluster(num_nodes=1)
     def test_ssh_capture_combine_stderr(self):
-        """Test that ssh_capture correctly captures stderr and stdout from remote process.
-        """
+        """Test that ssh_capture correctly captures stderr and stdout from remote process."""
         node = self.account_service.nodes[0]
 
         # swap stdout and stderr in the echo process
@@ -474,8 +471,7 @@ class RemoteAccountTest(Test):
 
     @cluster(num_nodes=1)
     def test_ssh_output_combine_stderr(self):
-        """Test that ssh_output correctly captures stderr and stdout from remote process.
-        """
+        """Test that ssh_output correctly captures stderr and stdout from remote process."""
         node = self.account_service.nodes[0]
 
         # swap stdout and stderr in the echo process
@@ -484,13 +480,12 @@ class RemoteAccountTest(Test):
         ssh_output = node.account.ssh_output(cmd, combine_stderr=True)
         bad_ssh_output = node.account.ssh_output(cmd, combine_stderr=False)  # Same command, but don't capture stderr
 
-        assert ssh_output == b"\n".join([str(i).encode('utf-8') for i in range(1, 6)]) + b"\n", ssh_output
+        assert ssh_output == b"\n".join([str(i).encode("utf-8") for i in range(1, 6)]) + b"\n", ssh_output
         assert bad_ssh_output == b"", bad_ssh_output
 
     @cluster(num_nodes=1)
     def test_ssh_capture(self):
-        """Test that ssh_capture correctly captures output from ssh subprocess.
-        """
+        """Test that ssh_capture correctly captures output from ssh subprocess."""
         node = self.account_service.nodes[0]
         cmd = "for i in $(seq 1 5); do echo $i; done"
         ssh_output = node.account.ssh_capture(cmd, combine_stderr=False)
@@ -500,13 +495,12 @@ class RemoteAccountTest(Test):
 
     @cluster(num_nodes=1)
     def test_ssh_output(self):
-        """Test that ssh_output correctly captures output from ssh subprocess.
-        """
+        """Test that ssh_output correctly captures output from ssh subprocess."""
         node = self.account_service.nodes[0]
         cmd = "for i in $(seq 1 5); do echo $i; done"
         ssh_output = node.account.ssh_output(cmd, combine_stderr=False)
 
-        assert ssh_output == b"\n".join([str(i).encode('utf-8') for i in range(1, 6)]) + b"\n", ssh_output
+        assert ssh_output == b"\n".join([str(i).encode("utf-8") for i in range(1, 6)]) + b"\n", ssh_output
 
     @cluster(num_nodes=1)
     def test_monitor_log(self):
@@ -531,7 +525,7 @@ class RemoteAccountTest(Test):
         with node.account.monitor_log(self.account_service.log_file) as monitor:
             logging_thread = Thread(target=background_logging_thread)
             logging_thread.start()
-            monitor.wait_until('foo', timeout_sec=10, err_msg="Never saw expected log")
+            monitor.wait_until("foo", timeout_sec=10, err_msg="Never saw expected log")
             assert self.wrote_log_line
 
         logging_thread.join(5.0)
@@ -551,7 +545,7 @@ class RemoteAccountTest(Test):
         try:
             with node.account.monitor_log(self.account_service.log_file) as monitor:
                 start = time.time()
-                monitor.wait_until('foo', timeout_sec=timeout, err_msg="Never saw expected log")
+                monitor.wait_until("foo", timeout_sec=timeout, err_msg="Never saw expected log")
                 assert False, "Log monitoring should have timed out and thrown an exception"
         except TimeoutError:
             # expected
@@ -573,14 +567,20 @@ class RemoteAccountTest(Test):
         # Run TCP service using netcat
         node.account.ssh_capture("nohup nc -l -p 5000 > /dev/null 2>&1 &")
 
-        wait_until(lambda: len(get_pids()) > 0, timeout_sec=10,
-                   err_msg="Failed to start process within %d sec" % 10)
+        wait_until(
+            lambda: len(get_pids()) > 0,
+            timeout_sec=10,
+            err_msg="Failed to start process within %d sec" % 10,
+        )
 
         # Kill service.
         node.account.kill_process(grep_str)
 
-        wait_until(lambda: len(get_pids()) == 0, timeout_sec=10,
-                   err_msg="Failed to kill process within %d sec" % 10)
+        wait_until(
+            lambda: len(get_pids()) == 0,
+            timeout_sec=10,
+            err_msg="Failed to kill process within %d sec" % 10,
+        )
 
 
 class TestIterWrapper(Test):
@@ -613,19 +613,20 @@ class TestIterWrapper(Test):
         """Test has_next with timeout"""
         output = self.node.account.ssh_capture("tail -F " + self.temp_file)
         # allow command to be executed before we check output with timeout_sec = 0
-        time.sleep(.5)
+        time.sleep(0.5)
         for i in range(self.line_num):
             assert output.has_next(timeout_sec=0)
             assert output.next().strip() == str(i)
 
-        timeout = .25
+        timeout = 0.25
         start = time.time()
         # This check will last for the duration of the timeout because the the remote tail -F process
         # remains running, and the output stream is not closed.
         assert output.has_next(timeout_sec=timeout) is False
         stop = time.time()
-        assert (stop - start >= timeout) and (stop - start) < timeout + self.eps, \
+        assert (stop - start >= timeout) and (stop - start) < timeout + self.eps, (
             "has_next() should return right after %s second" % str(timeout)
+        )
 
     def teardown(self):
         # tail -F call above will leave stray processes, so clean up
@@ -661,14 +662,13 @@ class RemoteAccountCompressedTest(Test):
 
 
 class CompressionErrorFilter(logging.Filter):
-
     def __init__(self, test):
         super(CompressionErrorFilter, self).__init__()
         self.test = test
 
     def filter(self, record):
-        if 'tar czf' in record.msg:
+        if "tar czf" in record.msg:
             self.test.tar_msg = True
-            if 'Error' in record.msg:
+            if "Error" in record.msg:
                 self.test.tar_error = True
         return True
