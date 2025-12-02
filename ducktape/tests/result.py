@@ -15,13 +15,12 @@
 import json
 import os
 import time
-from typing import List, Dict
+from typing import List
 
 from ducktape.cluster.cluster import Cluster
 from ducktape.cluster.vagrant import VagrantCluster
 from ducktape.json_serializable import DucktapeJSONEncoder
 from ducktape.tests.reporter import SingleResultFileReporter
-from ducktape.tests.runner import TestKey
 from ducktape.tests.session import SessionContext
 from ducktape.tests.status import FAIL, FLAKY, IGNORE, PASS
 from ducktape.tests.test_context import TestContext
@@ -140,7 +139,7 @@ class TestResults(object):
     """Class used to aggregate individual TestResult objects from many tests."""
 
     def __init__(
-        self, session_context: SessionContext, cluster: VagrantCluster, client_status: Dict[TestKey, str]
+        self, session_context: SessionContext, cluster: VagrantCluster, client_status: dict
     ) -> None:
         """
         :type session_context: ducktape.tests.session.SessionContext
