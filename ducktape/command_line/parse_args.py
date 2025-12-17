@@ -45,6 +45,11 @@ def create_ducktape_parser():
                         help="path to a json file which provides information needed to initialize a json cluster. "
                              "The file is used to read/write cached cluster info if "
                              "cluster is ducktape.cluster.vagrant.VagrantCluster.")
+    parser.add_argument("--state-file", action="store", default=None,
+                        help="path to a shared state file for node lifecycle coordination. "
+                             "When specified, ducktape will write orphaned node information to this file, "
+                             "allowing external orchestrators (like Muckrake) to terminate idle nodes. "
+                             "The file uses JSON format with file locking for safe concurrent access.")
     parser.add_argument("--results-root", action="store", default=ConsoleDefaults.RESULTS_ROOT_DIRECTORY,
                         help="path to custom root results directory. Running ducktape with this root "
                              "specified will result in new test results being stored in a subdirectory of "

@@ -33,6 +33,7 @@ from ducktape.tests.session import generate_session_id, generate_results_dir
 from ducktape.utils.local_filesystem_utils import mkdir_p
 from ducktape.utils import persistence
 from ducktape.utils.util import load_function
+from ducktape.cluster.state_monitor import StateMonitor
 
 
 def get_user_defined_globals(globals_str):
@@ -172,6 +173,14 @@ def main():
     # Initializing the cluster is slow, so do so only if
     # tests are sure to be run
     try:
+        # Initialize state monitor if state file is specified
+        state_monitor = None
+        if args_dict.get("state_file"):
+            state_file_path = os.path.abspath(args_dict["state_file"])
+            session_logger.info(f"Node lifecycle state file: {state_file_path}")
+            state_monitor = StateMonitor(state_file_path, logger=session_logger)
+            state_monitor.set_session_id(session_id)
+
         (cluster_mod_name, cluster_class_name) = args_dict["cluster"].rsplit('.', 1)
         cluster_mod = importlib.import_module(cluster_mod_name)
         cluster_class = getattr(cluster_mod, cluster_class_name)
@@ -182,6 +191,11 @@ def main():
             checkers = [load_function(func_path) for func_path in checker_function_names]
             if checkers:
                 cluster_kwargs['ssh_exception_checks'] = checkers
+
+        # Pass state monitor to cluster if available
+        if state_monitor:
+            cluster_kwargs['state_monitor'] = state_monitor
+
         cluster = cluster_class(**cluster_kwargs)
         for ctx in tests:
             # Note that we're attaching a reference to cluster
@@ -214,6 +228,10 @@ def main():
         r.report()
 
     update_latest_symlink(args_dict["results_root"], results_dir)
+
+    # Mark session as complete in state monitor
+    if state_monitor:
+        state_monitor.mark_session_complete()
 
     if len(test_results) < expected_test_count:
         session_logger.warning(

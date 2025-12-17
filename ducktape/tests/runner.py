@@ -229,6 +229,9 @@ class TestRunner(object):
         # Report tests which cannot be run
         self._check_unschedulable()
 
+        # Track if last test has been scheduled for orphaned node release
+        self.last_test_scheduled = False
+
         # Run the tests!
         self._log(logging.INFO, "starting test run with session id %s..." % self.session_context.session_id)
         self._log(logging.INFO, "running %d tests..." % len(self.scheduler))
@@ -255,6 +258,12 @@ class TestRunner(object):
                         # only remove the test from the scheduler once we've successfully allocated a subcluster for it
                         self.scheduler.remove(next_test_context)
                         self._run_single_test(next_test_context)
+
+                        # Check if this was the last test to be scheduled
+                        if not self.last_test_scheduled and self.scheduler.peek() is None:
+                            self._log(logging.INFO, "Last test scheduled, releasing available nodes")
+                            self.cluster.release_orphaned_nodes()
+                            self.last_test_scheduled = True
 
                 if self._expect_client_requests:
                     try:
@@ -378,6 +387,11 @@ class TestRunner(object):
         subcluster = self._test_cluster[test_key]
         self.cluster.free(subcluster.nodes)
         del self._test_cluster[test_key]
+
+        # Release orphaned nodes if last test has been scheduled
+        if self.last_test_scheduled:
+            self._log(logging.DEBUG, "Test completed after last scheduled, releasing freed nodes")
+            self.cluster.release_orphaned_nodes()
 
         # Join on the finished test process
         self._join_test_process(test_key, timeout=self.finish_join_timeout)

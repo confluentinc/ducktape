@@ -105,3 +105,14 @@ class Cluster(object):
         Return a ClusterSpec object describing all nodes.
         """
         return self.available().clone().add(self.used())
+
+    def release_orphaned_nodes(self):
+        """Release nodes that will never be used again.
+
+        Called by TestRunner when:
+        1. Last test has been scheduled - releases available nodes
+        2. Each test completes after last scheduled - releases freed nodes
+
+        If state_monitor configured, updates shared state file for external orchestrator.
+        """
+        pass  # Default implementation does nothing

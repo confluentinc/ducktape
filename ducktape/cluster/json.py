@@ -24,6 +24,7 @@ from ducktape.cluster.windows_remoteaccount import WindowsRemoteAccount
 from .remoteaccount import RemoteAccountSSHConfig
 
 import json
+import logging
 import os
 import traceback
 
@@ -41,7 +42,8 @@ class JsonCluster(Cluster):
     """An implementation of Cluster that uses static settings specified in a cluster file or json-serializeable dict
     """
 
-    def __init__(self, cluster_json=None, *args, make_remote_account_func=make_remote_account, **kwargs):
+    def __init__(self, cluster_json=None, *args, make_remote_account_func=make_remote_account,
+                 state_monitor=None, **kwargs):
         """Initialize JsonCluster
 
         JsonCluster can be initialized from:
@@ -51,6 +53,7 @@ class JsonCluster(Cluster):
         :param cluster_json: a json-serializeable dict containing node information. If ``cluster_json`` is None,
                load from file
         :param cluster_file (optional): Overrides the default location of the json cluster file
+        :param state_monitor (optional): StateMonitor instance for sharing cluster state with external systems
 
         Example json with a local Vagrant cluster::
 
@@ -88,6 +91,8 @@ class JsonCluster(Cluster):
         self._available_accounts: NodeContainer = NodeContainer()
         self._bad_accounts: NodeContainer = NodeContainer()
         self._in_use_nodes: NodeContainer = NodeContainer()
+        self.state_monitor = state_monitor
+        self.logger = logging.getLogger(__name__)
         if cluster_json is None:
             # This is a directly instantiation of JsonCluster rather than from a subclass (e.g. VagrantCluster)
             cluster_file = kwargs.get("cluster_file")
@@ -145,3 +150,28 @@ class JsonCluster(Cluster):
 
     def used(self):
         return ClusterSpec.from_nodes(self._in_use_nodes)
+
+    def release_orphaned_nodes(self):
+        """Release available nodes that will never be used.
+
+        After last test scheduled: available nodes won't be allocated
+        After test completes: freed nodes won't be reused
+        Both cases: safe to release to caller via state monitor
+        """
+        if not self.state_monitor:
+            return
+
+        # Get all currently available nodes
+        available_nodes = []
+        for nodes_list in self._available_accounts.os_to_nodes.values():
+            available_nodes.extend(nodes_list)
+
+        if available_nodes:
+            self.state_monitor.mark_orphaned(available_nodes)
+            self.logger.info(f"Released {len(available_nodes)} orphaned nodes")
+
+            # Update cluster state statistics
+            total = len(self)
+            available = self.available().size()
+            in_use = self.used().size()
+            self.state_monitor.update_cluster_state(total, available, in_use)
