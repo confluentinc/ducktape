@@ -260,7 +260,9 @@ class TestRunner(object):
                         self._run_single_test(next_test_context)
 
                         # Check if this was the last test to be scheduled
-                        if not self.last_test_scheduled and self.scheduler.peek() is None:
+                        # After _run_single_test, test_counter has been incremented
+                        # So if test_counter > total_tests, we just scheduled the last test
+                        if not self.last_test_scheduled and self.test_counter > self.total_tests:
                             self._log(logging.INFO, "Last test scheduled, releasing available nodes")
                             self.cluster.release_orphaned_nodes()
                             self.last_test_scheduled = True
