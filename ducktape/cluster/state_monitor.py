@@ -95,7 +95,7 @@ class StateMonitor:
         """Mark nodes as orphaned (will never be used again).
 
         Args:
-            nodes: List of ClusterNode objects that are orphaned
+            nodes: List of ClusterNode or RemoteAccount objects that are orphaned
         """
         if not nodes:
             return
@@ -107,14 +107,22 @@ class StateMonitor:
         existing_hostnames = {n['hostname'] for n in orphaned_list}
 
         for node in nodes:
-            hostname = node.account.hostname
+            # Handle both ClusterNode (has .account) and RemoteAccount (direct access)
+            if hasattr(node, 'account'):
+                # ClusterNode - from _in_use_nodes
+                account = node.account
+            else:
+                # RemoteAccount - from _available_accounts
+                account = node
+
+            hostname = account.hostname
             if hostname not in existing_hostnames:
                 node_info = {
                     'hostname': hostname,
-                    'ssh_hostname': node.account.ssh_hostname,
-                    'user': node.account.user,
-                    'operating_system': str(node.account.operating_system),
-                    'externally_routable_ip': node.account.externally_routable_ip,
+                    'ssh_hostname': account.ssh_hostname,
+                    'user': account.user,
+                    'operating_system': str(account.operating_system),
+                    'externally_routable_ip': account.externally_routable_ip,
                     'marked_at': time.time()
                 }
                 orphaned_list.append(node_info)
