@@ -33,6 +33,7 @@ from ducktape.tests.status import FLAKY, TestStatus
 from ducktape.tests.test import Test, test_logger, TestContext
 
 from ducktape.tests.result import TestResult, IGNORE, PASS, FAIL
+from ducktape.tests.hooks import run_post_test_hooks
 from ducktape.utils.local_filesystem_utils import mkdir_p
 
 
@@ -363,6 +364,31 @@ class RunnerClient(object):
                 self.all_services.append(service)
 
             self.teardown_test(teardown_services=not self.session_context.no_teardown, test_status=test_status)
+
+            # Execute post-test hooks (e.g., password scanning, compression)
+            globals_dict = self.session_context.globals if self.session_context.globals else {}
+            hook_paths = globals_dict.get("post_test_hooks", [])
+            if hook_paths:
+                results_dir = TestContext.results_dir(self.test_context, self.test_index)
+                hook_results = run_post_test_hooks(
+                    hook_paths=hook_paths,
+                    results_dir=results_dir,
+                    test_id=self.test_id,
+                    test_status=test_status,
+                    logger=self.logger,
+                    globals_dict=globals_dict
+                )
+                # Process hook results
+                for hook_result in hook_results:
+                    if hook_result.fail_test and test_status == PASS:
+                        test_status = FAIL
+                        self.log(logging.INFO, "Post-test hook marked test as FAIL")
+                    if hook_result.summary_additions:
+                        summary.extend(hook_result.summary_additions)
+                    if hook_result.data:
+                        if data is None:
+                            data = {}
+                        data.update(hook_result.data)
 
             if hasattr(self.test_context, "services"):
                 service_errors = self.test_context.services.errors()
