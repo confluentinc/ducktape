@@ -29,12 +29,12 @@ from tests.ducktape_mock import MockAccount
 from tests.runner.fake_remote_account import FakeRemoteAccount, FakeWindowsRemoteAccount
 
 
-def fake_account(host, is_available=True):
-    return FakeRemoteAccount(ssh_config=RemoteAccountSSHConfig(host=host), is_available=is_available)
+def fake_account(host, is_available=True, node_type=None):
+    return FakeRemoteAccount(ssh_config=RemoteAccountSSHConfig(host=host), is_available=is_available, node_type=node_type)
 
 
-def fake_win_account(host, is_available=True):
-    return FakeWindowsRemoteAccount(ssh_config=RemoteAccountSSHConfig(host=host), is_available=is_available)
+def fake_win_account(host, is_available=True, node_type=None):
+    return FakeWindowsRemoteAccount(ssh_config=RemoteAccountSSHConfig(host=host), is_available=is_available, node_type=node_type)
 
 
 class CheckNodeContainer(object):
@@ -320,3 +320,117 @@ class CheckNodeContainer(object):
         assert not container.can_remove_spec(spec)
         with pytest.raises(InsufficientResourcesError):
             container.remove_spec(spec)
+
+    # ==================== node_type tests ====================
+
+    def check_node_groups_by_type(self):
+        """Check that nodes are grouped by (os, node_type) in node_groups."""
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="small"),
+            fake_account("host3", node_type="large"),
+            fake_account("host4"),  # no node_type (None)
+            fake_win_account("w1", node_type="small"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Check node_groups has correct keys
+        assert (LINUX, "small") in container.node_groups
+        assert (LINUX, "large") in container.node_groups
+        assert (LINUX, None) in container.node_groups
+        assert (WINDOWS, "small") in container.node_groups
+
+        # Check counts
+        assert len(container.node_groups[(LINUX, "small")]) == 2
+        assert len(container.node_groups[(LINUX, "large")]) == 1
+        assert len(container.node_groups[(LINUX, None)]) == 1
+        assert len(container.node_groups[(WINDOWS, "small")]) == 1
+
+    def check_os_to_nodes_backward_compat(self):
+        """Check that os_to_nodes property still works for backward compatibility."""
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="large"),
+            fake_account("host3"),  # no node_type
+            fake_win_account("w1", node_type="small"),
+        ]
+        container = NodeContainer(accounts)
+
+        # os_to_nodes should group all Linux nodes together regardless of node_type
+        assert len(container.os_to_nodes.get(LINUX)) == 3
+        assert len(container.os_to_nodes.get(WINDOWS)) == 1
+
+    def check_remove_spec_with_node_type(self):
+        """Check remove_spec with node_type specified in the cluster spec."""
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="small"),
+            fake_account("host3", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Request 1 small node
+        small_spec = ClusterSpec(nodes=[NodeSpec(LINUX, node_type="small")])
+        assert container.can_remove_spec(small_spec)
+        good_nodes, bad_nodes = container.remove_spec(small_spec)
+        assert len(good_nodes) == 1
+        assert good_nodes[0].node_type == "small"
+        assert not bad_nodes
+
+        # Should have 1 small and 1 large left
+        assert len(container.node_groups.get((LINUX, "small"), [])) == 1
+        assert len(container.node_groups.get((LINUX, "large"), [])) == 1
+
+    def check_remove_spec_with_node_type_not_available(self):
+        """Check remove_spec fails when requested node_type is not available."""
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="small"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Request a large node (not available)
+        large_spec = ClusterSpec(nodes=[NodeSpec(LINUX, node_type="large")])
+        assert not container.can_remove_spec(large_spec)
+        with pytest.raises(InsufficientResourcesError):
+            container.remove_spec(large_spec)
+
+    def check_remove_spec_node_type_none_matches_any(self):
+        """Check that node_type=None in spec matches any available node."""
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Request a node with no specific type - should match any
+        any_spec = ClusterSpec(nodes=[NodeSpec(LINUX, node_type=None)])
+        assert container.can_remove_spec(any_spec)
+        good_nodes, _ = container.remove_spec(any_spec)
+        assert len(good_nodes) == 1
+        # Should have allocated one of the available nodes
+        assert good_nodes[0].node_type in ("small", "large")
+
+    def check_remove_spec_mixed_node_types(self):
+        """Check remove_spec with mixed node_type requirements."""
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="small"),
+            fake_account("host3", node_type="large"),
+            fake_account("host4", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Request 1 small and 1 large
+        mixed_spec = ClusterSpec(nodes=[
+            NodeSpec(LINUX, node_type="small"),
+            NodeSpec(LINUX, node_type="large"),
+        ])
+        assert container.can_remove_spec(mixed_spec)
+        good_nodes, _ = container.remove_spec(mixed_spec)
+        assert len(good_nodes) == 2
+
+        small_nodes = [n for n in good_nodes if n.node_type == "small"]
+        large_nodes = [n for n in good_nodes if n.node_type == "large"]
+        assert len(small_nodes) == 1
+        assert len(large_nodes) == 1

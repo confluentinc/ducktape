@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from ducktape.cluster.cluster_spec import ClusterSpec
 from ducktape.command_line.defaults import ConsoleDefaults
-from ducktape.mark.consts import CLUSTER_SIZE_KEYWORD, CLUSTER_SPEC_KEYWORD
+from ducktape.mark.consts import CLUSTER_NODE_TYPE_KEYWORD, CLUSTER_SIZE_KEYWORD, CLUSTER_SPEC_KEYWORD
 from ducktape.services.service_registry import ServiceRegistry
 from ducktape.tests.loggermaker import LoggerMaker, close_logger
 from ducktape.tests.session import SessionContext
@@ -213,10 +213,11 @@ class TestContext(object):
         """
         cluster_spec = self.cluster_use_metadata.get(CLUSTER_SPEC_KEYWORD)
         cluster_size = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
+        node_type = self.cluster_use_metadata.get(CLUSTER_NODE_TYPE_KEYWORD)
         if cluster_spec is not None:
             return cluster_spec
         elif cluster_size is not None:
-            return ClusterSpec.simple_linux(cluster_size)
+            return ClusterSpec.simple_linux(cluster_size, node_type)
         elif not self.cluster:
             return ClusterSpec.empty()
         elif self.session_context.fail_greedy_tests:
