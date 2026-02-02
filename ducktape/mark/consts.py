@@ -1,2 +1,3 @@
 CLUSTER_SPEC_KEYWORD = "cluster_spec"
 CLUSTER_SIZE_KEYWORD = "num_nodes"
+CLUSTER_NODE_TYPE_KEYWORD = "node_type"

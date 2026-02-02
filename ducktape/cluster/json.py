@@ -109,9 +109,14 @@ class JsonCluster(Cluster):
                 )
 
                 ssh_config = RemoteAccountSSHConfig(**ninfo.get("ssh_config", {}))
+
+                # Extract node_type from JSON (optional field)
+                node_type = ninfo.get("node_type")
+
                 remote_account = make_remote_account_func(
                     ssh_config,
                     ninfo.get("externally_routable_ip"),
+                    node_type=node_type,
                     ssh_exception_checks=kwargs.get("ssh_exception_checks"),
                 )
                 if remote_account.externally_routable_ip is None:
