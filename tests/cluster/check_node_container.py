@@ -30,11 +30,15 @@ from tests.runner.fake_remote_account import FakeRemoteAccount, FakeWindowsRemot
 
 
 def fake_account(host, is_available=True, node_type=None):
-    return FakeRemoteAccount(ssh_config=RemoteAccountSSHConfig(host=host), is_available=is_available, node_type=node_type)
+    return FakeRemoteAccount(
+        ssh_config=RemoteAccountSSHConfig(host=host), is_available=is_available, node_type=node_type
+    )
 
 
 def fake_win_account(host, is_available=True, node_type=None):
-    return FakeWindowsRemoteAccount(ssh_config=RemoteAccountSSHConfig(host=host), is_available=is_available, node_type=node_type)
+    return FakeWindowsRemoteAccount(
+        ssh_config=RemoteAccountSSHConfig(host=host), is_available=is_available, node_type=node_type
+    )
 
 
 class CheckNodeContainer(object):
@@ -422,10 +426,12 @@ class CheckNodeContainer(object):
         container = NodeContainer(accounts)
 
         # Request 1 small and 1 large
-        mixed_spec = ClusterSpec(nodes=[
-            NodeSpec(LINUX, node_type="small"),
-            NodeSpec(LINUX, node_type="large"),
-        ])
+        mixed_spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type="large"),
+            ]
+        )
         assert container.can_remove_spec(mixed_spec)
         good_nodes, _ = container.remove_spec(mixed_spec)
         assert len(good_nodes) == 2

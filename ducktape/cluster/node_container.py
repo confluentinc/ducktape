@@ -53,8 +53,8 @@ class InsufficientHealthyNodesError(InsufficientResourcesError):
 
 def _get_node_key(node: NodeType) -> NodeGroupKey:
     """Extract the (os, node_type) key from a node."""
-    os = getattr(node, 'operating_system', None)
-    node_type = getattr(node, 'node_type', None)
+    os = getattr(node, "operating_system", None)
+    node_type = getattr(node, "node_type", None)
     return (os, node_type)
 
 
@@ -209,7 +209,7 @@ class NodeContainer(object):
 
         # Collect candidate keys - keys in node_groups that can satisfy this requirement
         candidate_keys: List[NodeGroupKey] = []
-        for (os, nt) in self.node_groups.keys():
+        for os, nt in self.node_groups.keys():
             if os != required_os:
                 continue
             # If no specific type required, any node of this OS matches

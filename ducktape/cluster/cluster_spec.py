@@ -54,7 +54,7 @@ class ClusterSpec(object):
         """
         Create a ClusterSpec describing a list of nodes.
         """
-        return ClusterSpec([NodeSpec(node.operating_system, getattr(node, 'node_type', None)) for node in nodes])
+        return ClusterSpec([NodeSpec(node.operating_system, getattr(node, "node_type", None)) for node in nodes])
 
     def __init__(self, nodes=None):
         """
