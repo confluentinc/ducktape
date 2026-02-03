@@ -625,3 +625,73 @@ class CheckNodeContainer(object):
             ]
         )
         assert not container2.can_remove_spec(spec2)
+
+    def check_allocation_order_specific_before_any(self):
+        """
+        Test that specific node_type requirements are allocated before any-type.
+
+        This prevents any-type requests from "stealing" nodes needed by specific types.
+
+        Scenario:
+            - Available: 2 Linux nodes (1 small, 1 large)
+            - Request: 1 linux/small + 1 linux/any
+            - Expected: SUCCESS - small gets the small node, any gets the large node
+
+        Without proper ordering, if linux/any is processed first, it might take
+        the small node, leaving linux/small with no matching nodes.
+        """
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Request 1 small + 1 any - should succeed with proper ordering
+        spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type=None),
+            ]
+        )
+        assert container.can_remove_spec(spec)
+        good_nodes, bad_nodes = container.remove_spec(spec)
+        assert len(good_nodes) == 2
+        assert not bad_nodes
+
+        # Verify we got one of each type
+        types = [n.node_type for n in good_nodes]
+        assert "small" in types
+        assert "large" in types
+
+    def check_allocation_order_with_multiple_specific_types(self):
+        """
+        Test allocation order with multiple specific types and any-type.
+
+        Scenario:
+            - Available: 3 Linux nodes (1 small, 1 medium, 1 large)
+            - Request: 1 linux/small + 1 linux/large + 1 linux/any
+            - Expected: SUCCESS - specific types get their nodes, any gets medium
+        """
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="medium"),
+            fake_account("host3", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type="large"),
+                NodeSpec(LINUX, node_type=None),
+            ]
+        )
+        assert container.can_remove_spec(spec)
+        good_nodes, _ = container.remove_spec(spec)
+        assert len(good_nodes) == 3
+
+        # Verify we got all three types
+        types = [n.node_type for n in good_nodes]
+        assert "small" in types
+        assert "medium" in types
+        assert "large" in types

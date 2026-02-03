@@ -115,6 +115,21 @@ class NodeContainer(object):
             for node in node_list:
                 yield node
 
+    def grouped_by_os_and_type(self) -> Dict[Tuple[Optional[str], Optional[str]], int]:
+        """
+        Returns nodes grouped by (operating_system, node_type) with counts.
+
+        This is a pure data method that groups nodes without any ordering.
+        The caller is responsible for determining processing order.
+
+        :return: Dictionary mapping (os, node_type) tuples to counts
+        """
+        result: Dict[Tuple[Optional[str], Optional[str]], int] = {}
+        for node in self.elements():
+            key = (getattr(node, "operating_system", None), getattr(node, "node_type", None))
+            result[key] = result.get(key, 0) + 1
+        return result
+
     def add_node(self, node: Union[ClusterNode, RemoteAccount]) -> None:
         """
         Add a node to this collection, grouping by (os, node_type).
@@ -222,6 +237,7 @@ class NodeContainer(object):
         Remove nodes matching a ClusterSpec from this NodeContainer.
 
         Allocation strategy:
+            - Specific node_type requirements are allocated BEFORE any-type (None) requirements
             - For each (os, node_type) in the spec:
                 - If node_type is specified, allocate from that exact pool
                 - If node_type is None, allocate from any pool matching the OS
@@ -239,11 +255,20 @@ class NodeContainer(object):
         bad_nodes: List[NodeType] = []
         msg = ""
 
-        # Group required specs by (os, node_type)
-        grouped_specs = self._group_spec_by_key(cluster_spec)
+        # Get requirements grouped by (os, node_type) with counts
+        grouped_counts = cluster_spec.nodes.grouped_by_os_and_type()
 
-        for (os, node_type), node_specs in grouped_specs.items():
-            num_needed = len(node_specs)
+        # Sort so specific types (node_type != None) are allocated before any-type (node_type == None)
+        # This prevents any-type requests from "stealing" nodes needed by specific types
+        def allocation_order(item: Tuple[Tuple[str, Optional[str]], int]) -> Tuple[int, str, str]:
+            (os, node_type), _ = item
+            # Specific types first (0), any-type last (1)
+            type_order = 1 if node_type is None else 0
+            return (type_order, os or "", node_type or "")
+
+        sorted_requirements = sorted(grouped_counts.items(), key=allocation_order)
+
+        for (os, node_type), num_needed in sorted_requirements:
             found_good, found_bad, shortfall = self._find_matching_nodes(os, node_type, num_needed)
 
             good_nodes.extend(found_good)
