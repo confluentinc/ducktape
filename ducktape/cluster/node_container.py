@@ -84,25 +84,6 @@ class NodeContainer(object):
             for node in nodes:
                 self.add_node(node)
 
-    @property
-    def os_to_nodes(self) -> Dict[Optional[str], List[NodeType]]:
-        """
-        Backward-compatible property that returns nodes grouped by OS only.
-
-        This property provides a view that ignores node_type, grouping all nodes
-        of the same OS together. This maintains compatibility with code that
-        accesses os_to_nodes directly.
-
-        Note: This is a computed property - modifications to the returned dict
-        will NOT affect the underlying node_groups structure.
-        """
-        result: Dict[Optional[str], List[NodeType]] = {}
-        for (os, _), nodes in self.node_groups.items():
-            if os not in result:
-                result[os] = []
-            result[os].extend(nodes)
-        return result
-
     def size(self) -> int:
         """
         Returns the total number of nodes in the container.

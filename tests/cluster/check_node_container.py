@@ -41,6 +41,15 @@ def fake_win_account(host, is_available=True, node_type=None):
     )
 
 
+def count_nodes_by_os(container, target_os):
+    """Helper to count nodes by OS from node_groups."""
+    count = 0
+    for (os, _), nodes in container.node_groups.items():
+        if os == target_os:
+            count += len(nodes)
+    return count
+
+
 class CheckNodeContainer(object):
     def check_sizes(self):
         empty = NodeContainer()
@@ -96,23 +105,23 @@ class CheckNodeContainer(object):
             assert not bad_nodes
 
         _remove_single_node(one_windows_node_spec, WINDOWS)
-        assert len(container.os_to_nodes.get(LINUX)) == 2
-        assert len(container.os_to_nodes.get(WINDOWS)) == 1
+        assert count_nodes_by_os(container, LINUX) == 2
+        assert count_nodes_by_os(container, WINDOWS) == 1
 
         _remove_single_node(one_windows_node_spec, WINDOWS)
-        assert len(container.os_to_nodes.get(LINUX)) == 2
-        assert not container.os_to_nodes.get(WINDOWS)
+        assert count_nodes_by_os(container, LINUX) == 2
+        assert count_nodes_by_os(container, WINDOWS) == 0
         assert not container.can_remove_spec(one_windows_node_spec)
         with pytest.raises(InsufficientResourcesError):
             container.remove_spec(one_windows_node_spec)
 
         _remove_single_node(one_linux_node_spec, LINUX)
-        assert len(container.os_to_nodes.get(LINUX)) == 1
-        assert not container.os_to_nodes.get(WINDOWS)
+        assert count_nodes_by_os(container, LINUX) == 1
+        assert count_nodes_by_os(container, WINDOWS) == 0
 
         _remove_single_node(one_linux_node_spec, LINUX)
-        assert not container.os_to_nodes.get(LINUX)
-        assert not container.os_to_nodes.get(WINDOWS)
+        assert count_nodes_by_os(container, LINUX) == 0
+        assert count_nodes_by_os(container, WINDOWS) == 0
         assert not container.can_remove_spec(one_linux_node_spec)
         with pytest.raises(InsufficientResourcesError):
             container.remove_spec(one_linux_node_spec)
@@ -158,7 +167,7 @@ class CheckNodeContainer(object):
             container.remove_spec(cluster_spec)
 
         # check that container was not modified
-        assert container.os_to_nodes == original_container.os_to_nodes
+        assert container.node_groups == original_container.node_groups
 
     @pytest.mark.parametrize(
         "accounts",
@@ -216,7 +225,7 @@ class CheckNodeContainer(object):
         assert exc_info.value.bad_nodes == expected_bad_nodes
         # check that no nodes were actually allocated, but unhealthy ones were removed from the cluster
         original_container.remove_nodes(expected_bad_nodes)
-        assert container.os_to_nodes == original_container.os_to_nodes
+        assert container.node_groups == original_container.node_groups
 
     @pytest.mark.parametrize(
         "accounts",
@@ -349,20 +358,6 @@ class CheckNodeContainer(object):
         assert len(container.node_groups[(LINUX, "large")]) == 1
         assert len(container.node_groups[(LINUX, None)]) == 1
         assert len(container.node_groups[(WINDOWS, "small")]) == 1
-
-    def check_os_to_nodes_backward_compat(self):
-        """Check that os_to_nodes property still works for backward compatibility."""
-        accounts = [
-            fake_account("host1", node_type="small"),
-            fake_account("host2", node_type="large"),
-            fake_account("host3"),  # no node_type
-            fake_win_account("w1", node_type="small"),
-        ]
-        container = NodeContainer(accounts)
-
-        # os_to_nodes should group all Linux nodes together regardless of node_type
-        assert len(container.os_to_nodes.get(LINUX)) == 3
-        assert len(container.os_to_nodes.get(WINDOWS)) == 1
 
     def check_remove_spec_with_node_type(self):
         """Check remove_spec with node_type specified in the cluster spec."""

@@ -3,8 +3,8 @@ from ducktape.cluster.remoteaccount import RemoteAccount
 
 
 class FakeRemoteAccount(RemoteAccount):
-    def __init__(self, *args, is_available=True, node_type=None, **kwargs):
-        super().__init__(*args, node_type=node_type, **kwargs)
+    def __init__(self, *args, is_available=True, **kwargs):
+        super().__init__(*args, **kwargs)
         self.os = LINUX
         self.is_available = is_available
 
