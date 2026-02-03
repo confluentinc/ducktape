@@ -272,27 +272,40 @@ class NodeContainer(object):
         msg = self.attempt_remove_spec(cluster_spec)
         return len(msg) == 0
 
-    def _count_available_for_requirement(self, required_os: str, required_node_type: Optional[str]) -> int:
+    def _count_nodes_by_os(self, target_os: str) -> int:
         """
-        Count how many nodes are available that could satisfy a requirement.
+        Count total nodes available for a given OS (regardless of node_type).
 
-        :param required_os: The required operating system
-        :param required_node_type: The required node type (None means any)
-        :return: Number of available nodes that match
+        :param target_os: The operating system to count nodes for
+        :return: Total number of nodes with the given OS
         """
         count = 0
-        for (os, nt), nodes in self.node_groups.items():
-            if os != required_os:
-                continue
-            # If no specific type required, count all nodes of this OS
-            # If specific type required, only count exact matches
-            if required_node_type is None or nt == required_node_type:
+        for (os, _), nodes in self.node_groups.items():
+            if os == target_os:
                 count += len(nodes)
         return count
+
+    def _count_nodes_by_os_and_type(self, target_os: str, target_type: str) -> int:
+        """
+        Count nodes available for a specific (os, node_type) combination.
+
+        :param target_os: The operating system
+        :param target_type: The specific node type (not None)
+        :return: Number of nodes matching both OS and type
+        """
+        return len(self.node_groups.get((target_os, target_type), []))
 
     def attempt_remove_spec(self, cluster_spec: ClusterSpec) -> str:
         """
         Attempt to remove a cluster_spec from this node container.
+
+        Uses holistic per-OS validation to correctly handle mixed typed and untyped
+        requirements without double-counting shared capacity.
+
+        Validation strategy:
+            1. Check total OS capacity >= total OS demand
+            2. Check each specific type has enough nodes
+            3. Check remaining capacity (after specific types) >= any-type demand
 
         :param cluster_spec:                    The cluster spec.  This will not be modified.
         :returns:                               An empty string if we can remove the nodes;
@@ -309,16 +322,42 @@ class NodeContainer(object):
 
         msg = ""
 
-        # Group required specs by (os, node_type)
-        grouped_specs = self._group_spec_by_key(cluster_spec)
+        # Build requirements_by_os: {os -> {node_type -> count}} in a single pass
+        requirements_by_os: Dict[str, Dict[Optional[str], int]] = {}
+        for node_spec in cluster_spec.nodes.elements():
+            os = node_spec.operating_system
+            node_type = node_spec.node_type
+            requirements_by_os.setdefault(os, {})
+            requirements_by_os[os][node_type] = requirements_by_os[os].get(node_type, 0) + 1
 
-        for (os, node_type), node_specs in grouped_specs.items():
-            num_needed = len(node_specs)
-            avail_count = self._count_available_for_requirement(os, node_type)
+        # Validate each OS holistically
+        for os, type_requirements in requirements_by_os.items():
+            total_available = self._count_nodes_by_os(os)
+            total_required = sum(type_requirements.values())
 
-            if avail_count < num_needed:
-                type_desc = f"{os}" if node_type is None else f"{os}/{node_type}"
-                msg += f"{type_desc} nodes requested: {num_needed}. {type_desc} nodes available: {avail_count}. "
+            # Check 1: Total capacity for this OS
+            if total_available < total_required:
+                msg += f"{os} nodes requested: {total_required}. {os} nodes available: {total_available}. "
+                continue  # Already failed, no need for detailed checks
+
+            # Check 2: Each specific type has enough nodes
+            for node_type, count_needed in type_requirements.items():
+                if node_type is None:
+                    continue  # Handle any-type separately
+                type_available = self._count_nodes_by_os_and_type(os, node_type)
+                if type_available < count_needed:
+                    msg += f"{os}/{node_type} nodes requested: {count_needed}. {os}/{node_type} nodes available: {type_available}. "
+
+            # Check 3: After reserving specific types, is there capacity for any-type?
+            any_type_demand = type_requirements.get(None, 0)
+            if any_type_demand > 0:
+                specific_demand = sum(c for t, c in type_requirements.items() if t is not None)
+                remaining_capacity = total_available - specific_demand
+                if remaining_capacity < any_type_demand:
+                    msg += (
+                        f"{os} (any type) nodes requested: {any_type_demand}. "
+                        f"{os} nodes remaining after typed allocations: {remaining_capacity}. "
+                    )
 
         return msg
 

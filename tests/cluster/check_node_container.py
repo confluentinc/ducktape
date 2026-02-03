@@ -435,3 +435,193 @@ class CheckNodeContainer(object):
         large_nodes = [n for n in good_nodes if n.node_type == "large"]
         assert len(small_nodes) == 1
         assert len(large_nodes) == 1
+
+    # ==================== Double-counting fix tests ====================
+
+    def check_mixed_typed_and_untyped_double_counting_rejected(self):
+        """
+        Test that mixed typed and untyped requirements correctly fail when
+        total capacity is insufficient (the double-counting bug fix).
+
+        Scenario:
+            - Available: 3 Linux nodes (2 small, 1 large)
+            - Request: 2 linux/small + 2 linux/any
+            - Expected: FAIL (need 4 nodes, only have 3)
+
+        Before the fix, this would incorrectly pass because:
+            - linux/small check: 2 available >= 2 needed ✓
+            - linux/any check: 3 available >= 2 needed ✓
+        But the any-type was double-counting the small nodes!
+        """
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="small"),
+            fake_account("host3", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Request 2 small + 2 any = 4 total, but only 3 available
+        impossible_spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type=None),
+                NodeSpec(LINUX, node_type=None),
+            ]
+        )
+        assert not container.can_remove_spec(impossible_spec)
+        with pytest.raises(InsufficientResourcesError):
+            container.remove_spec(impossible_spec)
+
+    def check_mixed_typed_and_untyped_valid_passes(self):
+        """
+        Test that mixed typed and untyped requirements correctly pass when
+        there is sufficient capacity.
+
+        Scenario:
+            - Available: 4 Linux nodes (2 small, 2 large)
+            - Request: 2 linux/small + 1 linux/any
+            - Expected: PASS (need 3 nodes, have 4)
+        """
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="small"),
+            fake_account("host3", node_type="large"),
+            fake_account("host4", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Request 2 small + 1 any = 3 total, have 4 available
+        valid_spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type=None),
+            ]
+        )
+        assert container.can_remove_spec(valid_spec)
+        good_nodes, bad_nodes = container.remove_spec(valid_spec)
+        assert len(good_nodes) == 3
+        assert not bad_nodes
+
+    def check_specific_type_shortage_detected(self):
+        """
+        Test that shortage of a specific type is detected even when total
+        OS capacity is sufficient.
+
+        Scenario:
+            - Available: 3 Linux nodes (1 small, 2 large)
+            - Request: 2 linux/small + 1 linux/any
+            - Expected: FAIL (need 2 small, only have 1)
+        """
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="large"),
+            fake_account("host3", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        # Request 2 small + 1 any - total capacity OK but not enough small
+        spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type=None),
+            ]
+        )
+        assert not container.can_remove_spec(spec)
+        error_msg = container.attempt_remove_spec(spec)
+        assert "linux/small" in error_msg
+
+    def check_holistic_os_capacity_check(self):
+        """
+        Test that total OS capacity is checked before detailed type checks.
+
+        Scenario:
+            - Available: 2 Linux nodes (1 small, 1 large)
+            - Request: 1 linux/small + 1 linux/large + 1 linux/any
+            - Expected: FAIL (need 3 total, only have 2)
+        """
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type="large"),
+                NodeSpec(LINUX, node_type=None),
+            ]
+        )
+        assert not container.can_remove_spec(spec)
+        error_msg = container.attempt_remove_spec(spec)
+        # Should report total Linux shortage
+        assert "linux" in error_msg.lower()
+
+    def check_multi_os_mixed_requirements(self):
+        """
+        Test holistic validation works correctly with multiple OS types.
+
+        Scenario:
+            - Available: 3 Linux (2 small, 1 large), 2 Windows (1 small, 1 large)
+            - Request: 2 linux/small + 1 linux/any + 1 windows/any
+            - Expected: FAIL for Linux (need 3, have 3, but 2 small reserved leaves only 1 for any)
+        """
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="small"),
+            fake_account("host3", node_type="large"),
+            fake_win_account("w1", node_type="small"),
+            fake_win_account("w2", node_type="large"),
+        ]
+        container = NodeContainer(accounts)
+
+        # For Linux: 2 small + 2 any = 4 total, but only 3 available
+        # For Windows: 1 any = fine
+        spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type="small"),
+                NodeSpec(LINUX, node_type=None),
+                NodeSpec(LINUX, node_type=None),
+                NodeSpec(WINDOWS, node_type=None),
+            ]
+        )
+        assert not container.can_remove_spec(spec)
+
+    def check_only_any_type_requirements(self):
+        """
+        Test that requests with only any-type requirements work correctly.
+        """
+        accounts = [
+            fake_account("host1", node_type="small"),
+            fake_account("host2", node_type="large"),
+            fake_account("host3"),  # no type
+        ]
+        container = NodeContainer(accounts)
+
+        # Request 3 any-type - should work
+        spec = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type=None),
+                NodeSpec(LINUX, node_type=None),
+                NodeSpec(LINUX, node_type=None),
+            ]
+        )
+        assert container.can_remove_spec(spec)
+        good_nodes, _ = container.remove_spec(spec)
+        assert len(good_nodes) == 3
+
+        # Request 4 any-type - should fail
+        container2 = NodeContainer(accounts)
+        spec2 = ClusterSpec(
+            nodes=[
+                NodeSpec(LINUX, node_type=None),
+                NodeSpec(LINUX, node_type=None),
+                NodeSpec(LINUX, node_type=None),
+                NodeSpec(LINUX, node_type=None),
+            ]
+        )
+        assert not container2.can_remove_spec(spec2)
