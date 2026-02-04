@@ -30,8 +30,11 @@ from ducktape.cluster.remoteaccount import RemoteAccount
 
 if TYPE_CHECKING:
     from ducktape.cluster.cluster_spec import ClusterSpec
+    from ducktape.cluster.node_spec import NodeSpec
 
 NodeType = Union[ClusterNode, RemoteAccount]
+# Key for node grouping: (operating_system, node_type)
+NodeGroupKey = Tuple[Optional[str], Optional[str]]
 
 
 class NodeNotPresentError(Exception):
@@ -48,27 +51,44 @@ class InsufficientHealthyNodesError(InsufficientResourcesError):
         super().__init__(*args)
 
 
+def _get_node_key(node: NodeType) -> NodeGroupKey:
+    """Extract the (os, node_type) key from a node."""
+    os = getattr(node, "operating_system", None)
+    node_type = getattr(node, "node_type", None)
+    return (os, node_type)
+
+
 class NodeContainer(object):
-    os_to_nodes: Dict[Optional[str], List[NodeType]]
+    """
+    Container for cluster nodes, grouped by (operating_system, node_type).
+
+    This enables efficient lookup and allocation of nodes matching specific
+    requirements. Nodes with node_type=None are grouped under (os, None) and
+    can match any request when no specific type is required.
+    """
+
+    # Key: (os, node_type) tuple, Value: list of nodes
+    node_groups: Dict[NodeGroupKey, List[NodeType]]
 
     def __init__(self, nodes: Optional[Iterable[NodeType]] = None) -> None:
         """
         Create a NodeContainer with the given nodes.
 
-        Node objects should implement at least an operating_system property.
+        Node objects should implement at least an operating_system property,
+        and optionally a node_type property.
 
         :param nodes:           A collection of node objects to add, or None to add nothing.
         """
-        self.os_to_nodes = {}
+        self.node_groups = {}
         if nodes is not None:
             for node in nodes:
-                self.os_to_nodes.setdefault(node.operating_system, []).append(node)
+                self.add_node(node)
 
     def size(self) -> int:
         """
         Returns the total number of nodes in the container.
         """
-        return sum([len(val) for val in self.os_to_nodes.values()])
+        return sum([len(val) for val in self.node_groups.values()])
 
     def __len__(self):
         return self.size()
@@ -76,28 +96,48 @@ class NodeContainer(object):
     def __iter__(self) -> Iterator[Any]:
         return self.elements()
 
-    def elements(self, operating_system: Optional[str] = None) -> Iterator[NodeType]:
+    def elements(self, operating_system: Optional[str] = None, node_type: Optional[str] = None) -> Iterator[NodeType]:
         """
         Yield the elements in this container.
 
         :param operating_system:    If this is non-None, we will iterate only over elements
                                     which have this operating system.
+        :param node_type:           If this is non-None, we will iterate only over elements
+                                    which have this node type.
         """
-        if operating_system is None:
-            for node_list in self.os_to_nodes.values():
-                for node in node_list:
-                    yield node
-        else:
-            for node in self.os_to_nodes.get(operating_system, []):
+        for (os, nt), node_list in self.node_groups.items():
+            # Filter by OS if specified
+            if operating_system is not None and os != operating_system:
+                continue
+            # Filter by node_type if specified
+            if node_type is not None and nt != node_type:
+                continue
+            for node in node_list:
                 yield node
+
+    def grouped_by_os_and_type(self) -> Dict[Tuple[Optional[str], Optional[str]], int]:
+        """
+        Returns nodes grouped by (operating_system, node_type) with counts.
+
+        This is a pure data method that groups nodes without any ordering.
+        The caller is responsible for determining processing order.
+
+        :return: Dictionary mapping (os, node_type) tuples to counts
+        """
+        result: Dict[Tuple[Optional[str], Optional[str]], int] = {}
+        for node in self.elements():
+            key = (getattr(node, "operating_system", None), getattr(node, "node_type", None))
+            result[key] = result.get(key, 0) + 1
+        return result
 
     def add_node(self, node: Union[ClusterNode, RemoteAccount]) -> None:
         """
-        Add a node to this collection.
+        Add a node to this collection, grouping by (os, node_type).
 
         :param node:                        The node to add.
         """
-        self.os_to_nodes.setdefault(node.operating_system, []).append(node)
+        key = _get_node_key(node)
+        self.node_groups.setdefault(key, []).append(node)
 
     def add_nodes(self, nodes):
         """
@@ -116,8 +156,9 @@ class NodeContainer(object):
         :returns:                           The node which has been removed.
         :throws NodeNotPresentError:        If the node is not in the collection.
         """
+        key = _get_node_key(node)
         try:
-            return self.os_to_nodes.get(node.operating_system, []).remove(node)
+            return self.node_groups.get(key, []).remove(node)
         except ValueError:
             raise NodeNotPresentError
 
@@ -130,59 +171,122 @@ class NodeContainer(object):
         for node in nodes:
             self.remove_node(node)
 
-    def remove_spec(self, cluster_spec) -> Tuple[List[NodeType], List[NodeType]]:
+    def _group_spec_by_key(self, cluster_spec: ClusterSpec) -> Dict[NodeGroupKey, List["NodeSpec"]]:
+        """
+        Group the NodeSpecs in a ClusterSpec by (os, node_type) key.
+
+        :param cluster_spec: The cluster spec to group
+        :return: Dictionary mapping (os, node_type) to list of NodeSpecs
+        """
+        result: Dict[NodeGroupKey, List["NodeSpec"]] = {}
+        for node_spec in cluster_spec.nodes.elements():
+            key = (node_spec.operating_system, node_spec.node_type)
+            result.setdefault(key, []).append(node_spec)
+        return result
+
+    def _find_matching_nodes(
+        self, required_os: str, required_node_type: Optional[str], num_needed: int
+    ) -> Tuple[List[NodeType], List[NodeType], int]:
+        """
+        Find nodes that match the required OS and node_type.
+
+        Matching rules:
+            - OS must match exactly
+            - If required_node_type is None, match nodes of ANY type for this OS
+            - If required_node_type is specified, match only nodes with that exact type
+
+        :param required_os: The required operating system
+        :param required_node_type: The required node type (None means any)
+        :param num_needed: Number of nodes needed
+        :return: Tuple of (good_nodes, bad_nodes, shortfall) where shortfall is how many more we need
+        """
+        good_nodes: List[NodeType] = []
+        bad_nodes: List[NodeType] = []
+
+        # Collect candidate keys - keys in node_groups that can satisfy this requirement
+        candidate_keys: List[NodeGroupKey] = []
+        for os, nt in self.node_groups.keys():
+            if os != required_os:
+                continue
+            # If no specific type required, any node of this OS matches
+            # If specific type required, only exact match
+            if required_node_type is None or nt == required_node_type:
+                candidate_keys.append((os, nt))
+
+        # Try to allocate from candidate pools
+        for key in candidate_keys:
+            if len(good_nodes) >= num_needed:
+                break
+
+            avail_nodes = self.node_groups.get(key, [])
+            while avail_nodes and len(good_nodes) < num_needed:
+                node = avail_nodes.pop(0)
+                if isinstance(node, RemoteAccount):
+                    if node.available():
+                        good_nodes.append(node)
+                    else:
+                        bad_nodes.append(node)
+                else:
+                    good_nodes.append(node)
+
+        shortfall = max(0, num_needed - len(good_nodes))
+        return good_nodes, bad_nodes, shortfall
+
+    def remove_spec(self, cluster_spec: ClusterSpec) -> Tuple[List[NodeType], List[NodeType]]:
         """
         Remove nodes matching a ClusterSpec from this NodeContainer.
 
+        Allocation strategy:
+            - Specific node_type requirements are allocated BEFORE any-type (None) requirements
+            - For each (os, node_type) in the spec:
+                - If node_type is specified, allocate from that exact pool
+                - If node_type is None, allocate from any pool matching the OS
+
         :param cluster_spec:                    The cluster spec.  This will not be modified.
-        :returns:                               List of good nodes and a list of bad nodes.
+        :returns:                               Tuple of (good_nodes, bad_nodes).
         :raises:                                InsufficientResourcesError when there aren't enough total nodes
                                                 InsufficientHealthyNodesError when there aren't enough healthy nodes
         """
-
         err = self.attempt_remove_spec(cluster_spec)
         if err:
-            # there weren't enough nodes to even attempt allocations, raise the exception
             raise InsufficientResourcesError(err)
 
         good_nodes: List[NodeType] = []
         bad_nodes: List[NodeType] = []
         msg = ""
-        # we have enough nodes for each OS, now try allocating while doing health checks if nodes support them
-        for os, node_specs in cluster_spec.nodes.os_to_nodes.items():
-            num_nodes = len(node_specs)
-            good_per_os: List[NodeType] = []
-            avail_nodes = self.os_to_nodes.get(os, [])
-            # loop over all available nodes
-            # for i in range(0, len(avail_nodes)):
-            while avail_nodes and (len(good_per_os) < num_nodes):
-                node = avail_nodes.pop(0)
-                if isinstance(node, RemoteAccount):
-                    if node.available():
-                        good_per_os.append(node)
-                    else:
-                        bad_nodes.append(node)
-                else:
-                    good_per_os.append(node)
 
-            good_nodes.extend(good_per_os)
-            # if we don't have enough good nodes to allocate for this OS,
-            # set the status as failed
-            if len(good_per_os) < num_nodes:
-                msg += f"{os} nodes requested: {num_nodes}. Healthy {os} nodes available: {len(good_per_os)}"
+        # Get requirements grouped by (os, node_type) with counts
+        grouped_counts = cluster_spec.nodes.grouped_by_os_and_type()
 
-        # we didn't have enough healthy nodes for at least one of the OS-s
-        # no need to keep the allocated nodes, since there aren't enough of them
-        # let's return good ones back to this container
-        # and raise the exception with bad ones
+        # Sort so specific types (node_type != None) are allocated before any-type (node_type == None)
+        # This prevents any-type requests from "stealing" nodes needed by specific types
+        def allocation_order(item: Tuple[Tuple[str, Optional[str]], int]) -> Tuple[int, str, str]:
+            (os, node_type), _ = item
+            # Specific types first (0), any-type last (1)
+            type_order = 1 if node_type is None else 0
+            return (type_order, os or "", node_type or "")
+
+        sorted_requirements = sorted(grouped_counts.items(), key=allocation_order)
+
+        for (os, node_type), num_needed in sorted_requirements:
+            found_good, found_bad, shortfall = self._find_matching_nodes(os, node_type, num_needed)
+
+            good_nodes.extend(found_good)
+            bad_nodes.extend(found_bad)
+
+            if shortfall > 0:
+                type_desc = f"{os}" if node_type is None else f"{os}/{node_type}"
+                msg += f"{type_desc} nodes requested: {num_needed}. Healthy nodes available: {len(found_good)}. "
+
         if msg:
+            # Return good nodes back to the container
             for node in good_nodes:
                 self.add_node(node)
             raise InsufficientHealthyNodesError(bad_nodes, msg)
 
         return good_nodes, bad_nodes
 
-    def can_remove_spec(self, cluster_spec: ClusterSpec):
+    def can_remove_spec(self, cluster_spec: ClusterSpec) -> bool:
         """
         Determine if we can remove nodes matching a ClusterSpec from this NodeContainer.
         This container will not be modified.
@@ -193,9 +297,40 @@ class NodeContainer(object):
         msg = self.attempt_remove_spec(cluster_spec)
         return len(msg) == 0
 
-    def attempt_remove_spec(self, cluster_spec: ClusterSpec):
+    def _count_nodes_by_os(self, target_os: str) -> int:
+        """
+        Count total nodes available for a given OS (regardless of node_type).
+
+        :param target_os: The operating system to count nodes for
+        :return: Total number of nodes with the given OS
+        """
+        count = 0
+        for (os, _), nodes in self.node_groups.items():
+            if os == target_os:
+                count += len(nodes)
+        return count
+
+    def _count_nodes_by_os_and_type(self, target_os: str, target_type: str) -> int:
+        """
+        Count nodes available for a specific (os, node_type) combination.
+
+        :param target_os: The operating system
+        :param target_type: The specific node type (not None)
+        :return: Number of nodes matching both OS and type
+        """
+        return len(self.node_groups.get((target_os, target_type), []))
+
+    def attempt_remove_spec(self, cluster_spec: ClusterSpec) -> str:
         """
         Attempt to remove a cluster_spec from this node container.
+
+        Uses holistic per-OS validation to correctly handle mixed typed and untyped
+        requirements without double-counting shared capacity.
+
+        Validation strategy:
+            1. Check total OS capacity >= total OS demand
+            2. Check each specific type has enough nodes
+            3. Check remaining capacity (after specific types) >= any-type demand
 
         :param cluster_spec:                    The cluster spec.  This will not be modified.
         :returns:                               An empty string if we can remove the nodes;
@@ -212,16 +347,43 @@ class NodeContainer(object):
 
         msg = ""
 
-        for os, node_specs in cluster_spec.nodes.os_to_nodes.items():
-            num_nodes = len(node_specs)
-            avail_nodes = len(self.os_to_nodes.get(os, []))
-            if avail_nodes < num_nodes:
-                msg = msg + "%s nodes requested: %d. %s nodes available: %d" % (
-                    os,
-                    num_nodes,
-                    os,
-                    avail_nodes,
-                )
+        # Build requirements_by_os: {os -> {node_type -> count}} in a single pass
+        requirements_by_os: Dict[str, Dict[Optional[str], int]] = {}
+        for node_spec in cluster_spec.nodes.elements():
+            os = node_spec.operating_system
+            node_type = node_spec.node_type
+            requirements_by_os.setdefault(os, {})
+            requirements_by_os[os][node_type] = requirements_by_os[os].get(node_type, 0) + 1
+
+        # Validate each OS holistically
+        for os, type_requirements in requirements_by_os.items():
+            total_available = self._count_nodes_by_os(os)
+            total_required = sum(type_requirements.values())
+
+            # Check 1: Total capacity for this OS
+            if total_available < total_required:
+                msg += f"{os} nodes requested: {total_required}. {os} nodes available: {total_available}. "
+                continue  # Already failed, no need for detailed checks
+
+            # Check 2: Each specific type has enough nodes
+            for node_type, count_needed in type_requirements.items():
+                if node_type is None:
+                    continue  # Handle any-type separately
+                type_available = self._count_nodes_by_os_and_type(os, node_type)
+                if type_available < count_needed:
+                    msg += f"{os}/{node_type} nodes requested: {count_needed}. {os}/{node_type} nodes available: {type_available}. "
+
+            # Check 3: After reserving specific types, is there capacity for any-type?
+            any_type_demand = type_requirements.get(None, 0)
+            if any_type_demand > 0:
+                specific_demand = sum(c for t, c in type_requirements.items() if t is not None)
+                remaining_capacity = total_available - specific_demand
+                if remaining_capacity < any_type_demand:
+                    msg += (
+                        f"{os} (any type) nodes requested: {any_type_demand}. "
+                        f"{os} nodes remaining after typed allocations: {remaining_capacity}. "
+                    )
+
         return msg
 
     def clone(self) -> "NodeContainer":
@@ -229,7 +391,7 @@ class NodeContainer(object):
         Returns a deep copy of this object.
         """
         container = NodeContainer()
-        for operating_system, nodes in self.os_to_nodes.items():
+        for key, nodes in self.node_groups.items():
             for node in nodes:
-                container.os_to_nodes.setdefault(operating_system, []).append(node)
+                container.node_groups.setdefault(key, []).append(node)
         return container

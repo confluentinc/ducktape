@@ -50,6 +50,7 @@ def cluster(**kwargs) -> Callable:
     :Keywords used by ducktape:
 
         - ``num_nodes`` provide hint about how many nodes the test will consume
+        - ``node_type`` provide hint about what type of nodes the test needs (e.g., "large", "small")
         - ``cluster_spec`` provide hint about how many nodes of each type the test will consume
 
 
@@ -57,6 +58,11 @@ def cluster(**kwargs) -> Callable:
 
         # basic usage with num_nodes
         @cluster(num_nodes=10)
+        def the_test(...):
+            ...
+
+        # usage with num_nodes and node_type
+        @cluster(num_nodes=5, node_type="large")
         def the_test(...):
             ...
 
