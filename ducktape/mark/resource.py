@@ -61,7 +61,7 @@ def cluster(**kwargs) -> Callable:
         def the_test(...):
             ...
 
-        # usage with num_nodes and node_type (Approach 1: single type for entire test)
+        # usage with num_nodes and node_type
         @cluster(num_nodes=5, node_type="large")
         def the_test(...):
             ...
