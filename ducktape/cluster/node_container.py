@@ -30,7 +30,6 @@ from ducktape.cluster.remoteaccount import RemoteAccount
 
 if TYPE_CHECKING:
     from ducktape.cluster.cluster_spec import ClusterSpec
-    from ducktape.cluster.node_spec import NodeSpec
 
 NodeType = Union[ClusterNode, RemoteAccount]
 # Key for node grouping: (operating_system, node_type)
@@ -170,19 +169,6 @@ class NodeContainer(object):
         """
         for node in nodes:
             self.remove_node(node)
-
-    def _group_spec_by_key(self, cluster_spec: ClusterSpec) -> Dict[NodeGroupKey, List["NodeSpec"]]:
-        """
-        Group the NodeSpecs in a ClusterSpec by (os, node_type) key.
-
-        :param cluster_spec: The cluster spec to group
-        :return: Dictionary mapping (os, node_type) to list of NodeSpecs
-        """
-        result: Dict[NodeGroupKey, List["NodeSpec"]] = {}
-        for node_spec in cluster_spec.nodes.elements():
-            key = (node_spec.operating_system, node_spec.node_type)
-            result.setdefault(key, []).append(node_spec)
-        return result
 
     def _find_matching_nodes(
         self, required_os: str, required_node_type: Optional[str], num_needed: int
