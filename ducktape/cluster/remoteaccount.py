@@ -154,12 +154,16 @@ class RemoteAccount(HttpMixin):
     It wraps metadata such as ssh configs, and provides methods for file system manipulation and shell commands.
 
     Each operating system has its own RemoteAccount implementation.
+
+    The node_type attribute stores the classification label from the cluster
+    configuration, enabling type-aware node allocation.
     """
 
     def __init__(
         self,
         ssh_config: RemoteAccountSSHConfig,
         externally_routable_ip: Optional[str] = None,
+        node_type: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
         ssh_exception_checks: List[Callable] = [],
     ) -> None:
@@ -177,6 +181,7 @@ class RemoteAccount(HttpMixin):
 
         self.user = ssh_config.user
         self.externally_routable_ip = externally_routable_ip
+        self.node_type = node_type  # Node type label (e.g., "large", "small")
         self._logger = logger
         self.os: Optional[str] = None
         self._ssh_client: Optional[SSHClient] = None

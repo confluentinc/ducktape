@@ -48,8 +48,10 @@ class CheckClusterUseAnnotation(object):
 
         test_context_list = MarkedFunctionExpander(function=function).expand()
         assert len(test_context_list) == 1
-        assert len(test_context_list[0].expected_cluster_spec.nodes.os_to_nodes) == 1
-        assert len(test_context_list[0].expected_cluster_spec.nodes.os_to_nodes.get("linux")) == num_nodes
+        assert len(test_context_list[0].expected_cluster_spec.nodes) == num_nodes
+        # All nodes should be linux
+        for node in test_context_list[0].expected_cluster_spec.nodes.elements():
+            assert node.operating_system == "linux"
 
     def check_basic_usage_num_nodes(self):
         num_nodes = 200

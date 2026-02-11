@@ -35,11 +35,18 @@ class ClusterSpec(object):
         return ClusterSpec([])
 
     @staticmethod
-    def simple_linux(num_nodes):
+    def simple_linux(num_nodes, node_type=None):
         """
-        Create a ClusterSpec containing some simple Linux nodes.
+        Create a ClusterSpec for Linux nodes, optionally of a specific type.
+
+        Examples:
+            ClusterSpec.simple_linux(5)              # 5 nodes, any type
+            ClusterSpec.simple_linux(3, "large")     # 3 large nodes
+
+        :param num_nodes: Number of Linux nodes
+        :param node_type: Optional node type label (e.g., "large", "small")
         """
-        node_specs = [NodeSpec(LINUX)] * num_nodes
+        node_specs = [NodeSpec(LINUX, node_type)] * num_nodes
         return ClusterSpec(node_specs)
 
     @staticmethod
@@ -47,7 +54,7 @@ class ClusterSpec(object):
         """
         Create a ClusterSpec describing a list of nodes.
         """
-        return ClusterSpec(ClusterSpec([NodeSpec(node.operating_system) for node in nodes]))
+        return ClusterSpec([NodeSpec(node.operating_system, getattr(node, "node_type", None)) for node in nodes])
 
     def __init__(self, nodes=None):
         """
