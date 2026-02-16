@@ -57,56 +57,62 @@ class JVMLogger:
                 "collect_default": False  # Only on failure
             }
         }
-        
+
         # Initialize logs dict if needed
         if not hasattr(service, 'logs') or service.logs is None:
             service.logs = {}
-        
+
         # Merge with existing logs
         service.logs.update(jvm_logs)
-        
+
         # Add helper methods
         service.JVM_LOG_DIR = self.log_dir
         service.jvm_options = lambda node: self._get_jvm_options()
         service.setup_jvm_logging = lambda node: self._setup_on_node(node)
         service.clean_jvm_logs = lambda node: self._cleanup_on_node(node)
-        
+
         # Wrap start_node to automatically setup JVM logging and wrap SSH
         original_start_node = service.start_node
-        
+
         def wrapped_start_node(node, **kwargs):
             # Setup JVM log directory and environment file
             self._setup_on_node(node)
-            
+
             # Wrap the node's ssh method to automatically source JVM env
             if not hasattr(node.account, 'original_ssh'):
                 original_ssh = node.account.ssh
                 node.account.original_ssh = original_ssh
-                
+
                 def wrapped_ssh(cmd, allow_fail=False):
                     # Automatically source JVM env file if it exists
                     wrapped_cmd = f"[ -f {self.ENV_FILE_PATH} ] && source {self.ENV_FILE_PATH}; {cmd}"
                     return original_ssh(wrapped_cmd, allow_fail=allow_fail)
-                
+
                 node.account.ssh = wrapped_ssh
-            
+
             # Call the original start_node
-            return original_start_node(node, **kwargs)
-        
+            try:  # Try with kwargs first, fall back to without kwargs for compatibility
+                return original_start_node(node, **kwargs)
+            except TypeError:
+                # Original start_node doesn't accept **kwargs, call without them
+                return original_start_node(node)
+
         service.start_node = wrapped_start_node
-        
+
         # Wrap clean_node to automatically cleanup JVM logs and restore SSH
         original_clean_node = service.clean_node
-        
+
         def wrapped_clean_node(node, **kwargs):
-            # Call the original clean_node first
-            result = original_clean_node(node, **kwargs)
-            
+            try:
+                result = original_clean_node(node, **kwargs)
+            except TypeError:
+                result = original_clean_node(node)
+
             # Restore original ssh method if it was wrapped
             if hasattr(node.account, 'original_ssh'):
                 node.account.ssh = node.account.original_ssh
                 delattr(node.account, 'original_ssh')
-            
+
             # Then cleanup JVM logs and env file
             self._cleanup_on_node(node)
             return result
