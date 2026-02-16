@@ -78,7 +78,7 @@ class JVMLogger:
         # Wrap start_node to automatically setup JVM logging and wrap SSH
         original_start_node = service.start_node
 
-        def wrapped_start_node(node, **kwargs):
+        def wrapped_start_node(self, node, *args, **kwargs):
             # Setup JVM log directory and environment file
             jvm_logger._setup_on_node(node)
 
@@ -94,12 +94,8 @@ class JVMLogger:
 
                 node.account.ssh = wrapped_ssh
 
-            # Call the original start_node
-            try:  # Try with kwargs first, fall back to without kwargs for compatibility
-                return original_start_node(node, **kwargs)
-            except TypeError:
-                # Original start_node doesn't accept **kwargs, call without them
-                return original_start_node(node)
+            # Call the original start_node with all arguments
+            return original_start_node(node, *args, **kwargs)
 
         # Bind the wrapper function to the service instance
         service.start_node = types.MethodType(wrapped_start_node, service)
@@ -107,11 +103,9 @@ class JVMLogger:
         # Wrap clean_node to automatically cleanup JVM logs and restore SSH
         original_clean_node = service.clean_node
 
-        def wrapped_clean_node(node, **kwargs):
-            try:
-                result = original_clean_node(node, **kwargs)
-            except TypeError:
-                result = original_clean_node(node)
+        def wrapped_clean_node(self, node, *args, **kwargs):
+            # Call original clean_node with all arguments
+            result = original_clean_node(node, *args, **kwargs)
 
             # Restore original ssh method if it was wrapped
             if hasattr(node.account, 'original_ssh'):
