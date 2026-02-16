@@ -20,6 +20,7 @@ without requiring any code changes to services or tests.
 """
 
 import os
+import types
 
 
 class JVMLogger:
@@ -42,18 +43,21 @@ class JVMLogger:
         Automatically wraps start_node and clean_node to setup/cleanup JVM logging.
         :param service: Service instance to enable JVM logging for
         """
+        # Store reference to JVMLogger instance for use in closures
+        jvm_logger = self
+        
         # Add JVM log definitions
         jvm_logs = {
             "jvm_gc_log": {
-                "path": os.path.join(self.log_dir, "gc.log"),
+                "path": os.path.join(jvm_logger.log_dir, "gc.log"),
                 "collect_default": True
             },
             "jvm_stdout_stderr": {
-                "path": os.path.join(self.log_dir, "jvm.log"),
+                "path": os.path.join(jvm_logger.log_dir, "jvm.log"),
                 "collect_default": True
             },
             "jvm_heap_dump": {
-                "path": os.path.join(self.log_dir, "heap_dump.hprof"),
+                "path": os.path.join(jvm_logger.log_dir, "heap_dump.hprof"),
                 "collect_default": False  # Only on failure
             }
         }
@@ -66,17 +70,17 @@ class JVMLogger:
         service.logs.update(jvm_logs)
 
         # Add helper methods
-        service.JVM_LOG_DIR = self.log_dir
-        service.jvm_options = lambda node: self._get_jvm_options()
-        service.setup_jvm_logging = lambda node: self._setup_on_node(node)
-        service.clean_jvm_logs = lambda node: self._cleanup_on_node(node)
+        service.JVM_LOG_DIR = jvm_logger.log_dir
+        service.jvm_options = lambda node: jvm_logger._get_jvm_options()
+        service.setup_jvm_logging = lambda node: jvm_logger._setup_on_node(node)
+        service.clean_jvm_logs = lambda node: jvm_logger._cleanup_on_node(node)
 
         # Wrap start_node to automatically setup JVM logging and wrap SSH
         original_start_node = service.start_node
 
-        def wrapped_start_node(node, **kwargs):
+        def wrapped_start_node(self, node, **kwargs):
             # Setup JVM log directory and environment file
-            self._setup_on_node(node)
+            jvm_logger._setup_on_node(node)
 
             # Wrap the node's ssh method to automatically source JVM env
             if not hasattr(node.account, 'original_ssh'):
@@ -85,7 +89,7 @@ class JVMLogger:
 
                 def wrapped_ssh(cmd, allow_fail=False):
                     # Automatically source JVM env file if it exists
-                    wrapped_cmd = f"[ -f {self.ENV_FILE_PATH} ] && source {self.ENV_FILE_PATH}; {cmd}"
+                    wrapped_cmd = f"[ -f {jvm_logger.ENV_FILE_PATH} ] && source {jvm_logger.ENV_FILE_PATH}; {cmd}"
                     return original_ssh(wrapped_cmd, allow_fail=allow_fail)
 
                 node.account.ssh = wrapped_ssh
@@ -97,12 +101,13 @@ class JVMLogger:
                 # Original start_node doesn't accept **kwargs, call without them
                 return original_start_node(node)
 
-        service.start_node = wrapped_start_node
+        # Bind the wrapper function to the service instance
+        service.start_node = types.MethodType(wrapped_start_node, service)
 
         # Wrap clean_node to automatically cleanup JVM logs and restore SSH
         original_clean_node = service.clean_node
 
-        def wrapped_clean_node(node, **kwargs):
+        def wrapped_clean_node(self, node, **kwargs):
             try:
                 result = original_clean_node(node, **kwargs)
             except TypeError:
@@ -114,10 +119,11 @@ class JVMLogger:
                 delattr(node.account, 'original_ssh')
 
             # Then cleanup JVM logs and env file
-            self._cleanup_on_node(node)
+            jvm_logger._cleanup_on_node(node)
             return result
-        
-        service.clean_node = wrapped_clean_node
+
+        # Bind the wrapper function to the service instance
+        service.clean_node = types.MethodType(wrapped_clean_node, service)
     
     def _get_jvm_options(self):
         """Generate JVM options string for logging."""
