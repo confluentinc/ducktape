@@ -25,8 +25,6 @@ import types
 
 class JVMLogger:
     """Handles JVM logging configuration and enablement for services."""
-
-    ENV_FILE_PATH = "/tmp/ducktape_jvm_env.sh"
     
     def __init__(self, log_dir="/mnt/jvm_logs"):
         """
@@ -79,17 +77,19 @@ class JVMLogger:
         original_start_node = service.start_node
 
         def wrapped_start_node(self, node, *args, **kwargs):
-            # Setup JVM log directory and environment file
+            # Setup JVM log directory
             jvm_logger._setup_on_node(node)
 
-            # Wrap the node's ssh method to automatically source JVM env
+            # Wrap the node's ssh method to automatically set JAVA_TOOL_OPTIONS
+            # This environment variable is automatically picked up by any Java process
             if not hasattr(node.account, 'original_ssh'):
                 original_ssh = node.account.ssh
                 node.account.original_ssh = original_ssh
 
                 def wrapped_ssh(cmd, allow_fail=False):
-                    # Automatically source JVM env file if it exists
-                    wrapped_cmd = f"[ -f {jvm_logger.ENV_FILE_PATH} ] && source {jvm_logger.ENV_FILE_PATH}; {cmd}"
+                    # Export JAVA_TOOL_OPTIONS which is automatically picked up by all Java processes
+                    jvm_opts = jvm_logger._get_jvm_options()
+                    wrapped_cmd = f'export JAVA_TOOL_OPTIONS="{jvm_opts}"; {cmd}'
                     return original_ssh(wrapped_cmd, allow_fail=allow_fail)
 
                 node.account.ssh = wrapped_ssh
@@ -112,7 +112,7 @@ class JVMLogger:
                 node.account.ssh = node.account.original_ssh
                 delattr(node.account, 'original_ssh')
 
-            # Then cleanup JVM logs and env file
+            # Then cleanup JVM logs
             jvm_logger._cleanup_on_node(node)
             return result
 
@@ -141,22 +141,10 @@ class JVMLogger:
         return " ".join(jvm_logging_opts)
     
     def _setup_on_node(self, node):
-        """Create JVM log directory and environment file on worker node."""
+        """Create JVM log directory on worker node."""
         node.account.ssh(f"mkdir -p {self.log_dir}")
         node.account.ssh(f"chmod 755 {self.log_dir}")
-        
-        # Create environment file with JVM options
-        jvm_opts = self._get_jvm_options()
-        env_file_content = f"""
-#!/bin/bash
-# Auto-generated JVM logging environment variables by Ducktape
-export KAFKA_OPTS="{jvm_opts}"
-export JAVA_OPTS="{jvm_opts}"
-"""
-        node.account.create_file(self.ENV_FILE_PATH, env_file_content)
-        node.account.ssh(f"chmod 644 {self.ENV_FILE_PATH}")
     
     def _cleanup_on_node(self, node):
-        """Clean JVM logs and environment file from worker node."""
+        """Clean JVM logs from worker node."""
         node.account.ssh(f"rm -rf {self.log_dir}", allow_fail=True)
-        node.account.ssh(f"rm -f {self.ENV_FILE_PATH}", allow_fail=True)
