@@ -76,7 +76,7 @@ class JVMLogger:
         # Wrap start_node to automatically setup JVM logging and wrap SSH
         original_start_node = service.start_node
 
-        def wrapped_start_node(self, node, *args, **kwargs):
+        def wrapped_start_node(node, *args, **kwargs):
             # Setup JVM log directory
             jvm_logger._setup_on_node(node)
 
@@ -103,7 +103,7 @@ class JVMLogger:
         # Wrap clean_node to automatically cleanup JVM logs and restore SSH
         original_clean_node = service.clean_node
 
-        def wrapped_clean_node(self, node, *args, **kwargs):
+        def wrapped_clean_node(node, *args, **kwargs):
             # Call original clean_node with all arguments
             result = original_clean_node(node, *args, **kwargs)
 
