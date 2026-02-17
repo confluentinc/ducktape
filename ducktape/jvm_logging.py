@@ -80,39 +80,29 @@ class JVMLogger:
             # Setup JVM log directory
             jvm_logger._setup_on_node(node)
 
-            # Wrap the node's ssh method to automatically set JAVA_TOOL_OPTIONS
-            # This environment variable is automatically picked up by any Java process
+            # Wrap the node's ssh method to inject JDK_JAVA_OPTIONS
+            # Combined with -Xlog:disable in the options, this prevents any console output pollution
+            # Wrap once and keep active for the entire service lifecycle
             if not hasattr(node.account, 'original_ssh'):
                 original_ssh = node.account.ssh
                 node.account.original_ssh = original_ssh
 
                 def wrapped_ssh(cmd, allow_fail=False):
-                    # Export JAVA_TOOL_OPTIONS which is automatically picked up by all Java processes
                     jvm_opts = jvm_logger._get_jvm_options()
-                    wrapped_cmd = f'export JAVA_TOOL_OPTIONS="{jvm_opts}"; {cmd}'
-                    return original_ssh(wrapped_cmd, allow_fail=allow_fail)
+                    return original_ssh(f'export JDK_JAVA_OPTIONS="{jvm_opts}"; {cmd}', allow_fail=allow_fail)
 
                 node.account.ssh = wrapped_ssh
 
-            # Call the original start_node with all arguments
             return original_start_node(node, *args, **kwargs)
 
-        # Bind the wrapper function to the service instance
+        # Bind the wrapper function to the service object
         service.start_node = types.MethodType(wrapped_start_node, service)
 
-        # Wrap clean_node to automatically cleanup JVM logs and restore SSH
+        # Wrap clean_node to cleanup JVM logs
         original_clean_node = service.clean_node
 
         def wrapped_clean_node(self, node, *args, **kwargs):
-            # Call original clean_node with all arguments
             result = original_clean_node(node, *args, **kwargs)
-
-            # Restore original ssh method if it was wrapped
-            if hasattr(node.account, 'original_ssh'):
-                node.account.ssh = node.account.original_ssh
-                delattr(node.account, 'original_ssh')
-
-            # Then cleanup JVM logs
             jvm_logger._cleanup_on_node(node)
             return result
 
@@ -127,8 +117,8 @@ class JVMLogger:
         jvm_log = os.path.join(self.log_dir, "jvm.log")
 
         jvm_logging_opts = [
+            "-Xlog:disable",  # Suppress all default JVM console logging to prevent output pollution
             f"-Xlog:gc*:file={gc_log}:time,uptime,level,tags",  # GC activity with timestamps
-            "-Xlog:gc*=info",  # Set GC log level to info
             "-XX:+HeapDumpOnOutOfMemoryError",  # Generate heap dump on OOM
             f"-XX:HeapDumpPath={heap_dump}",  # Heap dump file location
             f"-Xlog:safepoint=info:file={jvm_log}:time,uptime,level,tags",  # Safepoint pause events
