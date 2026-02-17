@@ -135,7 +135,7 @@ class JVMLogger:
             f"-Xlog:class+load=info:file={jvm_log}:time,uptime,level,tags",  # Class loading events
             f"-XX:ErrorFile={error_log}",  # Fatal error log location (JVM crashes)
             "-XX:NativeMemoryTracking=summary",  # Track native memory usage
-            f"-Xlog:jit+compilation=info:file={jvm_log}:time,uptime,level,tags",  # JIT compilation events
+            f"-Xlog:jit+compilation=debug:file={jvm_log}:time,uptime,level,tags",  # JIT compilation events (debug level required)
         ]
         
         return " ".join(jvm_logging_opts)
