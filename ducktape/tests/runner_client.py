@@ -235,7 +235,7 @@ class RunnerClient(object):
         stop_time = -1
         test_status = FAIL
         data = None
-        self.all_services = ServiceRegistry()
+        self.all_services = ServiceRegistry(enable_jvm_logs=self.session_context.enable_jvm_logs)
 
         summaries = []
         num_runs = 0
