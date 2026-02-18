@@ -129,7 +129,7 @@ class TestContext(object):
         # cluster_use_metadata is a dict containing information about how this test will use cluster resources
         self.cluster_use_metadata = copy.copy(kwargs.get("cluster_use_metadata", {}))
 
-        self.services = ServiceRegistry()
+        self.services = ServiceRegistry(enable_jvm_logs=self.session_context.enable_jvm_logs)
         self.test_index = None
 
         # dict for toggling service log collection on/off

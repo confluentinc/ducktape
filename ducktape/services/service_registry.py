@@ -14,12 +14,21 @@
 
 
 from collections import OrderedDict
+import os
+
+from ducktape.jvm_logging import JVMLogger
 
 
 class ServiceRegistry(object):
-    def __init__(self) -> None:
+    def __init__(self, enable_jvm_logs=False) -> None:
         self._services: OrderedDict = OrderedDict()
         self._nodes: dict = {}
+        
+        # Initialize JVM logging if enabled
+        if enable_jvm_logs:
+            self._jvm_logger = JVMLogger()
+        else:
+            self._jvm_logger = None
 
     def __contains__(self, item):
         return id(item) in self._services
@@ -31,6 +40,10 @@ class ServiceRegistry(object):
         return str(self._services.values())
 
     def append(self, service):
+        # Auto-enable JVM logging for Java-based services
+        if self._jvm_logger:
+            self._jvm_logger.enable_for_service(service)
+        
         self._services[id(service)] = service
         self._nodes[id(service)] = [str(n.account) for n in service.nodes]
 

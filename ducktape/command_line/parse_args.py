@@ -207,6 +207,11 @@ def create_ducktape_parser() -> argparse.ArgumentParser:
         "and a test will be marked as either passed or failed. "
         "When enabled tests will be marked as flaky if it passes on any of the reruns",
     )
+    parser.add_argument(
+        "--enable-jvm-logs",
+        action="store_true",
+        help="Enable automatic JVM log collection for Java-based services (Kafka, ZooKeeper, Connect, etc.)",
+    )
     return parser
 
 
