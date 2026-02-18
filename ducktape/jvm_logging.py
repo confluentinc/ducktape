@@ -20,6 +20,7 @@ without requiring any code changes to services or tests.
 """
 
 import os
+import shlex
 import types
 
 
@@ -36,9 +37,9 @@ class JVMLogger:
 
     def enable_for_service(self, service):
         """
-        Enable JVM logging for a service instance.
-        Adds JVM log definitions and helper methods to the service.
-        Automatically wraps start_node and clean_node to setup/cleanup JVM logging.
+        Enable JVM logging for a service instance. Adds JVM log definitions and helper methods to the service.
+        Wraps start_node so that when nodes are started, JVM logging is set up and JVM options are injected via SSH,
+        and wraps clean_node to clean up JVM logs after node cleanup.
         :param service: Service instance to enable JVM logging for
         """
         # Store reference to JVMLogger instance for use in closures
@@ -84,7 +85,8 @@ class JVMLogger:
                 node.account.original_ssh_output = original_ssh_output
 
                 jvm_opts = jvm_logger._get_jvm_options()
-                env_prefix = f'export JDK_JAVA_OPTIONS="{jvm_opts}"; '
+                # Use env command with proper escaping and append to existing JDK_JAVA_OPTIONS
+                env_prefix = f'env JDK_JAVA_OPTIONS="${{JDK_JAVA_OPTIONS:-}} {shlex.quote(jvm_opts)}" '
 
                 def wrapped_ssh(cmd, allow_fail=False):
                     return original_ssh(env_prefix + cmd, allow_fail=allow_fail)

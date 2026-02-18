@@ -165,6 +165,49 @@ class CheckJVMLogging(object):
         for method, cmd in executed_commands:
             assert "JDK_JAVA_OPTIONS=" in cmd, f"{method} didn't inject JDK_JAVA_OPTIONS: {cmd}"
             assert "-Xlog:disable" in cmd, f"{method} didn't include JVM options: {cmd}"
+            # Verify it uses env command (more portable)
+            assert cmd.startswith("env JDK_JAVA_OPTIONS="), f"{method} doesn't use env command: {cmd}"
+            # Verify it appends to existing (${JDK_JAVA_OPTIONS:-})
+            assert "${JDK_JAVA_OPTIONS:-}" in cmd, f"{method} doesn't preserve existing options: {cmd}"
+
+    def check_preserves_existing_jvm_options(self):
+        """Check that existing JDK_JAVA_OPTIONS are preserved and appended to."""
+        service = JavaService(self.context, 1)
+        node = service.nodes[0]
+
+        # Track what commands are executed
+        executed_commands = []
+
+        def track_ssh(cmd, allow_fail=False):
+            executed_commands.append(cmd)
+            return 0
+
+        node.account.ssh = track_ssh
+        node.account.ssh_capture = Mock(return_value=iter([]))
+        node.account.ssh_output = Mock(return_value="")
+
+        # Enable JVM logging
+        self.jvm_logger.enable_for_service(service)
+
+        # Start node
+        service.start_node(node)
+        executed_commands.clear()
+
+        # Execute a command - the wrapper should preserve any existing JDK_JAVA_OPTIONS
+        node.account.ssh("java -version")
+
+        # Verify the command structure
+        assert len(executed_commands) == 1
+        cmd = executed_commands[0]
+
+        # Should use env command
+        assert cmd.startswith("env JDK_JAVA_OPTIONS=")
+
+        # Should preserve existing options with ${JDK_JAVA_OPTIONS:-}
+        assert "${JDK_JAVA_OPTIONS:-}" in cmd
+
+        # Should append our JVM logging options
+        assert "-Xlog:disable" in cmd
 
     def check_ssh_wrap_idempotent(self):
         """Check that SSH wrapping is idempotent (handles restarts)."""
