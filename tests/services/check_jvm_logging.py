@@ -169,6 +169,8 @@ class CheckJVMLogging(object):
             assert cmd.startswith("env JDK_JAVA_OPTIONS="), f"{method} doesn't use env command: {cmd}"
             # Verify it appends to existing (${JDK_JAVA_OPTIONS:-})
             assert "${JDK_JAVA_OPTIONS:-}" in cmd, f"{method} doesn't preserve existing options: {cmd}"
+            # Verify no extra quotes around the options (shlex.quote would add them)
+            assert "'-Xlog:disable" not in cmd, f"{method} has unwanted quotes around options: {cmd}"
 
     def check_preserves_existing_jvm_options(self):
         """Check that existing JDK_JAVA_OPTIONS are preserved and appended to."""

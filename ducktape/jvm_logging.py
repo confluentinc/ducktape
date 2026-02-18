@@ -20,7 +20,6 @@ without requiring any code changes to services or tests.
 """
 
 import os
-import shlex
 import types
 
 
@@ -85,8 +84,8 @@ class JVMLogger:
                 node.account.original_ssh_output = original_ssh_output
 
                 jvm_opts = jvm_logger._get_jvm_options()
-                # Use env command with proper escaping and append to existing JDK_JAVA_OPTIONS
-                env_prefix = f'env JDK_JAVA_OPTIONS="${{JDK_JAVA_OPTIONS:-}} {shlex.quote(jvm_opts)}" '
+                # Use env command and append to existing JDK_JAVA_OPTIONS
+                env_prefix = f'env JDK_JAVA_OPTIONS="${{JDK_JAVA_OPTIONS:-}} {jvm_opts}" '
 
                 def wrapped_ssh(cmd, allow_fail=False):
                     return original_ssh(env_prefix + cmd, allow_fail=allow_fail)
