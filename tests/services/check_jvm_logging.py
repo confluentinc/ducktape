@@ -389,11 +389,11 @@ class CheckJVMLogging(object):
 
         # Test with allow_fail=False (default)
         mock_node.account.ssh("echo success")
-        assert ssh_calls[-1][1] == False
+        assert ssh_calls[-1][1] is False
 
         # Test with allow_fail=True
         mock_node.account.ssh("echo fail", allow_fail=True)
-        assert ssh_calls[-1][1] == True
+        assert ssh_calls[-1][1] is True
 
     def check_cleanup_failure_still_restores_ssh(self):
         """Check that even if cleanup fails, SSH methods are still restored."""
