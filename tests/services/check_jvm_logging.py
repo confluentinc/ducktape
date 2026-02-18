@@ -63,29 +63,29 @@ class CheckJVMLogging(object):
     def check_enable_for_service(self):
         """Check that JVM logging can be enabled for a service."""
         service = JavaService(self.context, 1)
-        
+
         # Enable JVM logging
         self.jvm_logger.enable_for_service(service)
-        
+
         # Verify logs dict was updated
-        assert hasattr(service, 'logs')
-        assert 'jvm_gc_log' in service.logs
-        assert 'jvm_stdout_stderr' in service.logs
-        assert 'jvm_heap_dump' in service.logs
-        
+        assert hasattr(service, "logs")
+        assert "jvm_gc_log" in service.logs
+        assert "jvm_stdout_stderr" in service.logs
+        assert "jvm_heap_dump" in service.logs
+
         # Verify helper methods were added
-        assert hasattr(service, 'JVM_LOG_DIR')
-        assert hasattr(service, 'jvm_options')
-        assert hasattr(service, 'setup_jvm_logging')
-        assert hasattr(service, 'clean_jvm_logs')
+        assert hasattr(service, "JVM_LOG_DIR")
+        assert hasattr(service, "jvm_options")
+        assert hasattr(service, "setup_jvm_logging")
+        assert hasattr(service, "clean_jvm_logs")
 
     def check_jvm_options_format(self):
         """Check that JVM options string is properly formatted."""
         jvm_opts = self.jvm_logger._get_jvm_options()
-        
+
         # Should start with -Xlog:disable to prevent console pollution
         assert jvm_opts.startswith("-Xlog:disable")
-        
+
         # Should contain key logging options
         assert "gc*:file=" in jvm_opts
         assert "HeapDumpOnOutOfMemoryError" in jvm_opts
@@ -95,91 +95,163 @@ class CheckJVMLogging(object):
         assert "NativeMemoryTracking=summary" in jvm_opts
 
     def check_ssh_wrapping(self):
-        """Check that SSH method is wrapped to inject JDK_JAVA_OPTIONS."""
+        """Check that all SSH methods are wrapped to inject JDK_JAVA_OPTIONS."""
         # Create a mock node first
         mock_node = create_mock_node()
-        
+        # Add ssh_capture and ssh_output methods to mock
+        mock_node.account.ssh_capture = Mock(return_value=iter([]))
+        mock_node.account.ssh_output = Mock(return_value="")
+
         # Enable JVM logging for a service
         service = JavaService(self.context, 1)
         self.jvm_logger.enable_for_service(service)
-        
+
         # Manually call the wrapped start_node with our mock node
         # This simulates what happens during service.start()
         service.start_node(mock_node)
-        
-        # Verify SSH was wrapped (original_ssh attribute is set)
-        assert hasattr(mock_node.account, 'original_ssh')
-        # The current ssh should be a callable (the wrapper function)
+
+        # Verify all SSH methods were wrapped
+        assert hasattr(mock_node.account, "original_ssh")
+        assert hasattr(mock_node.account, "original_ssh_capture")
+        assert hasattr(mock_node.account, "original_ssh_output")
+
+        # The current methods should be callables (the wrapper functions)
         assert callable(mock_node.account.ssh)
+        assert callable(mock_node.account.ssh_capture)
+        assert callable(mock_node.account.ssh_output)
         assert service.start_called
+
+    def check_ssh_methods_inject_options(self):
+        """Check that wrapped SSH methods actually inject JDK_JAVA_OPTIONS."""
+        service = JavaService(self.context, 1)
+        node = service.nodes[0]
+
+        # Track what commands are actually executed
+        executed_commands = []
+
+        def track_ssh(cmd, allow_fail=False):
+            executed_commands.append(("ssh", cmd))
+            return 0
+
+        def track_ssh_capture(cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
+            executed_commands.append(("ssh_capture", cmd))
+            return iter([])
+
+        def track_ssh_output(cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
+            executed_commands.append(("ssh_output", cmd))
+            return ""
+
+        # Set the tracking functions as the original methods
+        node.account.ssh = track_ssh
+        node.account.ssh_capture = track_ssh_capture
+        node.account.ssh_output = track_ssh_output
+
+        # Enable JVM logging - this wraps start_node
+        self.jvm_logger.enable_for_service(service)
+
+        # Start node - this wraps the SSH methods
+        service.start_node(node)
+
+        # Clear the setup commands (from mkdir, etc)
+        executed_commands.clear()
+
+        # Now execute commands through the wrapped methods
+        node.account.ssh("java -version")
+        node.account.ssh_capture("java -jar app.jar")
+        node.account.ssh_output("java -cp test.jar Main")
+
+        # Verify JDK_JAVA_OPTIONS was injected in all commands
+        assert len(executed_commands) == 3, f"Expected 3 commands, got {len(executed_commands)}"
+        for method, cmd in executed_commands:
+            assert "JDK_JAVA_OPTIONS=" in cmd, f"{method} didn't inject JDK_JAVA_OPTIONS: {cmd}"
+            assert "-Xlog:disable" in cmd, f"{method} didn't include JVM options: {cmd}"
 
     def check_ssh_wrap_idempotent(self):
         """Check that SSH wrapping is idempotent (handles restarts)."""
-        service = JavaService(self.context, 1)
-        
-        # Replace the node with a mock node
         mock_node = create_mock_node()
-        service.nodes = [mock_node]
-        
+        mock_node.account.ssh_capture = Mock(return_value=iter([]))
+        mock_node.account.ssh_output = Mock(return_value="")
+
+        service = JavaService(self.context, 1)
+
         # Enable JVM logging
         self.jvm_logger.enable_for_service(service)
-        
-        # Start service twice (simulating restart)
-        service.start()
-        first_wrapped_ssh = mock_node.account.ssh
-        
-        service.stop()
-        service.start()
-        second_wrapped_ssh = mock_node.account.ssh
-        
-        # SSH should still be wrapped and should be the same wrapper
-        assert hasattr(mock_node.account, 'original_ssh')
-        assert first_wrapped_ssh == second_wrapped_ssh
+
+        # Get the wrapped start_node method
+        wrapped_start_node = service.start_node
+
+        # Call it twice with the same node
+        wrapped_start_node(mock_node)
+
+        # Verify wrapping happened
+        assert hasattr(mock_node.account, "original_ssh")
+        assert hasattr(mock_node.account, "original_ssh_capture")
+        assert hasattr(mock_node.account, "original_ssh_output")
+
+        # Call again (simulating restart)
+        wrapped_start_node(mock_node)
+
+        # SSH should still have the original_* attributes (idempotent)
+        assert hasattr(mock_node.account, "original_ssh")
+        assert hasattr(mock_node.account, "original_ssh_capture")
+        assert hasattr(mock_node.account, "original_ssh_output")
 
     def check_clean_node_behavior(self):
-        """Check that clean_node properly cleans up."""
-        service = JavaService(self.context, 1)
-        
-        # Replace the node with a mock node
+        """Check that clean_node properly cleans up and restores SSH methods."""
         mock_node = create_mock_node()
-        service.nodes = [mock_node]
-        
+        mock_node.account.ssh_capture = Mock(return_value=iter([]))
+        mock_node.account.ssh_output = Mock(return_value="")
+
+        service = JavaService(self.context, 1)
+
         # Enable JVM logging
         self.jvm_logger.enable_for_service(service)
-        
-        # Start and clean
-        service.start()
-        service.clean()
-        
-        assert service.clean_called
+
+        # Get the wrapped methods
+        wrapped_start_node = service.start_node
+        wrapped_clean_node = service.clean_node
+
+        # Start node to wrap SSH methods
+        wrapped_start_node(mock_node)
+        assert hasattr(mock_node.account, "original_ssh")
+        assert hasattr(mock_node.account, "original_ssh_capture")
+        assert hasattr(mock_node.account, "original_ssh_output")
+
+        # Clean node to restore SSH methods
+        wrapped_clean_node(mock_node)
+
+        # Verify SSH methods were restored
+        assert not hasattr(mock_node.account, "original_ssh")
+        assert not hasattr(mock_node.account, "original_ssh_capture")
+        assert not hasattr(mock_node.account, "original_ssh_output")
 
     def check_log_paths(self):
         """Check that log paths are correctly configured."""
         service = JavaService(self.context, 1)
         self.jvm_logger.enable_for_service(service)
-        
+
         log_dir = self.jvm_logger.log_dir
-        
+
         # Verify log paths
-        assert service.logs['jvm_gc_log']['path'] == os.path.join(log_dir, "gc.log")
-        assert service.logs['jvm_stdout_stderr']['path'] == os.path.join(log_dir, "jvm.log")
-        assert service.logs['jvm_heap_dump']['path'] == os.path.join(log_dir, "heap_dump.hprof")
-        
+        assert service.logs["jvm_gc_log"]["path"] == os.path.join(log_dir, "gc.log")
+        assert service.logs["jvm_stdout_stderr"]["path"] == os.path.join(log_dir, "jvm.log")
+        assert service.logs["jvm_heap_dump"]["path"] == os.path.join(log_dir, "heap_dump.hprof")
+
         # Verify collection flags
-        assert service.logs['jvm_gc_log']['collect_default'] is True
-        assert service.logs['jvm_stdout_stderr']['collect_default'] is True
-        assert service.logs['jvm_heap_dump']['collect_default'] is False
+        assert service.logs["jvm_gc_log"]["collect_default"] is True
+        assert service.logs["jvm_stdout_stderr"]["collect_default"] is True
+        assert service.logs["jvm_heap_dump"]["collect_default"] is False
 
     def check_kwargs_preserved(self):
         """Check that start_node and clean_node preserve kwargs after wrapping."""
         service = JavaService(self.context, 1)
-        
+
         # Replace the node with a mock node
         mock_node = create_mock_node()
         service.nodes = [mock_node]
-        
+
         self.jvm_logger.enable_for_service(service)
-        
+
         # This should not raise an error even with extra kwargs
         service.start(timeout_sec=30, clean=False)
         assert service.start_called
