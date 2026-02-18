@@ -298,3 +298,154 @@ class CheckJVMLogging(object):
         # This should not raise an error even with extra kwargs
         service.start(timeout_sec=30, clean=False)
         assert service.start_called
+
+    def check_setup_failure_doesnt_break_wrapping(self):
+        """Check that if _setup_on_node fails, the error propagates correctly."""
+        from ducktape.cluster.remoteaccount import RemoteCommandError
+
+        mock_node = create_mock_node()
+        mock_node.account.ssh_capture = Mock(return_value=iter([]))
+        mock_node.account.ssh_output = Mock(return_value="")
+
+        # Make mkdir fail
+        def failing_ssh(cmd, allow_fail=False):
+            if "mkdir" in cmd:
+                if not allow_fail:
+                    raise RemoteCommandError(mock_node.account, cmd, 1, "Permission denied")
+                return 1
+            return 0
+
+        mock_node.account.ssh = failing_ssh
+
+        service = JavaService(self.context, 1)
+        self.jvm_logger.enable_for_service(service)
+
+        # start_node should fail during setup
+        try:
+            service.start_node(mock_node)
+            assert False, "Expected RemoteCommandError"
+        except RemoteCommandError as e:
+            assert "Permission denied" in str(e)
+
+    def check_wrapped_ssh_failure_propagates(self):
+        """Check that SSH failures are properly propagated through the wrapper."""
+        from ducktape.cluster.remoteaccount import RemoteCommandError
+
+        mock_node = create_mock_node()
+
+        # Track calls
+        ssh_calls = []
+
+        def tracking_ssh(cmd, allow_fail=False):
+            ssh_calls.append((cmd, allow_fail))
+            # Fail on "test-java" commands (not the real java from JavaService.start_node)
+            if "test-java" in cmd and not allow_fail:
+                raise RemoteCommandError(mock_node.account, cmd, 127, "java: command not found")
+            return 0
+
+        mock_node.account.ssh = tracking_ssh
+        mock_node.account.ssh_capture = Mock(return_value=iter([]))
+        mock_node.account.ssh_output = Mock(return_value="")
+
+        service = JavaService(self.context, 1)
+        self.jvm_logger.enable_for_service(service)
+        service.start_node(mock_node)
+
+        ssh_calls.clear()
+
+        # Command that should fail
+        try:
+            mock_node.account.ssh("test-java -version")
+            assert False, "Expected RemoteCommandError"
+        except RemoteCommandError as e:
+            assert "java: command not found" in str(e)
+
+        # Command with allow_fail=True should not raise
+        result = mock_node.account.ssh("test-java -version", allow_fail=True)
+        assert result == 0  # Our mock returns 0 when allow_fail=True
+
+    def check_wrapped_ssh_with_allow_fail(self):
+        """Check that allow_fail parameter works correctly through the wrapper."""
+        mock_node = create_mock_node()
+
+        # Track calls and their allow_fail parameter
+        ssh_calls = []
+
+        def tracking_ssh(cmd, allow_fail=False):
+            ssh_calls.append((cmd, allow_fail))
+            return 1 if "fail" in cmd else 0
+
+        mock_node.account.ssh = tracking_ssh
+        mock_node.account.ssh_capture = Mock(return_value=iter([]))
+        mock_node.account.ssh_output = Mock(return_value="")
+
+        service = JavaService(self.context, 1)
+        self.jvm_logger.enable_for_service(service)
+        service.start_node(mock_node)
+
+        ssh_calls.clear()
+
+        # Test with allow_fail=False (default)
+        mock_node.account.ssh("echo success")
+        assert ssh_calls[-1][1] == False
+
+        # Test with allow_fail=True
+        mock_node.account.ssh("echo fail", allow_fail=True)
+        assert ssh_calls[-1][1] == True
+
+    def check_cleanup_failure_still_restores_ssh(self):
+        """Check that even if cleanup fails, SSH methods are still restored."""
+        from ducktape.cluster.remoteaccount import RemoteCommandError
+
+        mock_node = create_mock_node()
+
+        cleanup_called = []
+
+        def tracking_ssh(cmd, allow_fail=False):
+            if "rm -rf" in cmd:
+                cleanup_called.append(True)
+                if not allow_fail:
+                    raise RemoteCommandError(mock_node.account, cmd, 1, "rm failed")
+            return 0
+
+        original_ssh = tracking_ssh
+        mock_node.account.ssh = original_ssh
+        mock_node.account.ssh_capture = Mock(return_value=iter([]))
+        mock_node.account.ssh_output = Mock(return_value="")
+
+        service = JavaService(self.context, 1)
+        self.jvm_logger.enable_for_service(service)
+
+        # Start node
+        service.start_node(mock_node)
+        assert hasattr(mock_node.account, "original_ssh")
+
+        # Clean node - cleanup uses allow_fail=True, so it shouldn't raise
+        service.clean_node(mock_node)
+
+        # Verify cleanup was attempted
+        assert len(cleanup_called) > 0
+
+        # Verify SSH was restored despite cleanup "failure"
+        assert not hasattr(mock_node.account, "original_ssh")
+
+    def check_double_cleanup_is_safe(self):
+        """Check that calling clean_node twice doesn't cause errors."""
+        mock_node = create_mock_node()
+        mock_node.account.ssh_capture = Mock(return_value=iter([]))
+        mock_node.account.ssh_output = Mock(return_value="")
+
+        service = JavaService(self.context, 1)
+        self.jvm_logger.enable_for_service(service)
+
+        # Start node
+        service.start_node(mock_node)
+        assert hasattr(mock_node.account, "original_ssh")
+
+        # Clean node first time
+        service.clean_node(mock_node)
+        assert not hasattr(mock_node.account, "original_ssh")
+
+        # Clean node second time - should not raise
+        service.clean_node(mock_node)
+        assert not hasattr(mock_node.account, "original_ssh")
