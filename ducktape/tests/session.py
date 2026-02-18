@@ -40,6 +40,7 @@ class SessionContext(object):
         self.fail_bad_cluster_utilization = kwargs.get("fail_bad_cluster_utilization")
         self.fail_greedy_tests = kwargs.get("fail_greedy_tests", False)
         self.test_runner_timeout = kwargs.get("test_runner_timeout")
+        self.enable_jvm_logs = kwargs.get("enable_jvm_logs", False)
         self._globals = kwargs.get("globals")
 
     @property
