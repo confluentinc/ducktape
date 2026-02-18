@@ -25,15 +25,15 @@ import types
 
 class JVMLogger:
     """Handles JVM logging configuration and enablement for services."""
-    
+
     def __init__(self, log_dir="/mnt/jvm_logs"):
         """
         Initialize JVM logger.
-        
+
         :param log_dir: Directory for JVM logs on worker nodes
         """
         self.log_dir = log_dir
-    
+
     def enable_for_service(self, service):
         """
         Enable JVM logging for a service instance.
@@ -43,25 +43,19 @@ class JVMLogger:
         """
         # Store reference to JVMLogger instance for use in closures
         jvm_logger = self
-        
+
         # Add JVM log definitions
         jvm_logs = {
-            "jvm_gc_log": {
-                "path": os.path.join(jvm_logger.log_dir, "gc.log"),
-                "collect_default": True
-            },
-            "jvm_stdout_stderr": {
-                "path": os.path.join(jvm_logger.log_dir, "jvm.log"),
-                "collect_default": True
-            },
+            "jvm_gc_log": {"path": os.path.join(jvm_logger.log_dir, "gc.log"), "collect_default": True},
+            "jvm_stdout_stderr": {"path": os.path.join(jvm_logger.log_dir, "jvm.log"), "collect_default": True},
             "jvm_heap_dump": {
                 "path": os.path.join(jvm_logger.log_dir, "heap_dump.hprof"),
-                "collect_default": False  # Only on failure
-            }
+                "collect_default": False,  # Only on failure
+            },
         }
 
         # Initialize logs dict if needed
-        if not hasattr(service, 'logs') or service.logs is None:
+        if not hasattr(service, "logs") or service.logs is None:
             service.logs = {}
 
         # Merge with existing logs
@@ -77,38 +71,68 @@ class JVMLogger:
         original_start_node = service.start_node
 
         def wrapped_start_node(self, node, *args, **kwargs):
-            # Setup JVM log directory
-            jvm_logger._setup_on_node(node)
+            jvm_logger._setup_on_node(node)  # Setup JVM log directory
 
-            # Wrap the node's ssh method to inject JDK_JAVA_OPTIONS
-            # Combined with -Xlog:disable in the options, this prevents any console output pollution
-            # Wrap once and keep active for the entire service lifecycle
-            if not hasattr(node.account, 'original_ssh'):
+            # Wrap all SSH methods to inject JDK_JAVA_OPTIONS, wrap once and keep active for entire service lifecycle
+            if not hasattr(node.account, "original_ssh"):
                 original_ssh = node.account.ssh
+                original_ssh_capture = node.account.ssh_capture
+                original_ssh_output = node.account.ssh_output
+
                 node.account.original_ssh = original_ssh
+                node.account.original_ssh_capture = original_ssh_capture
+                node.account.original_ssh_output = original_ssh_output
+
+                jvm_opts = jvm_logger._get_jvm_options()
+                env_prefix = f'export JDK_JAVA_OPTIONS="{jvm_opts}"; '
 
                 def wrapped_ssh(cmd, allow_fail=False):
-                    jvm_opts = jvm_logger._get_jvm_options()
-                    return original_ssh(f'export JDK_JAVA_OPTIONS="{jvm_opts}"; {cmd}', allow_fail=allow_fail)
+                    return original_ssh(env_prefix + cmd, allow_fail=allow_fail)
+
+                def wrapped_ssh_capture(cmd, allow_fail=False, callback=None, combine_stderr=True, timeout_sec=None):
+                    return original_ssh_capture(
+                        env_prefix + cmd,
+                        allow_fail=allow_fail,
+                        callback=callback,
+                        combine_stderr=combine_stderr,
+                        timeout_sec=timeout_sec,
+                    )
+
+                def wrapped_ssh_output(cmd, allow_fail=False, combine_stderr=True, timeout_sec=None):
+                    return original_ssh_output(
+                        env_prefix + cmd, allow_fail=allow_fail, combine_stderr=combine_stderr, timeout_sec=timeout_sec
+                    )
 
                 node.account.ssh = wrapped_ssh
+                node.account.ssh_capture = wrapped_ssh_capture
+                node.account.ssh_output = wrapped_ssh_output
 
             return original_start_node(node, *args, **kwargs)
 
         # Bind the wrapper function to the service object
         service.start_node = types.MethodType(wrapped_start_node, service)
 
-        # Wrap clean_node to cleanup JVM logs
+        # Wrap clean_node to cleanup JVM logs and restore SSH methods
         original_clean_node = service.clean_node
 
         def wrapped_clean_node(self, node, *args, **kwargs):
             result = original_clean_node(node, *args, **kwargs)
             jvm_logger._cleanup_on_node(node)
+
+            # Restore original SSH methods
+            if hasattr(node.account, "original_ssh"):
+                node.account.ssh = node.account.original_ssh
+                node.account.ssh_capture = node.account.original_ssh_capture
+                node.account.ssh_output = node.account.original_ssh_output
+                del node.account.original_ssh
+                del node.account.original_ssh_capture
+                del node.account.original_ssh_output
+
             return result
 
         # Bind the wrapper function to the service instance
         service.clean_node = types.MethodType(wrapped_clean_node, service)
-    
+
     def _get_jvm_options(self):
         """Generate JVM options string for logging."""
         gc_log = os.path.join(self.log_dir, "gc.log")
@@ -127,14 +151,14 @@ class JVMLogger:
             "-XX:NativeMemoryTracking=summary",  # Track native memory usage
             f"-Xlog:jit+compilation=info:file={jvm_log}:time,uptime,level,tags",  # JIT compilation events
         ]
-        
+
         return " ".join(jvm_logging_opts)
-    
+
     def _setup_on_node(self, node):
         """Create JVM log directory on worker node."""
         node.account.ssh(f"mkdir -p {self.log_dir}")
         node.account.ssh(f"chmod 755 {self.log_dir}")
-    
+
     def _cleanup_on_node(self, node):
         """Clean JVM logs from worker node."""
         node.account.ssh(f"rm -rf {self.log_dir}", allow_fail=True)
