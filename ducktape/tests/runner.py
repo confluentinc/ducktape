@@ -153,7 +153,7 @@ class TestRunner(object):
         assert process.pid != os.getpid(), "Signal handler should not reach this point in a client subprocess."
         assert process.pid is not None, "Process has no pid, cannot terminate."
         if process.is_alive():
-            os.kill(process.pid, signal.SIGKILL)
+            os.kill(process.pid, signal.SIGTERM)
 
     def _join_test_process(self, process_key, timeout: int = DEFAULT_MP_JOIN_TIMEOUT):
         # waits for process to complete, if it doesn't terminate it
@@ -299,8 +299,8 @@ class TestRunner(object):
                         self._log(logging.ERROR, err_str)
 
                         # All processes are on the same machine, so treat communication failure as a fatal error
-                        for proc in self._client_procs.values():
-                            self._terminate_process(proc)
+                        for proc in list(self._client_procs):
+                            self._join_test_process(proc, self.finish_join_timeout)
                         self._client_procs = {}
                         raise
             except KeyboardInterrupt:
@@ -314,7 +314,7 @@ class TestRunner(object):
         # All clients should be cleaned up in their finish block
         if self._client_procs:
             self._log(logging.WARNING, f"Some clients failed to clean up, waiting 10min to join: {self._client_procs}")
-        for proc in self._client_procs:
+        for proc in list(self._client_procs):
             self._join_test_process(proc, self.finish_join_timeout)
 
         self.receiver.close()
