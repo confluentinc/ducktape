@@ -251,7 +251,7 @@ class TestRunner(object):
 
     def _report_remaining_as_failed(self, reason):
         """Mark all remaining tests in the scheduler as failed with the given reason."""
-        remaining_tests = self.scheduler.clear_and_return_remaining_tests()
+        remaining_tests = self.scheduler.drain_remaining_tests()
         if not remaining_tests:
             return
 

@@ -84,7 +84,7 @@ class TestScheduler(object):
         if tc:
             self._test_context_list.remove(tc)
 
-    def clear_and_return_remaining_tests(self):
+    def drain_remaining_tests(self):
         """
         Get all remaining tests in the scheduler and clear the scheduler.
 
