@@ -32,7 +32,6 @@ from .resources.test_bad_actor import BadActorTest
 from .resources.test_thingy import ClusterTestThingy, TestThingy
 from .resources.test_failing_tests import FailingTest
 from ducktape.tests.reporter import JUnitReporter
-from ducktape.errors import TimeoutError
 
 from unittest.mock import Mock, MagicMock
 import os
@@ -321,7 +320,14 @@ class CheckRunner(object):
         assert failed[0].test_id == "tests.runner.resources.test_bad_actor.BadActorTest.test_too_many_nodes"
 
     def check_runner_timeout(self):
-        """Check process cleanup and error handling in a parallel runner client run."""
+        """Check process cleanup and error handling when runner times out.
+
+        When timeout occurs, the runner should:
+        1. Clean up all client processes
+        2. Mark active tests as failed with 'Test timed out' message
+        3. Mark remaining unrun tests as failed with 'Test not run' message
+        4. Return results gracefully instead of raising
+        """
         mock_cluster = LocalhostCluster(num_nodes=1000)
         session_context = tests.ducktape_mock.session_context(max_parallel=1000, test_runner_timeout=1)
 
@@ -335,10 +341,22 @@ class CheckRunner(object):
         )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
-        with pytest.raises(TimeoutError):
-            runner.run_all_tests()
+        # Should return results gracefully instead of raising
+        results = runner.run_all_tests()
 
+        # All client processes should be cleaned up
         assert not runner._client_procs
+
+        # Both tests should be marked as failed
+        assert len(results) == 2
+        assert results.num_failed == 2
+        assert results.num_passed == 0
+
+        # Check that failure summaries contain timeout information
+        for result in results:
+            assert result.test_status == FAIL
+            # Summary should mention either "timed out" or "not run" with the exception message
+            assert "runner client unresponsive" in result.summary.lower()
 
     @pytest.mark.parametrize("fail_greedy_tests", [True, False])
     def check_fail_greedy_tests(self, fail_greedy_tests):
@@ -525,6 +543,76 @@ class CheckRunner(object):
         finished_result = rc.sender.send_results[-1][0][0]
         assert finished_result.get("event_type") == "FINISHED"
         assert finished_result["result"].summary == "Test Passed"
+
+    def check_report_remaining_as_failed(self):
+        """Test that _report_remaining_as_failed marks all unrun tests as failed."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        test_methods = [TestThingy.test_pi, TestThingy.test_failure]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        # Call the method directly
+        reason = "test reason for failure"
+        runner._report_remaining_as_failed(reason)
+
+        # All tests should be marked as failed
+        assert len(runner.results) == 2
+        assert runner.results.num_failed == 2
+        for result in runner.results:
+            assert result.test_status == FAIL
+            assert f"Test not run: {reason}" in result.summary
+
+        # Scheduler should be empty after draining
+        assert len(runner.scheduler) == 0
+
+    def check_report_active_as_failed(self):
+        """Test that _report_active_as_failed marks running tests as failed."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        test_methods = [TestThingy.test_pi]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        # Simulate an active test using the actual test_id from ctx_list
+        from ducktape.tests.runner import TestKey
+        import time
+
+        test_ctx = ctx_list[0]
+        test_key = TestKey(test_ctx.test_id, 1)
+        runner.active_tests[test_key] = True
+        runner.client_report[test_key] = {"runner_start_time": time.time() - 10}
+
+        # Call the method
+        reason = "test timeout reason"
+        runner._report_active_as_failed(reason)
+
+        # Test should be marked as failed
+        assert len(runner.results) == 1
+        assert runner.results.num_failed == 1
+        results_list = [r for r in runner.results]
+        assert len(results_list) == 1
+        result = results_list[0]
+        assert result.test_status == FAIL
+        assert f"Test timed out: {reason}" in result.summary
+        assert result.start_time < result.stop_time
+
+        # Active tests should be cleared
+        assert len(runner.active_tests) == 0
 
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
