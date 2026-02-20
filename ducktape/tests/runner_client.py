@@ -177,6 +177,10 @@ class RunnerClient(object):
         self.cluster = ready_reply["cluster"]
 
     def send(self, event):
+        # Don't attempt to send messages if the runner is shutting down
+        # The driver is no longer listening and will timeout anyway
+        if self.runner_shutting_down:
+            return None
         return self.sender.send(event)
 
     def _kill_all_child_processes(self, send_signal=signal.SIGTERM):
@@ -481,9 +485,7 @@ class RunnerClient(object):
             )
             self.logger.log(log_level, msg, *args, **kwargs)
 
-        # Don't send log messages to the server if the runner is shutting down
-        if not self.runner_shutting_down:
-            self.send(self.message.log(msg, level=log_level))
+        self.send(self.message.log(msg, level=log_level))
 
     def dump_threads(self, msg):
         dump = "\n".join([t.name for t in threading.enumerate()])
