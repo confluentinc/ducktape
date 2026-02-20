@@ -249,6 +249,34 @@ class TestRunner(object):
     def _check_unschedulable(self):
         self._report_unschedulable(self.scheduler.filter_unschedulable_tests())
 
+    def _report_remaining_as_failed(self, reason):
+        """Mark all remaining tests in the scheduler as failed with the given reason."""
+        remaining_tests = self.scheduler.clear_and_return_remaining_tests()
+        if not remaining_tests:
+            return
+
+        self._log(
+            logging.ERROR,
+            f"Marking {len(remaining_tests)} remaining tests as failed: {reason}",
+        )
+        for tc in remaining_tests:
+            msg = f"Test not run: {reason}"
+            self._log(logging.ERROR, f"{tc.test_id}: {msg}")
+
+            result = TestResult(
+                tc,
+                self.test_counter,
+                self.session_context,
+                test_status=FAIL,
+                summary=msg,
+                start_time=time.time(),
+                stop_time=time.time(),
+            )
+            self.results.append(result)
+            result.report()
+
+            self.test_counter += 1
+
     def run_all_tests(self):
         self.receiver.start()
         self.results.start_time = time.time()
@@ -298,11 +326,16 @@ class TestRunner(object):
                         err_str += "\n" + traceback.format_exc(limit=16)
                         self._log(logging.ERROR, err_str)
 
-                        # All processes are on the same machine, so treat communication failure as a fatal error
+                        # Clean up stuck client processes and stop testing
                         for proc in list(self._client_procs):
                             self._join_test_process(proc, self.finish_join_timeout)
                         self._client_procs = {}
-                        raise
+
+                        # Mark all remaining tests as failed with the exception message
+                        self._report_remaining_as_failed(str(e))
+
+                        self.receiver.close()
+                        return self.results
             except KeyboardInterrupt:
                 # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
                 self._log(
