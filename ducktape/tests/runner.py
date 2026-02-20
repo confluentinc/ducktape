@@ -277,6 +277,38 @@ class TestRunner(object):
 
             self.test_counter += 1
 
+    def _report_active_as_failed(self, reason):
+        """Mark all currently active/running tests as failed with the given reason."""
+        active_test_keys = list(self.active_tests.keys())
+        if not active_test_keys:
+            return
+
+        self._log(
+            logging.ERROR,
+            f"Marking {len(active_test_keys)} active tests as failed: {reason}",
+        )
+        stop_time = time.time()
+        for test_key in active_test_keys:
+            tc = self._test_context[test_key.test_id]
+            msg = f"Test timed out: {reason}"
+            self._log(logging.ERROR, f"{tc.test_id}: {msg}")
+
+            start_time = self.client_report[test_key].get("runner_start_time", stop_time)
+            result = TestResult(
+                tc,
+                test_key.test_index,
+                self.session_context,
+                test_status=FAIL,
+                summary=msg,
+                start_time=start_time,
+                stop_time=stop_time,
+            )
+            self.results.append(result)
+            result.report()
+
+        # Clear active tests since we've reported them all as failed
+        self.active_tests.clear()
+
     def run_all_tests(self):
         self.receiver.start()
         self.results.start_time = time.time()
@@ -330,6 +362,9 @@ class TestRunner(object):
                         for proc in list(self._client_procs):
                             self._join_test_process(proc, self.finish_join_timeout)
                         self._client_procs = {}
+
+                        # Mark active tests as failed with the exception message
+                        self._report_active_as_failed(str(e))
 
                         # Mark all remaining tests as failed with the exception message
                         self._report_remaining_as_failed(str(e))
