@@ -614,6 +614,50 @@ class CheckRunner(object):
         # Active tests should be cleared
         assert len(runner.active_tests) == 0
 
+    def check_report_active_as_failed_frees_cluster(self):
+        """Test that _report_active_as_failed frees cluster resources."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        test_methods = [TestThingy.test_pi]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        # Simulate an active test with allocated cluster
+        from ducktape.tests.runner import TestKey
+        from ducktape.cluster.finite_subcluster import FiniteSubcluster
+        import time
+
+        test_ctx = ctx_list[0]
+        test_key = TestKey(test_ctx.test_id, 1)
+
+        # Allocate cluster nodes for this test
+        allocated_nodes = mock_cluster.alloc(test_ctx.expected_cluster_spec)
+        runner._test_cluster[test_key] = FiniteSubcluster(allocated_nodes)
+        runner.active_tests[test_key] = True
+        runner.client_report[test_key] = {"runner_start_time": time.time() - 10}
+
+        # Check that nodes are allocated
+        initial_available = mock_cluster.num_available_nodes()
+        assert test_key in runner._test_cluster
+
+        # Call the method
+        reason = "test timeout reason"
+        runner._report_active_as_failed(reason)
+
+        # Cluster resources should be freed
+        assert test_key not in runner._test_cluster
+        assert mock_cluster.num_available_nodes() == initial_available + len(allocated_nodes)
+
+        # Active tests should be cleared
+        assert len(runner.active_tests) == 0
+
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
     def __init__(self, *args, shrink_on=1, **kwargs):

@@ -289,6 +289,12 @@ class TestRunner(object):
         )
         stop_time = time.time()
         for test_key in active_test_keys:
+            if hasattr(self, "_test_cluster") and test_key in self._test_cluster:
+                subcluster = self._test_cluster[test_key]
+                # Return nodes to the cluster and remove tracking entry
+                self.cluster.free(subcluster.nodes)
+                del self._test_cluster[test_key]
+
             tc = self._test_context[test_key.test_id]
             msg = f"Test timed out: {reason}"
             self._log(logging.ERROR, f"{tc.test_id}: {msg}")
