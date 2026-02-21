@@ -356,8 +356,9 @@ class TestRunner(object):
                     try:
                         event = self.receiver.recv(timeout=self.session_context.test_runner_timeout)
                         self._handle(event)
-                    except Exception as e:
-                        err_str = "Exception receiving message: %s: %s" % (
+                    except TimeoutError as e:
+                        # Handle timeout gracefully - clean up, mark tests as failed, and return results
+                        err_str = "Timeout error while receiving message: %s: %s" % (
                             str(type(e)),
                             str(e),
                         )
@@ -377,6 +378,19 @@ class TestRunner(object):
 
                         self.receiver.close()
                         return self.results
+                    except Exception as e:
+                        # For all other exceptions, clean up and re-raise
+                        err_str = "Exception receiving message: %s: %s" % (
+                            str(type(e)),
+                            str(e),
+                        )
+                        err_str += "\n" + traceback.format_exc(limit=16)
+                        self._log(logging.ERROR, err_str)
+
+                        for proc in list(self._client_procs):
+                            self._join_test_process(proc, self.finish_join_timeout)
+                        self._client_procs = {}
+                        raise
             except KeyboardInterrupt:
                 # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
                 self._log(
