@@ -83,3 +83,13 @@ class TestScheduler(object):
         """
         if tc:
             self._test_context_list.remove(tc)
+
+    def drain_remaining_tests(self):
+        """
+        Get all remaining tests in the scheduler and clear the scheduler.
+
+        :return List of test contexts that were still in the scheduler
+        """
+        remaining = self._test_context_list.copy()
+        self._test_context_list.clear()
+        return remaining

@@ -122,3 +122,44 @@ class CheckScheduler(object):
         # subsequent calls should return empty list and not modify scheduler
         assert not scheduler.filter_unschedulable_tests()
         assert scheduler.peek() == self.tc0
+
+    def check_drain_remaining_tests(self):
+        """Test that drain_remaining_tests returns all tests and empties the scheduler."""
+        scheduler = TestScheduler(self.tc_list, self.cluster)
+
+        # Initially scheduler should have all tests
+        assert len(scheduler) == len(self.tc_list)
+
+        # Drain all remaining tests
+        remaining = scheduler.drain_remaining_tests()
+
+        # Should return all tests
+        assert len(remaining) == len(self.tc_list)
+        assert set(remaining) == set(self.tc_list)
+
+        # Scheduler should now be empty
+        assert len(scheduler) == 0
+        assert scheduler.peek() is None
+
+        # Calling again should return empty list
+        remaining_again = scheduler.drain_remaining_tests()
+        assert len(remaining_again) == 0
+
+    def check_drain_remaining_tests_partial(self):
+        """Test drain_remaining_tests after some tests have been removed."""
+        scheduler = TestScheduler(self.tc_list, self.cluster)
+
+        # Remove one test
+        t = scheduler.peek()
+        scheduler.remove(t)
+        initial_len = len(scheduler)
+
+        # Drain remaining tests
+        remaining = scheduler.drain_remaining_tests()
+
+        # Should return only the remaining tests
+        assert len(remaining) == initial_len
+        assert t not in remaining
+
+        # Scheduler should be empty
+        assert len(scheduler) == 0

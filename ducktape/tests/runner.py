@@ -249,6 +249,72 @@ class TestRunner(object):
     def _check_unschedulable(self):
         self._report_unschedulable(self.scheduler.filter_unschedulable_tests())
 
+    def _report_remaining_as_failed(self, reason):
+        """Mark all remaining tests in the scheduler as failed with the given reason."""
+        remaining_tests = self.scheduler.drain_remaining_tests()
+        if not remaining_tests:
+            return
+
+        self._log(
+            logging.ERROR,
+            f"Marking {len(remaining_tests)} remaining tests as failed: {reason}",
+        )
+        for tc in remaining_tests:
+            msg = f"Test not run: {reason}"
+            self._log(logging.ERROR, f"{tc.test_id}: {msg}")
+
+            result = TestResult(
+                tc,
+                self.test_counter,
+                self.session_context,
+                test_status=FAIL,
+                summary=msg,
+                start_time=time.time(),
+                stop_time=time.time(),
+            )
+            self.results.append(result)
+            result.report()
+
+            self.test_counter += 1
+
+    def _report_active_as_failed(self, reason):
+        """Mark all currently active/running tests as failed with the given reason."""
+        active_test_keys = list(self.active_tests.keys())
+        if not active_test_keys:
+            return
+
+        self._log(
+            logging.ERROR,
+            f"Marking {len(active_test_keys)} active tests as failed: {reason}",
+        )
+        stop_time = time.time()
+        for test_key in active_test_keys:
+            if hasattr(self, "_test_cluster") and test_key in self._test_cluster:
+                subcluster = self._test_cluster[test_key]
+                # Return nodes to the cluster and remove tracking entry
+                self.cluster.free(subcluster.nodes)
+                del self._test_cluster[test_key]
+
+            tc = self._test_context[test_key.test_id]
+            msg = f"Test timed out: {reason}"
+            self._log(logging.ERROR, f"{tc.test_id}: {msg}")
+
+            start_time = self.client_report[test_key].get("runner_start_time", stop_time)
+            result = TestResult(
+                tc,
+                test_key.test_index,
+                self.session_context,
+                test_status=FAIL,
+                summary=msg,
+                start_time=start_time,
+                stop_time=stop_time,
+            )
+            self.results.append(result)
+            result.report()
+
+        # Clear active tests since we've reported them all as failed
+        self.active_tests.clear()
+
     def run_all_tests(self):
         self.receiver.start()
         self.results.start_time = time.time()
@@ -290,7 +356,30 @@ class TestRunner(object):
                     try:
                         event = self.receiver.recv(timeout=self.session_context.test_runner_timeout)
                         self._handle(event)
+                    except TimeoutError as e:
+                        # Handle timeout gracefully - clean up, mark tests as failed, and return results
+                        err_str = "Timeout error while receiving message: %s: %s" % (
+                            str(type(e)),
+                            str(e),
+                        )
+                        err_str += "\n" + traceback.format_exc(limit=16)
+                        self._log(logging.ERROR, err_str)
+
+                        # Clean up stuck client processes and stop testing
+                        for proc in list(self._client_procs):
+                            self._join_test_process(proc, self.finish_join_timeout)
+                        self._client_procs = {}
+
+                        # Mark active tests as failed with the exception message
+                        self._report_active_as_failed(str(e))
+
+                        # Mark all remaining tests as failed with the exception message
+                        self._report_remaining_as_failed(str(e))
+
+                        self.receiver.close()
+                        return self.results
                     except Exception as e:
+                        # For all other exceptions, clean up and re-raise
                         err_str = "Exception receiving message: %s: %s" % (
                             str(type(e)),
                             str(e),
@@ -298,9 +387,8 @@ class TestRunner(object):
                         err_str += "\n" + traceback.format_exc(limit=16)
                         self._log(logging.ERROR, err_str)
 
-                        # All processes are on the same machine, so treat communication failure as a fatal error
-                        for proc in self._client_procs.values():
-                            self._terminate_process(proc)
+                        for proc in list(self._client_procs):
+                            self._join_test_process(proc, self.finish_join_timeout)
                         self._client_procs = {}
                         raise
             except KeyboardInterrupt:
@@ -314,7 +402,7 @@ class TestRunner(object):
         # All clients should be cleaned up in their finish block
         if self._client_procs:
             self._log(logging.WARNING, f"Some clients failed to clean up, waiting 10min to join: {self._client_procs}")
-        for proc in self._client_procs:
+        for proc in list(self._client_procs):
             self._join_test_process(proc, self.finish_join_timeout)
 
         self.receiver.close()
