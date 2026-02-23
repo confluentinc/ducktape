@@ -154,10 +154,7 @@ class TestRunner(object):
         assert process.pid != os.getpid(), "Signal handler should not reach this point in a client subprocess."
         assert process.pid is not None, "Process has no pid, cannot terminate."
         if process.is_alive():
-            self._log(
-                logging.WARNING,
-                f"Process {process.name} did not respond to SIGTERM, escalating to SIGKILL"
-            )
+            self._log(logging.WARNING, f"Process {process.name} did not respond to SIGTERM, escalating to SIGKILL")
             os.kill(process.pid, signal.SIGKILL)
 
     def _join_test_process(self, process_key, timeout: int = DEFAULT_MP_JOIN_TIMEOUT):
@@ -375,10 +372,7 @@ class TestRunner(object):
                         for process_key in list(self._client_procs.keys()):
                             proc = self._client_procs[process_key]
                             if proc.is_alive():
-                                self._log(
-                                    logging.INFO,
-                                    f"Sending SIGTERM to process {proc.name} for graceful shutdown"
-                                )
+                                self._log(logging.INFO, f"Sending SIGTERM to process {proc.name} for graceful shutdown")
                                 os.kill(proc.pid, signal.SIGTERM)
 
                         # Wait for processes to shutdown gracefully, escalate to SIGKILL if needed
