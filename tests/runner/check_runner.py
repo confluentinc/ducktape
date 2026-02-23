@@ -658,6 +658,40 @@ class CheckRunner(object):
         # Active tests should be cleared
         assert len(runner.active_tests) == 0
 
+    def check_runner_client_shutdown_flag(self):
+        """Test that runner client respects shutdown flag when sending messages."""
+        mock_cluster = tests.ducktape_mock.mock_cluster()
+        session_context = tests.ducktape_mock.session_context()
+        test_context = tests.ducktape_mock.test_context(session_context=session_context)
+
+        rc = RunnerClient(
+            "localhost",
+            22,
+            test_context.test_id,
+            0,
+            "dummy",
+            "/tmp/dummy",
+            True,
+            False,
+            5,
+        )
+        rc.sender = MockSender()
+        rc.cluster = mock_cluster
+        rc.session_context = session_context
+
+        # Set shutdown flag
+        rc.runner_shutting_down = True
+
+        # Try to send a message - should return None without sending
+        from ducktape.tests.event import ClientEventFactory
+
+        message_factory = ClientEventFactory(test_context.test_id, 0, "test-client")
+        result = rc.send(message_factory.ready())
+
+        assert result is None
+        # No messages should have been sent
+        assert len(rc.sender.send_results) == 0
+
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
     def __init__(self, *args, shrink_on=1, **kwargs):
