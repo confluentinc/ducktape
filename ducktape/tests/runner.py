@@ -47,7 +47,7 @@ from ducktape.tests.session import SessionContext
 from ducktape.tests.test_context import TestContext
 from ducktape.utils.terminal_size import get_terminal_size
 
-DEFAULT_MP_JOIN_TIMEOUT = 30
+DEFAULT_MP_JOIN_TIMEOUT = 120
 
 
 class Receiver(object):
