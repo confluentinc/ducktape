@@ -47,7 +47,7 @@ from ducktape.tests.session import SessionContext
 from ducktape.tests.test_context import TestContext
 from ducktape.utils.terminal_size import get_terminal_size
 
-DEFAULT_MP_JOIN_TIMEOUT = 30
+DEFAULT_MP_JOIN_TIMEOUT = 120
 
 
 class Receiver(object):
@@ -150,9 +150,11 @@ class TestRunner(object):
 
     def _terminate_process(self, process: multiprocessing.Process):
         # use os.kill rather than multiprocessing.terminate for more control
+        # This is called after SIGTERM was sent and process didn't exit, so escalate to SIGKILL
         assert process.pid != os.getpid(), "Signal handler should not reach this point in a client subprocess."
         assert process.pid is not None, "Process has no pid, cannot terminate."
         if process.is_alive():
+            self._log(logging.WARNING, f"Process {process.name} did not respond to SIGTERM, escalating to SIGKILL")
             os.kill(process.pid, signal.SIGKILL)
 
     def _join_test_process(self, process_key, timeout: int = DEFAULT_MP_JOIN_TIMEOUT):
@@ -365,7 +367,15 @@ class TestRunner(object):
                         err_str += "\n" + traceback.format_exc(limit=16)
                         self._log(logging.ERROR, err_str)
 
-                        # Clean up stuck client processes and stop testing
+                        # Send SIGTERM to all client processes immediately to allow graceful cleanup
+                        # (copy logs, run teardown, etc.)
+                        for process_key in list(self._client_procs.keys()):
+                            proc = self._client_procs[process_key]
+                            if proc.is_alive():
+                                self._log(logging.INFO, f"Sending SIGTERM to process {proc.name} for graceful shutdown")
+                                os.kill(proc.pid, signal.SIGTERM)
+
+                        # Wait for processes to shutdown gracefully, escalate to SIGKILL if needed
                         for proc in list(self._client_procs):
                             self._join_test_process(proc, self.finish_join_timeout)
                         self._client_procs = {}
