@@ -369,17 +369,13 @@ class TestRunner(object):
 
                         # Send SIGTERM to all client processes immediately to allow graceful cleanup
                         # (copy logs, run teardown, etc.)
-                        for process_key in list(self._client_procs.keys()):
-                            proc = self._client_procs[process_key]
+                        for proc in list(self._client_procs):
                             if proc.is_alive():
                                 self._log(logging.INFO, f"Sending SIGTERM to process {proc.name} for graceful shutdown")
                                 os.kill(proc.pid, signal.SIGTERM)
-
-                        # Wait for processes to shutdown gracefully, escalate to SIGKILL if needed
-                        for proc in list(self._client_procs):
+                            # Wait for processes to shutdown gracefully, escalate to SIGKILL if needed
                             self._join_test_process(proc, self.finish_join_timeout)
                         self._client_procs = {}
-
                         # Mark active tests as failed with the exception message
                         self._report_active_as_failed(str(e))
 
