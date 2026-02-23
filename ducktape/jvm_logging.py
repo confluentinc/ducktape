@@ -15,8 +15,13 @@
 """
 JVM logging support for Ducktape.
 
-This module provides automatic JVM log collection for Java-based services
-without requiring any code changes to services or tests.
+This module provides automatic JVM log collection for Java-based services without requiring any
+code changes to services or tests.
+
+Please Note: We are prepending JVM options to the SSH cmd. If any option is injected again as part of cmd, it will
+override the option injected from this module.
+For example, if a test or service injects its own -Xlog options, it may override the GC logging options injected
+by this module. In practice, Services should work as expected.
 """
 
 import os
