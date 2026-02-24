@@ -1,6 +1,6 @@
 pytest~=6.2.0
 # 4.0 drops py27 support
-mock==4.0.2
+mock==5.2.0
 memory_profiler==0.57
 statistics==1.0.3.5
 requests-testadapter==0.3.0
