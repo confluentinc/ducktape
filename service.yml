@@ -1,6 +1,6 @@
 name: ducktape
-lang: unknown
-lang_version: unknown
+lang: python
+lang_version: '3.13'
 git:
   enable: true
 sonarqube:
@@ -17,6 +17,8 @@ semaphore:
   pipeline_enable: false
   branches:
   - master
+  - 0.13.x
+  - 0.12.x
   - 0.11.x
   - 0.10.x
   - 0.9.x
