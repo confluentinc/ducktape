@@ -52,6 +52,67 @@ less logging.
 
 .. note:: Logs are collected a multiple log levels, and only higher log levels are displayed to the console while the test runs. Make sure you log at the appropriate level.
 
+JVM Logging
+-----------
+
+For Java-based services, ducktape can automatically collect JVM diagnostic logs without requiring any code changes to services or tests. Enable it with the ``--enable-jvm-logs`` flag::
+
+    ducktape --enable-jvm-logs <test_path>
+
+When enabled, ducktape wraps the service's ``start_node`` and ``clean_node`` methods to:
+
+- Create a log directory (``/mnt/jvm_logs``) on each worker node before the service starts.
+- Prepend ``JDK_JAVA_OPTIONS`` with the JVM logging flags to every SSH command sent to the node, so the options are inherited by any Java process the service launches.
+- Remove the log directory after ``clean_node`` runs and restore the original SSH methods.
+
+The following JVM options are injected automatically:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Option
+     - Purpose
+   * - ``-Xlog:disable``
+     - Suppress default JVM console output to avoid polluting test logs
+   * - ``-Xlog:gc*:file=<log_dir>/gc.log``
+     - GC activity with timestamps, uptime, level, and tags
+   * - ``-XX:+HeapDumpOnOutOfMemoryError``
+     - Generate a heap dump when an OOM error occurs
+   * - ``-XX:HeapDumpPath=<log_dir>/heap_dump.hprof``
+     - Location for the heap dump file
+   * - ``-Xlog:safepoint=info:file=<log_dir>/jvm.log``
+     - Safepoint pause events
+   * - ``-Xlog:class+load=info:file=<log_dir>/jvm.log``
+     - Class loading events
+   * - ``-XX:ErrorFile=<log_dir>/hs_err_pid%p.log``
+     - Fatal error log (JVM crashes)
+   * - ``-XX:NativeMemoryTracking=summary``
+     - Native memory usage tracking
+   * - ``-Xlog:jit+compilation=info:file=<log_dir>/jvm.log``
+     - JIT compilation events
+
+The following log files are collected from each node:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 20 50
+
+   * - File
+     - Collected by default
+     - Contents
+   * - ``gc.log``
+     - Yes
+     - Garbage collection activity
+   * - ``jvm.log``
+     - Yes
+     - Safepoint, class loading, and JIT compilation events
+   * - ``heap_dump.hprof``
+     - No (failure only)
+     - Heap dump generated on OutOfMemoryError
+
+.. note:: If a service or test injects its own ``-Xlog`` options as part of the command, those options will override the ones injected by JVM logging, since ducktape prepends ``JDK_JAVA_OPTIONS`` before the command. In practice, services should behave as expected.
+
 New test example
 ================
 
