@@ -4,6 +4,19 @@
 Changelog
 ====
 
+0.14.0
+======
+Tuesday, March 10th, 2026
+-------------------------
+- Ensure log collection in case of runner client unresponsive issue
+- Enable jvm logging for java based services
+- Graceful shutdown and reporting fix for runner client unresponsive issue
+- Add heterogeneous cluster support
+- Add types to ducktape
+- Call JUnitReporter after each test completes
+- Update dependency requests to v2.32.4 [security]
+
+
 0.13.0
 ======
 Monday, June 09th, 2025
