@@ -74,3 +74,33 @@ class CheckSenderReceiver(object):
                 receiver.recv(timeout=0)
         finally:
             p.join()
+
+    def check_exponential_backoff(self):
+        """Test that Sender applies exponential backoff on retries."""
+        import time
+
+        client_id = "test-backoff-client"
+        event_factory = ClientEventFactory("test_1", 0, client_id)
+
+        # Create sender that will timeout (no receiver listening on this port)
+        sender = Sender(
+            server_host="localhost",
+            server_port=9999,  # Nothing listening here
+            message_supplier=event_factory,
+            logger=logging,
+        )
+
+        start_time = time.time()
+        try:
+            sender.send(event_factory.ready())
+        except RuntimeError as e:
+            # Expected to fail with "Unable to receive response from driver"
+            assert "Unable to receive response from driver" in str(e)
+
+        elapsed = time.time() - start_time
+
+        # With 2x backoff: 3s + 6s + 12s + 24s + 48s = 93s total
+        # Without backoff: 3s * 5 = 15s total
+        # We expect at least 20s to prove backoff is working
+        # Use 18s to account for some timing variance
+        assert elapsed > 18, f"Expected > 18s with backoff, got {elapsed:.1f}s"

@@ -692,6 +692,85 @@ class CheckRunner(object):
         # No messages should have been sent
         assert len(rc.sender.send_results) == 0
 
+    def check_duplicate_finished_message_handling(self):
+        """Test that duplicate FINISHED messages don't crash the runner due to idempotency guard."""
+        from ducktape.tests.runner import TestKey
+        from ducktape.tests.result import TestResult
+        from ducktape.cluster.finite_subcluster import FiniteSubcluster
+        import time
+
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        test_methods = [TestThingy.test_pi]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        # Simulate a test that has been started
+        test_ctx = ctx_list[0]
+        test_key = TestKey(test_ctx.test_id, 1)
+        runner.active_tests[test_key] = True
+
+        # Allocate cluster for this test
+        allocated_nodes = mock_cluster.alloc(test_ctx.expected_cluster_spec)
+        runner._test_cluster[test_key] = FiniteSubcluster(allocated_nodes)
+
+        # Mock a client process
+        runner._client_procs[test_key] = Mock()
+        runner._client_procs[test_key].is_alive.return_value = False
+        runner._client_procs[test_key].join.return_value = None
+        runner._client_procs[test_key].exitcode = 0
+
+        # Create a FINISHED event
+        from ducktape.tests.event import ClientEventFactory
+        event_factory = ClientEventFactory(test_ctx.test_id, 1, "test-client")
+        result = TestResult(test_ctx, 1, session_context, PASS, "Test passed", None, time.time(), time.time())
+        event = event_factory.finished(result=result)
+
+        # First FINISHED - should process normally
+        runner._handle_finished(event)
+        assert test_key not in runner.active_tests
+        assert len(runner.results) == 1
+        assert test_key not in runner._test_cluster
+
+        # Second FINISHED (duplicate) - should not crash, should be ignored
+        runner._handle_finished(event)  # Should not raise KeyError
+        assert len(runner.results) == 1  # Should not add duplicate
+
+    def check_timeout_exception_join_timeout_param(self):
+        """Test that timeout_exception_join_timeout parameter is used correctly."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        test_methods = [TestThingy.test_pi]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+
+        # Create runner with custom timeout values
+        runner = TestRunner(
+            mock_cluster,
+            session_context,
+            Mock(),
+            ctx_list,
+            1,
+            finish_join_timeout=10,
+            timeout_exception_join_timeout=60
+        )
+
+        assert runner.finish_join_timeout == 10
+        assert runner.timeout_exception_join_timeout == 60
+
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
     def __init__(self, *args, shrink_on=1, **kwargs):

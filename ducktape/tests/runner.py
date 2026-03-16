@@ -47,7 +47,8 @@ from ducktape.tests.session import SessionContext
 from ducktape.tests.test_context import TestContext
 from ducktape.utils.terminal_size import get_terminal_size
 
-DEFAULT_MP_JOIN_TIMEOUT = 120
+DEFAULT_MP_JOIN_TIMEOUT = 30
+DEFAULT_TIMEOUT_EXCEPTION_JOIN_TIMEOUT = 120
 
 
 class Receiver(object):
@@ -111,6 +112,7 @@ class TestRunner(object):
         min_port: int = ConsoleDefaults.TEST_DRIVER_MIN_PORT,
         max_port: int = ConsoleDefaults.TEST_DRIVER_MAX_PORT,
         finish_join_timeout: int = DEFAULT_MP_JOIN_TIMEOUT,
+        timeout_exception_join_timeout: int = DEFAULT_TIMEOUT_EXCEPTION_JOIN_TIMEOUT,
     ) -> None:
         # Set handler for SIGTERM (aka kill -15)
         # Note: it doesn't work to set a handler for SIGINT (Ctrl-C) in this parent process because the
@@ -147,6 +149,7 @@ class TestRunner(object):
         self.finished_tests: Dict[TestKey, dict] = {}
         self.test_schedule_log: List[TestKey] = []
         self.finish_join_timeout: int = finish_join_timeout
+        self.timeout_exception_join_timeout: int = timeout_exception_join_timeout
 
     def _terminate_process(self, process: multiprocessing.Process):
         # use os.kill rather than multiprocessing.terminate for more control
@@ -377,7 +380,7 @@ class TestRunner(object):
 
                         # Wait for processes to shutdown gracefully (in parallel), escalate to SIGKILL if needed
                         for process_key in list(self._client_procs.keys()):
-                            self._join_test_process(process_key, self.finish_join_timeout)
+                            self._join_test_process(process_key, self.timeout_exception_join_timeout)
                         self._client_procs = {}
                         # Mark active tests as failed with the exception message
                         self._report_active_as_failed(str(e))
@@ -504,6 +507,11 @@ class TestRunner(object):
     def _handle_finished(self, event):
         test_key = TestKey(event["test_id"], event["test_index"])
         self.receiver.send(self.event_response.finished(event))
+
+        # Idempotency guard: if already processed, just return (ACK already sent above)
+        if test_key not in self.active_tests:
+            self._log(logging.DEBUG, f"Received duplicate FINISHED for {test_key}, ignoring")
+            return
 
         result = event["result"]
         if result.test_status == FAIL and self.exit_first:
