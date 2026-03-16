@@ -712,6 +712,9 @@ class CheckRunner(object):
         )
         runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
 
+        # Mock the receiver.send to avoid ZMQ socket issues in tests
+        runner.receiver.send = Mock()
+
         # Simulate a test that has been started
         test_ctx = ctx_list[0]
         test_key = TestKey(test_ctx.test_id, 1)
@@ -726,9 +729,11 @@ class CheckRunner(object):
         runner._client_procs[test_key].is_alive.return_value = False
         runner._client_procs[test_key].join.return_value = None
         runner._client_procs[test_key].exitcode = 0
+        runner._client_procs[test_key].name = "MockProcess"
 
         # Create a FINISHED event
         from ducktape.tests.event import ClientEventFactory
+
         event_factory = ClientEventFactory(test_ctx.test_id, 1, "test-client")
         result = TestResult(test_ctx, 1, session_context, PASS, "Test passed", None, time.time(), time.time())
         event = event_factory.finished(result=result)
@@ -738,10 +743,12 @@ class CheckRunner(object):
         assert test_key not in runner.active_tests
         assert len(runner.results) == 1
         assert test_key not in runner._test_cluster
+        assert runner.receiver.send.call_count == 1
 
         # Second FINISHED (duplicate) - should not crash, should be ignored
         runner._handle_finished(event)  # Should not raise KeyError
         assert len(runner.results) == 1  # Should not add duplicate
+        assert runner.receiver.send.call_count == 2  # ACK still sent
 
     def check_timeout_exception_join_timeout_param(self):
         """Test that timeout_exception_join_timeout parameter is used correctly."""
@@ -765,7 +772,7 @@ class CheckRunner(object):
             ctx_list,
             1,
             finish_join_timeout=10,
-            timeout_exception_join_timeout=60
+            timeout_exception_join_timeout=60,
         )
 
         assert runner.finish_join_timeout == 10
