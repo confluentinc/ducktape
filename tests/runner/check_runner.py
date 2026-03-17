@@ -693,7 +693,7 @@ class CheckRunner(object):
         assert len(rc.sender.send_results) == 0
 
     def check_duplicate_finished_message_handling(self):
-        """Test that duplicate FINISHED messages don't crash the runner due to idempotency guard."""
+        """Test that duplicate FINISHED messages are handled correctly with three distinct cases."""
         from ducktape.tests.runner import TestKey
         from ducktape.tests.result import TestResult
         from ducktape.cluster.finite_subcluster import FiniteSubcluster
@@ -738,17 +738,26 @@ class CheckRunner(object):
         result = TestResult(test_ctx, 1, session_context, PASS, "Test passed", None, time.time(), time.time())
         event = event_factory.finished(result=result)
 
-        # First FINISHED - should process normally
+        # Case 1: Normal first FINISHED - should process normally
         runner._handle_finished(event)
         assert test_key not in runner.active_tests
+        assert test_key in runner.finished_tests
         assert len(runner.results) == 1
         assert test_key not in runner._test_cluster
         assert runner.receiver.send.call_count == 1
 
-        # Second FINISHED (duplicate) - should not crash, should be ignored
-        runner._handle_finished(event)  # Should not raise KeyError
+        # Case 2: Duplicate FINISHED (ZMQ retry) - should be ignored gracefully
+        runner._handle_finished(event)
         assert len(runner.results) == 1  # Should not add duplicate
         assert runner.receiver.send.call_count == 2  # ACK still sent
+
+        # Case 3: FINISHED for unknown test - should raise RuntimeError
+        unknown_event_factory = ClientEventFactory("unknown.test.id", 999, "test-client")
+        unknown_result = TestResult(test_ctx, 999, session_context, PASS, "Test passed", None, time.time(), time.time())
+        unknown_event = unknown_event_factory.finished(result=unknown_result)
+
+        with pytest.raises(RuntimeError, match="not in active_tests"):
+            runner._handle_finished(unknown_event)
 
     def check_timeout_exception_join_timeout_param(self):
         """Test that timeout_exception_join_timeout parameter is used correctly."""

@@ -508,10 +508,18 @@ class TestRunner(object):
         test_key = TestKey(event["test_id"], event["test_index"])
         self.receiver.send(self.event_response.finished(event))
 
-        # Idempotency guard: if already processed, just return (ACK already sent above)
-        if test_key not in self.active_tests:
-            self._log(logging.DEBUG, f"Received duplicate FINISHED for {test_key}, ignoring")
+        # Idempotency: check if this is a ZMQ retry (test already finished)
+        if test_key in self.finished_tests:
+            self._log(logging.DEBUG, f"Received duplicate FINISHED for {test_key} (ZMQ retry), ignoring")
             return
+
+        # Normal case: test is currently active
+        if test_key not in self.active_tests:
+            # This should never happen - indicates a logic bug
+            raise RuntimeError(
+                f"Received FINISHED for test {test_key} which is not in active_tests. "
+                f"This indicates a bug in the test runner state management."
+            )
 
         result = event["result"]
         if result.test_status == FAIL and self.exit_first:

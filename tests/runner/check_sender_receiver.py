@@ -58,7 +58,8 @@ class CheckSenderReceiver(object):
             logging.info("replying to client")
             receiver.send(receiver_response_factory.ready(event, s_context, t_context, cluster))
         finally:
-            p.join()
+            p.join(timeout=2)  # Add timeout to prevent hanging if subprocess has issues
+            receiver.close()
 
     def check_timeout(self):
         client_id = "test-runner-{}-{}".format(os.getpid(), id(self))
@@ -73,34 +74,54 @@ class CheckSenderReceiver(object):
             with pytest.raises(TimeoutError):
                 receiver.recv(timeout=0)
         finally:
-            p.join()
+            # Terminate the process instead of waiting for it to timeout
+            # (it will keep retrying for up to 15 seconds with default timeouts)
+            p.terminate()
+            p.join(timeout=1)
+            receiver.close()
 
     def check_exponential_backoff(self):
         """Test that Sender applies exponential backoff on retries."""
         import time
 
-        client_id = "test-backoff-client"
-        event_factory = ClientEventFactory("test_1", 0, client_id)
+        # Save original values
+        original_timeout = Sender.REQUEST_TIMEOUT_MS
+        original_retries = Sender.NUM_RETRIES
 
-        # Create sender that will timeout (no receiver listening on this port)
-        sender = Sender(
-            server_host="localhost",
-            server_port=9999,  # Nothing listening here
-            message_supplier=event_factory,
-            logger=logging,
-        )
+        # Override timeout values for faster testing BEFORE creating sender
+        Sender.REQUEST_TIMEOUT_MS = 100  # 100ms instead of 3000ms
+        Sender.NUM_RETRIES = 3  # 3 retries instead of 5
 
-        start_time = time.time()
         try:
-            sender.send(event_factory.ready())
-        except RuntimeError as e:
-            # Expected to fail with "Unable to receive response from driver"
-            assert "Unable to receive response from driver" in str(e)
+            client_id = "test-backoff-client"
+            event_factory = ClientEventFactory("test_1", 0, client_id)
 
-        elapsed = time.time() - start_time
+            # Create sender that will timeout (no receiver listening on this port)
+            sender = Sender(
+                server_host="localhost",
+                server_port=9999,  # Nothing listening here
+                message_supplier=event_factory,
+                logger=logging,
+            )
 
-        # With 2x backoff: 3s + 6s + 12s + 24s + 48s = 93s total
-        # Without backoff: 3s * 5 = 15s total
-        # We expect at least 20s to prove backoff is working
-        # Use 18s to account for some timing variance
-        assert elapsed > 18, f"Expected > 18s with backoff, got {elapsed:.1f}s"
+            start_time = time.time()
+            try:
+                sender.send(event_factory.ready())
+            except RuntimeError as e:
+                # Expected to fail with "Unable to receive response from driver"
+                assert "Unable to receive response from driver" in str(e)
+
+            elapsed = time.time() - start_time
+
+            # With 2x backoff: 100ms + 200ms + 400ms = 700ms total
+            # Without backoff: 100ms * 3 = 300ms total
+            # We expect at least 500ms to prove backoff is working
+            # Use 400ms to account for timing variance
+            assert elapsed > 0.4, f"Expected > 0.4s with backoff, got {elapsed:.3f}s"
+            assert elapsed < 2.0, f"Expected < 2.0s, got {elapsed:.3f}s (test taking too long)"
+
+            sender.close()
+        finally:
+            # Restore original values
+            Sender.REQUEST_TIMEOUT_MS = original_timeout
+            Sender.NUM_RETRIES = original_retries
