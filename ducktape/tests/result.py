@@ -50,6 +50,10 @@ class TestResult(object):
         """
         self.nodes_allocated = len(test_context.cluster)
         self.nodes_used = test_context.cluster.max_used_nodes
+
+        # Collect node_type from cluster metadata if available
+        self.node_type = test_context.cluster_use_metadata.get("node_type")
+
         if hasattr(test_context, "services"):
             self.services = test_context.services.to_json()
         else:
@@ -113,7 +117,7 @@ class TestResult(object):
             json.dump(self, fd, cls=DucktapeJSONEncoder, sort_keys=True, indent=2)
 
     def to_json(self):
-        return {
+        result = {
             "test_id": self.test_id,
             "module_name": self.module_name,
             "cls_name": self.cls_name,
@@ -133,6 +137,12 @@ class TestResult(object):
             "nodes_used": self.nodes_used,
             "services": self.services,
         }
+
+        # Only include node_type if it was specified in the @cluster decorator
+        if self.node_type is not None:
+            result["node_type"] = self.node_type
+
+        return result
 
 
 class TestResults(object):
