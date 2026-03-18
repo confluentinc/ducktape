@@ -4,6 +4,14 @@
 Changelog
 ====
 
+0.14.1a1
+========
+Wednesday, March 18th, 2026
+---------------------------
+- Add node_type information to JSON Report
+- Reduce JOIN_TIMEOUT, add idempotency to finished event and backoff to client send timeout
+
+
 0.14.0
 ======
 Tuesday, March 10th, 2026
