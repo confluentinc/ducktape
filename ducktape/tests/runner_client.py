@@ -45,6 +45,7 @@ def run_client(*args, **kwargs):
 class Sender(object):
     REQUEST_TIMEOUT_MS = 3000
     NUM_RETRIES = 5
+    BACKOFF_MULTIPLIER = 2.0  # Exponential backoff multiplier
 
     serde: SerDe
     message_supplier: ClientEventFactory
@@ -79,6 +80,7 @@ class Sender(object):
 
     def send(self, event, blocking=True):
         retries_left = Sender.NUM_RETRIES
+        current_timeout_ms = Sender.REQUEST_TIMEOUT_MS
 
         while retries_left > 0:
             serialized_event = self.serde.serialize(event)
@@ -87,7 +89,7 @@ class Sender(object):
             waiting_for_reply = True
 
             while waiting_for_reply:
-                sockets = dict(self.poller.poll(Sender.REQUEST_TIMEOUT_MS))
+                sockets = dict(self.poller.poll(current_timeout_ms))
 
                 if sockets.get(self.socket) == zmq.POLLIN:
                     reply = self.socket.recv()
@@ -100,6 +102,8 @@ class Sender(object):
                     self.close()
                     self._init_socket()
                     waiting_for_reply = False
+                    # Apply exponential backoff for next retry
+                    current_timeout_ms = int(current_timeout_ms * Sender.BACKOFF_MULTIPLIER)
                 # Ensure each message we attempt to send has a unique id
                 # This copy constructor gives us a duplicate with a new message id
                 event = self.message_supplier.copy(event)
