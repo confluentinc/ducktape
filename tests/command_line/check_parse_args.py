@@ -145,6 +145,16 @@ class CheckParseArgs(object):
         finally:
             shutil.rmtree(tmpdir)
 
+    def check_compress_test_output_flag(self):
+        """Check that --compress-test-output sets the flag to True."""
+        args = parse_args(["--compress-test-output", "--collect-only"])
+        assert args["compress_test_output"] is True
+
+    def check_compress_test_output_default(self):
+        """Check that compress_test_output defaults to False."""
+        args = parse_args(["--collect-only"])
+        assert args["compress_test_output"] is False
+
     def check_config_overrides_for_n_args(self, monkeypatch):
         """Check that parsed arguments pick up values from config files, and that overrides match precedence."""
 

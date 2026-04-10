@@ -1,6 +1,8 @@
 import os
+import subprocess
 import tarfile
 import tempfile
+from unittest.mock import patch
 
 import pytest
 
@@ -65,3 +67,24 @@ class CheckCompress(object):
 
             assert tgz_path.endswith(".tgz")
             assert os.path.basename(tgz_path) == "my_test_dir.tgz"
+
+    def check_compress_cleans_up_partial_tgz_on_tar_failure(self):
+        """Verify partial .tgz is removed when tar fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_dir = os.path.join(tmpdir, "1")
+            os.makedirs(test_dir)
+            with open(os.path.join(test_dir, "test_log.info"), "w") as f:
+                f.write("content\n")
+
+            tgz_path = test_dir + ".tgz"
+
+            with patch("ducktape.utils.compress.subprocess.check_output") as mock_tar:
+                # Simulate tar failure after creating a partial file
+                open(tgz_path, "w").close()
+                mock_tar.side_effect = subprocess.CalledProcessError(1, "tar")
+
+                with pytest.raises(subprocess.CalledProcessError):
+                    compress_test_results_dir(test_dir)
+
+            assert not os.path.exists(tgz_path)
+            assert os.path.isdir(test_dir)

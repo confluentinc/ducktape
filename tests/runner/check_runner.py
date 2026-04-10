@@ -788,6 +788,52 @@ class CheckRunner(object):
         assert runner.timeout_exception_join_timeout == 60
 
 
+    def check_compress_test_output_creates_tgz(self):
+        """Verify that --compress-test-output compresses results and updates paths in the result."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(compress_test_output=True)
+
+        test_methods = [TestThingy.test_pi]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+
+        assert len(results) == 1
+        assert results.num_passed == 1
+
+        result = list(results)[0]
+        assert result.results_dir.endswith(".tgz")
+        assert os.path.isfile(result.results_dir)
+        assert result.relative_results_dir.endswith(".tgz")
+
+    def check_compress_test_output_disabled_by_default(self):
+        """Verify results are NOT compressed when flag is not set."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+
+        test_methods = [TestThingy.test_pi]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        results = runner.run_all_tests()
+
+        assert len(results) == 1
+        result = list(results)[0]
+        assert not result.results_dir.endswith(".tgz")
+        assert os.path.isdir(result.results_dir.rstrip(os.sep))
+
+
 class ShrinkingLocalhostCluster(LocalhostCluster):
     def __init__(self, *args, shrink_on=1, **kwargs):
         super().__init__(*args, **kwargs)

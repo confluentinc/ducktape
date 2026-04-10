@@ -212,6 +212,12 @@ def create_ducktape_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable automatic JVM log collection for Java-based services (Kafka, ZooKeeper, Connect, etc.)",
     )
+    parser.add_argument(
+        "--compress-test-output",
+        action="store_true",
+        help="Compress each test's results directory to .tgz immediately after the test finishes, "
+        "freeing disk space during long test runs.",
+    )
     return parser
 
 

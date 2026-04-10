@@ -38,6 +38,7 @@ from ducktape.tests.reporter import (
     JUnitReporter,
 )
 from ducktape.utils import persistence
+from ducktape.utils.compress import compress_test_results_dir
 from ducktape.errors import TimeoutError
 from ducktape.tests.event import ClientEventFactory, EventResponseFactory
 from ducktape.tests.result import TestResults
@@ -538,6 +539,9 @@ class TestRunner(object):
         # Join on the finished test process
         self._join_test_process(test_key, timeout=self.finish_join_timeout)
 
+        if self.session_context.compress_test_output:
+            self._compress_test_result(result)
+
         # Report partial result summaries - it is helpful to have partial test reports available if the
         # ducktape process is killed with a SIGKILL partway through
         test_results = copy.copy(self.results)  # shallow copy
@@ -553,6 +557,20 @@ class TestRunner(object):
         if self._should_print_separator:
             terminal_width, y = get_terminal_size()
             self._log(logging.INFO, "~" * int(2 * terminal_width / 3))
+
+    def _compress_test_result(self, result):
+        """Compress the test's results directory to .tgz and update result paths."""
+        results_dir = result.results_dir.rstrip(os.sep)
+        if not os.path.isdir(results_dir):
+            return
+
+        try:
+            tgz_path = compress_test_results_dir(results_dir)
+            result.results_dir = tgz_path
+            result.relative_results_dir = tgz_path[len(result.base_results_dir):]
+            self._log(logging.INFO, "Compressed test results: %s" % tgz_path)
+        except Exception as e:
+            self._log(logging.WARNING, "Failed to compress test results at %s: %s" % (results_dir, e))
 
     @property
     def _should_print_separator(self):
