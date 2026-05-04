@@ -224,6 +224,14 @@ class RemoteAccount(HttpMixin):
             timeout=self.ssh_config.connecttimeout,
         )
 
+        # Send SSH-level keepalives so stateful firewalls / NATs (e.g. cross-region
+        # cloud paths) don't drop idle TCP, and so paramiko detects a dead transport
+        # proactively instead of at next exec_command. 30s is well under the typical
+        # 60-120s FW idle timeout.
+        transport = client.get_transport()
+        if transport is not None:
+            transport.set_keepalive(30)
+
         if self._ssh_client:
             self._ssh_client.close()
         self._ssh_client = client
