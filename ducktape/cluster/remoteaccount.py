@@ -31,9 +31,8 @@ from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 
 
-# Interval (in seconds) at which paramiko sends SSH-level MSG_IGNORE keepalives
-# on the cached transport. Chosen well below the typical 60-120s firewall/NAT
-# idle timeout that drops idle TCP on cross-region cloud paths.
+# Below the typical 60-120s firewall/NAT idle timeout that drops idle TCP on
+# cross-region cloud paths.
 SSH_KEEPALIVE_INTERVAL_SEC = 30
 
 
@@ -230,9 +229,8 @@ class RemoteAccount(HttpMixin):
             timeout=self.ssh_config.connecttimeout,
         )
 
-        # Send SSH-level keepalives so stateful firewalls / NATs (e.g. cross-region
-        # cloud paths) don't drop idle TCP, and so paramiko detects a dead transport
-        # proactively instead of at next exec_command.
+        # SSH keepalives: prevent firewall/NAT idle TCP drops and surface dead
+        # transports proactively instead of at next exec_command.
         transport = client.get_transport()
         if transport is not None:
             transport.set_keepalive(SSH_KEEPALIVE_INTERVAL_SEC)
