@@ -31,6 +31,11 @@ from ducktape.utils.http_utils import HttpMixin
 from ducktape.utils.util import wait_until
 
 
+# Below the typical 60-120s firewall/NAT idle timeout that drops idle TCP on
+# cross-region cloud paths.
+SSH_KEEPALIVE_INTERVAL_SEC = 30
+
+
 def check_ssh(method: Callable) -> Callable:
     def wrapper(self, *args, **kwargs):
         try:
@@ -223,6 +228,12 @@ class RemoteAccount(HttpMixin):
             look_for_keys=False,
             timeout=self.ssh_config.connecttimeout,
         )
+
+        # SSH keepalives: prevent firewall/NAT idle TCP drops and surface dead
+        # transports proactively instead of at next exec_command.
+        transport = client.get_transport()
+        if transport is not None:
+            transport.set_keepalive(SSH_KEEPALIVE_INTERVAL_SEC)
 
         if self._ssh_client:
             self._ssh_client.close()
