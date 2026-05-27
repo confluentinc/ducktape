@@ -180,8 +180,9 @@ For parameterized tests, each parameter combination gets its own subdirectory un
 ``<test_method_name>``. By default this is a single dotted basename such as
 ``k1=v1.k2=v2.k3=v3``. Pass ``--nested-result-dirs`` to instead nest one directory per
 parameter (``k1=v1/k2=v2/k3=v3/``), sorted by key — useful when the combined args string
-would exceed the OS 255-byte filename limit. ``test_id`` and ``report.json`` are unchanged
-either way.
+would exceed the OS 255-byte filename limit. ``test_id`` and the per-test ``report.json``
+schema are unchanged regardless of the flag; the session-level ``report.json`` gains an
+additive ``nested_result_dirs`` flag.
 
 To see an example of the output structure, go `here`_ and click on one of the details links.
 
