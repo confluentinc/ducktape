@@ -93,6 +93,16 @@ def create_ducktape_parser() -> argparse.ArgumentParser:
         "specified will result in new test results being stored in a subdirectory of "
         "this root directory.",
     )
+    parser.add_argument(
+        "--nested-result-dirs",
+        action="store_true",
+        help="lay out per-test result directories with one nested directory per injected "
+        "parameter (e.g. <cls>/<method>/k1=v1/k2=v2/) instead of a single dotted basename "
+        "(<cls>/<method>/k1=v1.k2=v2/). Keeps each path segment short enough to avoid the "
+        "OS 255-byte filename limit for heavily parameterized tests. test_id and the "
+        "per-test report.json schema are unchanged; the session-level report.json gains an "
+        "additive nested_result_dirs flag.",
+    )
     parser.add_argument("--exit-first", action="store_true", help="exit after first failure")
     parser.add_argument(
         "--no-teardown",
