@@ -106,9 +106,7 @@ class CheckResultsDirLayout(object):
 
     def check_nested_with_test_index(self):
         ctx = self._ctx(injected_args={"a": 1, "b": 2}, nested=True)
-        assert self._suffix(ctx, test_index=3) == os.path.join(
-            "DummyTest", "test_me", "a=1", "b=2", "3"
-        )
+        assert self._suffix(ctx, test_index=3) == os.path.join("DummyTest", "test_me", "a=1", "b=2", "3")
 
     def check_nested_escapes_per_segment(self):
         # Slashes and whitespace inside a value must be sanitized within a single segment,
