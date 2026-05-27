@@ -188,7 +188,14 @@ class TestContext(object):
         if test_context.function is not None:
             d = os.path.join(d, test_context.function.__name__)
         if test_context.injected_args is not None:
-            d = os.path.join(d, test_context.injected_args_name)
+            if test_context.session_context.nested_result_dirs:
+                # One nested directory per parameter, sorted by key for stable layout
+                # across reruns and reorderings of @matrix/@parametrize arguments.
+                for k in sorted(test_context.injected_args):
+                    segment = _escape_pathname("%s=%s" % (k, test_context.injected_args[k]))
+                    d = os.path.join(d, segment)
+            else:
+                d = os.path.join(d, test_context.injected_args_name)
         if test_index is not None:
             d = os.path.join(d, str(test_index))
 
