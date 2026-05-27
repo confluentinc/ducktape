@@ -82,6 +82,17 @@ class CheckResultsDirLayout(object):
         ctx = self._ctx(injected_args={"b": 1, "a": 2}, nested=False)
         assert self._suffix(ctx) == os.path.join("DummyTest", "test_me", "b=1.a=2")
 
+    def check_flat_no_args(self):
+        # injected_args=None must not append any segment under the method dir.
+        ctx = self._ctx(injected_args=None, nested=False)
+        assert self._suffix(ctx) == os.path.join("DummyTest", "test_me")
+
+    def check_flat_empty_args(self):
+        # injected_args={} must also be a no-op (preserves legacy behavior even
+        # though the empty-dict path goes through injected_args_name -> "").
+        ctx = self._ctx(injected_args={}, nested=False)
+        assert self._suffix(ctx) == os.path.join("DummyTest", "test_me")
+
     def check_nested_basic(self):
         ctx = self._ctx(injected_args={"a": 1, "b": 2, "c": 3}, nested=True)
         assert self._suffix(ctx) == os.path.join("DummyTest", "test_me", "a=1", "b=2", "c=3")
