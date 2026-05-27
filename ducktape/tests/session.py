@@ -33,6 +33,7 @@ class SessionContext(object):
 
         self.debug = kwargs.get("debug", False)
         self.compress = kwargs.get("compress", False)
+        self.nested_result_dirs = kwargs.get("nested_result_dirs", False)
         self.exit_first = kwargs.get("exit_first", False)
         self.no_teardown = kwargs.get("no_teardown", False)
         self.max_parallel = kwargs.get("max_parallel", 1)
