@@ -4,6 +4,14 @@
 Changelog
 ====
 
+0.15.0
+======
+Thursday, May 28th, 2026
+------------------------
+- Add nested result directory feature to solve OS 255 Byte filename limit
+- remoteaccount: enable SSH keepalives on paramiko transport
+
+
 0.14.0
 ======
 Tuesday, March 10th, 2026
