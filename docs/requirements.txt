@@ -1,8 +1,8 @@
 Sphinx~=8.2.3
 sphinx-argparse~=0.5.2
-sphinx-rtd-theme~=3.0.2
-boto3==1.33.13
+sphinx-rtd-theme>=3.0.2,<3.2
+boto3==1.43.19
 pycryptodome==3.23.0
-pywinrm==0.4.3
+pywinrm==0.5.0
 jinja2~=3.1.6
 MarkupSafe~=2.1.5
