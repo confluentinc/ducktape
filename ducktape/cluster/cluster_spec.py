@@ -91,6 +91,13 @@ class ClusterSpec(object):
         """
         return ClusterSpec(self.nodes.clone())
 
+    def without_node_types(self):
+        """
+        Returns a copy of this spec with all node_type requirements cleared, so that each node
+        spec matches any available node of its operating system.
+        """
+        return ClusterSpec([NodeSpec(node_spec.operating_system) for node_spec in self.nodes])
+
     def __str__(self):
         node_spec_to_num = {}
         for node_spec in self.nodes.elements():

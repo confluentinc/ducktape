@@ -222,10 +222,11 @@ class TestContext(object):
         cluster_spec = self.cluster_use_metadata.get(CLUSTER_SPEC_KEYWORD)
         cluster_size = self.cluster_use_metadata.get(CLUSTER_SIZE_KEYWORD)
         node_type = self.cluster_use_metadata.get(CLUSTER_NODE_TYPE_KEYWORD)
+        ignore_node_type = self.session_context.ignore_node_type if self.session_context else False
         if cluster_spec is not None:
-            return cluster_spec
+            return cluster_spec.without_node_types() if ignore_node_type else cluster_spec
         elif cluster_size is not None:
-            return ClusterSpec.simple_linux(cluster_size, node_type)
+            return ClusterSpec.simple_linux(cluster_size, None if ignore_node_type else node_type)
         elif not self.cluster:
             return ClusterSpec.empty()
         elif self.session_context.fail_greedy_tests:

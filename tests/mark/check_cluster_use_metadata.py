@@ -66,6 +66,44 @@ class CheckClusterUseAnnotation(object):
         assert len(test_context_list) == 1
         assert test_context_list[0].expected_num_nodes == num_nodes
 
+    def check_node_type_preserved_by_default(self):
+        num_nodes = 5
+
+        @cluster(num_nodes=num_nodes, node_type="large")
+        def function():
+            return "hi"
+
+        test_context_list = MarkedFunctionExpander(function=function).expand()
+        spec = test_context_list[0].expected_cluster_spec
+        assert spec.size() == num_nodes
+        assert all(node.node_type == "large" for node in spec.nodes.elements())
+
+    def check_ignore_node_type_strips_num_nodes_type(self):
+        num_nodes = 5
+
+        @cluster(num_nodes=num_nodes, node_type="large")
+        def function():
+            return "hi"
+
+        session_context = ducktape_mock.session_context(ignore_node_type=True)
+        test_context_list = MarkedFunctionExpander(function=function, session_context=session_context).expand()
+        spec = test_context_list[0].expected_cluster_spec
+        assert spec.size() == num_nodes
+        assert all(node.node_type is None for node in spec.nodes.elements())
+
+    def check_ignore_node_type_strips_cluster_spec_type(self):
+        num_nodes = 5
+
+        @cluster(cluster_spec=ClusterSpec.simple_linux(num_nodes, "large"))
+        def function():
+            return "hi"
+
+        session_context = ducktape_mock.session_context(ignore_node_type=True)
+        test_context_list = MarkedFunctionExpander(function=function, session_context=session_context).expand()
+        spec = test_context_list[0].expected_cluster_spec
+        assert spec.size() == num_nodes
+        assert all(node.node_type is None for node in spec.nodes.elements())
+
     @pytest.mark.parametrize("fail_greedy_tests", [True, False])
     @pytest.mark.parametrize("has_annotation", [True, False])
     def check_empty_cluster_annotation(self, fail_greedy_tests, has_annotation):

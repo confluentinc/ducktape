@@ -188,6 +188,13 @@ def create_ducktape_parser() -> argparse.ArgumentParser:
         "or cluster_spec=ClusterSpec.empty()",
     )
     parser.add_argument(
+        "--ignore-node-type",
+        action="store_true",
+        help="Ignore the node_type specified in @cluster decorators (or cluster_spec) and allocate "
+        "any available node of the matching OS. Useful for running tests written for a heterogeneous "
+        "cluster on a homogeneous one.",
+    )
+    parser.add_argument(
         "--test-runner-timeout",
         action="store",
         type=int,

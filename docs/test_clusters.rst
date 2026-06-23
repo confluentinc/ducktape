@@ -71,3 +71,16 @@ Backward Compatibility
 - Tests without ``node_type`` will match **any available node**
 - Existing tests and cluster configurations continue to work unchanged
 - Node type is optional in both test annotations and cluster configuration
+
+Ignoring Node Types
+-------------------
+
+Pass ``--ignore-node-type`` on the command line to ignore the ``node_type`` requested by
+tests and allocate any available node of the matching operating system::
+
+    ducktape --ignore-node-type ./my_tests_dir
+
+This lets tests written for a heterogeneous cluster run on a homogeneous one without editing
+their annotations. The requested number of nodes and operating system are still honored; only
+the ``node_type`` hint is dropped. It applies to both ``@cluster(node_type=...)`` and an
+explicit ``cluster_spec``.
