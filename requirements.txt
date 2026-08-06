@@ -1,14 +1,14 @@
 jinja2~=3.1.6
-boto3==1.33.13
+boto3==1.43.65
 # jinja2 pulls in MarkupSafe with a > constraint, but we need to constrain it for compatibility
 MarkupSafe~=2.1.5
-pyparsing==3.1.4
-zipp==3.20.2
-pywinrm==0.4.3
+pyparsing==3.3.2
+zipp==3.23.1
+pywinrm==0.5.0
 requests==2.32.4
 paramiko~=3.4.0
 pyzmq==26.4.0
 pycryptodome==3.23.0
 more-itertools==5.0.0
-PyYAML==6.0.2
-psutil==5.7.2
+PyYAML==6.0.3
+psutil==5.9.8
