@@ -48,7 +48,7 @@ from ducktape.tests.test_context import TestContext
 from ducktape.utils.terminal_size import get_terminal_size
 
 DEFAULT_MP_JOIN_TIMEOUT = 30
-DEFAULT_TIMEOUT_EXCEPTION_JOIN_TIMEOUT = 120
+DEFAULT_TIMEOUT_EXCEPTION_JOIN_TIMEOUT = 300
 
 
 class Receiver(object):
@@ -162,21 +162,39 @@ class TestRunner(object):
 
     def _join_test_process(self, process_key, timeout: int = DEFAULT_MP_JOIN_TIMEOUT):
         # waits for process to complete, if it doesn't terminate it
-        process: multiprocessing.Process = self._client_procs[process_key]
-        start = time.time()
-        while time.time() - start <= timeout:
-            if not process.is_alive():
-                self.client_report[process_key]["status"] = "FINISHED"
-                break
-            time.sleep(0.1)
-        else:
-            # Note: This can lead to some tmp files being uncleaned, otherwise nothing else should be executed by the
-            #       client after this point.
+        self._join_test_processes([process_key], timeout)
+
+    def _join_test_processes(self, process_keys, timeout: int = DEFAULT_MP_JOIN_TIMEOUT):
+        """Same as _join_test_process, but the timeout is one budget shared by the whole batch."""
+        pending = [key for key in process_keys if key in self._client_procs]
+        deadline = time.time() + timeout
+        while pending and time.time() <= deadline:
+            pending = [key for key in pending if self._client_procs[key].is_alive()]
+            if pending:
+                time.sleep(0.1)
+
+        for key in pending:
+            # Note: This can lead to some tmp files being uncleaned, otherwise nothing else should be
+            #       executed by the client after this point.
             self._log(
-                logging.ERROR, f"after waiting {timeout}s, process {process.name} failed to complete.  Terminating..."
+                logging.ERROR,
+                f"after waiting {timeout}s, process {self._client_procs[key].name} failed to complete.  "
+                f"Terminating...",
             )
+
+        for key in process_keys:
+            if key in self._client_procs:
+                self._reap_test_process(key)
+
+    def _reap_test_process(self, process_key):
+        # kills the process if it's still running, then records its outcome
+        process: multiprocessing.Process = self._client_procs[process_key]
+        if process.is_alive():
             self._terminate_process(process)
             self.client_report[process_key]["status"] = "TERMINATED"
+        else:
+            self.client_report[process_key]["status"] = "FINISHED"
+        # join is unbounded so exitcode is always reaped, see #370/#416
         process.join()
         self.client_report[process_key]["exitcode"] = process.exitcode
         self.client_report[process_key]["runner_end_time"] = time.time()
@@ -301,7 +319,7 @@ class TestRunner(object):
                 del self._test_cluster[test_key]
 
             tc = self._test_context[test_key.test_id]
-            msg = f"Test timed out: {reason}"
+            msg = f"Test aborted: {reason}"
             self._log(logging.ERROR, f"{tc.test_id}: {msg}")
 
             start_time = self.client_report[test_key].get("runner_start_time", stop_time)
@@ -319,6 +337,30 @@ class TestRunner(object):
 
         # Clear active tests since we've reported them all as failed
         self.active_tests.clear()
+
+    def _abort_run(self, reason):
+        """Tear down all client processes and report everything that did not get to finish."""
+        try:
+            # SIGTERM lets clients collect logs and tear down, and stops them sending to a dead driver
+            for process_key in list(self._client_procs.keys()):
+                proc = self._client_procs[process_key]
+                if proc.is_alive():
+                    self._log(logging.INFO, f"Sending SIGTERM to process {proc.name} for graceful shutdown")
+                    os.kill(proc.pid, signal.SIGTERM)
+
+            self._join_test_processes(list(self._client_procs.keys()), self.timeout_exception_join_timeout)
+        except Exception:
+            self._log(logging.ERROR, f"Failed to shut down client processes\n{traceback.format_exc(limit=16)}")
+        finally:
+            self._client_procs = {}
+
+        self._report_active_as_failed(reason)
+        self._report_remaining_as_failed(reason)
+
+        try:
+            self.receiver.close()
+        except Exception:
+            self._log(logging.ERROR, f"Failed to close receiver\n{traceback.format_exc(limit=16)}")
 
     def run_all_tests(self):
         self.receiver.start()
@@ -361,48 +403,15 @@ class TestRunner(object):
                     try:
                         event = self.receiver.recv(timeout=self.session_context.test_runner_timeout)
                         self._handle(event)
-                    except TimeoutError as e:
-                        # Handle timeout gracefully - clean up, mark tests as failed, and return results
-                        err_str = "Timeout error while receiving message: %s: %s" % (
-                            str(type(e)),
-                            str(e),
-                        )
-                        err_str += "\n" + traceback.format_exc(limit=16)
-                        self._log(logging.ERROR, err_str)
-
-                        # Send SIGTERM to all client processes immediately to allow graceful cleanup
-                        # (copy logs, run teardown, etc.)
-                        for process_key in list(self._client_procs.keys()):
-                            proc = self._client_procs[process_key]
-                            if proc.is_alive():
-                                self._log(logging.INFO, f"Sending SIGTERM to process {proc.name} for graceful shutdown")
-                                os.kill(proc.pid, signal.SIGTERM)
-
-                        # Wait for processes to shutdown gracefully (in parallel), escalate to SIGKILL if needed
-                        for process_key in list(self._client_procs.keys()):
-                            self._join_test_process(process_key, self.timeout_exception_join_timeout)
-                        self._client_procs = {}
-                        # Mark active tests as failed with the exception message
-                        self._report_active_as_failed(str(e))
-
-                        # Mark all remaining tests as failed with the exception message
-                        self._report_remaining_as_failed(str(e))
-
-                        self.receiver.close()
-                        return self.results
                     except Exception as e:
-                        # For all other exceptions, clean up and re-raise
-                        err_str = "Exception receiving message: %s: %s" % (
-                            str(type(e)),
-                            str(e),
-                        )
+                        # the driver can no longer reach its clients, so salvage a report over raising
+                        reason = "%s: %s" % (type(e).__name__, e)
+                        err_str = "Aborting run, failed to receive message: %s" % reason
                         err_str += "\n" + traceback.format_exc(limit=16)
                         self._log(logging.ERROR, err_str)
 
-                        for proc in list(self._client_procs):
-                            self._join_test_process(proc, self.finish_join_timeout)
-                        self._client_procs = {}
-                        raise
+                        self._abort_run(reason)
+                        return self.results
             except KeyboardInterrupt:
                 # If SIGINT is received, stop triggering new tests, and let the currently running tests finish
                 self._log(
@@ -413,9 +422,11 @@ class TestRunner(object):
 
         # All clients should be cleaned up in their finish block
         if self._client_procs:
-            self._log(logging.WARNING, f"Some clients failed to clean up, waiting 10min to join: {self._client_procs}")
-        for proc in list(self._client_procs):
-            self._join_test_process(proc, self.finish_join_timeout)
+            self._log(
+                logging.WARNING,
+                f"Some clients failed to clean up, waiting {self.finish_join_timeout}s to join: {self._client_procs}",
+            )
+        self._join_test_processes(list(self._client_procs), self.finish_join_timeout)
 
         self.receiver.close()
 
