@@ -340,17 +340,21 @@ class TestRunner(object):
 
     def _abort_run(self, reason):
         """Tear down all client processes and report everything that did not get to finish."""
-        try:
-            # SIGTERM lets clients collect logs and tear down, and stops them sending to a dead driver
-            for process_key in list(self._client_procs.keys()):
-                proc = self._client_procs[process_key]
+        # SIGTERM lets clients collect logs and tear down, and stops them sending to a dead driver
+        for process_key in list(self._client_procs.keys()):
+            proc = self._client_procs[process_key]
+            # a client dying between is_alive() and the signal must not skip the rest
+            try:
                 if proc.is_alive():
                     self._log(logging.INFO, f"Sending SIGTERM to process {proc.name} for graceful shutdown")
                     os.kill(proc.pid, signal.SIGTERM)
+            except Exception:
+                self._log(logging.ERROR, f"Failed to signal process {proc.name}\n{traceback.format_exc(limit=16)}")
 
+        try:
             self._join_test_processes(list(self._client_procs.keys()), self.timeout_exception_join_timeout)
         except Exception:
-            self._log(logging.ERROR, f"Failed to shut down client processes\n{traceback.format_exc(limit=16)}")
+            self._log(logging.ERROR, f"Failed to join client processes\n{traceback.format_exc(limit=16)}")
         finally:
             self._client_procs = {}
 

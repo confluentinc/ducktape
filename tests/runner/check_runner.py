@@ -840,6 +840,53 @@ class CheckRunner(object):
         assert len(runner.results) == 2
         assert runner.results.num_failed == 2
 
+    def check_abort_joins_remaining_clients_when_a_signal_fails(self):
+        """A client that dies before its SIGTERM must not stop the others being joined."""
+        from ducktape.tests.runner import TestKey
+
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=[TestThingy.test_pi],
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        runner.timeout_exception_join_timeout = 5
+
+        keys = []
+        for i in range(3):
+            key = TestKey("client.test.%d" % i, i)
+            proc = Mock()
+            proc.is_alive.return_value = False
+            proc.pid = os.getpid() + 1000 + i
+            proc.name = "Process-%d" % i
+            proc.exitcode = 0
+            runner._client_procs[key] = proc
+            keys.append(key)
+
+        # the first one races: alive when checked, gone by the time it is signalled
+        raced = {"checked": False}
+
+        def alive_once():
+            if not raced["checked"]:
+                raced["checked"] = True
+                return True
+            return False
+
+        runner._client_procs[keys[0]].is_alive.side_effect = alive_once
+
+        with patch.object(runner.receiver, "close"), patch(
+            "ducktape.tests.runner.os.kill", side_effect=ProcessLookupError("no such process")
+        ):
+            runner._abort_run("SomeError: driver died")
+
+        assert not runner._client_procs
+        for key in keys:
+            assert runner.client_report[key]["exitcode"] == 0
+
     def check_join_test_processes_shares_one_deadline(self):
         """Joining N stuck processes must cost one timeout, not N timeouts."""
         import time
