@@ -608,7 +608,7 @@ class CheckRunner(object):
         assert len(results_list) == 1
         result = results_list[0]
         assert result.test_status == FAIL
-        assert f"Test timed out: {reason}" in result.summary
+        assert f"Test aborted: {reason}" in result.summary
         assert result.start_time < result.stop_time
 
         # Active tests should be cleared
@@ -786,6 +786,135 @@ class CheckRunner(object):
 
         assert runner.finish_join_timeout == 10
         assert runner.timeout_exception_join_timeout == 60
+
+    def check_runner_aborts_gracefully_on_non_timeout_error(self):
+        """A corrupt message must be salvaged the same way a timeout is, not raised."""
+        import pickle
+
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context(max_parallel=1000)
+
+        test_methods = [TestThingy.test_delayed, TestThingy.test_failure]
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+        runner.timeout_exception_join_timeout = 5
+
+        err = pickle.UnpicklingError("invalid load key, '\\x01'.")
+        with patch.object(runner.receiver, "recv", side_effect=err):
+            results = runner.run_all_tests()
+
+        assert not runner._client_procs
+        assert len(results) == 2
+        assert results.num_failed == 2
+        assert results.num_passed == 0
+        for result in results:
+            assert result.test_status == FAIL
+            assert "UnpicklingError" in result.summary
+            assert "invalid load key" in result.summary
+
+    def check_abort_reports_even_if_client_shutdown_fails(self):
+        """A failure tearing down clients must not stop the report from being produced."""
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=[TestThingy.test_pi, TestThingy.test_failure],
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        with patch.object(runner.receiver, "close"), patch.object(
+            runner, "_join_test_processes", side_effect=RuntimeError("cannot join")
+        ):
+            runner._abort_run("SomeError: driver died")
+
+        assert not runner._client_procs
+        assert len(runner.results) == 2
+        assert runner.results.num_failed == 2
+
+    def check_join_test_processes_shares_one_deadline(self):
+        """Joining N stuck processes must cost one timeout, not N timeouts."""
+        import time
+
+        from ducktape.tests.runner import TestKey
+
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=[TestThingy.test_pi],
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        # none of these exit on their own, so the batch has to hit the deadline
+        keys = []
+        for i in range(5):
+            key = TestKey("stuck.test.%d" % i, i)
+            proc = Mock()
+            # alive until it is killed and joined
+            state = {"joined": False}
+            proc.is_alive.side_effect = lambda state=state: not state["joined"]
+            proc.join.side_effect = lambda *a, state=state, **k: state.__setitem__("joined", True)
+            proc.pid = os.getpid() + 1000 + i
+            proc.name = "StuckProcess-%d" % i
+            proc.exitcode = -9
+            runner._client_procs[key] = proc
+            keys.append(key)
+
+        timeout = 2
+        with patch.object(runner, "_terminate_process"):
+            start = time.time()
+            runner._join_test_processes(keys, timeout)
+            elapsed = time.time() - start
+
+        # sequential joins would have taken 5 * timeout
+        assert elapsed < timeout * 2, f"expected a shared deadline, took {elapsed:.1f}s"
+        assert not runner._client_procs
+        for key in keys:
+            assert runner.client_report[key]["status"] == "TERMINATED"
+
+    def check_reap_records_exitcode_after_terminate(self):
+        """Terminated processes must still be joined so exitcode reaches the report."""
+        from ducktape.tests.runner import TestKey
+
+        mock_cluster = LocalhostCluster(num_nodes=1000)
+        session_context = tests.ducktape_mock.session_context()
+        ctx_list = self._do_expand(
+            test_file=TEST_THINGY_FILE,
+            test_class=TestThingy,
+            test_methods=[TestThingy.test_pi],
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        runner = TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+        key = TestKey("stuck.test", 0)
+        proc = Mock()
+        # alive until terminated, dead once joined
+        proc.is_alive.side_effect = [True, False]
+        proc.pid = os.getpid() + 1000
+        proc.name = "StuckProcess"
+        proc.exitcode = -9
+        runner._client_procs[key] = proc
+
+        with patch.object(runner, "_terminate_process"):
+            runner._reap_test_process(key)
+
+        proc.join.assert_called_once_with()
+        assert runner.client_report[key]["status"] == "TERMINATED"
+        assert runner.client_report[key]["exitcode"] == -9
+        assert key not in runner._client_procs
 
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
