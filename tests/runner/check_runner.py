@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
+from ducktape.cluster.finite_subcluster import FiniteSubcluster
 from ducktape.cluster.node_container import NodeContainer, InsufficientResourcesError
 from ducktape.tests.runner_client import RunnerClient
 from ducktape.tests.status import PASS, FAIL
@@ -962,6 +963,77 @@ class CheckRunner(object):
         assert runner.client_report[key]["status"] == "TERMINATED"
         assert runner.client_report[key]["exitcode"] == -9
         assert key not in runner._client_procs
+
+    def _various_num_nodes_runner(self, test_methods, num_nodes=100):
+        mock_cluster = LocalhostCluster(num_nodes=num_nodes)
+        session_context = tests.ducktape_mock.session_context()
+        ctx_list = self._do_expand(
+            test_file=VARIOUS_NUM_NODES_TEST_FILE,
+            test_class=VariousNumNodesTest,
+            test_methods=test_methods,
+            cluster=mock_cluster,
+            session_context=session_context,
+        )
+        return mock_cluster, TestRunner(mock_cluster, session_context, Mock(), ctx_list, 1)
+
+    def check_remaining_as_failed_records_declared_node_count(self):
+        """Unrun tests must record their own num_nodes, not the size of the whole cluster."""
+        _, runner = self._various_num_nodes_runner(
+            [VariousNumNodesTest.test_three_nodes_a, VariousNumNodesTest.test_five_nodes_a]
+        )
+
+        runner._report_remaining_as_failed("driver died")
+
+        by_name = {r.test_id.split(".")[-1]: r for r in runner.results}
+        assert by_name["test_three_nodes_a"].nodes_allocated == 3
+        assert by_name["test_five_nodes_a"].nodes_allocated == 5
+        for result in runner.results:
+            assert result.nodes_used == 0
+
+    def check_unschedulable_records_declared_node_count(self):
+        """Unschedulable tests must record their own num_nodes, not the size of the whole cluster."""
+        _, runner = self._various_num_nodes_runner([VariousNumNodesTest.test_five_nodes_a], num_nodes=2)
+
+        runner._report_unschedulable(runner.scheduler.filter_unschedulable_tests())
+
+        assert len(runner.results) == 1
+        result = list(runner.results)[0]
+        assert result.nodes_allocated == 5
+        assert result.nodes_used == 0
+
+    def check_active_as_failed_records_subcluster_node_count(self):
+        """Aborted tests must record the size of their subcluster, not of the whole cluster."""
+        from ducktape.tests.runner import TestKey
+
+        mock_cluster, runner = self._various_num_nodes_runner([VariousNumNodesTest.test_three_nodes_a])
+
+        test_ctx = runner.scheduler.peek()
+        runner._preallocate_subcluster(test_ctx)
+        test_key = TestKey(test_ctx.test_id, runner.test_counter)
+        runner.active_tests[test_key] = True
+
+        runner._report_active_as_failed("driver died")
+
+        assert len(runner.results) == 1
+        result = list(runner.results)[0]
+        assert result.nodes_allocated == 3, "should be the subcluster size, not len(cluster)"
+        assert result.nodes_used == 3
+        # the subcluster must still have been returned to the cluster
+        assert mock_cluster.num_available_nodes() == 100
+
+    def check_client_built_result_still_uses_its_cluster(self):
+        """Results built without overrides keep deriving counts from their own test_context.cluster."""
+        from ducktape.tests.result import TestResult
+
+        mock_cluster, runner = self._various_num_nodes_runner([VariousNumNodesTest.test_three_nodes_a])
+        test_ctx = runner.scheduler.peek()
+        subcluster = FiniteSubcluster(mock_cluster.alloc(test_ctx.expected_cluster_spec))
+        test_ctx.cluster = subcluster
+
+        result = TestResult(test_ctx, 1, runner.session_context, test_status=FAIL, summary="x")
+
+        assert result.nodes_allocated == 3
+        assert result.nodes_used == subcluster.max_used_nodes
 
 
 class ShrinkingLocalhostCluster(LocalhostCluster):
