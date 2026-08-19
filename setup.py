@@ -48,7 +48,7 @@ setup(
     url="http://github.com/confluentinc/ducktape",
     packages=find_packages(),
     package_data={"ducktape": ["templates/report/*"]},
-    python_requires=">= 3.6",
+    python_requires=">= 3.9",
     install_requires=open("requirements.txt").read(),
     extras_require={"test": test_req},
     setup_requires=["ruff==0.4.10"],
