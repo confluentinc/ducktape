@@ -2,7 +2,7 @@ version: v1.0
 name: pr-test-job
 agent:
   machine:
-    type: s1-prod-ubuntu24-04-amd64-1
+    type: s1-prod-ubuntu24-04-arm64-0
 
 execution_time_limit:
   hours: 1
@@ -18,12 +18,6 @@ blocks:
     dependencies: []
     task:
       jobs:
-        - name: Test Python 3.8
-          commands:
-            - sem-version python 3.8
-            - pip install tox
-            - export PYTESTARGS='--junitxml=test/results-py38.xml'
-            - tox -e py38
         - name: Test Python 3.9
           commands:
             - sem-version python 3.9
@@ -53,4 +47,15 @@ blocks:
             - sem-version python 3.13
             - pip install tox
             - export PYTESTARGS='--junitxml=test/results-py313.xml'
-            - tox
+            - tox -e py313
+
+  - name: Quality
+    dependencies: []
+    task:
+      jobs:
+        - name: Coverage, Style & Docs
+          commands:
+            - sem-version python 3.13
+            - pip install tox
+            - export PYTESTARGS='--junitxml=test/results-cover.xml'
+            - tox -e style,cover,docs
