@@ -263,6 +263,8 @@ class TestRunner(object):
                 summary=msg,
                 start_time=time.time(),
                 stop_time=time.time(),
+                nodes_allocated=tc.expected_num_nodes,
+                nodes_used=0,
             )
             self.results.append(result)
             result.report()
@@ -294,6 +296,8 @@ class TestRunner(object):
                 summary=msg,
                 start_time=time.time(),
                 stop_time=time.time(),
+                nodes_allocated=tc.expected_num_nodes,
+                nodes_used=0,
             )
             self.results.append(result)
             result.report()
@@ -312,13 +316,15 @@ class TestRunner(object):
         )
         stop_time = time.time()
         for test_key in active_test_keys:
+            tc = self._test_context[test_key.test_id]
+            nodes_allocated = tc.expected_num_nodes
             if hasattr(self, "_test_cluster") and test_key in self._test_cluster:
                 subcluster = self._test_cluster[test_key]
+                nodes_allocated = len(subcluster)
                 # Return nodes to the cluster and remove tracking entry
                 self.cluster.free(subcluster.nodes)
                 del self._test_cluster[test_key]
 
-            tc = self._test_context[test_key.test_id]
             msg = f"Test aborted: {reason}"
             self._log(logging.ERROR, f"{tc.test_id}: {msg}")
 
@@ -331,6 +337,9 @@ class TestRunner(object):
                 summary=msg,
                 start_time=start_time,
                 stop_time=stop_time,
+                nodes_allocated=nodes_allocated,
+                # the test was running and held its nodes, but the driver can't see the client's peak
+                nodes_used=nodes_allocated,
             )
             self.results.append(result)
             result.report()
