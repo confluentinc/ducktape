@@ -632,7 +632,6 @@ class CheckRunner(object):
 
         # Simulate an active test with allocated cluster
         from ducktape.tests.runner import TestKey
-        from ducktape.cluster.finite_subcluster import FiniteSubcluster
         import time
 
         test_ctx = ctx_list[0]
@@ -697,7 +696,6 @@ class CheckRunner(object):
         """Test that duplicate FINISHED messages are handled correctly with three distinct cases."""
         from ducktape.tests.runner import TestKey
         from ducktape.tests.result import TestResult
-        from ducktape.cluster.finite_subcluster import FiniteSubcluster
         import time
 
         mock_cluster = LocalhostCluster(num_nodes=1000)
