@@ -41,15 +41,21 @@ class TestResult(object):
         data=None,
         start_time=-1,
         stop_time=-1,
+        nodes_allocated=None,
+        nodes_used=None,
     ):
         """
-        @param test_context  standard test context object
-        @param test_status   did the test pass or fail, etc?
-        @param summary       summary information
-        @param data          data returned by the test, e.g. throughput
+        @param test_context     standard test context object
+        @param test_status      did the test pass or fail, etc?
+        @param summary          summary information
+        @param data             data returned by the test, e.g. throughput
+        @param nodes_allocated  node count, defaulting to the size of the test's cluster. The driver must
+                                pass this explicitly, since its test_context holds the whole cluster
+                                rather than the subcluster allocated to the test.
+        @param nodes_used       as above, for the peak node count
         """
-        self.nodes_allocated = len(test_context.cluster)
-        self.nodes_used = test_context.cluster.max_used_nodes
+        self.nodes_allocated = len(test_context.cluster) if nodes_allocated is None else nodes_allocated
+        self.nodes_used = test_context.cluster.max_used_nodes if nodes_used is None else nodes_used
 
         # Collect node_type from cluster metadata if available
         self.node_type = test_context.cluster_use_metadata.get("node_type")
