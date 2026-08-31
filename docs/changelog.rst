@@ -4,6 +4,16 @@
 Changelog
 ====
 
+0.16.0
+======
+Monday, August 31th, 2026
+-------------------------
+- Record the test own node count in driver built results
+- Drop Python 3.8 support and split CI matrix into one env per job
+- Report all tests on driver abort, join clients in parallel
+- Add flag to ignore node type to bypass heterogeneous node matching
+
+
 0.15.0
 ======
 Thursday, May 28th, 2026
