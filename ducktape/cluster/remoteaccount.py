@@ -367,6 +367,34 @@ class RemoteAccount(HttpMixin):
             stdout.close()
             stderr.close()
 
+            # Workaround to avoid a future deadlock in `ChannelStdinFile.close()`.
+            # See https://github.com/paramiko/paramiko/issues/2685.
+            #
+            # Normally, the finalizer for `ChannelStdinFile` would be run once its refcount hits zero.
+            # When a cyclic reference keeps `ChannelStdinFile` alive, its finalizer will be run at an
+            # unpredictable time. The finalizer calls `close()`, which eventually tries to take a lock
+            # on the `Channel`. If the finalizer is run on a thread which already holds the `Channel`
+            # lock, a self-deadlock results. In particular, when the finalizer runs while the paramiko
+            # transport thread is handling a `MSG_CHANNEL_CLOSE` for the channel and holding the
+            # channel lock, the transport thread will deadlock and stop receiving responses from the
+            # remote end. Subsequent ssh operations will hang indefinitely until timeout and
+            # "Timeout opening channel" exceptions will be thrown among other things.
+            #
+            # A cyclic reference that keeps `ChannelStdinFile` alive is created inside `self.ssh_client`
+            # when initializing the ssh client. paramiko tries to parse the keyfile as different types
+            # (eg. rsa, ecdsa, ed25519) and throws internal exceptions during the process. Exceptions
+            # capture tracebacks which hold references to live stack frames containing all local
+            # variables, including the local variables holding the exception itself. Normally,
+            # exceptions do not form reference cycles because Python automatically clears out the
+            # exception variable when exiting except blocks, but paramiko saves the exception in a
+            # different local variable, forming a reference cycle:
+            #     exception -> traceback -> stack frame -> saved_exception local variable -> exception
+            # A different stack frame keeps `stdin` alive until the garbage collector runs:
+            #                            -> stack frame -> stdin local variable -> ChannelStdinFile
+            #
+            # We replace `stdin.close()` with a no-op to avoid the deadlock described above.
+            stdin.close = lambda: None
+
         return exit_status
 
     @check_ssh
