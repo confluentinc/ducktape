@@ -367,6 +367,10 @@ class RemoteAccount(HttpMixin):
             stdout.close()
             stderr.close()
 
+            # Workaround to avoid a future deadlock in `ChannelStdinFile.close()`.
+            # See https://github.com/paramiko/paramiko/issues/2685 for more details.
+            stdin.close = lambda: None
+
         return exit_status
 
     @check_ssh
