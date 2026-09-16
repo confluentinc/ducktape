@@ -4,6 +4,14 @@
 Changelog
 ====
 
+0.17.0a0
+========
+Wednesday, September 16th, 2026
+-------------------------------
+- Switch OS to ubuntu24 for readthedocs
+- Work around for paramiko SSH deadlock bug
+
+
 0.16.0
 ======
 Monday, August 31th, 2026
