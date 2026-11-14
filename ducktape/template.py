@@ -89,8 +89,11 @@ class TemplateRenderer(object):
                 # Expect at least one of FileSystemLoader and PackageLoader to be present
                 raise EnvironmentError(msg)
 
-            self.template_loader = ChoiceLoader(loaders)
-            self.template_env = Environment(loader=self.template_loader, trim_blocks=True, lstrip_blocks=True)
+            # Set template_env before template_loader: the check above looks at template_loader, so a second thread
+            # that sees it (e.g. another node of a service that starts its nodes in parallel) also finds the env.
+            template_loader = ChoiceLoader(loaders)
+            self.template_env = Environment(loader=template_loader, trim_blocks=True, lstrip_blocks=True)
+            self.template_loader = template_loader
 
         template = self.template_env.get_template(path)
         return self.render_template(template, **kwargs)
