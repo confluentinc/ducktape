@@ -16,6 +16,7 @@ import os
 import shutil
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict
 
 from ducktape.cluster.cluster_spec import ClusterSpec
@@ -76,6 +77,20 @@ class Service(TemplateRenderer):
     #               "collect_default": True}
     # }
     logs: Dict[str, Dict[str, Any]] = {}
+
+    # Opt-in switches for running a per-node step on all nodes of this service at once, one thread per node.
+    # All are off by default, because a subclass's start_node/stop_node/clean_node may depend on node order or
+    # touch state shared between nodes. Set one to True (on the class or on an instance) only after checking
+    # that the methods it covers are safe to call from several threads.
+    #
+    # parallel_pre_start_cleanup: the stop_node + clean_node precaution that start() runs before start_node
+    # parallel_start:             start_node, in start()
+    # parallel_stop:              stop_node, in stop()
+    # parallel_clean:             clean_node, in clean()
+    parallel_pre_start_cleanup = False
+    parallel_start = False
+    parallel_stop = False
+    parallel_clean = False
 
     def __init__(self, context, num_nodes=None, cluster_spec=None, *args, **kwargs):
         """
@@ -250,7 +265,9 @@ class Service(TemplateRenderer):
             self._start_time = time.time()
 
         self.logger.debug(self.who_am_i() + ": killing processes and attempting to clean up before starting")
-        for node in self.nodes:
+        clean = kwargs.get("clean", True)
+
+        def pre_start_cleanup(node):
             # Added precaution - kill running processes, clean persistent files (if 'clean'=False flag passed,
             # skip cleaning), try/except for each step, since each of these steps may fail if there
             # are no processes to kill or no files to remove
@@ -261,19 +278,54 @@ class Service(TemplateRenderer):
                 pass
 
             try:
-                if kwargs.get("clean", True):
+                if clean:
                     self.clean_node(node)
                 else:
                     self.logger.debug("%s: skip cleaning node" % self.who_am_i(node))
             except Exception:
                 pass
 
-        for node in self.nodes:
+        self._for_each_node(pre_start_cleanup, self.parallel_pre_start_cleanup)
+
+        def start_one(node):
             self.logger.debug("%s: starting node" % self.who_am_i(node))
             self.start_node(node, **kwargs)
 
+        self._for_each_node(start_one, self.parallel_start)
+
         if self._start_duration_seconds < 0:
             self._start_duration_seconds = time.time() - self._start_time
+
+    def _for_each_node(self, action, parallel):
+        """Call action(node) for every node of this service.
+
+        Serial (parallel is False, or there are fewer than two nodes): nodes are visited in order and the first
+        exception propagates immediately, so later nodes are not visited.
+
+        Parallel: every node gets its own thread, and this method returns only when all of them have finished,
+        so no thread is still using a node afterwards. Every node is visited even if another one fails; the
+        exception of the earliest failing node (in node order) is then raised, and the others are logged.
+        """
+        nodes = list(self.nodes)
+        if not parallel or len(nodes) < 2:
+            for node in nodes:
+                action(node)
+            return
+
+        with ThreadPoolExecutor(max_workers=len(nodes), thread_name_prefix=self.service_id) as executor:
+            futures = [executor.submit(action, node) for node in nodes]
+
+        first_error = None
+        for node, future in zip(nodes, futures):
+            error = future.exception()
+            if error is None:
+                continue
+            if first_error is None:
+                first_error = error
+            else:
+                self.logger.warning("%s: %r (not raised, an earlier node failed too)" % (self.who_am_i(node), error))
+        if first_error is not None:
+            raise first_error
 
     def start_node(self, node, **kwargs):
         """Start service process(es) on the given node."""
@@ -316,9 +368,12 @@ class Service(TemplateRenderer):
         """
         self._stop_time = time.time()  # The last time stop is invoked
         self.logger.info("%s: stopping service" % self.who_am_i())
-        for node in self.nodes:
+
+        def stop_one(node):
             self.logger.info("%s: stopping node" % self.who_am_i(node))
             self.stop_node(node, **kwargs)
+
+        self._for_each_node(stop_one, self.parallel_stop)
 
         self._stop_duration_seconds = time.time() - self._stop_time
 
@@ -332,9 +387,12 @@ class Service(TemplateRenderer):
         """
         self._clean_time = time.time()
         self.logger.info("%s: cleaning service" % self.who_am_i())
-        for node in self.nodes:
+
+        def clean_one(node):
             self.logger.info("%s: cleaning node" % self.who_am_i(node))
             self.clean_node(node, **kwargs)
+
+        self._for_each_node(clean_one, self.parallel_clean)
 
     def clean_node(self, node, **kwargs):
         """Clean up persistent state on this node - e.g. service logs, configuration files etc."""
